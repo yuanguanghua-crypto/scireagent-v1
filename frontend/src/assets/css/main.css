@@ -1,0 +1,557 @@
+@import "tailwindcss";
+
+/* ============================================
+   SciReagent Design System v1.0
+   Direction: Lab Precision
+   Colors from the chemistry lab:
+     Teal = solutions  |  Amber = heat
+     White = surfaces  |  Gray = instruments
+   ============================================ */
+
+@theme {
+  /* ── Primary: Teal (chemical solutions) ── */
+  --color-primary: #0F766E;
+  --color-primary-hover: #0D9488;
+  --color-primary-light: #CCFBF1;
+  --color-primary-subtle: #F0FDFA;
+  --color-primary-soft: #F0FDFA;
+
+  /* ── Secondary: Emerald (life science) ── */
+  --color-secondary: #059669;
+  --color-secondary-hover: #047857;
+  --color-secondary-light: #D1FAE5;
+  --color-secondary-soft: #ECFDF5;
+
+  /* ── Accent: Amber (chemical heat, CTAs) ── */
+  --color-accent: #D97706;
+  --color-accent-hover: #B45309;
+  --color-accent-light: #FEF3C7;
+  --color-warning-soft: #FFFBEB;
+
+  /* ── Neutral Scale (lab instrument grays) ── */
+  --color-gray-950: #020617;
+  --color-gray-900: #0F172A;
+  --color-gray-700: #334155;
+  --color-gray-500: #64748B;
+  --color-gray-400: #94A3B8;
+  --color-gray-300: #CBD5E1;
+  --color-gray-200: #E2E8F0;
+  --color-gray-100: #F1F5F9;
+  --color-gray-50: #F8FAFC;
+
+  /* ── Page / Surface ── */
+  --color-bg: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-border-hover: #CBD5E1;
+  --color-border-light: #F1F5F9;
+  --color-text: #0F172A;
+  --color-text-secondary: #64748B;
+  --color-text-tertiary: #94A3B8;
+
+  /* ── Semantic ── */
+  --color-success: #059669;
+  --color-success-light: #D1FAE5;
+  --color-warning: #D97706;
+  --color-warning-light: #FEF3C7;
+  --color-danger: #DC2626;
+  --color-danger-light: #FEE2E2;
+  --color-info: #0284C7;
+  --color-info-light: #E0F2FE;
+
+  /* ── Domain-Specific (chemical categories) ── */
+  --color-domain-nucleotide: #7C3AED;
+  --color-domain-nucleotide-soft: #EDE9FE;
+  --color-domain-click: #0F766E;
+  --color-domain-click-soft: #F0FDFA;
+  --color-domain-fluor: #0EA5E9;
+  --color-domain-fluor-soft: #E0F2FE;
+  --color-domain-bioconjugate: #CA8A04;
+  --color-domain-bioconjugate-soft: #FEF3C7;
+  --color-domain-modifier: #E11D48;
+  --color-domain-modifier-soft: #FCE7F3;
+
+  /* Legacy aliases */
+  --color-chem-nucleotide: #7C3AED;
+  --color-chem-click: #0F766E;
+  --color-chem-fluor: #0EA5E9;
+  --color-chem-bioconjugate: #CA8A04;
+  --color-chem-modifier: #E11D48;
+
+  /* ── Typography ── */
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+
+  /* ── Type Scale ── */
+  --text-display: 36px;
+  --text-h1: 28px;
+  --text-h2: 22px;
+  --text-h3: 18px;
+  --text-h4: 16px;
+  --text-section-title: 16px;
+  --text-card-title: 15px;
+  --text-body-lg: 16px;
+  --text-body: 15px;
+  --text-body-sm: 14px;
+  --text-caption: 13px;
+  --text-micro: 12px;
+  --text-mono: 14px;
+  --text-mono-sm: 13px;
+
+  /* ── Spacing Scale ── */
+  --spacing-0: 0;
+  --spacing-0-5: 2px;
+  --spacing-1: 4px;
+  --spacing-1-5: 6px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+  --spacing-24: 96px;
+
+  /* ── Border Radius ── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 9999px;
+  --radius-full: 9999px;
+
+  /* ── Shadows ── */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.06);
+
+  /* ── Motion ── */
+  --duration-fast: 100ms;
+  --duration-normal: 150ms;
+  --duration-slow: 250ms;
+  --duration-modal: 200ms;
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+
+  /* ── Layout ── */
+  --header-height: 56px;
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 64px;
+  --content-max-width: 1200px;
+  --text-max-width: 960px;
+}
+
+/* ──────────────────────────────────────────────
+   Base Styles
+   ────────────────────────────────────────────── */
+
+body {
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: var(--text-body);
+  line-height: 1.6;
+}
+
+/* ──────────────────────────────────────────────
+   Chemical Typography
+   ────────────────────────────────────────────── */
+
+.chem-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.chem-cas {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--color-gray-700);
+}
+
+.chem-formula sub {
+  font-size: 0.75em;
+  vertical-align: sub;
+}
+
+.chem-smiles {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono-sm);
+  color: var(--color-gray-500);
+  word-break: break-all;
+}
+
+.chem-purity {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ──────────────────────────────────────────────
+   Card System
+   ────────────────────────────────────────────── */
+
+.card {
+  background: var(--color-bg);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-4);
+  transition: border-color var(--duration-normal) var(--ease-default),
+              box-shadow var(--duration-normal) var(--ease-default);
+}
+
+.card:hover {
+  border-color: var(--color-gray-300);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card-interactive {
+  cursor: pointer;
+}
+
+.card-interactive:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.card-highlighted {
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-subtle);
+}
+
+.card-category {
+  background: var(--color-surface);
+}
+
+/* ──────────────────────────────────────────────
+   Badge / Tag System
+   ────────────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  height: 22px;
+  padding: 0 var(--spacing-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-micro);
+  font-weight: 500;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+
+.badge-dot::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.badge-success { background: var(--color-success-light); color: var(--color-success); }
+.badge-success.badge-dot::before { background: var(--color-success); }
+
+.badge-warning { background: var(--color-warning-light); color: var(--color-warning); }
+.badge-warning.badge-dot::before { background: var(--color-warning); }
+
+.badge-danger { background: var(--color-danger-light); color: var(--color-danger); }
+.badge-danger.badge-dot::before { background: var(--color-danger); }
+
+.badge-info { background: var(--color-info-light); color: var(--color-info); }
+.badge-info.badge-dot::before { background: var(--color-info); }
+
+.badge-neutral { background: var(--color-gray-100); color: var(--color-gray-700); }
+
+/* Domain badges */
+.badge-nucleotide { background: #EDE9FE; color: var(--color-chem-nucleotide); }
+.badge-click { background: var(--color-primary-light); color: var(--color-chem-click); }
+.badge-fluor { background: #E0F2FE; color: var(--color-chem-fluor); }
+.badge-bioconjugate { background: #FEF3C7; color: var(--color-chem-bioconjugate); }
+.badge-modifier { background: #FCE7F3; color: var(--color-chem-modifier); }
+
+/* ──────────────────────────────────────────────
+   Navigation
+   ────────────────────────────────────────────── */
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2-5, 10px);
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-body-sm);
+  color: var(--color-gray-500);
+  transition: all var(--duration-fast) var(--ease-default);
+  text-decoration: none;
+}
+
+.nav-item:hover {
+  background: var(--color-gray-100);
+  color: var(--color-gray-900);
+}
+
+.nav-item.active {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+/* ──────────────────────────────────────────────
+   Button System
+   ────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-1-5);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+  text-decoration: none;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Sizes */
+.btn-sm { height: 32px; padding: 0 12px; font-size: var(--text-caption); border-radius: var(--radius-md); }
+.btn-md { height: 36px; padding: 0 16px; font-size: var(--text-body-sm); border-radius: var(--radius-md); }
+.btn-lg { height: 44px; padding: 0 24px; font-size: var(--text-body); border-radius: var(--radius-lg); }
+
+/* Variants */
+.btn-primary { background: var(--color-primary); color: white; }
+.btn-primary:hover { background: var(--color-primary-hover); }
+
+.btn-secondary { background: var(--color-gray-100); color: var(--color-gray-900); border: 1px solid var(--color-gray-200); }
+.btn-secondary:hover { background: var(--color-gray-200); }
+
+.btn-outline { background: transparent; color: var(--color-primary); border: 1px solid var(--color-primary); }
+.btn-outline:hover { background: var(--color-primary-subtle); }
+
+.btn-ghost { background: transparent; color: var(--color-gray-500); }
+.btn-ghost:hover { background: var(--color-gray-100); color: var(--color-gray-900); }
+
+.btn-danger { background: var(--color-danger); color: white; }
+.btn-danger:hover { background: #B91C1C; }
+
+.btn-accent { background: var(--color-accent); color: white; }
+.btn-accent:hover { background: var(--color-accent-hover); }
+
+/* ──────────────────────────────────────────────
+   Input System
+   ────────────────────────────────────────────── */
+
+.input {
+  height: 36px;
+  padding: 0 var(--spacing-3);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-sm);
+  color: var(--color-gray-900);
+  background: white;
+  transition: border-color var(--duration-normal) var(--ease-default),
+              box-shadow var(--duration-normal) var(--ease-default);
+}
+
+.input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--color-gray-400);
+}
+
+.input-lg {
+  height: 44px;
+  padding: 0 var(--spacing-4);
+  font-size: var(--text-body);
+  border-radius: var(--radius-lg);
+}
+
+/* ──────────────────────────────────────────────
+   Table System
+   ────────────────────────────────────────────── */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-body-sm);
+}
+
+.table th {
+  text-align: left;
+  padding: 10px var(--spacing-4);
+  font-weight: 500;
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-gray-500);
+  border-bottom: 1px solid var(--color-gray-200);
+  background: var(--color-gray-50);
+}
+
+.table td {
+  padding: var(--spacing-3) var(--spacing-4);
+  border-bottom: 1px solid var(--color-gray-100);
+  color: var(--color-gray-700);
+}
+
+.table tr:hover td {
+  background: var(--color-primary-subtle);
+}
+
+/* ──────────────────────────────────────────────
+   Pagination
+   ────────────────────────────────────────────── */
+
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-body-sm);
+  color: var(--color-gray-500);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.pagination-btn:hover {
+  background: var(--color-gray-100);
+  color: var(--color-gray-900);
+}
+
+.pagination-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* ──────────────────────────────────────────────
+   Typography Utilities
+   ────────────────────────────────────────────── */
+
+.text-display { font-size: var(--text-display); font-weight: 800; line-height: 1.15; letter-spacing: -0.02em; }
+.text-h1 { font-size: var(--text-h1); font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; }
+.text-h2 { font-size: var(--text-h2); font-weight: 600; line-height: 1.30; }
+.text-h3 { font-size: var(--text-h3); font-weight: 600; line-height: 1.35; }
+.text-h4 { font-size: var(--text-h4); font-weight: 600; line-height: 1.40; }
+.text-body-lg { font-size: var(--text-body-lg); font-weight: 400; line-height: 1.60; }
+.text-body { font-size: var(--text-body); font-weight: 400; line-height: 1.60; }
+.text-body-sm { font-size: var(--text-body-sm); font-weight: 400; line-height: 1.55; }
+.text-caption { font-size: var(--text-caption); font-weight: 400; line-height: 1.50; letter-spacing: 0.01em; }
+.text-micro { font-size: var(--text-micro); font-weight: 500; line-height: 1.50; letter-spacing: 0.02em; }
+
+/* ──────────────────────────────────────────────
+   Transitions (Vue)
+   ────────────────────────────────────────────── */
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--duration-slow) var(--ease-default);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-up-enter-active {
+  transition: all var(--duration-slow) var(--ease-decelerate);
+}
+.slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.slide-up-leave-active {
+  transition: all var(--duration-normal) var(--ease-accelerate);
+}
+.slide-up-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* ──────────────────────────────────────────────
+   Skeleton Loading
+   ────────────────────────────────────────────── */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-gray-100) 25%,
+    var(--color-gray-50) 50%,
+    var(--color-gray-100) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+  border-radius: var(--radius-md);
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ──────────────────────────────────────────────
+   Accessibility
+   ────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-primary);
+  color: white;
+  padding: var(--spacing-2) var(--spacing-4);
+  z-index: 100;
+  transition: top var(--duration-fast);
+}
+
+.skip-link:focus {
+  top: 0;
+}
