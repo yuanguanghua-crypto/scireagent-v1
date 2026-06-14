@@ -8,6 +8,9 @@ import { smilesToSvg, rdkitReady, rdkitLoading } from '@/composables/useRdkit'
 import { useGraph } from '@/composables/useGraph'
 import ProductLayout from '@/components/layout/ProductLayout.vue'
 import KnowledgeGraph from '@/components/graph/KnowledgeGraph.vue'
+import ContextCards from '@/components/navigation/ContextCards.vue'
+import ResearchPathCard from '@/components/navigation/ResearchPathCard.vue'
+import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,6 +27,39 @@ const references = computed(() => detail.value?.references || [])
 const relatedProducts = computed(() => detail.value?.related_products || [])
 const faq = computed(() => detail.value?.faq || [])
 const compatibility = computed(() => detail.value?.compatibility || {})
+
+/* ── Navigation: upstream/downstream ── */
+const upstreamEntities = computed(() => {
+  const items = []
+  for (const app of applications.value) items.push({ type: 'application', id: app.id, name: app.name })
+  return items
+})
+const downstreamEntities = computed(() => {
+  return relatedProducts.value.map(p => ({ type: 'product', id: p.id, name: p.name, catalog_no: p.catalog_no }))
+})
+
+/* ── Research Path Card ── */
+const researchPath = computed(() => {
+  const path = []
+  // Find the first application that has a research_goal
+  const app = applications.value[0]
+  if (app?.research_goal_id) {
+    path.push({ type: 'research_goal', id: app.research_goal_id, name: app.research_goal_name || 'Research Goal' })
+  }
+  for (const a of applications.value.slice(0, 1)) {
+    path.push({ type: 'application', id: a.id, name: a.name })
+  }
+  for (const m of (compatibility.value.methods || []).slice(0, 1)) {
+    path.push({ type: 'method', id: m.id, name: m.name })
+  }
+  for (const p of protocols.value.slice(0, 1)) {
+    path.push({ type: 'protocol', id: p.id, name: p.name })
+  }
+  if (product.value) {
+    path.push({ type: 'product', id: product.value.id, name: product.value.name })
+  }
+  return path
+})
 
 /* ── Knowledge Graph ── */
 const { nodes: graphNodes, edges: graphEdges, loading: graphLoading, fetch: fetchGraph } = useGraph('product', computed(() => route.params.id), { depth: 2, maxNodes: 30, maxEdges: 50 })
@@ -144,6 +180,15 @@ function onSearch(query) {
       <span class="pd-breadcrumb-cur">{{ product.name }}</span>
     </nav>
 
+    <!-- Context Cards: upstream/downstream navigation -->
+    <ContextCards
+      :upstream="upstreamEntities"
+      :downstream="downstreamEntities"
+      downstream-label="Related Products"
+      fallback-message="Knowledge links are being built for this product."
+      :request-support-link="!upstreamEntities.length"
+    />
+
     <!-- Hero: Structure + Title + Key Info -->
     <div class="pd-hero">
       <div class="pd-hero-img">
@@ -248,9 +293,9 @@ function onSearch(query) {
     </section>
 
     <!-- Used In Applications (V1.2) -->
-    <section class="pd-section" v-if="applications.length">
+    <section class="pd-section">
       <h2 class="pd-section-title">Used In Applications</h2>
-      <div class="pd-card-grid">
+      <div v-if="applications.length" class="pd-card-grid">
         <router-link v-for="app in applications" :key="app.id" :to="`/applications/${app.id}`" class="pd-card">
           <div class="pd-card-icon pd-icon-app">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
@@ -262,12 +307,16 @@ function onSearch(query) {
           <span class="pd-card-arrow">&rarr;</span>
         </router-link>
       </div>
+      <div v-else class="pd-fallback">
+        <p>Application data is being curated for this product.</p>
+        <router-link to="/applications" class="pd-fallback-link">Browse all applications &rarr;</router-link>
+      </div>
     </section>
 
     <!-- Methods (V1.2) -->
-    <section class="pd-section" v-if="compatibility.methods?.length">
+    <section class="pd-section">
       <h2 class="pd-section-title">Compatible Methods</h2>
-      <div class="pd-card-grid">
+      <div v-if="compatibility.methods?.length" class="pd-card-grid">
         <router-link v-for="m in compatibility.methods" :key="m.id" :to="`/methods/${m.id}`" class="pd-card">
           <div class="pd-card-icon pd-icon-method">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
@@ -279,12 +328,16 @@ function onSearch(query) {
           <span class="pd-card-arrow">&rarr;</span>
         </router-link>
       </div>
+      <div v-else class="pd-fallback">
+        <p>Method associations are being mapped for this product.</p>
+        <router-link to="/methods" class="pd-fallback-link">Browse all methods &rarr;</router-link>
+      </div>
     </section>
 
     <!-- Protocols (V1.2) -->
-    <section class="pd-section" v-if="protocols.length">
+    <section class="pd-section">
       <h2 class="pd-section-title">Protocols</h2>
-      <div class="pd-card-grid">
+      <div v-if="protocols.length" class="pd-card-grid">
         <router-link v-for="p in protocols" :key="p.id" :to="`/protocols/${p.id}`" class="pd-card">
           <div class="pd-card-icon pd-icon-protocol">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -296,6 +349,10 @@ function onSearch(query) {
           </div>
           <span class="pd-card-arrow">&rarr;</span>
         </router-link>
+      </div>
+      <div v-else class="pd-fallback">
+        <p>Validated protocols are being documented for this product.</p>
+        <router-link to="/protocols" class="pd-fallback-link">Browse all protocols &rarr;</router-link>
       </div>
     </section>
 
@@ -397,17 +454,19 @@ function onSearch(query) {
       </div>
     </section>
 
-    <!-- Bottom CTA -->
-    <section class="pd-section pd-bottom-cta">
-      <div class="pd-cta-box">
-        <h3>Need this product?</h3>
-        <p>Add to cart or request a quote for bulk/custom orders.</p>
-        <div class="pd-cta-actions">
-          <button v-if="product.skus?.length" class="pd-cart-btn" @click="addToCart(product.skus[0].id)">Add to Cart</button>
-          <button class="pd-rfq-btn" @click="requestQuote">Request Quote</button>
-        </div>
-      </div>
-    </section>
+    <!-- Research Path Card -->
+    <ResearchPathCard v-if="researchPath.length" :path="researchPath" current-type="product" />
+
+    <!-- Unified CTA -->
+    <UnifiedCTA
+      title="Need this product?"
+      subtitle="Add to cart or request a quote for bulk and custom orders."
+      :show-cart="!!product.skus?.length"
+      :show-rfq="true"
+      :show-explore="true"
+      :product-id="product.id"
+      @add-to-cart="product.skus?.length && addToCart(product.skus[0].id)"
+    />
 
     </ProductLayout>
   </div>
@@ -546,6 +605,18 @@ function onSearch(query) {
 .pd-doc-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: 13px; color: var(--color-primary); text-decoration: none; }
 .pd-doc-item:hover { background: var(--color-primary-subtle); border-color: var(--color-primary); }
 
+/* Graceful Degradation Fallback */
+.pd-fallback {
+  padding: 16px;
+  background: var(--color-bg);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+.pd-fallback p { font-size: 13px; color: var(--color-text-secondary); margin: 0 0 6px; }
+.pd-fallback-link { font-size: 13px; color: var(--color-primary); text-decoration: none; font-weight: 500; }
+.pd-fallback-link:hover { text-decoration: underline; }
+
 /* Knowledge Graph */
 .pd-graph-wrap { border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
 
@@ -555,15 +626,7 @@ function onSearch(query) {
 .pd-id-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-tertiary); }
 .pd-id-val { font-family: var(--font-mono); font-size: 12px; color: var(--color-text-secondary); background: var(--color-bg); padding: 6px 10px; border-radius: var(--radius-sm); word-break: break-all; margin: 0; }
 
-/* Bottom CTA */
-.pd-bottom-cta { margin-top: 16px; }
-.pd-cta-box { background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%); border-radius: var(--radius-lg); padding: 28px 32px; text-align: center; color: white; }
-.pd-cta-box h3 { font-size: 20px; font-weight: 800; margin: 0 0 6px; }
-.pd-cta-box p { font-size: 14px; opacity: 0.85; margin: 0 0 16px; }
-.pd-cta-actions { display: flex; justify-content: center; gap: 12px; }
-.pd-cta-actions .pd-cart-btn { height: 40px; padding: 0 24px; font-size: 14px; }
-.pd-cta-actions .pd-rfq-btn { height: 40px; padding: 0 24px; font-size: 14px; background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3); }
-.pd-cta-actions .pd-rfq-btn:hover { background: white; color: #0f766e; border-color: white; }
+/* Bottom CTA — handled by UnifiedCTA component */
 
 /* Loading / Empty */
 .pd-loading, .pd-empty { text-align: center; padding: 60px 0; color: var(--color-text-secondary); font-size: 15px; }
