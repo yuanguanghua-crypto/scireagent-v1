@@ -1,21 +1,52 @@
 <script setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useProtocolsStore } from '@/stores/protocols'
 import { formatDate, getStatusType } from '@/utils/helpers'
+import ContextCards from '@/components/navigation/ContextCards.vue'
+import ResearchPathCard from '@/components/navigation/ResearchPathCard.vue'
+import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 
 const route = useRoute()
 const router = useRouter()
 const store = useProtocolsStore()
 const activeTab = ref('steps')
 
-onMounted(() => {
-  store.fetchProtocol(route.params.id)
+const protocol = computed(() => store.currentProtocol)
+
+/* ── Navigation data ── */
+const upstreamEntities = computed(() => {
+  const items = []
+  if (protocol.value?.method_id) {
+    items.push({ type: 'method', id: protocol.value.method_id, name: protocol.value.method_name || 'Method' })
+  }
+  return items
+})
+const downstreamEntities = computed(() => {
+  return (protocol.value?.products || []).map(p => ({ type: 'product', id: p.id, name: p.name, catalog_no: p.catalog_no }))
+})
+const researchPath = computed(() => {
+  const path = []
+  if (protocol.value?.research_goal_id) {
+    path.push({ type: 'research_goal', id: protocol.value.research_goal_id, name: 'Research Goal' })
+  }
+  if (protocol.value?.application_id) {
+    path.push({ type: 'application', id: protocol.value.application_id, name: protocol.value.application_name || 'Application' })
+  }
+  if (protocol.value?.method_id) {
+    path.push({ type: 'method', id: protocol.value.method_id, name: protocol.value.method_name || 'Method' })
+  }
+  if (protocol.value) path.push({ type: 'protocol', id: protocol.value.id, name: protocol.value.name })
+  return path
 })
 
-onUnmounted(() => {
-  store.clearCurrent()
-})
+async function loadProtocol(id) {
+  await store.fetchProtocol(id)
+}
+
+onMounted(() => loadProtocol(route.params.id))
+watch(() => route.params.id, (newId) => { if (newId) loadProtocol(newId) })
+onUnmounted(() => { store.clearCurrent() })
 
 /**
  * Format duration in seconds to a human-readable string.
@@ -42,6 +73,15 @@ function formatDuration(seconds) {
         <el-breadcrumb-item :to="{ path: '/protocols' }">Protocols</el-breadcrumb-item>
         <el-breadcrumb-item>{{ store.currentProtocol.name }}</el-breadcrumb-item>
       </el-breadcrumb>
+
+      <!-- Context Cards -->
+      <ContextCards
+        :upstream="upstreamEntities"
+        :downstream="downstreamEntities"
+        downstream-label="Required Products"
+        fallback-message="Product requirements are being documented."
+        :request-support-link="!downstreamEntities.length"
+      />
 
       <!-- Header -->
       <div class="detail-header">
@@ -170,6 +210,17 @@ function formatDuration(seconds) {
           <el-empty v-else description="No products linked" />
         </el-tab-pane>
       </el-tabs>
+
+      <!-- Research Path Card -->
+      <ResearchPathCard v-if="researchPath.length > 1" :path="researchPath" current-type="protocol" />
+
+      <!-- Unified CTA -->
+      <UnifiedCTA
+        title="Ready to run this protocol?"
+        subtitle="Get all required reagents or request a custom quote."
+        :show-rfq="true"
+        :show-explore="true"
+      />
     </template>
 
     <div v-else class="empty-container">

@@ -4,6 +4,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { useApplicationsStore } from '@/stores/applications'
 import { useGraph } from '@/composables/useGraph'
 import KnowledgeGraph from '@/components/graph/KnowledgeGraph.vue'
+import ContextCards from '@/components/navigation/ContextCards.vue'
+import ResearchPathCard from '@/components/navigation/ResearchPathCard.vue'
+import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -11,6 +14,29 @@ const store = useApplicationsStore()
 
 const app = computed(() => store.currentApplication)
 const appId = computed(() => route.params.id)
+
+/* ── Navigation data ── */
+const upstreamEntities = computed(() => {
+  const items = []
+  if (app.value?.research_goal_id) {
+    items.push({ type: 'research_goal', id: app.value.research_goal_id, name: app.value.research_goal_name || 'Research Goal' })
+  }
+  return items
+})
+const downstreamEntities = computed(() => {
+  return (app.value?.methods || []).map(m => ({ type: 'method', id: m.id, name: m.name }))
+})
+const researchPath = computed(() => {
+  const path = []
+  if (app.value?.research_goal_id) {
+    path.push({ type: 'research_goal', id: app.value.research_goal_id, name: app.value.research_goal_name || 'Research Goal' })
+  }
+  if (app.value) path.push({ type: 'application', id: app.value.id, name: app.value.name })
+  for (const m of (app.value?.methods || []).slice(0, 1)) {
+    path.push({ type: 'method', id: m.id, name: m.name })
+  }
+  return path
+})
 
 /* ── Knowledge Graph ── */
 const { nodes: graphNodes, edges: graphEdges, fetch: fetchGraph } = useGraph('application', appId, { depth: 2, maxNodes: 25, maxEdges: 40 })
@@ -33,6 +59,14 @@ onUnmounted(() => { store.clearCurrent() })
       <span class="cur">{{ app.name }}</span>
     </nav>
 
+    <!-- Context Cards -->
+    <ContextCards
+      :upstream="upstreamEntities"
+      :downstream="downstreamEntities"
+      downstream-label="Methods"
+      fallback-message="Method data is being curated for this application."
+    />
+
     <div class="detail-hero">
       <h1 class="detail-title">{{ app.name }}</h1>
       <span class="detail-badge" :class="`badge-${app.status}`">{{ app.status }}</span>
@@ -40,9 +74,9 @@ onUnmounted(() => { store.clearCurrent() })
     </div>
 
     <!-- Methods -->
-    <section class="detail-section" v-if="app.methods?.length">
+    <section class="detail-section">
       <h2 class="section-title">Methods</h2>
-      <div class="card-grid">
+      <div v-if="app.methods?.length" class="card-grid">
         <router-link v-for="m in app.methods" :key="m.id" :to="`/methods/${m.id}`" class="link-card">
           <div class="card-icon icon-method">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
@@ -51,12 +85,16 @@ onUnmounted(() => { store.clearCurrent() })
           <span class="card-arrow">&rarr;</span>
         </router-link>
       </div>
+      <div v-else class="fallback">
+        <p>Methods are being curated for this application.</p>
+        <router-link to="/methods" class="fallback-link">Browse all methods &rarr;</router-link>
+      </div>
     </section>
 
     <!-- Protocols -->
-    <section class="detail-section" v-if="app.protocols?.length">
+    <section class="detail-section">
       <h2 class="section-title">Protocols</h2>
-      <div class="card-grid">
+      <div v-if="app.protocols?.length" class="card-grid">
         <router-link v-for="p in app.protocols" :key="p.id" :to="`/protocols/${p.id}`" class="link-card">
           <div class="card-icon icon-protocol">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -65,12 +103,16 @@ onUnmounted(() => { store.clearCurrent() })
           <span class="card-arrow">&rarr;</span>
         </router-link>
       </div>
+      <div v-else class="fallback">
+        <p>Protocols are being documented for this application.</p>
+        <router-link to="/protocols" class="fallback-link">Browse all protocols &rarr;</router-link>
+      </div>
     </section>
 
     <!-- Products -->
-    <section class="detail-section" v-if="app.products?.length">
+    <section class="detail-section">
       <h2 class="section-title">Products</h2>
-      <div class="card-grid">
+      <div v-if="app.products?.length" class="card-grid">
         <router-link v-for="p in app.products" :key="p.id" :to="`/products/${p.id}`" class="link-card">
           <div class="card-icon icon-product">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
@@ -82,7 +124,14 @@ onUnmounted(() => { store.clearCurrent() })
           <span class="card-arrow">&rarr;</span>
         </router-link>
       </div>
+      <div v-else class="fallback">
+        <p>Product associations are being mapped for this application.</p>
+        <router-link to="/products" class="fallback-link">Browse all products &rarr;</router-link>
+      </div>
     </section>
+
+    <!-- Research Path Card -->
+    <ResearchPathCard v-if="researchPath.length > 1" :path="researchPath" current-type="application" />
 
     <!-- Knowledge Graph -->
     <section class="detail-section" v-if="graphNodes.length">
@@ -91,6 +140,14 @@ onUnmounted(() => { store.clearCurrent() })
         <KnowledgeGraph :nodes="graphNodes" :edges="graphEdges" height="320px" />
       </div>
     </section>
+
+    <!-- Unified CTA -->
+    <UnifiedCTA
+      title="Explore this application"
+      subtitle="Find the right method, protocol, and reagents for your experiment."
+      :show-rfq="true"
+      :show-explore="true"
+    />
   </div>
 
   <div v-else-if="store.loading" class="loading">Loading...</div>
@@ -123,6 +180,10 @@ onUnmounted(() => { store.clearCurrent() })
 .card-name { font-size: 14px; font-weight: 600; margin: 0; }
 .card-meta { font-size: 12px; color: var(--color-text-secondary); font-family: var(--font-mono); }
 .card-arrow { font-size: 16px; color: var(--color-text-tertiary); }
+.fallback { padding: 16px; background: var(--color-bg); border: 1px dashed var(--color-border); border-radius: var(--radius-md); text-align: center; }
+.fallback p { font-size: 13px; color: var(--color-text-secondary); margin: 0 0 6px; }
+.fallback-link { font-size: 13px; color: var(--color-primary); text-decoration: none; font-weight: 500; }
+.fallback-link:hover { text-decoration: underline; }
 .kg-wrap { border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
 .loading, .empty { text-align: center; padding: 60px 0; color: var(--color-text-secondary); }
 </style>
