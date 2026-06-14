@@ -1,6 +1,6 @@
 from django.test import TestCase
 from decimal import Decimal
-from apps.commerce.services import CommerceService
+from apps.commerce.services.commerce_service import CommerceService
 from apps.commerce.models import Product, SKU
 from apps.commerce.tests.factories import ProductClassFactory
 

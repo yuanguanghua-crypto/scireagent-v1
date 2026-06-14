@@ -1,6 +1,12 @@
+import os
 from django.db import models
 from django.core.validators import MaxValueValidator
 from core.models import TimeStampedModel, StatusMixin
+
+_USE_POSTGRES = os.getenv('DB_ENGINE', 'postgres') != 'sqlite'
+if _USE_POSTGRES:
+    from django.contrib.postgres.indexes import GinIndex
+    from django.contrib.postgres.search import SearchVectorField
 
 
 class ResearchGoal(StatusMixin, TimeStampedModel):
@@ -29,12 +35,18 @@ class Application(StatusMixin, TimeStampedModel):
     slug = models.SlugField(max_length=255, unique=True, verbose_name='Slug')
     summary = models.TextField(blank=True, default='', verbose_name='摘要')
     sort_order = models.IntegerField(default=0, verbose_name='排序')
+    display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级')
+    if _USE_POSTGRES:
+        search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')
 
     class Meta:
         db_table = 'application'
         verbose_name = '应用场景'
         verbose_name_plural = verbose_name
         ordering = ['sort_order', 'id']
+        indexes = []
+        if _USE_POSTGRES:
+            indexes.append(GinIndex(fields=['search_vector'], name='application_search_gin'))
 
     def __str__(self):
         return self.name
@@ -53,6 +65,9 @@ class Method(StatusMixin, TimeStampedModel):
     limitations = models.TextField(blank=True, default='', verbose_name='局限性')
     cost_band = models.CharField(max_length=100, blank=True, default='', verbose_name='成本区间')
     timeline = models.CharField(max_length=100, blank=True, default='', verbose_name='时间线')
+    display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级')
+    if _USE_POSTGRES:
+        search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')
 
     class Meta:
         db_table = 'method'
@@ -62,6 +77,8 @@ class Method(StatusMixin, TimeStampedModel):
         indexes = [
             models.Index(fields=['slug'], name='method_slug_idx'),
         ]
+        if _USE_POSTGRES:
+            indexes.append(GinIndex(fields=['search_vector'], name='method_search_gin'))
 
     def __str__(self):
         return self.name
@@ -97,6 +114,8 @@ class Protocol(TimeStampedModel):
     references = models.TextField(blank=True, default='', verbose_name='参考文献文本')
     published_at = models.DateTimeField(null=True, blank=True, verbose_name='发布时间')
     superseded_at = models.DateTimeField(null=True, blank=True, verbose_name='取代时间')
+    if _USE_POSTGRES:
+        search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')
 
     class Meta:
         db_table = 'protocol'
@@ -107,6 +126,8 @@ class Protocol(TimeStampedModel):
         indexes = [
             models.Index(fields=['slug'], name='protocol_slug_idx'),
         ]
+        if _USE_POSTGRES:
+            indexes.append(GinIndex(fields=['search_vector'], name='protocol_search_gin'))
 
     def __str__(self):
         return f'{self.name} v{self.version}'
@@ -159,12 +180,17 @@ class Reference(TimeStampedModel):
     source_type = models.CharField(
         max_length=20, choices=SourceType.choices, default=SourceType.JOURNAL, verbose_name='来源类型'
     )
+    if _USE_POSTGRES:
+        search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')
 
     class Meta:
         db_table = 'reference'
         verbose_name = '参考文献'
         verbose_name_plural = verbose_name
         ordering = ['-year', 'title']
+        indexes = []
+        if _USE_POSTGRES:
+            indexes.append(GinIndex(fields=['search_vector'], name='reference_search_gin'))
 
     def __str__(self):
         return self.title[:80]

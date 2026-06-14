@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'apps.commerce',
     'apps.bridges',
     'apps.transactions',
+    'apps.quotes',
     'apps.assets',
 ]
 

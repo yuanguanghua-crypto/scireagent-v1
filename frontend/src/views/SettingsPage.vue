@@ -12,6 +12,7 @@ const saveMessageType = ref('success') // 'success' | 'error'
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
+  { id: 'shipping', label: 'Shipping', icon: '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>' },
   { id: 'contact', label: 'Contact', icon: '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>' },
   { id: 'security', label: 'Security', icon: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>' },
   { id: 'account', label: 'Account', icon: '<path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>' },
@@ -30,6 +31,16 @@ const profileForm = reactive({
 const contactForm = reactive({
   alternate_email: '',
   default_shipping_address: '',
+})
+
+/* ── Shipping form ── */
+const shippingForm = reactive({
+  shipping_name: '',
+  shipping_phone: '',
+  shipping_email: '',
+  default_shipping_address: '',
+  default_payment_method: 'purchase_order',
+  default_po_number: '',
 })
 
 /* ── Security form ── */
@@ -100,6 +111,13 @@ function loadUserData() {
 
   contactForm.alternate_email = user.value.alternate_email || ''
   contactForm.default_shipping_address = user.value.default_shipping_address || ''
+
+  shippingForm.shipping_name = user.value.shipping_name || ''
+  shippingForm.shipping_phone = user.value.shipping_phone || ''
+  shippingForm.shipping_email = user.value.shipping_email || ''
+  shippingForm.default_shipping_address = user.value.default_shipping_address || ''
+  shippingForm.default_payment_method = user.value.default_payment_method || 'purchase_order'
+  shippingForm.default_po_number = user.value.default_po_number || ''
 }
 
 /* ── Save Profile ── */
@@ -135,6 +153,28 @@ async function saveContact() {
     showSaveMessage('Contact info updated successfully.', 'success')
   } catch (err) {
     const msg = err?.data?.meta?.error?.message || err?.message || 'Failed to update contact info.'
+    showSaveMessage(msg, 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+/* ── Save Shipping ── */
+async function saveShipping() {
+  clearSaveMessage()
+  saving.value = true
+  try {
+    await authStore.updateProfile({
+      shipping_name: shippingForm.shipping_name.trim(),
+      shipping_phone: shippingForm.shipping_phone.trim(),
+      shipping_email: shippingForm.shipping_email.trim(),
+      default_shipping_address: shippingForm.default_shipping_address.trim(),
+      default_payment_method: shippingForm.default_payment_method,
+      default_po_number: shippingForm.default_po_number.trim(),
+    })
+    showSaveMessage('Shipping info updated successfully.', 'success')
+  } catch (err) {
+    const msg = err?.data?.meta?.error?.message || err?.message || 'Failed to update shipping info.'
     showSaveMessage(msg, 'error')
   } finally {
     saving.value = false
@@ -358,6 +398,64 @@ function switchTab(id) {
                   <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" stroke-dasharray="25" stroke-dashoffset="8" stroke-linecap="round" />
                 </svg>
                 <span>Save Changes</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- ===== Shipping Tab ===== -->
+        <div v-if="activeTab === 'shipping'" class="tab-panel">
+          <div class="tab-header">
+            <h2 class="tab-title">Shipping & Payment</h2>
+            <p class="tab-description">Default shipping address and payment preferences. Auto-filled at checkout.</p>
+          </div>
+
+          <form class="settings-form" @submit.prevent="saveShipping" novalidate>
+            <h3 class="form-section-title">Recipient</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="ship-name" class="form-label">Recipient Name</label>
+                <input id="ship-name" v-model="shippingForm.shipping_name" class="form-input" placeholder="Dr. John Smith" />
+              </div>
+              <div class="form-group">
+                <label for="ship-phone" class="form-label">Phone</label>
+                <input id="ship-phone" v-model="shippingForm.shipping_phone" class="form-input" placeholder="+1-617-555-0123" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="ship-email" class="form-label">Email</label>
+              <input id="ship-email" v-model="shippingForm.shipping_email" type="email" class="form-input" placeholder="jsmith@university.edu" />
+            </div>
+
+            <h3 class="form-section-title">Address</h3>
+            <div class="form-group">
+              <label for="ship-addr" class="form-label">Default Shipping Address</label>
+              <textarea id="ship-addr" v-model="shippingForm.default_shipping_address" class="form-textarea" rows="3" placeholder="123 Lab Street, Cambridge, MA 02139, USA"></textarea>
+            </div>
+
+            <h3 class="form-section-title">Payment</h3>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="ship-payment" class="form-label">Default Payment Method</label>
+                <select id="ship-payment" v-model="shippingForm.default_payment_method" class="form-input form-select">
+                  <option value="purchase_order">Purchase Order</option>
+                  <option value="credit_card">Credit Card</option>
+                  <option value="wire_transfer">Wire Transfer</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="ship-po" class="form-label">Default PO Number</label>
+                <input id="ship-po" v-model="shippingForm.default_po_number" class="form-input" placeholder="PO-2026-00123" />
+                <span class="form-hint">Pre-filled when checking out with Purchase Order</span>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn-save" :disabled="saving">
+                <svg v-if="saving" class="spinner" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" stroke-dasharray="25" stroke-dashoffset="8" stroke-linecap="round" />
+                </svg>
+                <span>Save Shipping Info</span>
               </button>
             </div>
           </form>
@@ -701,6 +799,27 @@ function switchTab(id) {
 .form-hint {
   font-size: var(--text-micro);
   color: var(--color-text-tertiary);
+}
+
+.form-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 20px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border-light);
+}
+.form-section-title:first-child { margin-top: 0; }
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-select {
+  appearance: auto;
+  cursor: pointer;
 }
 
 .form-error {

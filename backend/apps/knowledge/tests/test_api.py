@@ -82,28 +82,29 @@ class ApplicationAPITest(TestCase):
         self.assertIn('slug', data)
         self.assertIn('research_goal_id', data)
 
-    def test_detail_includes_method_ids(self):
+    def test_detail_includes_methods(self):
         app = ApplicationFactory()
         resp = self.client.get(f'/api/v1/applications/{app.id}/')
         self.assertEqual(resp.status_code, 200)
-        self.assertIn('method_ids', resp.json()['data'])
+        self.assertIn('methods', resp.json()['data'])
 
-    def test_detail_includes_protocol_ids(self):
+    def test_detail_includes_protocols(self):
         app = ApplicationFactory()
         resp = self.client.get(f'/api/v1/applications/{app.id}/')
-        self.assertIn('protocol_ids', resp.json()['data'])
+        self.assertIn('protocols', resp.json()['data'])
 
-    def test_detail_includes_product_ids(self):
+    def test_detail_includes_products(self):
         app = ApplicationFactory()
         resp = self.client.get(f'/api/v1/applications/{app.id}/')
-        self.assertIn('product_ids', resp.json()['data'])
+        self.assertIn('products', resp.json()['data'])
 
-    def test_detail_method_ids_populated(self):
+    def test_detail_methods_populated(self):
         app = ApplicationFactory()
         method = MethodFactory(application=app)
         resp = self.client.get(f'/api/v1/applications/{app.id}/')
         data = resp.json()['data']
-        self.assertIn(method.id, data['method_ids'])
+        method_ids = [m['id'] for m in data['methods']]
+        self.assertIn(method.id, method_ids)
 
     def test_filter_by_research_goal_id(self):
         goal = ResearchGoalFactory()
@@ -143,29 +144,31 @@ class MethodAPITest(TestCase):
         self.assertIn('name', data)
         self.assertIn('application_id', data)
 
-    def test_detail_includes_protocol_ids(self):
+    def test_detail_includes_protocols(self):
         method = MethodFactory()
         resp = self.client.get(f'/api/v1/methods/{method.id}/')
-        self.assertIn('protocol_ids', resp.json()['data'])
+        self.assertIn('protocols', resp.json()['data'])
 
-    def test_detail_includes_product_ids(self):
+    def test_detail_includes_products(self):
         method = MethodFactory()
         resp = self.client.get(f'/api/v1/methods/{method.id}/')
-        self.assertIn('product_ids', resp.json()['data'])
+        self.assertIn('products', resp.json()['data'])
 
-    def test_detail_protocol_ids_populated(self):
+    def test_detail_protocols_populated(self):
         method = MethodFactory()
         protocol = ProtocolFactory(method=method)
         resp = self.client.get(f'/api/v1/methods/{method.id}/')
         data = resp.json()['data']
-        self.assertIn(protocol.id, data['protocol_ids'])
+        protocol_ids = [p['id'] for p in data['protocols']]
+        self.assertIn(protocol.id, protocol_ids)
 
-    def test_detail_product_ids_populated(self):
+    def test_detail_products_populated(self):
         method = MethodFactory()
         pm = ProductMethodFactory(method=method)
         resp = self.client.get(f'/api/v1/methods/{method.id}/')
         data = resp.json()['data']
-        self.assertIn(pm.product_id, data['product_ids'])
+        product_ids = [p['id'] for p in data['products']]
+        self.assertIn(pm.product_id, product_ids)
 
     def test_filter_by_application_id(self):
         app = ApplicationFactory()
@@ -235,15 +238,15 @@ class ProtocolAPITest(TestCase):
         self.assertIn('title', step_data)
         self.assertIn('body', step_data)
 
-    def test_detail_includes_reference_ids(self):
+    def test_detail_includes_references(self):
         protocol = ProtocolFactory()
         resp = self.client.get(f'/api/v1/protocols/{protocol.id}/')
-        self.assertIn('reference_ids', resp.json()['data'])
+        self.assertIn('references', resp.json()['data'])
 
-    def test_detail_includes_product_ids(self):
+    def test_detail_includes_products(self):
         protocol = ProtocolFactory()
         resp = self.client.get(f'/api/v1/protocols/{protocol.id}/')
-        self.assertIn('product_ids', resp.json()['data'])
+        self.assertIn('products', resp.json()['data'])
 
     def test_filter_by_method_id(self):
         method = MethodFactory()

@@ -18,10 +18,13 @@ def search(request):
 
     if not resource_type or resource_type == 'product':
         products = Product.objects.filter(
-            Q(name__icontains=q) | Q(cas__icontains=q) | Q(smiles__icontains=q) | Q(inchi__icontains=q)
-        )[:10]
+            Q(name__icontains=q) | Q(cas__icontains=q) | Q(smiles__icontains=q) |
+            Q(inchi__icontains=q) | Q(catalog_no__icontains=q) | Q(formula__icontains=q) |
+            Q(overview__icontains=q)
+        )[:20]
         results.extend([
-            {'type': 'product', 'id': p.id, 'name': p.name, 'slug': p.slug, 'cas': p.cas}
+            {'type': 'product', 'id': p.id, 'name': p.name, 'slug': p.slug,
+             'cas': p.cas, 'catalog_no': p.catalog_no, 'formula': p.formula}
             for p in products
         ])
 

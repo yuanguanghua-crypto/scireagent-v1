@@ -1,6 +1,6 @@
 import factory
 from decimal import Decimal
-from apps.commerce.models import Product, SKU, ProductClass, CatalogGroup
+from apps.commerce.models import Product, SKU, ProductClass, CatalogGroup, ProductDocument
 
 
 class ProductClassFactory(factory.django.DjangoModelFactory):
@@ -33,3 +33,11 @@ class SKUFactory(factory.django.DjangoModelFactory):
     sku_code = factory.Sequence(lambda n: f'SKU-{n:05d}')
     pack_size = '100mg'
     price = factory.LazyFunction(lambda: Decimal('99.99'))
+
+
+class ProductDocumentFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ProductDocument
+    product = factory.SubFactory(ProductFactory)
+    document_type = 'datasheet'
+    original_filename = factory.Sequence(lambda n: f'document_{n}.pdf')

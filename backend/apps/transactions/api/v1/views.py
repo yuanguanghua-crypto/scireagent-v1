@@ -9,9 +9,16 @@ from apps.transactions.api.v1.serializers import (
 
 
 class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
-    queryset = Order.objects.all()
     serializer_class = OrderListSerializer
     filterset_fields = ['status']
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return Order.objects.none()
+        if user.is_staff:
+            return Order.objects.all().order_by('-created_at')
+        return Order.objects.filter(user=user).order_by('-created_at')
 
     def get_serializer_class(self):
         if self.action == 'retrieve':

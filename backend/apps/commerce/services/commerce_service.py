@@ -1,5 +1,5 @@
 from django.db import transaction
-from .models import Product, SKU
+from apps.commerce.models import Product, SKU
 
 
 class CommerceService:
@@ -17,5 +17,5 @@ class CommerceService:
     @staticmethod
     def search_products(query: str, filters: dict = None):
         """搜索产品"""
-        from .selectors import filter_products
+        from apps.commerce.selectors import filter_products
         return filter_products(query, filters)

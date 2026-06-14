@@ -44,36 +44,39 @@ class ApplicationDetailSerializerTest(TestCase):
         app = ApplicationFactory()
         method = MethodFactory(application=app)
         serializer = ApplicationDetailSerializer(app)
-        self.assertIn(method.id, serializer.data['method_ids'])
+        method_ids = [m['id'] for m in serializer.data['methods']]
+        self.assertIn(method.id, method_ids)
 
     def test_protocol_ids_field(self):
         app = ApplicationFactory()
         method = MethodFactory(application=app)
         mp = MethodProtocolFactory(method=method)
         serializer = ApplicationDetailSerializer(app)
-        self.assertIn(mp.protocol_id, serializer.data['protocol_ids'])
+        protocol_ids = [p['id'] for p in serializer.data['protocols']]
+        self.assertIn(mp.protocol_id, protocol_ids)
 
     def test_product_ids_field(self):
         app = ApplicationFactory()
         method = MethodFactory(application=app)
         pm = ProductMethodFactory(method=method)
         serializer = ApplicationDetailSerializer(app)
-        self.assertIn(pm.product_id, serializer.data['product_ids'])
+        product_ids = [p['id'] for p in serializer.data['products']]
+        self.assertIn(pm.product_id, product_ids)
 
     def test_empty_method_ids(self):
         app = ApplicationFactory()
         serializer = ApplicationDetailSerializer(app)
-        self.assertEqual(serializer.data['method_ids'], [])
+        self.assertEqual(serializer.data['methods'], [])
 
     def test_empty_protocol_ids(self):
         app = ApplicationFactory()
         serializer = ApplicationDetailSerializer(app)
-        self.assertEqual(serializer.data['protocol_ids'], [])
+        self.assertEqual(serializer.data['protocols'], [])
 
     def test_empty_product_ids(self):
         app = ApplicationFactory()
         serializer = ApplicationDetailSerializer(app)
-        self.assertEqual(serializer.data['product_ids'], [])
+        self.assertEqual(serializer.data['products'], [])
 
 
 class MethodDetailSerializerTest(TestCase):
@@ -81,19 +84,21 @@ class MethodDetailSerializerTest(TestCase):
         method = MethodFactory()
         protocol = ProtocolFactory(method=method)
         serializer = MethodDetailSerializer(method)
-        self.assertIn(protocol.id, serializer.data['protocol_ids'])
+        protocol_ids = [p['id'] for p in serializer.data['protocols']]
+        self.assertIn(protocol.id, protocol_ids)
 
     def test_product_ids_field(self):
         method = MethodFactory()
         pm = ProductMethodFactory(method=method)
         serializer = MethodDetailSerializer(method)
-        self.assertIn(pm.product_id, serializer.data['product_ids'])
+        product_ids = [p['id'] for p in serializer.data['products']]
+        self.assertIn(pm.product_id, product_ids)
 
     def test_empty_ids(self):
         method = MethodFactory()
         serializer = MethodDetailSerializer(method)
-        self.assertEqual(serializer.data['protocol_ids'], [])
-        self.assertEqual(serializer.data['product_ids'], [])
+        self.assertEqual(serializer.data['protocols'], [])
+        self.assertEqual(serializer.data['products'], [])
 
 
 class ProtocolStepSerializerTest(TestCase):
@@ -121,13 +126,14 @@ class ProtocolDetailSerializerTest(TestCase):
     def test_reference_ids_empty(self):
         protocol = ProtocolFactory()
         serializer = ProtocolDetailSerializer(protocol)
-        self.assertEqual(serializer.data['reference_ids'], [])
+        self.assertEqual(serializer.data['references'], [])
 
     def test_product_ids_field(self):
         protocol = ProtocolFactory()
         pm = ProductMethodFactory(method=protocol.method)
         serializer = ProtocolDetailSerializer(protocol)
-        self.assertIn(pm.product_id, serializer.data['product_ids'])
+        product_ids = [p['id'] for p in serializer.data['products']]
+        self.assertIn(pm.product_id, product_ids)
 
     def test_reference_ids_from_doi(self):
         from apps.knowledge.models import Reference
@@ -136,7 +142,8 @@ class ProtocolDetailSerializerTest(TestCase):
         )
         protocol = ProtocolFactory(references='doi: 10.1038/test123')
         serializer = ProtocolDetailSerializer(protocol)
-        self.assertIn(ref.id, serializer.data['reference_ids'])
+        ref_ids = [r['id'] for r in serializer.data['references']]
+        self.assertIn(ref.id, ref_ids)
 
     def test_reference_ids_from_pmid(self):
         from apps.knowledge.models import Reference
@@ -145,7 +152,8 @@ class ProtocolDetailSerializerTest(TestCase):
         )
         protocol = ProtocolFactory(references='PMID: 12345678')
         serializer = ProtocolDetailSerializer(protocol)
-        self.assertIn(ref.id, serializer.data['reference_ids'])
+        ref_ids = [r['id'] for r in serializer.data['references']]
+        self.assertIn(ref.id, ref_ids)
 
 
 class ReferenceSerializerTest(TestCase):

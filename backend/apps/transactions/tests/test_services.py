@@ -66,7 +66,7 @@ class TransactionServiceCreateOrderTest(TestCase):
     def test_create_order_status_pending(self):
         user = UserFactory()
         order = TransactionService.create_order(user, [])
-        self.assertEqual(order.status, 'pending')
+        self.assertEqual(order.status, 'draft')
 
 
 class TransactionServiceAddToBasketTest(TestCase):

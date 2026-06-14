@@ -86,6 +86,12 @@ const routes = [
     meta: { title: 'Research Goal Detail' },
   },
   {
+    path: '/quote-request',
+    name: 'QuoteRequest',
+    component: () => import('@/views/QuoteRequestPage.vue'),
+    meta: { title: 'Request Quote' },
+  },
+  {
     path: '/cart',
     name: 'Cart',
     component: () => import('@/views/CartPage.vue'),
@@ -96,6 +102,48 @@ const routes = [
     name: 'Settings',
     component: () => import('@/views/SettingsPage.vue'),
     meta: { title: 'Settings' },
+  },
+  {
+    path: '/checkout',
+    name: 'Checkout',
+    component: () => import('@/views/CheckoutPage.vue'),
+    meta: { title: 'Checkout', requiresAuth: true },
+  },
+  {
+    path: '/orders',
+    name: 'Orders',
+    component: () => import('@/views/OrderListPage.vue'),
+    meta: { title: 'My Orders', requiresAuth: true },
+  },
+  {
+    path: '/orders/:id',
+    name: 'OrderDetail',
+    component: () => import('@/views/OrderDetailPage.vue'),
+    meta: { title: 'Order Detail', requiresAuth: true },
+  },
+  {
+    path: '/admin/orders',
+    name: 'AdminOrders',
+    component: () => import('@/views/admin/AdminOrdersPage.vue'),
+    meta: { title: 'Order Management', requiresAuth: true },
+  },
+  {
+    path: '/admin/orders/:id',
+    name: 'AdminOrderDetail',
+    component: () => import('@/views/admin/AdminOrderDetail.vue'),
+    meta: { title: 'Order Processing', requiresAuth: true },
+  },
+  {
+    path: '/products/new',
+    name: 'ProductNew',
+    component: () => import('@/views/products/ProductEditPage.vue'),
+    meta: { title: 'New Product' },
+  },
+  {
+    path: '/products/:id/edit',
+    name: 'ProductEdit',
+    component: () => import('@/views/products/ProductEditPage.vue'),
+    meta: { title: 'Edit Product' },
   },
   {
     path: '/:pathMatch(.*)*',

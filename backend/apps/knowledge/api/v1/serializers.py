@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.db import models
 from core.serializers import BaseModelSerializer
 from apps.knowledge.models import (
     ResearchGoal, Application, Method, Protocol, ProtocolStep, Reference, Compatibility
@@ -20,26 +21,29 @@ class ApplicationListSerializer(BaseModelSerializer):
 
 
 class ApplicationDetailSerializer(BaseModelSerializer):
-    method_ids = serializers.SerializerMethodField()
-    protocol_ids = serializers.SerializerMethodField()
-    product_ids = serializers.SerializerMethodField()
+    methods = serializers.SerializerMethodField()
+    protocols = serializers.SerializerMethodField()
+    products = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
-        fields = ['id', 'name', 'slug', 'summary', 'sort_order', 'status', 'research_goal_id', 'method_ids', 'protocol_ids', 'product_ids', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'slug', 'summary', 'sort_order', 'status', 'research_goal_id', 'methods', 'protocols', 'products', 'created_at', 'updated_at']
 
-    def get_method_ids(self, obj):
-        return list(obj.methods.values_list('id', flat=True))
+    def get_methods(self, obj):
+        return list(obj.methods.values('id', 'name', 'slug'))
 
-    def get_protocol_ids(self, obj):
+    def get_protocols(self, obj):
         from apps.bridges.models import MethodProtocol
         method_ids = list(obj.methods.values_list('id', flat=True))
-        return list(MethodProtocol.objects.filter(method_id__in=method_ids).values_list('protocol_id', flat=True).distinct())
+        protocol_ids = MethodProtocol.objects.filter(method_id__in=method_ids).values_list('protocol_id', flat=True).distinct()
+        return list(Protocol.objects.filter(id__in=protocol_ids).values('id', 'name', 'slug'))
 
-    def get_product_ids(self, obj):
+    def get_products(self, obj):
         from apps.bridges.models import ProductMethod
+        from apps.commerce.models import Product
         method_ids = list(obj.methods.values_list('id', flat=True))
-        return list(ProductMethod.objects.filter(method_id__in=method_ids).values_list('product_id', flat=True).distinct())
+        product_ids = ProductMethod.objects.filter(method_id__in=method_ids).values_list('product_id', flat=True).distinct()
+        return list(Product.objects.filter(id__in=product_ids).values('id', 'name', 'slug', 'catalog_no'))
 
 
 class ProtocolStepSerializer(BaseModelSerializer):
@@ -56,38 +60,39 @@ class ProtocolListSerializer(BaseModelSerializer):
 
 class ProtocolDetailSerializer(BaseModelSerializer):
     steps = ProtocolStepSerializer(many=True, read_only=True)
-    reference_ids = serializers.SerializerMethodField()
-    product_ids = serializers.SerializerMethodField()
+    references = serializers.SerializerMethodField()
+    products = serializers.SerializerMethodField()
 
     class Meta:
         model = Protocol
         fields = [
             'id', 'name', 'slug', 'version', 'method_id', 'objective', 'principle',
             'materials', 'reagents', 'equipment', 'troubleshooting', 'expected_results',
-            'status', 'steps', 'reference_ids', 'product_ids', 'created_at', 'updated_at',
+            'status', 'steps', 'references', 'products', 'created_at', 'updated_at',
         ]
 
-    def get_reference_ids(self, obj):
-        """从 Protocol.references 文本字段派生 reference_ids"""
+    def get_references(self, obj):
+        """从 Protocol.references 文本字段派生 references"""
         if not obj.references:
             return []
         import re
         from apps.knowledge.models import Reference
-        # 提取 DOI 和 PMID
         dois = re.findall(r'doi:\s*(10\.\S+)', obj.references, re.IGNORECASE)
         pmids = re.findall(r'PMID:?\s*(\d+)', obj.references, re.IGNORECASE)
-        ref_ids = []
+        q = models.Q()
         if dois:
-            refs = Reference.objects.filter(doi__in=dois).values_list('id', flat=True)
-            ref_ids.extend(refs)
+            q |= models.Q(doi__in=dois)
         if pmids:
-            refs = Reference.objects.filter(pmid__in=pmids).values_list('id', flat=True)
-            ref_ids.extend(refs)
-        return list(set(ref_ids))
+            q |= models.Q(pmid__in=pmids)
+        if not q:
+            return []
+        return list(Reference.objects.filter(q).values('id', 'title', 'journal', 'year', 'doi'))
 
-    def get_product_ids(self, obj):
+    def get_products(self, obj):
         from apps.bridges.models import ProductMethod
-        return list(ProductMethod.objects.filter(method=obj.method).values_list('product_id', flat=True).distinct())
+        from apps.commerce.models import Product
+        product_ids = ProductMethod.objects.filter(method=obj.method).values_list('product_id', flat=True).distinct()
+        return list(Product.objects.filter(id__in=product_ids).values('id', 'name', 'slug', 'catalog_no'))
 
 
 class MethodListSerializer(BaseModelSerializer):
@@ -97,23 +102,25 @@ class MethodListSerializer(BaseModelSerializer):
 
 
 class MethodDetailSerializer(BaseModelSerializer):
-    protocol_ids = serializers.SerializerMethodField()
-    product_ids = serializers.SerializerMethodField()
+    protocols = serializers.SerializerMethodField()
+    products = serializers.SerializerMethodField()
 
     class Meta:
         model = Method
         fields = [
             'id', 'name', 'slug', 'summary', 'purpose', 'advantages', 'limitations',
             'cost_band', 'timeline', 'status', 'application_id',
-            'protocol_ids', 'product_ids', 'created_at', 'updated_at',
+            'protocols', 'products', 'created_at', 'updated_at',
         ]
 
-    def get_protocol_ids(self, obj):
-        return list(obj.protocols.values_list('id', flat=True))
+    def get_protocols(self, obj):
+        return list(obj.protocols.values('id', 'name', 'slug', 'version'))
 
-    def get_product_ids(self, obj):
+    def get_products(self, obj):
         from apps.bridges.models import ProductMethod
-        return list(ProductMethod.objects.filter(method=obj).values_list('product_id', flat=True).distinct())
+        from apps.commerce.models import Product
+        product_ids = ProductMethod.objects.filter(method=obj).values_list('product_id', flat=True).distinct()
+        return list(Product.objects.filter(id__in=product_ids).values('id', 'name', 'slug', 'catalog_no'))
 
 
 class ReferenceSerializer(BaseModelSerializer):

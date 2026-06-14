@@ -149,6 +149,8 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name', 'date_joined',
             'organization', 'organization_name', 'role', 'is_org_admin',
             'nickname', 'phone', 'department', 'title',
+            'default_shipping_address', 'shipping_name', 'shipping_phone', 'shipping_email',
+            'default_payment_method', 'default_po_number',
         ]
         read_only_fields = fields
 
@@ -166,6 +168,8 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'nickname', 'phone', 'department', 'title',
             'avatar_url', 'default_shipping_address', 'alternate_email',
+            'shipping_name', 'shipping_phone', 'shipping_email',
+            'default_payment_method', 'default_po_number',
         ]
 
 

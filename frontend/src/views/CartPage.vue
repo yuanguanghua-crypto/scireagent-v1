@@ -58,17 +58,17 @@ function browseProducts() {
 
 /** Handle place order */
 function handlePlaceOrder() {
-  showToast('Order placement coming soon')
+  router.push('/checkout')
 }
 
 /** Handle request quote */
 function handleRequestQuote() {
-  showToast('Quote request coming soon')
+  router.push('/checkout')
 }
 
 /** Handle submit for approval */
 function handleSubmitApproval() {
-  showToast('Approval submission coming soon')
+  router.push('/checkout')
 }
 
 onMounted(() => {

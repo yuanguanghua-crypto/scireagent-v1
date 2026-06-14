@@ -52,8 +52,8 @@ function getInventoryLabel(status) {
     <div class="card-body">
       <div class="card-header">
         <div class="card-id-group">
+          <span v-if="product.catalog_no" class="chem-id chem-id--primary">{{ product.catalog_no }}</span>
           <span v-if="product.cas" class="chem-id">{{ product.cas }}</span>
-          <span v-else-if="product.catalog_number" class="chem-id">Cat# {{ product.catalog_number }}</span>
         </div>
         <el-tag :type="getInventoryType(product.inventory_status)" size="small" effect="light">
           {{ getInventoryLabel(product.inventory_status) }}
@@ -61,16 +61,18 @@ function getInventoryLabel(status) {
       </div>
 
       <h3 class="card-title">{{ product.name }}</h3>
-      <p class="card-description">{{ truncate(product.description || product.storage || '', 90) }}</p>
+      <p class="card-description">{{ truncate(product.overview || product.storage || '', 90) }}</p>
 
       <div class="card-footer">
-        <span v-if="product.purity" class="card-spec">
+        <span v-if="product.formula" class="card-spec">
+          <span class="card-spec-label">Formula</span>
+          <span class="card-spec-value">{{ product.formula }}</span>
+        </span>
+        <span v-else-if="product.purity" class="card-spec">
           <span class="card-spec-label">Purity</span>
           <span class="card-spec-value">{{ product.purity }}</span>
         </span>
-        <span v-if="product.price" class="card-price">
-          {{ formatCurrency(product.price, product.currency) }}
-        </span>
+        <span v-if="product.product_class_name" class="card-class">{{ product.product_class_name }}</span>
       </div>
     </div>
   </article>
@@ -139,6 +141,8 @@ function getInventoryLabel(status) {
   letter-spacing: 0.02em;
 }
 
+.chem-id--primary { background: var(--color-primary); color: white; }
+
 .card-title {
   font-size: 15px;
   font-weight: 600;
@@ -195,5 +199,14 @@ function getInventoryLabel(status) {
   font-weight: 700;
   color: var(--color-text);
   font-variant-numeric: tabular-nums;
+}
+
+.card-class {
+  font-size: 11px;
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
 }
 </style>

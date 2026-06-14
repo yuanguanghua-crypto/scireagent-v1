@@ -138,36 +138,34 @@ function formatDuration(seconds) {
 
         <!-- References Tab -->
         <el-tab-pane label="References" name="references">
-          <div v-if="store.currentProtocol.reference_ids?.length">
-            <p class="info-text">{{ store.currentProtocol.reference_ids.length }} reference(s) linked</p>
-            <el-table :data="store.currentProtocol.reference_ids.map(id => ({ id }))" stripe>
-              <el-table-column prop="id" label="Reference ID" width="120" />
-              <el-table-column label="Action" width="120">
-                <template #default="{ row }">
-                  <el-button size="small" text type="primary" @click="router.push(`/references/${row.id}`)">
-                    View →
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
+          <div v-if="store.currentProtocol.references?.length" class="refs-list">
+            <div v-for="ref in store.currentProtocol.references" :key="ref.id" class="ref-item">
+              <div class="ref-body">
+                <h4 class="ref-title">{{ ref.title }}</h4>
+                <div class="ref-meta">
+                  <span v-if="ref.journal" class="ref-journal">{{ ref.journal }}</span>
+                  <span v-if="ref.year">{{ ref.year }}</span>
+                </div>
+              </div>
+              <a v-if="ref.doi" :href="`https://doi.org/${ref.doi}`" target="_blank" rel="noopener" class="ref-doi">DOI &rarr;</a>
+            </div>
           </div>
           <el-empty v-else description="No references linked" />
         </el-tab-pane>
 
         <!-- Products Tab -->
         <el-tab-pane label="Products" name="products">
-          <div v-if="store.currentProtocol.product_ids?.length">
-            <p class="info-text">{{ store.currentProtocol.product_ids.length }} product(s) required</p>
-            <el-table :data="store.currentProtocol.product_ids.map(id => ({ id }))" stripe>
-              <el-table-column prop="id" label="Product ID" width="120" />
-              <el-table-column label="Action" width="120">
-                <template #default="{ row }">
-                  <el-button size="small" text type="primary" @click="router.push(`/products/${row.id}`)">
-                    View →
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
+          <div v-if="store.currentProtocol.products?.length" class="card-grid">
+            <router-link v-for="p in store.currentProtocol.products" :key="p.id" :to="`/products/${p.id}`" class="link-card">
+              <div class="card-icon icon-product">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+              </div>
+              <div class="card-body">
+                <h3 class="card-name">{{ p.name }}</h3>
+                <span v-if="p.catalog_no" class="card-meta">{{ p.catalog_no }}</span>
+              </div>
+              <span class="card-arrow">&rarr;</span>
+            </router-link>
           </div>
           <el-empty v-else description="No products linked" />
         </el-tab-pane>
@@ -204,5 +202,26 @@ function formatDuration(seconds) {
 .step-body { font-size: 14px; line-height: 1.6; color: var(--color-text); margin: 8px 0; }
 .step-warning { margin-top: 8px; }
 .info-text { color: var(--color-text-secondary); font-size: 14px; margin-bottom: 12px; }
+
+/* References */
+.refs-list { display: flex; flex-direction: column; gap: 8px; }
+.ref-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 14px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+.ref-body { flex: 1; min-width: 0; }
+.ref-title { font-size: 13px; font-weight: 600; margin: 0 0 4px; color: var(--color-text); line-height: 1.4; }
+.ref-meta { display: flex; gap: 8px; font-size: 12px; color: var(--color-text-secondary); }
+.ref-journal { font-style: italic; }
+.ref-doi { font-size: 12px; color: var(--color-primary); text-decoration: none; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.ref-doi:hover { text-decoration: underline; }
+
+/* Card grid */
+.card-grid { display: flex; flex-direction: column; gap: 8px; }
+.link-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); text-decoration: none; color: var(--color-text); transition: all 0.15s; }
+.link-card:hover { border-color: var(--color-primary); background: var(--color-primary-subtle); }
+.card-icon { width: 36px; height: 36px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.icon-product { background: #fef2f2; color: #dc2626; }
+.card-body { flex: 1; min-width: 0; }
+.card-name { font-size: 14px; font-weight: 600; margin: 0; }
+.card-meta { font-size: 12px; color: var(--color-text-secondary); font-family: var(--font-mono); }
+.card-arrow { font-size: 16px; color: var(--color-text-tertiary); }
 .loading-container, .empty-container { padding: 60px 0; text-align: center; }
 </style>

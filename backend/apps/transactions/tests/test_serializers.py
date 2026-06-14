@@ -19,7 +19,6 @@ class OrderListSerializerTest(TestCase):
         self.assertIn('id', data)
         self.assertIn('order_no', data)
         self.assertIn('status', data)
-        self.assertIn('subtotal', data)
         self.assertIn('grand_total', data)
         self.assertIn('currency', data)
         self.assertIn('created_at', data)

@@ -6,6 +6,8 @@ from apps.knowledge.api.v1.views import (
 )
 from apps.knowledge.api.v1.site_views import site_home, site_navigation, sitemap_xml
 from apps.knowledge.api.v1.search_views import search, search_suggest
+from apps.knowledge.api.v1.search_grouped_views import search_grouped
+from apps.knowledge.api.v1.graph_views import graph_view
 
 router = DefaultRouter()
 router.register('research-goals', ResearchGoalViewSet, basename='research-goal')
@@ -21,5 +23,7 @@ urlpatterns = [
     path('site/navigation', site_navigation, name='api-site-nav'),
     path('search', search, name='api-search'),
     path('search/suggest', search_suggest, name='api-search-suggest'),
+    path('search/grouped', search_grouped, name='api-search-grouped'),
+    path('graph', graph_view, name='api-graph'),
     path('', include(router.urls)),
 ]

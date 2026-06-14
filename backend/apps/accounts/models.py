@@ -83,6 +83,11 @@ class User(AbstractUser):
     title = models.CharField(max_length=100, blank=True, default='')
     avatar_url = models.URLField(blank=True, default='')
     default_shipping_address = models.TextField(blank=True, default='')
+    shipping_name = models.CharField(max_length=200, blank=True, default='', verbose_name='收件人')
+    shipping_phone = models.CharField(max_length=30, blank=True, default='', verbose_name='收件电话')
+    shipping_email = models.EmailField(blank=True, default='', verbose_name='收件邮箱')
+    default_payment_method = models.CharField(max_length=20, blank=True, default='purchase_order', verbose_name='默认付款方式')
+    default_po_number = models.CharField(max_length=100, blank=True, default='', verbose_name='默认PO号')
     alternate_email = models.EmailField(blank=True, default='')
 
     class Meta:

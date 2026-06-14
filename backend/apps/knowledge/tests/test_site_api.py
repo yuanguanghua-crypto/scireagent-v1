@@ -219,7 +219,7 @@ class SitemapAPITest(TestCase):
         self.assertIn('/products/', content)
 
     def test_sitemap_contains_protocols(self):
-        ProtocolFactory(status='active')
+        ProtocolFactory(status='published')
         resp = self.client.get('/api/v1/sitemap.xml')
         content = resp.content.decode()
         self.assertIn('/protocols/', content)

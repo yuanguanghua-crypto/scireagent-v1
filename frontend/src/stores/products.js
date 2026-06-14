@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { getProducts, getProduct } from '@/api/products'
+import { getProducts, getProduct, getProductDetail } from '@/api/products'
 
 export const useProductsStore = defineStore('products', () => {
   const products = ref([])
   const currentProduct = ref(null)
+  const productDetail = ref(null) // V1.2 aggregated detail
   const loading = ref(false)
   const total = ref(0)
 
@@ -33,9 +34,26 @@ export const useProductsStore = defineStore('products', () => {
     }
   }
 
-  function clearCurrent() {
-    currentProduct.value = null
+  async function fetchProductDetail(id) {
+    loading.value = true
+    try {
+      const result = await getProductDetail(id)
+      productDetail.value = result.data
+      // Also set currentProduct from the detail for backward compat
+      if (result.data?.product) {
+        currentProduct.value = result.data.product
+      }
+    } catch (err) {
+      console.error('Failed to fetch product detail:', err)
+    } finally {
+      loading.value = false
+    }
   }
 
-  return { products, currentProduct, loading, total, fetchProducts, fetchProduct, clearCurrent }
+  function clearCurrent() {
+    currentProduct.value = null
+    productDetail.value = null
+  }
+
+  return { products, currentProduct, productDetail, loading, total, fetchProducts, fetchProduct, fetchProductDetail, clearCurrent }
 })

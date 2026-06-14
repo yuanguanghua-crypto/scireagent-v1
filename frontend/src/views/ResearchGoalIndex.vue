@@ -147,6 +147,8 @@ watch(
 
 <style scoped>
 .research-goal-index {
+  max-width: 1200px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 24px;

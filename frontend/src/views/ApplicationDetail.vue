@@ -1,341 +1,128 @@
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessageBox, ElMessage } from 'element-plus'
 import { useApplicationsStore } from '@/stores/applications'
-import { formatDate, getStatusType } from '@/utils/helpers'
+import { useGraph } from '@/composables/useGraph'
+import KnowledgeGraph from '@/components/graph/KnowledgeGraph.vue'
 
 const route = useRoute()
 const router = useRouter()
 const store = useApplicationsStore()
 
-const applicationId = route.params.id
+const app = computed(() => store.currentApplication)
+const appId = computed(() => route.params.id)
 
-onMounted(() => {
-  store.fetchApplication(applicationId)
-})
+/* ── Knowledge Graph ── */
+const { nodes: graphNodes, edges: graphEdges, fetch: fetchGraph } = useGraph('application', appId, { depth: 2, maxNodes: 25, maxEdges: 40 })
 
-onUnmounted(() => {
-  store.clearCurrent()
-})
-
-function handleBack() {
-  router.push({ name: 'Applications' })
+async function loadApp(id) {
+  await store.fetchApplication(id)
+  fetchGraph()
 }
 
-function handleEdit() {
-  // TODO: Open edit dialog
-}
-
-function handleDelete() {
-  ElMessageBox.confirm(
-    'Are you sure you want to delete this application?',
-    'Confirm Delete',
-    { type: 'warning' }
-  )
-    .then(async () => {
-      await store.removeApplication(applicationId)
-      router.push({ name: 'Applications' })
-      ElMessage.success('Application deleted successfully')
-    })
-    .catch(() => {})
-}
+onMounted(() => loadApp(route.params.id))
+watch(() => route.params.id, (newId) => { if (newId) loadApp(newId) })
+onUnmounted(() => { store.clearCurrent() })
 </script>
 
 <template>
-  <div class="application-detail">
-    <div class="breadcrumb">
-      <el-button text @click="handleBack">
-        <el-icon><ArrowLeft /></el-icon>
-        Back to Applications
-      </el-button>
+  <div class="detail-page" v-if="app">
+    <nav class="breadcrumb">
+      <router-link to="/applications">Applications</router-link>
+      <span class="sep">/</span>
+      <span class="cur">{{ app.name }}</span>
+    </nav>
+
+    <div class="detail-hero">
+      <h1 class="detail-title">{{ app.name }}</h1>
+      <span class="detail-badge" :class="`badge-${app.status}`">{{ app.status }}</span>
+      <p v-if="app.summary" class="detail-summary">{{ app.summary }}</p>
     </div>
 
-    <div v-if="store.loading" class="loading-state">
-      <el-skeleton :rows="6" animated />
-    </div>
-
-    <template v-else-if="store.currentApplication">
-      <div class="detail-header">
-        <div class="header-left">
-          <div class="title-row">
-            <h2 class="detail-title">{{ store.currentApplication.name }}</h2>
-            <el-tag :type="getStatusType(store.currentApplication.status)" size="large">
-              {{ store.currentApplication.status }}
-            </el-tag>
+    <!-- Methods -->
+    <section class="detail-section" v-if="app.methods?.length">
+      <h2 class="section-title">Methods</h2>
+      <div class="card-grid">
+        <router-link v-for="m in app.methods" :key="m.id" :to="`/methods/${m.id}`" class="link-card">
+          <div class="card-icon icon-method">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
           </div>
-          <p v-if="store.currentApplication.category" class="detail-category">
-            {{ store.currentApplication.category }}
-          </p>
-        </div>
-        <div class="header-actions">
-          <el-button @click="handleEdit">
-            <el-icon><Edit /></el-icon>
-            Edit
-          </el-button>
-          <el-button type="danger" plain @click="handleDelete">
-            <el-icon><Delete /></el-icon>
-            Delete
-          </el-button>
-        </div>
+          <div class="card-body"><h3 class="card-name">{{ m.name }}</h3></div>
+          <span class="card-arrow">&rarr;</span>
+        </router-link>
       </div>
+    </section>
 
-      <div class="detail-content">
-        <el-card class="info-card">
-          <template #header>
-            <span class="card-header-title">Description</span>
-          </template>
-          <p class="description-text">
-            {{ store.currentApplication.description || 'No description provided.' }}
-          </p>
-        </el-card>
-
-        <div class="meta-grid">
-          <el-card class="meta-card">
-            <div class="meta-item">
-              <span class="meta-label">Created</span>
-              <span class="meta-value">{{ formatDate(store.currentApplication.created_at) }}</span>
-            </div>
-          </el-card>
-
-          <el-card class="meta-card">
-            <div class="meta-item">
-              <span class="meta-label">Updated</span>
-              <span class="meta-value">{{ formatDate(store.currentApplication.updated_at) }}</span>
-            </div>
-          </el-card>
-
-          <el-card class="meta-card">
-            <div class="meta-item">
-              <span class="meta-label">Reagents</span>
-              <span class="meta-value">{{ store.currentApplication.reagent_count || 0 }}</span>
-            </div>
-          </el-card>
-        </div>
-
-        <el-card v-if="store.currentApplication.reagents?.length" class="reagents-card">
-          <template #header>
-            <span class="card-header-title">Associated Reagents</span>
-          </template>
-          <el-table :data="store.currentApplication.reagents" stripe>
-            <el-table-column prop="name" label="Name" />
-            <el-table-column prop="cas_number" label="CAS Number" width="150" />
-            <el-table-column prop="role" label="Role" width="120" />
-            <el-table-column prop="concentration" label="Concentration" width="140" />
-          </el-table>
-        </el-card>
-
-        <!-- Methods -->
-        <section class="detail-section">
-          <h2 class="section-title">Methods</h2>
-          <div v-if="store.currentApplication.method_ids?.length">
-            <p class="info-text">{{ store.currentApplication.method_ids.length }} method(s) linked</p>
-            <el-table :data="store.currentApplication.method_ids.map(id => ({ id }))" stripe>
-              <el-table-column prop="id" label="Method ID" width="120" />
-              <el-table-column label="Action" width="120">
-                <template #default="{ row }">
-                  <el-button size="small" text type="primary" @click="router.push(`/methods/${row.id}`)">View →</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
+    <!-- Protocols -->
+    <section class="detail-section" v-if="app.protocols?.length">
+      <h2 class="section-title">Protocols</h2>
+      <div class="card-grid">
+        <router-link v-for="p in app.protocols" :key="p.id" :to="`/protocols/${p.id}`" class="link-card">
+          <div class="card-icon icon-protocol">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           </div>
-          <el-empty v-else description="No methods linked" :image-size="60" />
-        </section>
-
-        <!-- Protocols -->
-        <section class="detail-section">
-          <h2 class="section-title">Protocols</h2>
-          <div v-if="store.currentApplication.protocol_ids?.length">
-            <p class="info-text">{{ store.currentApplication.protocol_ids.length }} protocol(s) linked</p>
-            <el-table :data="store.currentApplication.protocol_ids.map(id => ({ id }))" stripe>
-              <el-table-column prop="id" label="Protocol ID" width="120" />
-              <el-table-column label="Action" width="120">
-                <template #default="{ row }">
-                  <el-button size="small" text type="primary" @click="router.push(`/protocols/${row.id}`)">View →</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-          <el-empty v-else description="No protocols linked" :image-size="60" />
-        </section>
-
-        <!-- Products -->
-        <section class="detail-section">
-          <h2 class="section-title">Products</h2>
-          <div v-if="store.currentApplication.product_ids?.length">
-            <p class="info-text">{{ store.currentApplication.product_ids.length }} product(s) linked</p>
-            <el-table :data="store.currentApplication.product_ids.map(id => ({ id }))" stripe>
-              <el-table-column prop="id" label="Product ID" width="120" />
-              <el-table-column label="Action" width="120">
-                <template #default="{ row }">
-                  <el-button size="small" text type="primary" @click="router.push(`/products/${row.id}`)">View →</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-          <el-empty v-else description="No products linked" :image-size="60" />
-        </section>
-
-        <!-- References -->
-        <section class="detail-section">
-          <h2 class="section-title">References</h2>
-          <div v-if="store.currentApplication.reference_ids?.length">
-            <p class="info-text">{{ store.currentApplication.reference_ids.length }} reference(s) supporting this application</p>
-          </div>
-          <el-empty v-else description="No references linked" :image-size="60" />
-        </section>
-
-        <!-- FAQ -->
-        <section class="detail-section">
-          <h2 class="section-title">FAQ</h2>
-          <el-collapse>
-            <el-collapse-item title="What is this application used for?">
-              <p>{{ store.currentApplication.summary || 'No description available.' }}</p>
-            </el-collapse-item>
-            <el-collapse-item title="What methods belong to this application?">
-              <p>{{ store.currentApplication.method_ids?.length || 0 }} method(s) are linked to this application.</p>
-            </el-collapse-item>
-          </el-collapse>
-        </section>
+          <div class="card-body"><h3 class="card-name">{{ p.name }}</h3></div>
+          <span class="card-arrow">&rarr;</span>
+        </router-link>
       </div>
-    </template>
+    </section>
 
-    <div v-else class="empty-state">
-      <el-empty description="Application not found">
-        <el-button type="primary" @click="handleBack">Back to Applications</el-button>
-      </el-empty>
-    </div>
+    <!-- Products -->
+    <section class="detail-section" v-if="app.products?.length">
+      <h2 class="section-title">Products</h2>
+      <div class="card-grid">
+        <router-link v-for="p in app.products" :key="p.id" :to="`/products/${p.id}`" class="link-card">
+          <div class="card-icon icon-product">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg>
+          </div>
+          <div class="card-body">
+            <h3 class="card-name">{{ p.name }}</h3>
+            <span v-if="p.catalog_no" class="card-meta">{{ p.catalog_no }}</span>
+          </div>
+          <span class="card-arrow">&rarr;</span>
+        </router-link>
+      </div>
+    </section>
+
+    <!-- Knowledge Graph -->
+    <section class="detail-section" v-if="graphNodes.length">
+      <h2 class="section-title">Knowledge Graph</h2>
+      <div class="kg-wrap">
+        <KnowledgeGraph :nodes="graphNodes" :edges="graphEdges" height="320px" />
+      </div>
+    </section>
   </div>
+
+  <div v-else-if="store.loading" class="loading">Loading...</div>
+  <div v-else class="empty">Application not found</div>
 </template>
 
 <style scoped>
-.application-detail {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.breadcrumb {
-  margin-bottom: -8px;
-}
-
-.detail-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.title-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.detail-title {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--color-text);
-  margin: 0;
-}
-
-.detail-category {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.detail-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.info-card {
-  background: var(--color-surface);
-}
-
-.card-header-title {
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.description-text {
-  font-size: 14px;
-  color: var(--color-text);
-  line-height: 1.7;
-  margin: 0;
-}
-
-.meta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
-
-.meta-card {
-  background: var(--color-surface);
-}
-
-.meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.meta-label {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.meta-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.reagents-card {
-  background: var(--color-surface);
-}
-
-.detail-section {
-  margin-bottom: 24px;
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 12px 0;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 6px;
-}
-
-.info-text {
-  color: var(--color-text-secondary);
-  font-size: 14px;
-  margin-bottom: 12px;
-}
-
-.loading-state {
-  padding: 24px;
-}
-
-.empty-state {
-  padding: 48px 0;
-}
+.detail-page { max-width: 1200px; margin: 0 auto; padding: 24px; }
+.breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 13px; margin-bottom: 16px; }
+.breadcrumb a { color: var(--color-primary); text-decoration: none; }
+.breadcrumb a:hover { text-decoration: underline; }
+.sep { color: var(--color-text-tertiary); }
+.cur { color: var(--color-text-secondary); }
+.detail-hero { margin-bottom: 28px; }
+.detail-title { font-size: 28px; font-weight: 800; color: var(--color-text); margin: 0 0 8px; }
+.detail-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; text-transform: capitalize; }
+.badge-active { background: #ecfdf5; color: #059669; }
+.badge-draft { background: #fffbeb; color: #d97706; }
+.detail-summary { font-size: 15px; color: var(--color-text-secondary); line-height: 1.6; margin: 10px 0 0; }
+.detail-section { margin-bottom: 28px; }
+.section-title { font-size: 16px; font-weight: 700; color: var(--color-text); margin: 0 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--color-primary); display: inline-block; }
+.card-grid { display: flex; flex-direction: column; gap: 8px; }
+.link-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); text-decoration: none; color: var(--color-text); transition: all 0.15s; }
+.link-card:hover { border-color: var(--color-primary); background: var(--color-primary-subtle); }
+.card-icon { width: 36px; height: 36px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.icon-method { background: #eff6ff; color: #2563eb; }
+.icon-protocol { background: #fffbeb; color: #d97706; }
+.icon-product { background: #fef2f2; color: #dc2626; }
+.card-body { flex: 1; min-width: 0; }
+.card-name { font-size: 14px; font-weight: 600; margin: 0; }
+.card-meta { font-size: 12px; color: var(--color-text-secondary); font-family: var(--font-mono); }
+.card-arrow { font-size: 16px; color: var(--color-text-tertiary); }
+.kg-wrap { border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
+.loading, .empty { text-align: center; padding: 60px 0; color: var(--color-text-secondary); }
 </style>

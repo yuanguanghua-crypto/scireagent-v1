@@ -1,5 +1,12 @@
+import os
 from django.db import models
 from core.models import TimeStampedModel, StatusMixin
+
+# PostgreSQL-only: SearchVectorField + GinIndex
+_USE_POSTGRES = os.getenv('DB_ENGINE', 'postgres') != 'sqlite'
+if _USE_POSTGRES:
+    from django.contrib.postgres.indexes import GinIndex
+    from django.contrib.postgres.search import SearchVectorField
 
 
 class ProductClass(TimeStampedModel):
@@ -49,17 +56,32 @@ class Product(StatusMixin, TimeStampedModel):
     )
     name = models.CharField(max_length=255, verbose_name='产品名称')
     slug = models.SlugField(max_length=255, unique=True, verbose_name='Slug')
+    catalog_no = models.CharField(max_length=64, unique=True, null=True, blank=True, verbose_name='目录号')
     cas = models.CharField(max_length=100, blank=True, default='', verbose_name='CAS号')
     smiles = models.TextField(blank=True, default='', verbose_name='SMILES')
     synonyms = models.JSONField(default=list, blank=True, verbose_name='同义词')
     inchi = models.TextField(blank=True, default='', verbose_name='InChI')
+    formula = models.CharField(max_length=256, blank=True, default='', verbose_name='分子式')
+    molecular_weight = models.FloatField(null=True, blank=True, verbose_name='分子量')
     purity = models.CharField(max_length=100, blank=True, default='', verbose_name='纯度')
+    concentration = models.CharField(max_length=64, blank=True, default='', verbose_name='浓度')
     storage = models.TextField(blank=True, default='', verbose_name='储存条件')
     shipping = models.TextField(blank=True, default='', verbose_name='运输条件')
     lead_time = models.CharField(max_length=100, blank=True, default='', verbose_name='货期')
     handling_notes = models.TextField(blank=True, default='', verbose_name='操作注意事项')
     shelf_life = models.DurationField(null=True, blank=True, verbose_name='保质期')
     research_use_only = models.BooleanField(default=True, verbose_name='仅限研究用途')
+    overview = models.TextField(blank=True, default='', verbose_name='产品概述')
+    structure_svg = models.TextField(blank=True, default='', verbose_name='结构式SVG')
+    seo_title = models.CharField(max_length=256, blank=True, default='', verbose_name='SEO标题')
+    seo_description = models.TextField(blank=True, default='', verbose_name='SEO描述')
+    category_l1 = models.CharField(max_length=128, blank=True, default='', verbose_name='一级分类')
+    category_l2 = models.CharField(max_length=128, blank=True, default='', verbose_name='二级分类')
+    display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级')
+
+    # PostgreSQL FTS field — only added when running on PostgreSQL
+    if _USE_POSTGRES:
+        search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')
 
     class Meta:
         db_table = 'product'
@@ -71,6 +93,8 @@ class Product(StatusMixin, TimeStampedModel):
             models.Index(fields=['name'], name='product_name_idx'),
             models.Index(fields=['slug'], name='product_slug_idx'),
         ]
+        if _USE_POSTGRES:
+            indexes.append(GinIndex(fields=['search_vector'], name='product_search_gin'))
 
     def __str__(self):
         return self.name
@@ -107,6 +131,9 @@ class SKU(TimeStampedModel):
         max_length=20, choices=InventoryStatus.choices,
         default=InventoryStatus.IN_STOCK, verbose_name='库存状态'
     )
+    concentration = models.CharField(max_length=64, blank=True, default='', verbose_name='浓度')
+    lead_time = models.CharField(max_length=64, blank=True, default='', verbose_name='交货时间')
+    is_default = models.BooleanField(default=False, verbose_name='默认SKU')
 
     class Meta:
         db_table = 'sku'
@@ -116,3 +143,32 @@ class SKU(TimeStampedModel):
 
     def __str__(self):
         return f'{self.sku_code} ({self.pack_size})'
+
+
+class ProductDocument(TimeStampedModel):
+    """产品文档"""
+    class DocumentType(models.TextChoices):
+        DATASHEET = 'datasheet', 'Datasheet'
+        MSDS = 'msds', 'MSDS'
+        COA = 'coa', 'COA'
+        APPLICATION_NOTE = 'application_note', 'Application Note'
+
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name='documents', verbose_name='产品'
+    )
+    document_type = models.CharField(
+        max_length=20, choices=DocumentType.choices, verbose_name='文档类型'
+    )
+    language = models.CharField(max_length=16, default='en', verbose_name='语言')
+    version = models.CharField(max_length=16, default='1.0', verbose_name='版本')
+    file = models.FileField(upload_to='documents/%Y/%m/', blank=True, default='')
+    original_filename = models.CharField(max_length=256, blank=True, default='', verbose_name='原始文件名')
+
+    class Meta:
+        db_table = 'product_document'
+        verbose_name = '产品文档'
+        verbose_name_plural = verbose_name
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.product.name} - {self.document_type}'

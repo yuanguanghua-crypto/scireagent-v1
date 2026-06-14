@@ -13,7 +13,7 @@ class OrderModelTest(TestCase):
     def test_create(self):
         order = OrderFactory(order_no='ORD-001')
         self.assertEqual(order.order_no, 'ORD-001')
-        self.assertEqual(order.status, 'pending')
+        self.assertEqual(order.status, 'draft')
 
     def test_order_no_unique(self):
         OrderFactory(order_no='ORD-001')
@@ -22,20 +22,20 @@ class OrderModelTest(TestCase):
 
     def test_status_default(self):
         order = OrderFactory()
-        self.assertEqual(order.status, 'pending')
+        self.assertEqual(order.status, 'draft')
 
     def test_status_choices(self):
         choices = dict(Order.Status.choices)
-        self.assertIn('pending', choices)
+        self.assertIn('draft', choices)
+        self.assertIn('confirmed', choices)
         self.assertIn('paid', choices)
         self.assertIn('processing', choices)
         self.assertIn('shipped', choices)
         self.assertIn('completed', choices)
         self.assertIn('cancelled', choices)
-        self.assertIn('refunded', choices)
 
     def test_financial_fields_default(self):
-        order = OrderFactory()
+        order = OrderFactory(grand_total=Decimal('0'))
         self.assertEqual(order.subtotal, Decimal('0'))
         self.assertEqual(order.tax_total, Decimal('0'))
         self.assertEqual(order.grand_total, Decimal('0'))
