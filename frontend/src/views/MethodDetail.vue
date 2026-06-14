@@ -9,10 +9,12 @@ import ResearchPathCard from '@/components/navigation/ResearchPathCard.vue'
 import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 import ResearchBreadcrumb from '@/components/navigation/ResearchBreadcrumb.vue'
 import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
+import { useResearchPathStore } from '@/stores/researchPath'
 
 const route = useRoute()
 const router = useRouter()
 const store = useMethodsStore()
+const researchCart = useResearchPathStore()
 
 const method = computed(() => store.currentMethod)
 const methodId = computed(() => route.params.id)
@@ -48,6 +50,7 @@ const { nodes: graphNodes, edges: graphEdges, fetch: fetchGraph } = useGraph('me
 async function loadMethod(id) {
   await store.fetchMethod(id)
   fetchGraph()
+  if (method.value) researchCart.addStep('method', method.value.id, method.value.name, method.value.slug)
 }
 
 onMounted(() => loadMethod(route.params.id))

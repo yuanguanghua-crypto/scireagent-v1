@@ -8,10 +8,12 @@ import ResearchPathCard from '@/components/navigation/ResearchPathCard.vue'
 import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 import ResearchBreadcrumb from '@/components/navigation/ResearchBreadcrumb.vue'
 import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
+import { useResearchPathStore } from '@/stores/researchPath'
 
 const route = useRoute()
 const router = useRouter()
 const store = useProtocolsStore()
+const researchCart = useResearchPathStore()
 const activeTab = ref('steps')
 
 const protocol = computed(() => store.currentProtocol)
@@ -44,6 +46,7 @@ const researchPath = computed(() => {
 
 async function loadProtocol(id) {
   await store.fetchProtocol(id)
+  if (protocol.value) researchCart.addStep('protocol', protocol.value.id, protocol.value.name, protocol.value.slug)
 }
 
 onMounted(() => loadProtocol(route.params.id))

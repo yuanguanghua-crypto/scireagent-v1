@@ -14,11 +14,13 @@ import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 import ResearchBreadcrumb from '@/components/navigation/ResearchBreadcrumb.vue'
 import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
 import RelationshipWidget from '@/components/navigation/RelationshipWidget.vue'
+import { useResearchPathStore } from '@/stores/researchPath'
 
 const route = useRoute()
 const router = useRouter()
 const store = useProductsStore()
 const basketStore = useBasketStore()
+const researchCart = useResearchPathStore()
 
 const product = computed(() => store.currentProduct)
 const detail = computed(() => store.productDetail)
@@ -155,6 +157,10 @@ async function loadProduct(id) {
   await store.fetchProductDetail(id)
   renderStructure()
   fetchGraph()
+  // Track in research path
+  if (product.value) {
+    researchCart.addStep('product', product.value.id, product.value.name, product.value.slug)
+  }
 }
 
 onMounted(() => loadProduct(route.params.id))
