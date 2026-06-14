@@ -6,6 +6,8 @@ import { formatDate, getStatusType } from '@/utils/helpers'
 import ContextCards from '@/components/navigation/ContextCards.vue'
 import ResearchPathCard from '@/components/navigation/ResearchPathCard.vue'
 import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
+import ResearchBreadcrumb from '@/components/navigation/ResearchBreadcrumb.vue'
+import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -68,11 +70,9 @@ function formatDuration(seconds) {
     </div>
 
     <template v-else-if="store.currentProtocol">
-      <!-- Breadcrumb -->
-      <el-breadcrumb separator="/">
-        <el-breadcrumb-item :to="{ path: '/protocols' }">Protocols</el-breadcrumb-item>
-        <el-breadcrumb-item>{{ store.currentProtocol.name }}</el-breadcrumb-item>
-      </el-breadcrumb>
+      <!-- Research Breadcrumb + Path Chips (P1) -->
+      <ResearchBreadcrumb :items="researchPath.slice(0, -1)" :current-name="protocol.name" />
+      <ResearchPathChips :path="researchPath" current-type="protocol" />
 
       <!-- Context Cards -->
       <ContextCards

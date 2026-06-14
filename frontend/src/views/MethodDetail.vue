@@ -7,6 +7,8 @@ import KnowledgeGraph from '@/components/graph/KnowledgeGraph.vue'
 import ContextCards from '@/components/navigation/ContextCards.vue'
 import ResearchPathCard from '@/components/navigation/ResearchPathCard.vue'
 import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
+import ResearchBreadcrumb from '@/components/navigation/ResearchBreadcrumb.vue'
+import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -55,11 +57,8 @@ onUnmounted(() => { store.clearCurrent() })
 
 <template>
   <div class="detail-page" v-if="method">
-    <nav class="breadcrumb">
-      <router-link to="/methods">Methods</router-link>
-      <span class="sep">/</span>
-      <span class="cur">{{ method.name }}</span>
-    </nav>
+    <ResearchBreadcrumb :items="researchPath.slice(0, -1)" :current-name="method.name" />
+    <ResearchPathChips :path="researchPath" current-type="method" />
 
     <!-- Context Cards -->
     <ContextCards

@@ -11,6 +11,9 @@ import KnowledgeGraph from '@/components/graph/KnowledgeGraph.vue'
 import ContextCards from '@/components/navigation/ContextCards.vue'
 import ResearchPathCard from '@/components/navigation/ResearchPathCard.vue'
 import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
+import ResearchBreadcrumb from '@/components/navigation/ResearchBreadcrumb.vue'
+import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
+import RelationshipWidget from '@/components/navigation/RelationshipWidget.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -59,6 +62,24 @@ const researchPath = computed(() => {
     path.push({ type: 'product', id: product.value.id, name: product.value.name })
   }
   return path
+})
+
+/* ── Relationship Widget groups ── */
+const relationshipGroups = computed(() => {
+  const groups = []
+  if (applications.value.length) {
+    groups.push({ type: 'application', label: 'Applications', items: applications.value.slice(0, 4) })
+  }
+  if (compatibility.value.methods?.length) {
+    groups.push({ type: 'method', label: 'Methods', items: compatibility.value.methods.slice(0, 4) })
+  }
+  if (protocols.value.length) {
+    groups.push({ type: 'protocol', label: 'Protocols', items: protocols.value.slice(0, 4) })
+  }
+  if (relatedProducts.value.length) {
+    groups.push({ type: 'product', label: 'Related Products', items: relatedProducts.value.slice(0, 4) })
+  }
+  return groups
 })
 
 /* ── Knowledge Graph ── */
@@ -167,18 +188,14 @@ function onSearch(query) {
       @filter="onCategoryFilter"
       @search="onSearch"
     >
-    <!-- Breadcrumb -->
-    <nav class="pd-breadcrumb">
-      <router-link to="/products">Products</router-link>
-      <template v-if="product.product_class_path?.length">
-        <span v-for="(crumb, i) in product.product_class_path" :key="i">
-          <span class="pd-breadcrumb-sep">/</span>
-          <router-link to="/products" class="pd-breadcrumb-link">{{ crumb }}</router-link>
-        </span>
-      </template>
-      <span class="pd-breadcrumb-sep">/</span>
-      <span class="pd-breadcrumb-cur">{{ product.name }}</span>
-    </nav>
+    <!-- Research Breadcrumb (P1) -->
+    <ResearchBreadcrumb
+      :items="researchPath.slice(0, -1)"
+      :current-name="product.name"
+    />
+
+    <!-- Research Path Chips (P1) -->
+    <ResearchPathChips :path="researchPath" current-type="product" />
 
     <!-- Context Cards: upstream/downstream navigation -->
     <ContextCards
@@ -453,6 +470,12 @@ function onSearch(query) {
         </div>
       </div>
     </section>
+
+    <!-- Relationship Widget (P1) -->
+    <RelationshipWidget
+      title="Related by Research"
+      :groups="relationshipGroups"
+    />
 
     <!-- Research Path Card -->
     <ResearchPathCard v-if="researchPath.length" :path="researchPath" current-type="product" />
