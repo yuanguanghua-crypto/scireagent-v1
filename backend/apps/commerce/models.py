@@ -54,30 +54,54 @@ class Product(StatusMixin, TimeStampedModel):
         CatalogGroup, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='products', verbose_name='目录分组'
     )
-    name = models.CharField(max_length=255, verbose_name='产品名称')
-    slug = models.SlugField(max_length=255, unique=True, verbose_name='Slug')
-    catalog_no = models.CharField(max_length=64, unique=True, null=True, blank=True, verbose_name='目录号')
-    cas = models.CharField(max_length=100, blank=True, default='', verbose_name='CAS号')
-    smiles = models.TextField(blank=True, default='', verbose_name='SMILES')
-    synonyms = models.JSONField(default=list, blank=True, verbose_name='同义词')
-    inchi = models.TextField(blank=True, default='', verbose_name='InChI')
-    formula = models.CharField(max_length=256, blank=True, default='', verbose_name='分子式')
-    molecular_weight = models.FloatField(null=True, blank=True, verbose_name='分子量')
-    purity = models.CharField(max_length=100, blank=True, default='', verbose_name='纯度')
-    concentration = models.CharField(max_length=64, blank=True, default='', verbose_name='浓度')
-    storage = models.TextField(blank=True, default='', verbose_name='储存条件')
-    shipping = models.TextField(blank=True, default='', verbose_name='运输条件')
-    lead_time = models.CharField(max_length=100, blank=True, default='', verbose_name='货期')
-    handling_notes = models.TextField(blank=True, default='', verbose_name='操作注意事项')
-    shelf_life = models.DurationField(null=True, blank=True, verbose_name='保质期')
-    research_use_only = models.BooleanField(default=True, verbose_name='仅限研究用途')
-    overview = models.TextField(blank=True, default='', verbose_name='产品概述')
-    structure_svg = models.TextField(blank=True, default='', verbose_name='结构式SVG')
-    seo_title = models.CharField(max_length=256, blank=True, default='', verbose_name='SEO标题')
-    seo_description = models.TextField(blank=True, default='', verbose_name='SEO描述')
-    category_l1 = models.CharField(max_length=128, blank=True, default='', verbose_name='一级分类')
-    category_l2 = models.CharField(max_length=128, blank=True, default='', verbose_name='二级分类')
-    display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级')
+    name = models.CharField(max_length=255, verbose_name='产品名称',
+        help_text='产品全名，例如：2\'-Azido-dATP Sodium Salt')
+    slug = models.SlugField(max_length=255, unique=True, verbose_name='Slug',
+        help_text='URL 标识符，自动生成')
+    catalog_no = models.CharField(max_length=64, unique=True, null=True, blank=True, verbose_name='目录号',
+        help_text='唯一产品编号，例如：SC8047')
+    cas = models.CharField(max_length=100, blank=True, default='', verbose_name='CAS号',
+        help_text='CAS 注册号，例如：73449-06-6')
+    smiles = models.TextField(blank=True, default='', verbose_name='SMILES',
+        help_text='简化分子输入行系统，例如：C1=NC(=C2C(=N1)N(C=N2)[C@H]3...')
+    synonyms = models.JSONField(default=list, blank=True, verbose_name='同义词',
+        help_text='JSON 数组格式，例如：["2\'-F-dATP", "2-Fluoro-dATP"]')
+    inchi = models.TextField(blank=True, default='', verbose_name='InChI',
+        help_text='国际化合物标识，标准 InChI 字符串')
+    formula = models.CharField(max_length=256, blank=True, default='', verbose_name='分子式',
+        help_text='分子式，例如：C10H15N8O12P3')
+    molecular_weight = models.FloatField(null=True, blank=True, verbose_name='分子量',
+        help_text='分子量（g/mol），例如：532.2')
+    purity = models.CharField(max_length=100, blank=True, default='', verbose_name='纯度',
+        help_text='纯度描述，例如：≥95% (HPLC)')
+    concentration = models.CharField(max_length=64, blank=True, default='', verbose_name='浓度',
+        help_text='浓度信息，例如：10 mM in water')
+    storage = models.TextField(blank=True, default='', verbose_name='储存条件',
+        help_text='储存温度和条件，例如：-20°C, protect from light')
+    shipping = models.TextField(blank=True, default='', verbose_name='运输条件',
+        help_text='运输温度和包装要求，例如：Blue ice, ambient')
+    lead_time = models.CharField(max_length=100, blank=True, default='', verbose_name='货期',
+        help_text='发货周期，例如：1-3 business days')
+    handling_notes = models.TextField(blank=True, default='', verbose_name='操作注意事项',
+        help_text='安全操作提示')
+    shelf_life = models.DurationField(null=True, blank=True, verbose_name='保质期',
+        help_text='保质期，例如：P1Y 表示 1 年')
+    research_use_only = models.BooleanField(default=True, verbose_name='仅限研究用途',
+        help_text='勾选表示此产品仅用于科学研究')
+    overview = models.TextField(blank=True, default='', verbose_name='产品概述',
+        help_text='产品详细介绍，支持 Markdown')
+    structure_svg = models.TextField(blank=True, default='', verbose_name='结构式SVG',
+        help_text='分子结构 SVG 代码')
+    seo_title = models.CharField(max_length=256, blank=True, default='', verbose_name='SEO标题',
+        help_text='搜索引擎标题，建议 50-60 字符')
+    seo_description = models.TextField(blank=True, default='', verbose_name='SEO描述',
+        help_text='搜索引擎描述，建议 120-160 字符')
+    category_l1 = models.CharField(max_length=128, blank=True, default='', verbose_name='一级分类',
+        help_text='产品大类，例如：Nucleotides & Nucleosides')
+    category_l2 = models.CharField(max_length=128, blank=True, default='', verbose_name='二级分类',
+        help_text='产品子类，例如：2\'-Modified dNTPs')
+    display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级',
+        help_text='数字越大越靠前，0 为默认排序')
 
     # PostgreSQL FTS field — only added when running on PostgreSQL
     if _USE_POSTGRES:

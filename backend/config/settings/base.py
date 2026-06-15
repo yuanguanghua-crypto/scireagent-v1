@@ -11,6 +11,9 @@ DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 INSTALLED_APPS = [
+    'unfold',
+    'unfold.contrib.filters',
+    'unfold.contrib.forms',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -105,6 +108,7 @@ CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:3000,
 
 # DRF
 REST_FRAMEWORK = {
+    'FORMAT_SUFFIX_KWARG': None,  # Disable format suffix to avoid converter registration conflict
     'DEFAULT_RENDERER_CLASSES': [
         'core.renderers.EnvelopeRenderer',
     ],
@@ -129,4 +133,96 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'LabPro Global - AI-Native Scientific Reagent Platform',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+}
+
+# Django Unfold admin theme
+UNFOLD = {
+    "SITE_TITLE": "SciReagent Admin",
+    "SITE_HEADER": "SciReagent",
+    "SITE_SYMBOL": "science",
+    "SHOW_HISTORY": True,
+    "SHOW_VIEW_ON_SITE": True,
+    "COLORS": {
+        "primary": {
+            "50": "240 253 244",
+            "100": "220 252 231",
+            "200": "187 247 208",
+            "300": "134 239 172",
+            "400": "74 222 128",
+            "500": "34 197 94",
+            "600": "22 163 74",
+            "700": "21 128 61",
+            "800": "22 101 52",
+            "900": "20 83 45",
+            "950": "5 46 22",
+        },
+    },
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": False,
+        "navigation": [
+            {
+                "title": "Products",
+                "icon": "inventory_2",
+                "items": [
+                    {"title": "Products", "link": "/admin/commerce/product/", "icon": "science"},
+                    {"title": "Product Classes", "link": "/admin/commerce/productclass/", "icon": "category"},
+                    {"title": "Product Documents", "link": "/admin/commerce/productdocument/", "icon": "description"},
+                ],
+            },
+            {
+                "title": "Knowledge",
+                "icon": "school",
+                "items": [
+                    {"title": "Research Goals", "link": "/admin/knowledge/researchgoal/", "icon": "flag"},
+                    {"title": "Applications", "link": "/admin/knowledge/application/", "icon": "biotech"},
+                    {"title": "Methods", "link": "/admin/knowledge/method/", "icon": "psychology"},
+                    {"title": "Protocols", "link": "/admin/knowledge/protocol/", "icon": "lab_research"},
+                    {"title": "References", "link": "/admin/knowledge/reference/", "icon": "menu_book"},
+                ],
+            },
+            {
+                "title": "Relationships",
+                "icon": "hub",
+                "items": [
+                    {"title": "Product ↔ Method", "link": "/admin/bridges/productmethod/", "icon": "link"},
+                    {"title": "Product ↔ Product", "link": "/admin/bridges/productproduct/", "icon": "sync_alt"},
+                    {"title": "Product Compatibility", "link": "/admin/bridges/productcompatibility/", "icon": "verified"},
+                    {"title": "Compatibility Rules", "link": "/admin/knowledge/compatibility/", "icon": "rule"},
+                ],
+            },
+            {
+                "title": "Commerce",
+                "icon": "shopping_cart",
+                "items": [
+                    {"title": "Orders", "link": "/admin/transactions/order/", "icon": "receipt_long"},
+                    {"title": "Quotes", "link": "/admin/transactions/quote/", "icon": "request_quote"},
+                    {"title": "Quote Requests", "link": "/admin/quotes/quoterequest/", "icon": "help_outline"},
+                    {"title": "Invoices", "link": "/admin/transactions/invoice/", "icon": "payments"},
+                    {"title": "Payments", "link": "/admin/transactions/paymentrecord/", "icon": "account_balance"},
+                    {"title": "Shipping", "link": "/admin/transactions/shippingrecord/", "icon": "local_shipping"},
+                ],
+            },
+            {
+                "title": "Accounts",
+                "icon": "group",
+                "items": [
+                    {"title": "Users", "link": "/admin/accounts/user/", "icon": "person"},
+                    {"title": "Organizations", "link": "/admin/accounts/organization/", "icon": "business"},
+                ],
+            },
+            {
+                "title": "System",
+                "icon": "settings",
+                "items": [
+                    {"title": "Tokens", "link": "/admin/authtoken/tokenproxy/", "icon": "key"},
+                    {"title": "Groups", "link": "/admin/auth/group/", "icon": "group_work"},
+                    {"title": "PDF Files", "link": "/admin/assets/pdffile/", "icon": "picture_as_pdf"},
+                    {"title": "SKU Management", "link": "/admin/commerce/sku/", "icon": "sell"},
+                    {"title": "Basket", "link": "/admin/transactions/basket/", "icon": "shopping_basket"},
+                    {"title": "Wishlist", "link": "/admin/transactions/wishlist/", "icon": "favorite"},
+                ],
+            },
+        ],
+    },
 }
