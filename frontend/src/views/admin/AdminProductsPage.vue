@@ -13,7 +13,7 @@ const products = ref([])
 const loading = ref(false)
 const searchQuery = ref('')
 
-const isAdmin = computed(() => auth.role === 'admin' || auth.isOrgAdmin)
+const isAdmin = computed(() => auth.role === 'admin' || auth.isOrgAdmin || auth.user?.is_superuser)
 
 const filteredProducts = computed(() => {
   if (!searchQuery.value) return products.value

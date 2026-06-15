@@ -19,7 +19,7 @@ const saveMessage = ref('')
 const saveMessageType = ref('success')
 
 /* ── Access Control ── */
-const isAdmin = computed(() => auth.role === 'admin' || auth.isOrgAdmin)
+const isAdmin = computed(() => auth.role === 'admin' || auth.isOrgAdmin || auth.user?.is_superuser)
 
 /* ── Categories ── */
 const categories = ref({})
