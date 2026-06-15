@@ -134,6 +134,24 @@ const routes = [
     meta: { title: 'Order Processing', requiresAuth: true },
   },
   {
+    path: '/admin/products',
+    name: 'AdminProducts',
+    component: () => import('@/views/admin/AdminProductsPage.vue'),
+    meta: { title: 'Product Management', requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/admin/products/new',
+    name: 'AdminProductNew',
+    component: () => import('@/views/admin/AdminProductEdit.vue'),
+    meta: { title: 'New Product', requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/admin/products/:id/edit',
+    name: 'AdminProductEdit',
+    component: () => import('@/views/admin/AdminProductEdit.vue'),
+    meta: { title: 'Edit Product', requiresAuth: true, requiresAdmin: true },
+  },
+  {
     path: '/knowledge-intake',
     name: 'KnowledgeIntake',
     component: () => import('@/views/KnowledgeIntake.vue'),
@@ -176,6 +194,12 @@ router.beforeEach((to, from, next) => {
 
   // If route requires auth and user is not authenticated, redirect to login
   if (to.meta.requiresAuth && !hasToken) {
+    next({ path: '/login', query: { redirect: to.fullPath } })
+    return
+  }
+
+  // If route requires admin, check role (deferred check — will re-verify in component)
+  if (to.meta.requiresAdmin && !hasToken) {
     next({ path: '/login', query: { redirect: to.fullPath } })
     return
   }

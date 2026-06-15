@@ -112,6 +112,20 @@ async function handleLogout() {
               </div>
             </div>
             <div class="dropdown-divider"></div>
+            <!-- Admin links (visible only to admins) -->
+            <router-link v-if="authStore.role === 'admin' || authStore.isOrgAdmin" to="/admin/products" class="dropdown-item" @click="closeDropdown">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+              Product Management
+            </router-link>
+            <router-link v-if="authStore.role === 'admin' || authStore.isOrgAdmin" to="/admin/orders" class="dropdown-item" @click="closeDropdown">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              Order Management
+            </router-link>
+            <div v-if="authStore.role === 'admin' || authStore.isOrgAdmin" class="dropdown-divider"></div>
             <router-link to="/settings" class="dropdown-item" @click="closeDropdown">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                 <circle cx="12" cy="12" r="3" />
