@@ -1,16 +1,15 @@
 from unfold.admin import ModelAdmin
 from unfold.decorators import action
 from django.contrib import admin
-from django.utils.html import format_html
 from django import forms
+from django.utils.safestring import mark_safe
 
 from .models import ProductClass, CatalogGroup, Product, SKU, ProductDocument
 
 
-# ── Custom Widgets ───────────────────────────────────
+# ── SKU Form ─────────────────────────────────────────
 
 class SKUInlineForm(forms.ModelForm):
-    """SKU inline form with better defaults."""
     class Meta:
         model = SKU
         fields = '__all__'
@@ -37,11 +36,6 @@ class ProductClassAdmin(ModelAdmin):
     list_display = ('name', 'parent', 'sort_order')
     search_fields = ('name',)
     prepopulated_fields = {'slug': ('name',)}
-    fieldsets = (
-        (None, {
-            'fields': ('name', 'slug', 'parent', 'sort_order'),
-        }),
-    )
 
 
 # ── CatalogGroup ─────────────────────────────────────
@@ -67,37 +61,34 @@ class ProductAdmin(ModelAdmin):
     list_per_page = 50
     save_on_top = True
 
+    # ── 扁平化：所有字段在一个 section ───────────────
     fieldsets = (
-        ('基本信息', {
+        (None, {
             'fields': (
                 'name', 'slug', 'catalog_no', 'cas', 'synonyms',
                 'status', 'research_use_only', 'display_priority',
                 'overview',
-            ),
-        }),
-        ('化学结构', {
-            'fields': ('smiles', 'inchi', 'formula', 'molecular_weight'),
-            'classes': ('collapse',),
-        }),
-        ('科学参数', {
-            'fields': (
+                # 化学结构
+                'smiles', 'inchi', 'formula', 'molecular_weight',
+                # 科学参数
                 ('purity', 'concentration'),
                 ('storage', 'shipping'),
                 ('lead_time', 'shelf_life'),
                 'handling_notes',
+                # 分类
+                'product_class', 'catalog_group',
+                'category_l1', 'category_l2',
+                # SEO
+                'seo_title', 'seo_description',
             ),
-        }),
-        ('分类', {
-            'fields': ('product_class', 'catalog_group', 'category_l1', 'category_l2'),
-        }),
-        ('SEO（自动生成）', {
-            'fields': ('seo_title', 'seo_description'),
-            'classes': ('collapse',),
-            'description': '保存时自动生成，也可手动修改。',
         }),
     )
 
-    # ── Batch Actions ────────────────────────────────
+    # ── 加载自定义 JS（L1→L2 联动）─────────────────
+    class Media:
+        js = ('admin/js/category_chained.js',)
+
+    # ── 批量操作 ────────────────────────────────────
 
     @action(description='批量激活 (Set Active)')
     def make_active(self, request, queryset):
@@ -119,7 +110,7 @@ class ProductAdmin(ModelAdmin):
                 desc = f'Buy {product.name}'
                 if product.cas:
                     desc += f' (CAS: {product.cas})'
-                desc += f'. High purity research reagent. Order from SciReagent.'
+                desc += '. High purity research reagent. Order from SciReagent.'
                 product.seo_description = desc
             product.save(update_fields=['seo_title', 'seo_description'])
             count += 1
@@ -130,7 +121,6 @@ class ProductAdmin(ModelAdmin):
     # ── Auto-generate SEO on save ────────────────────
 
     def save_model(self, request, obj, form, change):
-        # Auto-generate SEO if empty
         if not obj.seo_title:
             obj.seo_title = f'{obj.name} | SciReagent'
         if not obj.seo_description:
@@ -172,11 +162,3 @@ class ProductDocumentAdmin(ModelAdmin):
     list_filter = ('document_type', 'language')
     search_fields = ('product__name', 'original_filename')
     autocomplete_fields = ('product',)
-    fieldsets = (
-        (None, {
-            'fields': ('product', 'document_type', 'language', 'version'),
-        }),
-        ('文件', {
-            'fields': ('file', 'original_filename'),
-        }),
-    )
