@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from core.serializers import BaseModelSerializer
 from apps.commerce.models import Product, SKU, ProductClass, CatalogGroup, ProductDocument
+from apps.knowledge.models import Method, Protocol
 
 
 class ProductClassSerializer(BaseModelSerializer):
@@ -72,6 +73,11 @@ class ProductListSerializer(BaseModelSerializer):
 
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     skus = SKUCreateSerializer(many=True, required=False)
+    # Knowledge relationship fields (write-only, optional)
+    method_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=None)
+    protocol_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=None)
+    research_goal_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=None)
+    application_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=None)
 
     class Meta:
         model = Product
@@ -81,24 +87,74 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'shipping', 'lead_time', 'handling_notes', 'shelf_life', 'research_use_only',
             'overview', 'structure_svg', 'seo_title', 'seo_description',
             'category_l1', 'category_l2', 'status', 'product_class_id',
+            'skus', 'method_ids', 'protocol_ids', 'research_goal_ids', 'application_ids',
         ]
 
+    def _sync_method_bridges(self, product, method_ids):
+        """Sync ProductMethod bridges: remove old, add new."""
+        from apps.bridges.models import ProductMethod
+        if method_ids is None:
+            return  # Not provided, don't touch
+        existing = set(ProductMethod.objects.filter(product=product).values_list('method_id', flat=True))
+        desired = set(mid for mid in method_ids if Method.objects.filter(id=mid).exists())
+        # Remove bridges not in desired
+        to_remove = existing - desired
+        if to_remove:
+            ProductMethod.objects.filter(product=product, method_id__in=to_remove).delete()
+        # Add bridges not in existing
+        to_add = desired - existing
+        for mid in to_add:
+            ProductMethod.objects.create(product=product, method_id=mid)
+
+    def _sync_protocol_bridges(self, product, protocol_ids):
+        """Sync MethodProtocol bridges via product's methods."""
+        from apps.bridges.models import MethodProtocol
+        if protocol_ids is None:
+            return
+        # Get product's method IDs
+        method_ids = list(ProductMethod.objects.filter(product=product).values_list('method_id', flat=True))
+        if not method_ids:
+            return
+        # For each protocol, create MethodProtocol bridge if not exists
+        for pid in protocol_ids:
+            if not Protocol.objects.filter(id=pid).exists():
+                continue
+            for mid in method_ids:
+                MethodProtocol.objects.get_or_create(method_id=mid, protocol_id=pid)
+
     def create(self, validated_data):
+        method_ids = validated_data.pop('method_ids', None)
+        protocol_ids = validated_data.pop('protocol_ids', None)
+        research_goal_ids = validated_data.pop('research_goal_ids', None)
+        application_ids = validated_data.pop('application_ids', None)
         skus_data = validated_data.pop('skus', [])
+
         product = Product.objects.create(**validated_data)
         for sku_data in skus_data:
             SKU.objects.create(product=product, **sku_data)
+
+        self._sync_method_bridges(product, method_ids)
+        self._sync_protocol_bridges(product, protocol_ids)
         return product
 
     def update(self, instance, validated_data):
+        method_ids = validated_data.pop('method_ids', None)
+        protocol_ids = validated_data.pop('protocol_ids', None)
+        research_goal_ids = validated_data.pop('research_goal_ids', None)
+        application_ids = validated_data.pop('application_ids', None)
         skus_data = validated_data.pop('skus', None)
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
+
         if skus_data is not None:
             instance.skus.all().delete()
             for sku_data in skus_data:
                 SKU.objects.create(product=instance, **sku_data)
+
+        self._sync_method_bridges(instance, method_ids)
+        self._sync_protocol_bridges(instance, protocol_ids)
         return instance
 
 

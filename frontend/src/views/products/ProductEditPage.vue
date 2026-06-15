@@ -2,6 +2,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createProduct, updateProduct, getProduct, getCategories } from '@/api/products'
+import http from '@/utils/http'
 import { smilesToSvg, rdkitLoading } from '@/composables/useRdkit'
 
 const route = useRoute()
@@ -19,6 +20,7 @@ onMounted(async () => {
     const res = await getCategories()
     categories.value = res.data || res || {}
   } catch { /* ignore */ }
+  loadKnowledgeOptions()
   if (isEdit.value) loadProduct()
 })
 
@@ -41,6 +43,38 @@ const form = reactive({
   category_l1: '', category_l2: '', category_l3: '',
   status: 'draft', product_class_id: null,
 })
+
+/* ── Knowledge Fields ── */
+const methodIds = ref([])
+const protocolIds = ref([])
+const researchGoalIds = ref([])
+const applicationIds = ref([])
+
+const GOAL_OPTIONS = ref([])
+const APP_OPTIONS = ref([])
+const METHOD_OPTIONS = ref([])
+const PROTOCOL_OPTIONS = ref([])
+
+async function loadKnowledgeOptions() {
+  try {
+    const [goals, apps, methods, protocols] = await Promise.all([
+      http.get('/research-goals/'),
+      http.get('/applications/'),
+      http.get('/methods/'),
+      http.get('/protocols/'),
+    ])
+    GOAL_OPTIONS.value = (goals.data || goals || []).map(g => ({ id: g.id, name: g.name }))
+    APP_OPTIONS.value = (apps.data || apps || []).map(a => ({ id: a.id, name: a.name }))
+    METHOD_OPTIONS.value = (methods.data || methods || []).map(m => ({ id: m.id, name: m.name }))
+    PROTOCOL_OPTIONS.value = (protocols.data || protocols || []).map(p => ({ id: p.id, name: p.name }))
+  } catch { /* ignore */ }
+}
+
+function toggleKnowledgeItem(arr, id) {
+  const idx = arr.indexOf(id)
+  if (idx >= 0) arr.splice(idx, 1)
+  else arr.push(id)
+}
 
 /* ── SKUs ── */
 const skus = ref([])
@@ -87,6 +121,14 @@ async function loadProduct() {
     if (data.skus) {
       skus.value = data.skus.map(s => ({ ...s, _key: s.id }))
     }
+    // Load knowledge relationships
+    try {
+      const detailRes = await http.get(`/products/${route.params.id}/detail/`)
+      const detail = detailRes.data || detailRes
+      methodIds.value = (detail.compatibility?.methods || []).map(m => m.id)
+      protocolIds.value = (detail.protocols || []).map(p => p.id)
+      applicationIds.value = (detail.applications || []).map(a => a.id)
+    } catch { /* ignore - knowledge data may not exist */ }
   } catch (err) {
     saveMessage.value = 'Failed to load product.'
     saveMessageType.value = 'error'
@@ -115,6 +157,11 @@ async function handleSave() {
       const { _key, ...rest } = s
       return rest
     })
+    // Attach knowledge fields
+    if (methodIds.value.length) payload.method_ids = methodIds.value
+    if (protocolIds.value.length) payload.protocol_ids = protocolIds.value
+    if (researchGoalIds.value.length) payload.research_goal_ids = researchGoalIds.value
+    if (applicationIds.value.length) payload.application_ids = applicationIds.value
 
     if (isEdit.value) {
       await updateProduct(route.params.id, payload)
@@ -160,6 +207,7 @@ const sections = [
   { id: 'category', label: 'Category', icon: 'M4 6h16M4 12h16M4 18h16' },
   { id: 'description', label: 'Description', icon: 'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z' },
   { id: 'skus', label: 'SKUs', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
+  { id: 'knowledge', label: 'Knowledge', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
   { id: 'seo', label: 'SEO', icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z' },
 ]
 </script>
@@ -375,6 +423,66 @@ const sections = [
           <button class="btn-add-sku" @click="addSku">+ Add SKU</button>
         </section>
 
+        <!-- Knowledge -->
+        <section v-if="activeSection === 'knowledge'" class="form-section">
+          <h2 class="section-title">Research Knowledge</h2>
+          <p class="section-hint">Link this product to research goals, applications, methods, and protocols.</p>
+
+          <div class="form-grid">
+            <!-- Research Goals -->
+            <div class="form-group form-group--full">
+              <label class="form-label">Research Goals</label>
+              <div class="chips-grid">
+                <button
+                  v-for="opt in GOAL_OPTIONS" :key="opt.id"
+                  type="button" class="chip"
+                  :class="{ 'chip-active': researchGoalIds.includes(opt.id) }"
+                  @click="toggleKnowledgeItem(researchGoalIds, opt.id)"
+                >{{ opt.name }}</button>
+              </div>
+            </div>
+
+            <!-- Applications -->
+            <div class="form-group form-group--full">
+              <label class="form-label">Applications</label>
+              <div class="chips-grid">
+                <button
+                  v-for="opt in APP_OPTIONS" :key="opt.id"
+                  type="button" class="chip"
+                  :class="{ 'chip-active': applicationIds.includes(opt.id) }"
+                  @click="toggleKnowledgeItem(applicationIds, opt.id)"
+                >{{ opt.name }}</button>
+              </div>
+            </div>
+
+            <!-- Methods -->
+            <div class="form-group form-group--full">
+              <label class="form-label">Methods</label>
+              <div class="chips-grid">
+                <button
+                  v-for="opt in METHOD_OPTIONS" :key="opt.id"
+                  type="button" class="chip"
+                  :class="{ 'chip-active': methodIds.includes(opt.id) }"
+                  @click="toggleKnowledgeItem(methodIds, opt.id)"
+                >{{ opt.name }}</button>
+              </div>
+            </div>
+
+            <!-- Protocols -->
+            <div class="form-group form-group--full">
+              <label class="form-label">Protocols</label>
+              <div class="chips-grid">
+                <button
+                  v-for="opt in PROTOCOL_OPTIONS" :key="opt.id"
+                  type="button" class="chip"
+                  :class="{ 'chip-active': protocolIds.includes(opt.id) }"
+                  @click="toggleKnowledgeItem(protocolIds, opt.id)"
+                >{{ opt.name }}</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- SEO -->
         <section v-if="activeSection === 'seo'" class="form-section">
           <h2 class="section-title">SEO Information</h2>
@@ -471,4 +579,13 @@ const sections = [
   .form-grid { grid-template-columns: 1fr; }
   .sku-header, .sku-row { grid-template-columns: 1fr 1fr 1fr; }
 }
+/* Knowledge chips */
+.chips-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 4px 12px; border: 1px solid var(--color-border, #e2e8f0); border-radius: 16px;
+  font-size: 12px; cursor: pointer; background: var(--color-surface, #fff);
+  color: var(--color-text, #1e293b); font-family: var(--font-sans, system-ui); transition: all 0.15s;
+}
+.chip:hover { border-color: var(--color-primary, #0f766e); }
+.chip-active { background: var(--color-primary, #0f766e); border-color: var(--color-primary, #0f766e); color: white; }
 </style>

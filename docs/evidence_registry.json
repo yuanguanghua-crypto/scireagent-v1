@@ -1,0 +1,2523 @@
+[
+  {
+    "product": "SC8003",
+    "product_name": "5‑Propargylamino‑CTP-Cy3",
+    "pmid": "36047982",
+    "doi": "10.1080/15257770.2022.2118317",
+    "title": "Synthesis of new 1,2,3-triazolo-nucleoside analogues with 2-propargylamino pyrimidines ",
+    "journal": "Nucleosides, nucleotides & nucleic acids",
+    "year": "2023",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8003",
+    "product_name": "5‑Propargylamino‑CTP-Cy3",
+    "pmid": "10521282",
+    "doi": "10.1021/bi9911637",
+    "title": "DNA triple helix formation at target sites containing several pyrimidine interruptions: stabilization by protonated cytosine or 5-(1-propargylamino)dU.",
+    "journal": "Biochemistry",
+    "year": "1999",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8003",
+    "product_name": "5‑Propargylamino‑CTP-Cy3",
+    "pmid": "10101187",
+    "doi": "10.1093/nar/27.8.1802",
+    "title": "5-(1-propargylamino)-2'-deoxyuridine (UP): a novel thymidine analogue for generating DNA triplexes with increased stability.",
+    "journal": "Nucleic acids research",
+    "year": "1999",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8006",
+    "product_name": "5‑Propargylamino‑dCTP-Cy5",
+    "pmid": "36047982",
+    "doi": "10.1080/15257770.2022.2118317",
+    "title": "Synthesis of new 1,2,3-triazolo-nucleoside analogues with 2-propargylamino pyrimidines ",
+    "journal": "Nucleosides, nucleotides & nucleic acids",
+    "year": "2023",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8006",
+    "product_name": "5‑Propargylamino‑dCTP-Cy5",
+    "pmid": "10521282",
+    "doi": "10.1021/bi9911637",
+    "title": "DNA triple helix formation at target sites containing several pyrimidine interruptions: stabilization by protonated cytosine or 5-(1-propargylamino)dU.",
+    "journal": "Biochemistry",
+    "year": "1999",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8006",
+    "product_name": "5‑Propargylamino‑dCTP-Cy5",
+    "pmid": "10101187",
+    "doi": "10.1093/nar/27.8.1802",
+    "title": "5-(1-propargylamino)-2'-deoxyuridine (UP): a novel thymidine analogue for generating DNA triplexes with increased stability.",
+    "journal": "Nucleic acids research",
+    "year": "1999",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8007",
+    "product_name": "Fluorescein-12-UTP",
+    "pmid": "16349377",
+    "doi": "10.1128/aem.60.9.3228-3235.1994",
+    "title": "Identification of Whole Fixed Bacterial Cells with Nonradioactive 23S rRNA-Targeted Polynucleotide Probes.",
+    "journal": "Applied and environmental microbiology",
+    "year": "1994",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8007",
+    "product_name": "Fluorescein-12-UTP",
+    "pmid": "17883279",
+    "doi": "10.1021/ac0710580",
+    "title": "Free-solution oligonucleotide separation in nanoscale channels.",
+    "journal": "Analytical chemistry",
+    "year": "2007",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8008",
+    "product_name": "5-Formyl-UTP",
+    "pmid": "909423",
+    "doi": "10.1016/s0076-6879(77)46040-3",
+    "title": "5-Formyl-UTP for DNA-dependent RNA polymerase.",
+    "journal": "Methods in enzymology",
+    "year": "1977",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8011",
+    "product_name": "Pseudo-UTP",
+    "pmid": "27911496",
+    "doi": "10.1002/cpnc.20",
+    "title": "Gram-Scale Chemical Synthesis of Base-Modified Ribonucleoside-5'-O-Triphosphates.",
+    "journal": "Current protocols in nucleic acid chemistry",
+    "year": "2016",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8011",
+    "product_name": "Pseudo-UTP",
+    "pmid": "24210219",
+    "doi": "10.1016/j.chembiol.2013.09.011",
+    "title": "Biochemical and structural studies of conserved Maf proteins revealed nucleotide pyrophosphatases with a preference for modified nucleotides.",
+    "journal": "Chemistry & biology",
+    "year": "2013",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8011",
+    "product_name": "Pseudo-UTP",
+    "pmid": "35228902",
+    "doi": "10.1016/j.omtn.2022.01.021",
+    "title": "Towards SINEUP-based therapeutics: Design of an ",
+    "journal": "Molecular therapy. Nucleic acids",
+    "year": "2022",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8014",
+    "product_name": "Biotin-11-UTP",
+    "pmid": "2723019",
+    "doi": "10.1016/0166-0934(89)90128-6",
+    "title": "Biotinylated RNA probes for the detection of potato spindle tuber viroid (PSTV) in plants.",
+    "journal": "Journal of virological methods",
+    "year": "1989",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": [
+      "RNA Biotin Labeling"
+    ]
+  },
+  {
+    "product": "SC8014",
+    "product_name": "Biotin-11-UTP",
+    "pmid": "21424653",
+    "doi": "10.1385/0-89603-127-6:425",
+    "title": "Detection of DNA sequences using biotinylated probes.",
+    "journal": "Methods in molecular biology (Clifton, N.J.)",
+    "year": "1988",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": [
+      "RNA Biotin Labeling"
+    ]
+  },
+  {
+    "product": "SC8014",
+    "product_name": "Biotin-11-UTP",
+    "pmid": "3208617",
+    "doi": "10.1002/cyto.990090602",
+    "title": "Flow cytometric detection of ribosomal RNA in suspended cells by fluorescent in situ hybridization.",
+    "journal": "Cytometry",
+    "year": "1988",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": [
+      "RNA Biotin Labeling"
+    ]
+  },
+  {
+    "product": "SC8015",
+    "product_name": "Biotin-16-UTP",
+    "pmid": "11084863",
+    "doi": "10.2144/00295st02",
+    "title": "Nuclear run-on assay using biotin labeling, magnetic bead capture and analysis by fluorescence-based RT-PCR.",
+    "journal": "BioTechniques",
+    "year": "2000",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8016",
+    "product_name": "Biotin-11-dUTP",
+    "pmid": "3754808",
+    "doi": "",
+    "title": "An improved method for in situ nick translation of human chromosomes with biotin 11-labelled dUTP detected by biotinylated alkaline phosphatase.",
+    "journal": "Cytobios",
+    "year": "1986",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8016",
+    "product_name": "Biotin-11-dUTP",
+    "pmid": "18819132",
+    "doi": "10.1002/smll.200800947",
+    "title": "A polydiacetylene microchip based on a biotin-streptavidin interaction for the diagnosis of pathogen infections.",
+    "journal": "Small (Weinheim an der Bergstrasse, Germany)",
+    "year": "2008",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8016",
+    "product_name": "Biotin-11-dUTP",
+    "pmid": "8097433",
+    "doi": "10.1016/0092-8674(93)90235-i",
+    "title": "Visualization of replication factories attached to nucleoskeleton.",
+    "journal": "Cell",
+    "year": "1993",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8016",
+    "product_name": "Biotin-11-dUTP",
+    "pmid": "2307053",
+    "doi": "10.1002/cyto.990110115",
+    "title": "Multiple fluorescence in situ hybridization.",
+    "journal": "Cytometry",
+    "year": "1990",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8016",
+    "product_name": "Biotin-11-dUTP",
+    "pmid": "2632579",
+    "doi": "10.1242/jcs.94.3.471",
+    "title": "Replication occurs at discrete foci spaced throughout nuclei replicating in vitro.",
+    "journal": "Journal of cell science",
+    "year": "1989",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8017",
+    "product_name": "Biotin-16-dUTP",
+    "pmid": "10421378",
+    "doi": "10.1023/a:1009295131877",
+    "title": "Sister chromatid differentiation with biotin-dUTP.",
+    "journal": "Chromosome research : an international journal on the molecular, supramolecular and evolutionary aspects of chromosome biology",
+    "year": "1999",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8017",
+    "product_name": "Biotin-16-dUTP",
+    "pmid": "12202627",
+    "doi": "10.1093/mutage/17.5.399",
+    "title": "SCE formation after exposure of CHO cells prelabelled with BrdU or biotin-dUTP to various DNA-damaging agents.",
+    "journal": "Mutagenesis",
+    "year": "2002",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8017",
+    "product_name": "Biotin-16-dUTP",
+    "pmid": "15162056",
+    "doi": "10.1159/000077507",
+    "title": "Insights into the mechanisms of sister chromatid exchange formation.",
+    "journal": "Cytogenetic and genome research",
+    "year": "2004",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8018",
+    "product_name": "Cy3-dUTP",
+    "pmid": "36066717",
+    "doi": "10.1007/978-1-0716-2433-3_14",
+    "title": "Visualizing Active Replication Regions in S-Phase Chromosomes.",
+    "journal": "Methods in molecular biology (Clifton, N.J.)",
+    "year": "2023",
+    "methods": [
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8018",
+    "product_name": "Cy3-dUTP",
+    "pmid": "8065939",
+    "doi": "10.1093/nar/22.15.3226",
+    "title": "Cyanine dye dUTP analogs for enzymatic labeling of DNA probes.",
+    "journal": "Nucleic acids research",
+    "year": "1994",
+    "methods": [
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8018",
+    "product_name": "Cy3-dUTP",
+    "pmid": "24609382",
+    "doi": "10.1093/nar/gku192",
+    "title": "Engineering nicking enzymes that preferentially nick 5-methylcytosine-modified DNA.",
+    "journal": "Nucleic acids research",
+    "year": "2014",
+    "methods": [
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8019",
+    "product_name": "Cy5-dUTP",
+    "pmid": "29648660",
+    "doi": "10.1093/nar/gky247",
+    "title": "dUTPs conjugated with zwitterionic Cy3 or Cy5 fluorophore analogues are effective substrates for DNA amplification and labelling by Taq polymerase.",
+    "journal": "Nucleic acids research",
+    "year": "2018",
+    "methods": [
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8019",
+    "product_name": "Cy5-dUTP",
+    "pmid": "8065939",
+    "doi": "10.1093/nar/22.15.3226",
+    "title": "Cyanine dye dUTP analogs for enzymatic labeling of DNA probes.",
+    "journal": "Nucleic acids research",
+    "year": "1994",
+    "methods": [
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8019",
+    "product_name": "Cy5-dUTP",
+    "pmid": "34635776",
+    "doi": "10.1038/s41598-021-99774-z",
+    "title": "Using Cy5-dUTP labelling of RPA-amplicons with downstream microarray analysis for the detection of antibiotic resistance genes.",
+    "journal": "Scientific reports",
+    "year": "2021",
+    "methods": [
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8023",
+    "product_name": "5-Iodo-dUTP",
+    "pmid": "17896337",
+    "doi": "10.1002/chem.200701249",
+    "title": "Ferrocenylethynyl derivatives of nucleoside triphosphates: synthesis, incorporation, electrochemistry, and bioanalytical applications.",
+    "journal": "Chemistry (Weinheim an der Bergstrasse, Germany)",
+    "year": "2007",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8023",
+    "product_name": "5-Iodo-dUTP",
+    "pmid": "6397478",
+    "doi": "10.1016/s0021-9673(01)91667-x",
+    "title": "High-performance liquid chromatographic purification of deoxynucleoside 5'-triphosphates and their use in a sensitive electrophoretic assay of misincorporation during DNA synthesis.",
+    "journal": "Journal of chromatography",
+    "year": "1984",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8023",
+    "product_name": "5-Iodo-dUTP",
+    "pmid": "7295897",
+    "doi": "10.1007/BF01116188",
+    "title": "Preferential utilization of bromodeoxyuridine and iododeoxyuridine triphosphates by DNA polymerase gamma in vitro.",
+    "journal": "Bioscience reports",
+    "year": "1981",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8023",
+    "product_name": "5-Iodo-dUTP",
+    "pmid": "6580500",
+    "doi": "",
+    "title": "Predisposition of [125I]5-iodo-2'-deoxyuridine-labeled normal and neoplastic mouse fibroblasts to lysis by normal macrophages.",
+    "journal": "Journal of the National Cancer Institute",
+    "year": "1983",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8024",
+    "product_name": "5-Formyl-dUTP",
+    "pmid": "9753724",
+    "doi": "10.1093/nar/26.20.4582",
+    "title": "The mutations induced by oxidatively damaged nucleotides, 5-formyl-dUTP and 5-hydroxy-dCTP,in Escherichia coli.",
+    "journal": "Nucleic acids research",
+    "year": "1998",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8024",
+    "product_name": "5-Formyl-dUTP",
+    "pmid": "10373420",
+    "doi": "10.1074/jbc.274.26.18201",
+    "title": "The oxidized forms of dATP are substrates for the human MutT homologue, the hMTH1 protein.",
+    "journal": "The Journal of biological chemistry",
+    "year": "1999",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8025",
+    "product_name": "Cy3-UTP",
+    "pmid": "36794904",
+    "doi": "10.1002/cpz1.667",
+    "title": "Enzymatic Synthesis of High-Density RNA Microarrays.",
+    "journal": "Current protocols",
+    "year": "2023",
+    "methods": [
+      "BigDye Terminator Sequencing",
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8025",
+    "product_name": "Cy3-UTP",
+    "pmid": "16869513",
+    "doi": "10.2144/000112182",
+    "title": "Analysis of oligonucleotide microarrays by 3' end labeling using fluorescent nucleotides and terminal transferase.",
+    "journal": "BioTechniques",
+    "year": "2006",
+    "methods": [
+      "BigDye Terminator Sequencing",
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8026",
+    "product_name": "Cy5-UTP",
+    "pmid": "16869513",
+    "doi": "10.2144/000112182",
+    "title": "Analysis of oligonucleotide microarrays by 3' end labeling using fluorescent nucleotides and terminal transferase.",
+    "journal": "BioTechniques",
+    "year": "2006",
+    "methods": [
+      "BigDye Terminator Sequencing",
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8027",
+    "product_name": "4-Thio-UTP",
+    "pmid": "2429953",
+    "doi": "",
+    "title": "RNA contacts subunits IIo and IIc in HeLa RNA polymerase II transcription complexes.",
+    "journal": "The Journal of biological chemistry",
+    "year": "1986",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8027",
+    "product_name": "4-Thio-UTP",
+    "pmid": "1692025",
+    "doi": "",
+    "title": "Active site labeling of Escherichia coli transcription elongation complexes with 5-[4-azidophenacyl)thio)uridine 5'-triphosphate.",
+    "journal": "The Journal of biological chemistry",
+    "year": "1990",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8027",
+    "product_name": "4-Thio-UTP",
+    "pmid": "28456961",
+    "doi": "10.1007/978-1-4939-6988-3_8",
+    "title": "Purification of Zygotically Transcribed RNA through Metabolic Labeling of Early Zebrafish Embryos.",
+    "journal": "Methods in molecular biology (Clifton, N.J.)",
+    "year": "2017",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8027",
+    "product_name": "4-Thio-UTP",
+    "pmid": "17044717",
+    "doi": "10.1021/ja0639822",
+    "title": "A general RNA-capping ribozyme retains stereochemistry during cap exchange.",
+    "journal": "Journal of the American Chemical Society",
+    "year": "2006",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8027",
+    "product_name": "4-Thio-UTP",
+    "pmid": "7514294",
+    "doi": "10.1073/pnas.91.10.4125",
+    "title": "Stem-loop IV of 5S rRNA lies close to the peptidyltransferase center.",
+    "journal": "Proceedings of the National Academy of Sciences of the United States of America",
+    "year": "1994",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8031",
+    "product_name": "5-Indolyl-AA-dUTP",
+    "pmid": "32490558",
+    "doi": "10.1002/cbic.202000236",
+    "title": "Analysis of Modified Nucleotide Aptamer Library Generated by Thermophilic DNA Polymerases.",
+    "journal": "Chembiochem : a European journal of chemical biology",
+    "year": "2020",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8032",
+    "product_name": "5-Methyl-3'-dUTP",
+    "pmid": "25795598",
+    "doi": "10.1016/j.neuroscience.2015.03.021",
+    "title": "Cannabinoid receptor agonist WIN55,212-2 and fatty acid amide hydrolase inhibitor URB597 suppress chronic cerebral hypoperfusion-induced neuronal apoptosis by inhibiting c-Jun N-terminal kinase signaling.",
+    "journal": "Neuroscience",
+    "year": "2015",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8032",
+    "product_name": "5-Methyl-3'-dUTP",
+    "pmid": "30195603",
+    "doi": "10.1016/j.jtcvs.2018.07.045",
+    "title": "Inhibiting a spinal cord signaling pathway protects against ischemia injury in rats.",
+    "journal": "The Journal of thoracic and cardiovascular surgery",
+    "year": "2019",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8032",
+    "product_name": "5-Methyl-3'-dUTP",
+    "pmid": "22526441",
+    "doi": "10.1007/s00381-012-1747-3",
+    "title": "Expression of AMPA receptor subunits in hippocampus after status convulsion.",
+    "journal": "Child's nervous system : ChNS : official journal of the International Society for Pediatric Neurosurgery",
+    "year": "2012",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8034",
+    "product_name": "5-Ethynyl-dUTP",
+    "pmid": "42191302",
+    "doi": "10.1016/j.aca.2026.345597",
+    "title": "A highly sensitive detection platform for scrub typhus using multi-fluorescence nucleic acid probes and STORM imaging.",
+    "journal": "Analytica chimica acta",
+    "year": "2026",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8034",
+    "product_name": "5-Ethynyl-dUTP",
+    "pmid": "31953472",
+    "doi": "10.1038/s41598-020-57463-3",
+    "title": "Quantitation of deoxynucleoside triphosphates by click reactions.",
+    "journal": "Scientific reports",
+    "year": "2020",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8035",
+    "product_name": "2'-Fluoro-dUTP",
+    "pmid": "375193",
+    "doi": "10.1093/nar/6.3.1041",
+    "title": "2'-Deoxy-2'-fluorouridine-5'-triphosphates: a possible substrate for E. coli RNA polymerase.",
+    "journal": "Nucleic acids research",
+    "year": "1979",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8035",
+    "product_name": "2'-Fluoro-dUTP",
+    "pmid": "13129394",
+    "doi": "10.1021/bc0256547",
+    "title": "Aminomodified nucleobases: functionalized nucleoside triphosphates applicable for SELEX.",
+    "journal": "Bioconjugate chemistry",
+    "year": "2003",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8035",
+    "product_name": "2'-Fluoro-dUTP",
+    "pmid": "34302317",
+    "doi": "10.1002/anie.202107829",
+    "title": "Programmable Site-Specific Functionalization of DNA Origami with Polynucleotide Brushes.",
+    "journal": "Angewandte Chemie (International ed. in English)",
+    "year": "2021",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8035",
+    "product_name": "2'-Fluoro-dUTP",
+    "pmid": "22727781",
+    "doi": "10.1016/j.bmc.2012.06.005",
+    "title": "The effect on quadruplex stability of North-nucleoside derivatives in the loops of the thrombin-binding aptamer.",
+    "journal": "Bioorganic & medicinal chemistry",
+    "year": "2012",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8036",
+    "product_name": "2'-Fluoro-dATP",
+    "pmid": "2538224",
+    "doi": "",
+    "title": "Interaction of several nucleoside triphosphate analogues and 10-hydroxycamptothecin with human DNA topoisomerases.",
+    "journal": "Cancer research",
+    "year": "1989",
+    "methods": [
+      "BigDye Terminator Sequencing"
+    ],
+    "applications": [
+      "Sanger Sequencing"
+    ]
+  },
+  {
+    "product": "SC8036",
+    "product_name": "2'-Fluoro-dATP",
+    "pmid": "3050447",
+    "doi": "",
+    "title": "Interaction of 2-halogenated dATP analogs (F, Cl, and Br) with human DNA polymerases, DNA primase, and ribonucleotide reductase.",
+    "journal": "Molecular pharmacology",
+    "year": "1988",
+    "methods": [
+      "BigDye Terminator Sequencing"
+    ],
+    "applications": [
+      "Sanger Sequencing"
+    ]
+  },
+  {
+    "product": "SC8036",
+    "product_name": "2'-Fluoro-dATP",
+    "pmid": "6156150",
+    "doi": "10.1093/oxfordjournals.jbchem.a132812",
+    "title": "2'-Deoxy-2'-azidoadenosine triphosphate and 2'-deoxy-2'-fluoroadenosine triphosphate as substrates and inhibitors for Escherichia coli DNA-dependent RNA polymerase.",
+    "journal": "Journal of biochemistry",
+    "year": "1980",
+    "methods": [
+      "BigDye Terminator Sequencing"
+    ],
+    "applications": [
+      "Sanger Sequencing"
+    ]
+  },
+  {
+    "product": "SC8036",
+    "product_name": "2'-Fluoro-dATP",
+    "pmid": "9358169",
+    "doi": "10.1093/nar/25.22.4581",
+    "title": "2'-Fluoro modified nucleic acids: polymerase-directed synthesis, properties and stability to analysis by matrix-assisted laser desorption/ionization mass spectrometry.",
+    "journal": "Nucleic acids research",
+    "year": "1997",
+    "methods": [
+      "BigDye Terminator Sequencing"
+    ],
+    "applications": [
+      "Sanger Sequencing"
+    ]
+  },
+  {
+    "product": "SC8037",
+    "product_name": "2'-Fluoro-dCTP",
+    "pmid": "38953682",
+    "doi": "10.1021/acs.inorgchem.4c00783",
+    "title": "Molecular Flexibility in Solvated Crystals of the Dimer, Au",
+    "journal": "Inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8037",
+    "product_name": "2'-Fluoro-dCTP",
+    "pmid": "35861163",
+    "doi": "10.1039/d2dt02135h",
+    "title": "Spontaneous N",
+    "journal": "Dalton transactions (Cambridge, England : 2003)",
+    "year": "2022",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8037",
+    "product_name": "2'-Fluoro-dCTP",
+    "pmid": "38591749",
+    "doi": "10.1021/acs.inorgchem.4c00635",
+    "title": "Synthesis and Structure of [η",
+    "journal": "Inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8038",
+    "product_name": "2'-Fluoro-dGTP",
+    "pmid": "39377743",
+    "doi": "10.1002/chem.202403047",
+    "title": "Engineering Phi29-DNAP Variants for Customized DNA Hydrogel Materials.",
+    "journal": "Chemistry (Weinheim an der Bergstrasse, Germany)",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8039",
+    "product_name": "2'-Amino-dUTP",
+    "pmid": "38953682",
+    "doi": "10.1021/acs.inorgchem.4c00783",
+    "title": "Molecular Flexibility in Solvated Crystals of the Dimer, Au",
+    "journal": "Inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8039",
+    "product_name": "2'-Amino-dUTP",
+    "pmid": "35861163",
+    "doi": "10.1039/d2dt02135h",
+    "title": "Spontaneous N",
+    "journal": "Dalton transactions (Cambridge, England : 2003)",
+    "year": "2022",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8039",
+    "product_name": "2'-Amino-dUTP",
+    "pmid": "38591749",
+    "doi": "10.1021/acs.inorgchem.4c00635",
+    "title": "Synthesis and Structure of [η",
+    "journal": "Inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8040",
+    "product_name": "2'-Amino-dGTP",
+    "pmid": "38953682",
+    "doi": "10.1021/acs.inorgchem.4c00783",
+    "title": "Molecular Flexibility in Solvated Crystals of the Dimer, Au",
+    "journal": "Inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8040",
+    "product_name": "2'-Amino-dGTP",
+    "pmid": "35861163",
+    "doi": "10.1039/d2dt02135h",
+    "title": "Spontaneous N",
+    "journal": "Dalton transactions (Cambridge, England : 2003)",
+    "year": "2022",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8040",
+    "product_name": "2'-Amino-dGTP",
+    "pmid": "38591749",
+    "doi": "10.1021/acs.inorgchem.4c00635",
+    "title": "Synthesis and Structure of [η",
+    "journal": "Inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8041",
+    "product_name": "2'-Amino-dCTP",
+    "pmid": "19426741",
+    "doi": "10.1016/j.jmb.2009.04.069",
+    "title": "Binding of 2'-amino-2'-deoxycytidine-5'-triphosphate to norovirus polymerase induces rearrangement of the active site.",
+    "journal": "Journal of molecular biology",
+    "year": "2009",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8042",
+    "product_name": "2'-Amino-dATP",
+    "pmid": "38697668",
+    "doi": "10.1261/rna.079863.123",
+    "title": "Enhanced ac4C detection in RNA via chemical reduction and cDNA synthesis with modified dNTPs.",
+    "journal": "RNA (New York, N.Y.)",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8042",
+    "product_name": "2'-Amino-dATP",
+    "pmid": "10362073",
+    "doi": "10.1247/csf.24.101",
+    "title": "The effects of various GTP analogues on microtubule assembly.",
+    "journal": "Cell structure and function",
+    "year": "1999",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8042",
+    "product_name": "2'-Amino-dATP",
+    "pmid": "15095864",
+    "doi": "10.1016/j.jmb.2003.12.060",
+    "title": "Probing the substrate recognition mechanism of the human MTH1 protein by nucleotide analogs.",
+    "journal": "Journal of molecular biology",
+    "year": "2004",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8043",
+    "product_name": "2'-Amino-ATP",
+    "pmid": "15265873",
+    "doi": "10.1074/jbc.M401752200",
+    "title": "Chain termination and inhibition of Saccharomyces cerevisiae poly(A) polymerase by C-8-modified ATP analogs.",
+    "journal": "The Journal of biological chemistry",
+    "year": "2004",
+    "methods": [
+      "BigDye Terminator Sequencing"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8043",
+    "product_name": "2'-Amino-ATP",
+    "pmid": "10362073",
+    "doi": "10.1247/csf.24.101",
+    "title": "The effects of various GTP analogues on microtubule assembly.",
+    "journal": "Cell structure and function",
+    "year": "1999",
+    "methods": [
+      "BigDye Terminator Sequencing"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8043",
+    "product_name": "2'-Amino-ATP",
+    "pmid": "15216887",
+    "doi": "10.1247/csf.24.305",
+    "title": "Effects of purinenucleotide analogues on microtubule assembly.",
+    "journal": "Cell structure and function",
+    "year": "1999",
+    "methods": [
+      "BigDye Terminator Sequencing"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8045",
+    "product_name": "2'-Azido-dGTP",
+    "pmid": "38953682",
+    "doi": "10.1021/acs.inorgchem.4c00783",
+    "title": "Molecular Flexibility in Solvated Crystals of the Dimer, Au",
+    "journal": "Inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8045",
+    "product_name": "2'-Azido-dGTP",
+    "pmid": "35861163",
+    "doi": "10.1039/d2dt02135h",
+    "title": "Spontaneous N",
+    "journal": "Dalton transactions (Cambridge, England : 2003)",
+    "year": "2022",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8045",
+    "product_name": "2'-Azido-dGTP",
+    "pmid": "38591749",
+    "doi": "10.1021/acs.inorgchem.4c00635",
+    "title": "Synthesis and Structure of [η",
+    "journal": "Inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8046",
+    "product_name": "2'-Azido-dCTP",
+    "pmid": "38953682",
+    "doi": "10.1021/acs.inorgchem.4c00783",
+    "title": "Molecular Flexibility in Solvated Crystals of the Dimer, Au",
+    "journal": "Inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8046",
+    "product_name": "2'-Azido-dCTP",
+    "pmid": "35861163",
+    "doi": "10.1039/d2dt02135h",
+    "title": "Spontaneous N",
+    "journal": "Dalton transactions (Cambridge, England : 2003)",
+    "year": "2022",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8046",
+    "product_name": "2'-Azido-dCTP",
+    "pmid": "38591749",
+    "doi": "10.1021/acs.inorgchem.4c00635",
+    "title": "Synthesis and Structure of [η",
+    "journal": "Inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8047",
+    "product_name": "2'-Azido-dATP",
+    "pmid": "6978713",
+    "doi": "10.1016/0006-291x(82)91376-6",
+    "title": "Inhibition of a novel subspecies of DNA polymerase alpha by 2'-deoxy-2'-azidoadenosine 5'-triphosphate.",
+    "journal": "Biochemical and biophysical research communications",
+    "year": "1982",
+    "methods": [],
+    "applications": [
+      "Sanger Sequencing"
+    ]
+  },
+  {
+    "product": "SC8047",
+    "product_name": "2'-Azido-dATP",
+    "pmid": "2713339",
+    "doi": "10.1021/bi00428a045",
+    "title": "Photoaffinity labeling of terminal deoxynucleotidyl transferase. 2. Identification of peptides in the nucleotide binding domain.",
+    "journal": "Biochemistry",
+    "year": "1989",
+    "methods": [],
+    "applications": [
+      "Sanger Sequencing"
+    ]
+  },
+  {
+    "product": "SC8047",
+    "product_name": "2'-Azido-dATP",
+    "pmid": "2713338",
+    "doi": "10.1021/bi00428a044",
+    "title": "Photoaffinity labeling of terminal deoxynucleotidyl transferase. 1. Active site directed interactions with 8-azido-2'-deoxyadenosine 5'-triphosphate.",
+    "journal": "Biochemistry",
+    "year": "1989",
+    "methods": [],
+    "applications": [
+      "Sanger Sequencing"
+    ]
+  },
+  {
+    "product": "SC8047",
+    "product_name": "2'-Azido-dATP",
+    "pmid": "6156150",
+    "doi": "10.1093/oxfordjournals.jbchem.a132812",
+    "title": "2'-Deoxy-2'-azidoadenosine triphosphate and 2'-deoxy-2'-fluoroadenosine triphosphate as substrates and inhibitors for Escherichia coli DNA-dependent RNA polymerase.",
+    "journal": "Journal of biochemistry",
+    "year": "1980",
+    "methods": [],
+    "applications": [
+      "Sanger Sequencing"
+    ]
+  },
+  {
+    "product": "SC8048",
+    "product_name": "5-Bromo-2'-dCTP",
+    "pmid": "1567479",
+    "doi": "10.1016/0006-2952(92)90217-7",
+    "title": "Decrease in TTP pools mediated by 5-bromo-2'-deoxyuridine exposure in a human glioblastoma cell line.",
+    "journal": "Biochemical pharmacology",
+    "year": "1992",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8048",
+    "product_name": "5-Bromo-2'-dCTP",
+    "pmid": "3416651",
+    "doi": "10.1159/000132543",
+    "title": "Fragile X expression in thymidine-prototrophic and auxotrophic human-mouse somatic cell hybrids under low and high thymidylate stress conditions.",
+    "journal": "Cytogenetics and cell genetics",
+    "year": "1988",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8048",
+    "product_name": "5-Bromo-2'-dCTP",
+    "pmid": "3178734",
+    "doi": "10.1042/bj2530637",
+    "title": "Pairing properties of bromouracil and repair of bromouracil-containing DNA. Possible utilization of bromodeoxyuridine triphosphate for site-directed mutagenesis.",
+    "journal": "The Biochemical journal",
+    "year": "1988",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8049",
+    "product_name": "5-Bromo-2'-dUTP",
+    "pmid": "31234698",
+    "doi": "10.1080/15548627.2019.1630222",
+    "title": "Autophagic death of neural stem cells mediates chronic stress-induced decline of adult hippocampal neurogenesis and cognitive deficits.",
+    "journal": "Autophagy",
+    "year": "2020",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8049",
+    "product_name": "5-Bromo-2'-dUTP",
+    "pmid": "12633986",
+    "doi": "10.1016/s1011-1344(02)00415-3",
+    "title": "Application of the biotin-dUTP chromosome labelling technique to study the role of 5-bromo-2'-deoxyuridine in the formation of UV-induced sister chromatid exchanges in CHO cells.",
+    "journal": "Journal of photochemistry and photobiology. B, Biology",
+    "year": "2003",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8049",
+    "product_name": "5-Bromo-2'-dUTP",
+    "pmid": "32785933",
+    "doi": "10.1002/cne.25005",
+    "title": "Administration of 5-bromo-2'-deoxyuridine interferes with neuroblast proliferation and promotes apoptotic cell death in the rat cerebellar neuroepithelium.",
+    "journal": "The Journal of comparative neurology",
+    "year": "2021",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8050",
+    "product_name": "7-Deaza-dATP",
+    "pmid": "27709938",
+    "doi": "10.1021/acs.joc.6b02098",
+    "title": "Additions of Thiols to 7-Vinyl-7-deazaadenine Nucleosides and Nucleotides. Synthesis of Hydrophobic Derivatives of 2'-Deoxyadenosine, dATP and DNA.",
+    "journal": "The Journal of organic chemistry",
+    "year": "2016",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8050",
+    "product_name": "7-Deaza-dATP",
+    "pmid": "27498304",
+    "doi": "10.1016/j.bmc.2016.07.054",
+    "title": "6-Aryl-4-amino-pyrimido[4,5-b]indole 2'-deoxyribonucleoside triphosphates (benzo-fused 7-deaza-dATP analogues): Synthesis, fluorescent properties, enzymatic incorporation into DNA and DNA-protein binding study.",
+    "journal": "Bioorganic & medicinal chemistry",
+    "year": "2016",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8050",
+    "product_name": "7-Deaza-dATP",
+    "pmid": "8961922",
+    "doi": "10.1021/bi961228v",
+    "title": "Human telomerase inhibition by 7-deaza-2'-deoxypurine nucleoside triphosphates.",
+    "journal": "Biochemistry",
+    "year": "1996",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8051",
+    "product_name": "7-Deaza-dGTP",
+    "pmid": "32948245",
+    "doi": "10.1186/s13104-020-05292-y",
+    "title": "A novel target enrichment strategy in next-generation sequencing through 7-deaza-dGTP-resistant enzymatic digestion.",
+    "journal": "BMC research notes",
+    "year": "2020",
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  {
+    "product": "SC8051",
+    "product_name": "7-Deaza-dGTP",
+    "pmid": "27159019",
+    "doi": "10.1002/anie.201601529",
+    "title": "Chemical Morphing of DNA Containing Four Noncanonical Bases.",
+    "journal": "Angewandte Chemie (International ed. in English)",
+    "year": "2016",
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  {
+    "product": "SC8051",
+    "product_name": "7-Deaza-dGTP",
+    "pmid": "33525366",
+    "doi": "10.3390/ijms22031274",
+    "title": "Development of MTH1-Binding Nucleotide Analogs Based on 7,8-Dihalogenated 7-Deaza-dG Derivatives.",
+    "journal": "International journal of molecular sciences",
+    "year": "2021",
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  {
+    "product": "SC8051",
+    "product_name": "7-Deaza-dGTP",
+    "pmid": "33766956",
+    "doi": "10.1136/jclinpath-2021-207402",
+    "title": "Diagnostic utility of droplet digital PCR to detect TERT promoter mutations among glioblastoma samples using 7-deaza-dGTP.",
+    "journal": "Journal of clinical pathology",
+    "year": "2022",
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  {
+    "product": "SC8051",
+    "product_name": "7-Deaza-dGTP",
+    "pmid": "17065422",
+    "doi": "10.2353/jmoldx.2006.060058",
+    "title": "Betaine, dimethyl sulfoxide, and 7-deaza-dGTP, a powerful mixture for amplification of GC-rich DNA sequences.",
+    "journal": "The Journal of molecular diagnostics : JMD",
+    "year": "2006",
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  {
+    "product": "SC8052",
+    "product_name": "dITP",
+    "pmid": "35642486",
+    "doi": "10.3324/haematol.2021.279484",
+    "title": "Treatment of drug-induced immune thrombocytopenias.",
+    "journal": "Haematologica",
+    "year": "2022",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8052",
+    "product_name": "dITP",
+    "pmid": "30504360",
+    "doi": "10.1182/asheducation-2018.1.576",
+    "title": "Drug-associated thrombocytopenia.",
+    "journal": "Hematology. American Society of Hematology. Education Program",
+    "year": "2018",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8052",
+    "product_name": "dITP",
+    "pmid": "32668640",
+    "doi": "10.3390/jcm9072212",
+    "title": "Pathophysiology and Diagnosis of Drug-Induced Immune Thrombocytopenia.",
+    "journal": "Journal of clinical medicine",
+    "year": "2020",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8052",
+    "product_name": "dITP",
+    "pmid": "8850020",
+    "doi": "10.1385/0-89603-332-5:351",
+    "title": "Random mutagenesis by using mixtures of dNTP and dITP in PCR.",
+    "journal": "Methods in molecular biology (Clifton, N.J.)",
+    "year": "1996",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8052",
+    "product_name": "dITP",
+    "pmid": "8415021",
+    "doi": "10.1093/nar/21.18.4427",
+    "title": "Incorporation of dITP or 7-deaza dGTP during PCR improves sequencing of the product.",
+    "journal": "Nucleic acids research",
+    "year": "1993",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8054",
+    "product_name": "5-Iodo-dCTP",
+    "pmid": "10682608",
+    "doi": "",
+    "title": "[Study on the relationship between deoxyribonucleoside triphosphate (dNTP) pools and cell transformation].",
+    "journal": "Wei sheng yan jiu = Journal of hygiene research",
+    "year": "1998",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8054",
+    "product_name": "5-Iodo-dCTP",
+    "pmid": "26899597",
+    "doi": "10.1016/j.bmc.2016.01.057",
+    "title": "Flexible double-headed cytosine-linked 2'-deoxycytidine nucleotides. Synthesis, polymerase incorporation to DNA and interaction with DNA methyltransferases.",
+    "journal": "Bioorganic & medicinal chemistry",
+    "year": "2016",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8054",
+    "product_name": "5-Iodo-dCTP",
+    "pmid": "166201",
+    "doi": "10.1128/JVI.16.1.132-140.1975",
+    "title": "Iodination of herpesvirus nucleic acids.",
+    "journal": "Journal of virology",
+    "year": "1975",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8054",
+    "product_name": "5-Iodo-dCTP",
+    "pmid": "7800489",
+    "doi": "10.1093/nar/22.23.4979",
+    "title": "Sequence-specific DNA double-strand breaks induced by triplex forming 125I labeled oligonucleotides.",
+    "journal": "Nucleic acids research",
+    "year": "1994",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8054",
+    "product_name": "5-Iodo-dCTP",
+    "pmid": "7041118",
+    "doi": "10.1073/pnas.79.4.998",
+    "title": "Effects of DNA base analogs on transcription termination at the tryptophan operon attenuator of EScherichia coli.",
+    "journal": "Proceedings of the National Academy of Sciences of the United States of America",
+    "year": "1982",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8055",
+    "product_name": "5-Iodo-CTP",
+    "pmid": "166201",
+    "doi": "10.1128/JVI.16.1.132-140.1975",
+    "title": "Iodination of herpesvirus nucleic acids.",
+    "journal": "Journal of virology",
+    "year": "1975",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8056",
+    "product_name": "5-Methyl-dCTP",
+    "pmid": "7086962",
+    "doi": "10.1128/JVI.42.1.42-48.1982",
+    "title": "5-methyl-dCTP deaminase induced by bacteriophage XP-12.",
+    "journal": "Journal of virology",
+    "year": "1982",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8056",
+    "product_name": "5-Methyl-dCTP",
+    "pmid": "12095278",
+    "doi": "10.1016/s1046-2023(02)00072-5",
+    "title": "DNA methylation and epigenetic inheritance.",
+    "journal": "Methods (San Diego, Calif.)",
+    "year": "2002",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8056",
+    "product_name": "5-Methyl-dCTP",
+    "pmid": "11053429",
+    "doi": "10.1074/jbc.M004100200",
+    "title": "Orf135 from Escherichia coli Is a Nudix hydrolase specific for CTP, dCTP, and 5-methyl-dCTP.",
+    "journal": "The Journal of biological chemistry",
+    "year": "2001",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8056",
+    "product_name": "5-Methyl-dCTP",
+    "pmid": "38136671",
+    "doi": "10.3390/biom13121801",
+    "title": "Using Selective Enzymes to Measure Noncanonical DNA Building Blocks: dUTP, 5-Methyl-dCTP, and 5-Hydroxymethyl-dCTP.",
+    "journal": "Biomolecules",
+    "year": "2023",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8057",
+    "product_name": "5-Methyl-CTP",
+    "pmid": "9321677",
+    "doi": "10.1093/nar/25.20.4169",
+    "title": "A novel method for producing partial restriction digestion of DNA fragments by PCR with 5-methyl-CTP.",
+    "journal": "Nucleic acids research",
+    "year": "1997",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8057",
+    "product_name": "5-Methyl-CTP",
+    "pmid": "24210219",
+    "doi": "10.1016/j.chembiol.2013.09.011",
+    "title": "Biochemical and structural studies of conserved Maf proteins revealed nucleotide pyrophosphatases with a preference for modified nucleotides.",
+    "journal": "Chemistry & biology",
+    "year": "2013",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8057",
+    "product_name": "5-Methyl-CTP",
+    "pmid": "19300826",
+    "doi": "10.1039/b819946a",
+    "title": "Efficient enzymatic synthesis of LNA-modified DNA duplexes using KOD DNA polymerase.",
+    "journal": "Organic & biomolecular chemistry",
+    "year": "2009",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8058",
+    "product_name": "O6-Methyl-dGTP",
+    "pmid": "37984506",
+    "doi": "10.1016/j.phrs.2023.106990",
+    "title": "A modified nucleoside O6-methyl-2'-deoxyguanosine-5'-triphosphate exhibits anti-glioblastoma activity in a caspase-independent manner.",
+    "journal": "Pharmacological research",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8058",
+    "product_name": "O6-Methyl-dGTP",
+    "pmid": "3525535",
+    "doi": "",
+    "title": "O6-methylguanine mutation and repair is nonuniform. Selection for DNA most interactive with O6-methylguanine.",
+    "journal": "The Journal of biological chemistry",
+    "year": "1986",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8058",
+    "product_name": "O6-Methyl-dGTP",
+    "pmid": "30304478",
+    "doi": "10.1093/nar/gky896",
+    "title": "MutT homologue 1 (MTH1) catalyzes the hydrolysis of mutagenic O6-methyl-dGTP.",
+    "journal": "Nucleic acids research",
+    "year": "2018",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8060",
+    "product_name": "N6-Methyl-dATP",
+    "pmid": "6706972",
+    "doi": "",
+    "title": "N6-methyldeoxyadenosine 5'-triphosphate as a probe of the fidelity mechanisms of bacteriophage T4 DNA polymerase.",
+    "journal": "The Journal of biological chemistry",
+    "year": "1984",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8060",
+    "product_name": "N6-Methyl-dATP",
+    "pmid": "10683256",
+    "doi": "10.1006/abbi.1999.1640",
+    "title": "Double-base lesions are produced in DNA by free radicals.",
+    "journal": "Archives of biochemistry and biophysics",
+    "year": "2000",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8060",
+    "product_name": "N6-Methyl-dATP",
+    "pmid": "32144205",
+    "doi": "10.1074/jbc.RA120.012636",
+    "title": "MutT homologue 1 (MTH1) removes N6-methyl-dATP from the dNTP pool.",
+    "journal": "The Journal of biological chemistry",
+    "year": "2020",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8060",
+    "product_name": "N6-Methyl-dATP",
+    "pmid": "14510368",
+    "doi": "10.1093/nass/3.1.37",
+    "title": "Simultaneous incorporation of three different modified nucleotides during PCR.",
+    "journal": "Nucleic acids research. Supplement (2001)",
+    "year": "2003",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8060",
+    "product_name": "N6-Methyl-dATP",
+    "pmid": "17983244",
+    "doi": "10.1021/bi701328h",
+    "title": "Enhancing the \"A-rule\" of translesion DNA synthesis: promutagenic DNA synthesis using modified nucleoside triphosphates.",
+    "journal": "Biochemistry",
+    "year": "2007",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8061",
+    "product_name": "N6-Methyl-ATP",
+    "pmid": "31577817",
+    "doi": "10.1371/journal.pone.0223197",
+    "title": "Development and validation of monoclonal antibodies against N6-methyladenosine for the detection of RNA modifications.",
+    "journal": "PloS one",
+    "year": "2019",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8061",
+    "product_name": "N6-Methyl-ATP",
+    "pmid": "35228902",
+    "doi": "10.1016/j.omtn.2022.01.021",
+    "title": "Towards SINEUP-based therapeutics: Design of an ",
+    "journal": "Molecular therapy. Nucleic acids",
+    "year": "2022",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8061",
+    "product_name": "N6-Methyl-ATP",
+    "pmid": "32144205",
+    "doi": "10.1074/jbc.RA120.012636",
+    "title": "MutT homologue 1 (MTH1) removes N6-methyl-dATP from the dNTP pool.",
+    "journal": "The Journal of biological chemistry",
+    "year": "2020",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8063",
+    "product_name": "8-Oxo-dATP(1)",
+    "pmid": "27778111",
+    "doi": "10.1007/s10142-016-0531-y",
+    "title": "Alr2954 of Anabaena sp. PCC 7120 with ADP-ribose pyrophosphatase activity bestows abiotic stress tolerance in Escherichia coli.",
+    "journal": "Functional & integrative genomics",
+    "year": "2017",
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  {
+    "product": "SC8063",
+    "product_name": "8-Oxo-dATP(1)",
+    "pmid": "21178309",
+    "doi": "10.1266/ggs.85.287",
+    "title": "CiMutT, an asidian MutT homologue, has a 7, 8-dihydro-8-oxo-dGTP pyrophosphohydrolase activity responsible for sanitization of oxidized nucleotides in Ciona intestinalis.",
+    "journal": "Genes & genetic systems",
+    "year": "2010",
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  {
+    "product": "SC8063",
+    "product_name": "8-Oxo-dATP(1)",
+    "pmid": "41898401",
+    "doi": "10.3390/ijms27062537",
+    "title": "A Comparative Study for the Incorporation of 8-oxo-dATP in DNA by Human DNA Polymerases.",
+    "journal": "International journal of molecular sciences",
+    "year": "2026",
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  {
+    "product": "SC8064",
+    "product_name": "8-Oxo-dGTP(1)",
+    "pmid": "20544882",
+    "doi": "10.1002/em.20576",
+    "title": "DNA repair in mammalian mitochondria: Much more than we thought?",
+    "journal": "Environmental and molecular mutagenesis",
+    "year": "2010",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8064",
+    "product_name": "8-Oxo-dGTP(1)",
+    "pmid": "26730155",
+    "doi": "10.3748/wjg.v21.i48.13447",
+    "title": "Hypoxia-inducible factor-1 modulates upregulation of mutT homolog-1 in colorectal cancer.",
+    "journal": "World journal of gastroenterology",
+    "year": "2015",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8064",
+    "product_name": "8-Oxo-dGTP(1)",
+    "pmid": "9140059",
+    "doi": "10.1046/j.1365-2443.1996.d01-232.x",
+    "title": "MutT-related error avoidance mechanism for DNA synthesis.",
+    "journal": "Genes to cells : devoted to molecular & cellular mechanisms",
+    "year": "1996",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8064",
+    "product_name": "8-Oxo-dGTP(1)",
+    "pmid": "18276636",
+    "doi": "10.1093/nar/gkn062",
+    "title": "Trace amounts of 8-oxo-dGTP in mitochondrial dNTP pools reduce DNA polymerase gamma replication fidelity.",
+    "journal": "Nucleic acids research",
+    "year": "2008",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8064",
+    "product_name": "8-Oxo-dGTP(1)",
+    "pmid": "31292314",
+    "doi": "10.2323/jgam.2019.04.002",
+    "title": "Enzymatic characteristics of Nudix hydrolase 2 (Nud2), an 8-oxo-dGTP hydrolase from Myxococcus xanthus.",
+    "journal": "The Journal of general and applied microbiology",
+    "year": "2020",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8065",
+    "product_name": "8-Oxo-GTP(1)",
+    "pmid": "17804481",
+    "doi": "10.1093/pcp/pcm112",
+    "title": "AtNUDX1, an 8-oxo-7,8-dihydro-2'-deoxyguanosine 5'-triphosphate pyrophosphohydrolase, is responsible for eliminating oxidized nucleotides in Arabidopsis.",
+    "journal": "Plant & cell physiology",
+    "year": "2007",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8065",
+    "product_name": "8-Oxo-GTP(1)",
+    "pmid": "38776712",
+    "doi": "10.1016/j.dnarep.2024.103693",
+    "title": "An exchange of single amino acid between the phosphohydrolase modules of Escherichia coli MutT and Mycobacterium smegmatis MutT1 switches their cleavage specificities.",
+    "journal": "DNA repair",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8065",
+    "product_name": "8-Oxo-GTP(1)",
+    "pmid": "16169877",
+    "doi": "10.1093/jb/mvi120",
+    "title": "Novel reaction mechanism of GTP cyclohydrolase I. High-resolution X-ray crystallography of Thermus thermophilus HB8 enzyme complexed with a transition state analogue, the 8-oxoguanine derivative.",
+    "journal": "Journal of biochemistry",
+    "year": "2005",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8065",
+    "product_name": "8-Oxo-GTP(1)",
+    "pmid": "21704046",
+    "doi": "10.1016/j.mrfmmm.2011.05.015",
+    "title": "Mutagenicity of secondary oxidation products of 8-oxo-7,8-dihydro-2'-deoxyguanosine 5'-triphosphate (8-hydroxy-2'- deoxyguanosine 5'-triphosphate).",
+    "journal": "Mutation research",
+    "year": "2011",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8065",
+    "product_name": "8-Oxo-GTP(1)",
+    "pmid": "10090747",
+    "doi": "10.1021/bi982361l",
+    "title": "Metabolic fate of oxidized guanine ribonucleotides in mammalian cells.",
+    "journal": "Biochemistry",
+    "year": "1999",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8066",
+    "product_name": "8-Oxo-dGMP(1)",
+    "pmid": "24929814",
+    "doi": "10.1016/j.jmgm.2014.05.007",
+    "title": "Molecular dynamics study on conformational differences between dGMP and 8-oxo-dGMP: Effects of metal ions.",
+    "journal": "Journal of molecular graphics & modelling",
+    "year": "2014",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8066",
+    "product_name": "8-Oxo-dGMP(1)",
+    "pmid": "12527759",
+    "doi": "10.1093/nar/gkg137",
+    "title": "Mutagenic potentials of damaged nucleic acids produced by reactive oxygen/nitrogen species: approaches using synthetic oligonucleotides and nucleotides: survey and summary.",
+    "journal": "Nucleic acids research",
+    "year": "2003",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8066",
+    "product_name": "8-Oxo-dGMP(1)",
+    "pmid": "12501185",
+    "doi": "10.1021/bi020552p",
+    "title": "Interactions of the products, 8-oxo-dGMP, dGMP, and pyrophosphate with the MutT nucleoside triphosphate pyrophosphohydrolase.",
+    "journal": "Biochemistry",
+    "year": "2002",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8066",
+    "product_name": "8-Oxo-dGMP(1)",
+    "pmid": "2157405",
+    "doi": "10.1016/0006-291x(90)92039-3",
+    "title": "Detection and quantitation of 8-hydroxydeoxyguanosine 5'-monophosphate in X-irradiated calf-thymus DNA by fluorescence postlabeling.",
+    "journal": "Biochemical and biophysical research communications",
+    "year": "1990",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8066",
+    "product_name": "8-Oxo-dGMP(1)",
+    "pmid": "12802803",
+    "doi": "10.1002/em.10165",
+    "title": "Analysis of 8-hydroxydeoxyguanosine 5'-monophosphate (8-OH-dGMP) as a reliable marker of cellular oxidative DNA damage after gamma-irradiation.",
+    "journal": "Environmental and molecular mutagenesis",
+    "year": "2003",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8067",
+    "product_name": "8-Oxo-dGDP(1)",
+    "pmid": "21873335",
+    "doi": "10.1093/jb/mvr107",
+    "title": "NDX-1 protein hydrolyzes 8-oxo-7, 8-dihydrodeoxyguanosine-5'-diphosphate to sanitize oxidized nucleotides and prevent oxidative stress in Caenorhabditis elegans.",
+    "journal": "Journal of biochemistry",
+    "year": "2011",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8067",
+    "product_name": "8-Oxo-dGDP(1)",
+    "pmid": "16472828",
+    "doi": "10.1016/j.mrfmmm.2005.12.004",
+    "title": "Exogenous 8-oxo-dG is not utilized for nucleotide synthesis but enhances the accumulation of 8-oxo-Gua in DNA through error-prone DNA synthesis.",
+    "journal": "Mutation research",
+    "year": "2006",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8067",
+    "product_name": "8-Oxo-dGDP(1)",
+    "pmid": "7819228",
+    "doi": "10.1021/bi00001a011",
+    "title": "Generation and elimination of 8-oxo-7,8-dihydro-2'-deoxyguanosine 5'-triphosphate, a mutagenic substrate for DNA synthesis, in human cells.",
+    "journal": "Biochemistry",
+    "year": "1995",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8070",
+    "product_name": "2-thio-CTP(1)",
+    "pmid": "28925261",
+    "doi": "10.1021/acs.joc.7b01998",
+    "title": "[24]Pentaphyrin(2.1.1.1.1): A Strongly Antiaromatic Pentaphyrin.",
+    "journal": "The Journal of organic chemistry",
+    "year": "2017",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8070",
+    "product_name": "2-thio-CTP(1)",
+    "pmid": "26243014",
+    "doi": "10.1007/s40279-015-0365-0",
+    "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+    "journal": "Sports medicine (Auckland, N.Z.)",
+    "year": "2015",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8071",
+    "product_name": "2-thio-UTP(1)",
+    "pmid": "33061823",
+    "doi": "10.1155/2020/2545682",
+    "title": "P2Y",
+    "journal": "Mediators of inflammation",
+    "year": "2020",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8071",
+    "product_name": "2-thio-UTP(1)",
+    "pmid": "35850244",
+    "doi": "10.1016/j.lfs.2022.120793",
+    "title": "The blockage of downstream P2Y",
+    "journal": "Life sciences",
+    "year": "2022",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8071",
+    "product_name": "2-thio-UTP(1)",
+    "pmid": "21600693",
+    "doi": "10.1016/j.pain.2011.04.016",
+    "title": "Nucleotides control the excitability of sensory neurons via two P2Y receptors and a bifurcated signaling cascade.",
+    "journal": "Pain",
+    "year": "2011",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8072",
+    "product_name": "6-thio-dGTP(1)",
+    "pmid": "33082336",
+    "doi": "10.1038/s41467-020-19115-y",
+    "title": "Mechanisms of telomerase inhibition by oxidized and therapeutic dNTPs.",
+    "journal": "Nature communications",
+    "year": "2020",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8072",
+    "product_name": "6-thio-dGTP(1)",
+    "pmid": "11532970",
+    "doi": "10.1096/fj.01-0124com",
+    "title": "Deoxythioguanosine triphosphate impairs HIV replication: a new mechanism for an old drug.",
+    "journal": "FASEB journal : official publication of the Federation of American Societies for Experimental Biology",
+    "year": "2001",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8072",
+    "product_name": "6-thio-dGTP(1)",
+    "pmid": "9278101",
+    "doi": "10.1016/s0006-2952(97)00200-1",
+    "title": "Mutagenic consequences of the incorporation of 6-thioguanine into DNA.",
+    "journal": "Biochemical pharmacology",
+    "year": "1997",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8072",
+    "product_name": "6-thio-dGTP(1)",
+    "pmid": "2994008",
+    "doi": "10.1093/nar/13.15.5685",
+    "title": "On the fidelity of DNA polymerase alpha: the influence of alpha-thio dNTPs, Mn2+ and mismatch repair.",
+    "journal": "Nucleic acids research",
+    "year": "1985",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8072",
+    "product_name": "6-thio-dGTP(1)",
+    "pmid": "41354720",
+    "doi": "10.1038/s41467-025-66534-w",
+    "title": "Therapeutic 6-thio-deoxyguanosine inhibits telomere elongation in cancer cells by inducing a non-productive stalled telomerase complex.",
+    "journal": "Nature communications",
+    "year": "2025",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8073",
+    "product_name": "6-thio-GTP(1)",
+    "pmid": "41389974",
+    "doi": "10.1016/j.ejphar.2025.178441",
+    "title": "Azathioprine ameliorates cellular senescence in rhabdomyolysis-induced acute kidney injury by inhibiting the Vav1/Rac2/NF-κB pathway in macrophages.",
+    "journal": "European journal of pharmacology",
+    "year": "2026",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8073",
+    "product_name": "6-thio-GTP(1)",
+    "pmid": "16175140",
+    "doi": "10.1097/01.ftd.0000169061.52715.3e",
+    "title": "Thiopurine therapies: problems, complexities, and progress with monitoring thioguanine nucleotides.",
+    "journal": "Therapeutic drug monitoring",
+    "year": "2005",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8073",
+    "product_name": "6-thio-GTP(1)",
+    "pmid": "17584603",
+    "doi": "10.1016/j.trim.2007.03.007",
+    "title": "Enhanced cardiac allograft survival by Vav1-Rac signaling blockade in a mouse model.",
+    "journal": "Transplant immunology",
+    "year": "2007",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8073",
+    "product_name": "6-thio-GTP(1)",
+    "pmid": "30289487",
+    "doi": "10.1093/nar/gky898",
+    "title": "The NTP binding site of the polymerase ribozyme.",
+    "journal": "Nucleic acids research",
+    "year": "2018",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8073",
+    "product_name": "6-thio-GTP(1)",
+    "pmid": "34613767",
+    "doi": "10.1126/sciadv.abj7487",
+    "title": "A GTP-synthesizing ribozyme selected by metabolic coupling to an RNA polymerase ribozyme.",
+    "journal": "Science advances",
+    "year": "2021",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8074",
+    "product_name": "6-thio-GMP(1)",
+    "pmid": "38246006",
+    "doi": "10.1016/j.jchromb.2024.123993",
+    "title": "Measurement of the intracellular active metabolites of thiopurine drugs to evaluate the enzymatic activity of nudix hydrolase 15 in human blood samples.",
+    "journal": "Journal of chromatography. B, Analytical technologies in the biomedical and life sciences",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8074",
+    "product_name": "6-thio-GMP(1)",
+    "pmid": "39162583",
+    "doi": "10.1097/HEP.0000000000000940",
+    "title": "Optimizing thiopurine therapy in autoimmune hepatitis: A multicenter study on monitoring metabolite profiles and co-therapy with allopurinol.",
+    "journal": "Hepatology (Baltimore, Md.)",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8074",
+    "product_name": "6-thio-GMP(1)",
+    "pmid": "11947041",
+    "doi": "10.1016/0014-5793(69)80170-5",
+    "title": "[Not Available].",
+    "journal": "FEBS letters",
+    "year": "1969",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8074",
+    "product_name": "6-thio-GMP(1)",
+    "pmid": "19952870",
+    "doi": "10.1097/FPC.0b013e328334338f",
+    "title": "Thiopurine pathway.",
+    "journal": "Pharmacogenetics and genomics",
+    "year": "2010",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8074",
+    "product_name": "6-thio-GMP(1)",
+    "pmid": "32363674",
+    "doi": "10.1111/apt.15743",
+    "title": "Review article: opportunities to improve and expand thiopurine therapy for autoimmune hepatitis.",
+    "journal": "Alimentary pharmacology & therapeutics",
+    "year": "2020",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8076",
+    "product_name": "6-Aza-UTP(1)",
+    "pmid": "40273705",
+    "doi": "10.1016/j.bioorg.2025.108464",
+    "title": "Drug repurposing of 6-AZA-UTP and itraconazole reveals novel B3GALT5 inhibitors for pancreatic cancer.",
+    "journal": "Bioorganic chemistry",
+    "year": "2025",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8077",
+    "product_name": "6-Aza-CTP(1)",
+    "pmid": "26243014",
+    "doi": "10.1007/s40279-015-0365-0",
+    "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+    "journal": "Sports medicine (Auckland, N.Z.)",
+    "year": "2015",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8077",
+    "product_name": "6-Aza-CTP(1)",
+    "pmid": "39256817",
+    "doi": "10.1186/s12916-024-03596-5",
+    "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+    "journal": "BMC medicine",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8078",
+    "product_name": "6-Aza-dCTP(1)",
+    "pmid": "26243014",
+    "doi": "10.1007/s40279-015-0365-0",
+    "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+    "journal": "Sports medicine (Auckland, N.Z.)",
+    "year": "2015",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8078",
+    "product_name": "6-Aza-dCTP(1)",
+    "pmid": "39256817",
+    "doi": "10.1186/s12916-024-03596-5",
+    "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+    "journal": "BMC medicine",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8079",
+    "product_name": "5-AA-dCTP(1)",
+    "pmid": "26243014",
+    "doi": "10.1007/s40279-015-0365-0",
+    "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+    "journal": "Sports medicine (Auckland, N.Z.)",
+    "year": "2015",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8079",
+    "product_name": "5-AA-dCTP(1)",
+    "pmid": "39256817",
+    "doi": "10.1186/s12916-024-03596-5",
+    "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+    "journal": "BMC medicine",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8080",
+    "product_name": "5-AA-CTP(1)",
+    "pmid": "26243014",
+    "doi": "10.1007/s40279-015-0365-0",
+    "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+    "journal": "Sports medicine (Auckland, N.Z.)",
+    "year": "2015",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8080",
+    "product_name": "5-AA-CTP(1)",
+    "pmid": "39256817",
+    "doi": "10.1186/s12916-024-03596-5",
+    "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+    "journal": "BMC medicine",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8081",
+    "product_name": "5-AA-dUTP(1)",
+    "pmid": "26243014",
+    "doi": "10.1007/s40279-015-0365-0",
+    "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+    "journal": "Sports medicine (Auckland, N.Z.)",
+    "year": "2015",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8081",
+    "product_name": "5-AA-dUTP(1)",
+    "pmid": "39256817",
+    "doi": "10.1186/s12916-024-03596-5",
+    "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+    "journal": "BMC medicine",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8082",
+    "product_name": "5-AA-UTP(1)",
+    "pmid": "26243014",
+    "doi": "10.1007/s40279-015-0365-0",
+    "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+    "journal": "Sports medicine (Auckland, N.Z.)",
+    "year": "2015",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8082",
+    "product_name": "5-AA-UTP(1)",
+    "pmid": "39256817",
+    "doi": "10.1186/s12916-024-03596-5",
+    "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+    "journal": "BMC medicine",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8083",
+    "product_name": "5-Hydroxy-CTP(1)",
+    "pmid": "12509230",
+    "doi": "10.1016/s1568-7864(02)00057-5",
+    "title": "The oxidized pyrimidine ribonucleotide, 5-hydroxy-CTP, is hydrolyzed efficiently by the Escherichia coli recombinant Orf135 protein.",
+    "journal": "DNA repair",
+    "year": "2002",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8083",
+    "product_name": "5-Hydroxy-CTP(1)",
+    "pmid": "21553121",
+    "doi": "10.1007/s12104-011-9312-7",
+    "title": "¹H, ¹³C and ¹⁵N NMR assignments of the Escherichia coli Orf135 protein.",
+    "journal": "Biomolecular NMR assignments",
+    "year": "2012",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8084",
+    "product_name": "5-Hydroxy-dCTP(1)",
+    "pmid": "12509230",
+    "doi": "10.1016/s1568-7864(02)00057-5",
+    "title": "The oxidized pyrimidine ribonucleotide, 5-hydroxy-CTP, is hydrolyzed efficiently by the Escherichia coli recombinant Orf135 protein.",
+    "journal": "DNA repair",
+    "year": "2002",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8085",
+    "product_name": "5-Hydroxymethyl-dCTP(1)",
+    "pmid": "809436",
+    "doi": "",
+    "title": "Ribonucleoside diphosphate reductase induced by bacteriophage T4. III. Isolation and characterization of proteins B1 and B2.",
+    "journal": "The Journal of biological chemistry",
+    "year": "1975",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8085",
+    "product_name": "5-Hydroxymethyl-dCTP(1)",
+    "pmid": "2034218",
+    "doi": "10.1007/BF00273611",
+    "title": "Analysis of mutagenesis induced by a thermolabile T4 phage deoxycytidylate hydroxymethylase suggests localized deoxyribonucleotide pool imbalance.",
+    "journal": "Molecular & general genetics : MGG",
+    "year": "1991",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8085",
+    "product_name": "5-Hydroxymethyl-dCTP(1)",
+    "pmid": "4525160",
+    "doi": "10.1073/pnas.70.8.2196",
+    "title": "Direct participation of dCMP hydroxymethylase in synthesis of bacteriophage T4 DNA.",
+    "journal": "Proceedings of the National Academy of Sciences of the United States of America",
+    "year": "1973",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8085",
+    "product_name": "5-Hydroxymethyl-dCTP(1)",
+    "pmid": "33833118",
+    "doi": "10.1126/science.abb4542",
+    "title": "Targeting the nucleotide salvage factor DNPH1 sensitizes ",
+    "journal": "Science (New York, N.Y.)",
+    "year": "2021",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8085",
+    "product_name": "5-Hydroxymethyl-dCTP(1)",
+    "pmid": "943575",
+    "doi": "10.1128/JVI.17.3.973-982.1976",
+    "title": "Biochemistry of DNA-defective mutants of bacteriophage T4. VI. Biological functions of gene 42.",
+    "journal": "Journal of virology",
+    "year": "1976",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8086",
+    "product_name": "5-Hydroxymethyl-CTP(1)",
+    "pmid": "26243014",
+    "doi": "10.1007/s40279-015-0365-0",
+    "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+    "journal": "Sports medicine (Auckland, N.Z.)",
+    "year": "2015",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8086",
+    "product_name": "5-Hydroxymethyl-CTP(1)",
+    "pmid": "39256817",
+    "doi": "10.1186/s12916-024-03596-5",
+    "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+    "journal": "BMC medicine",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8088",
+    "product_name": "5-Hydroxymethyl-dUTP",
+    "pmid": "21227920",
+    "doi": "10.1093/nar/gkq1293",
+    "title": "Improved nucleotide selectivity and termination of 3'-OH unblocked reversible terminators by molecular tuning of 2-nitrobenzyl alkylated HOMedU triphosphates.",
+    "journal": "Nucleic acids research",
+    "year": "2011",
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  {
+    "product": "SC8088",
+    "product_name": "5-Hydroxymethyl-dUTP",
+    "pmid": "17027294",
+    "doi": "10.1016/j.annepidem.2006.07.004",
+    "title": "Reliability of serum assays of iron status in postmenopausal women.",
+    "journal": "Annals of epidemiology",
+    "year": "2007",
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  {
+    "product": "SC8088",
+    "product_name": "5-Hydroxymethyl-dUTP",
+    "pmid": "7373713",
+    "doi": "10.1128/JVI.34.2.347-353.1980",
+    "title": "Bacteriophage phi W-14-infected Pseudomonas acidovorans synthesizes hydroxymethyldeoxyuridine triphosphate.",
+    "journal": "Journal of virology",
+    "year": "1980",
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  {
+    "product": "SC8092",
+    "product_name": "5-Formyl-dCTP",
+    "pmid": "24467396",
+    "doi": "10.1042/BJ20130894",
+    "title": "The NTP pyrophosphatase DCTPP1 contributes to the homoeostasis and cleansing of the dNTP pool in human cells.",
+    "journal": "The Biochemical journal",
+    "year": "2014",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8093",
+    "product_name": "7-Deaza-GTP",
+    "pmid": "36902262",
+    "doi": "10.3390/ijms24054828",
+    "title": "G-Quadruplexes Regulate miRNA Biogenesis in Live Zebrafish Embryos.",
+    "journal": "International journal of molecular sciences",
+    "year": "2023",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8093",
+    "product_name": "7-Deaza-GTP",
+    "pmid": "31444754",
+    "doi": "10.1007/978-1-4939-9666-7_14",
+    "title": "Characterization of Co-transcriptional Formation of G-Quadruplexes in Double-Stranded DNA.",
+    "journal": "Methods in molecular biology (Clifton, N.J.)",
+    "year": "2019",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8093",
+    "product_name": "7-Deaza-GTP",
+    "pmid": "36477752",
+    "doi": "10.1002/1873-3468.14556",
+    "title": "Slippage at the initiation of RNA synthesis by Qβ replicase results in a periodic polyG pattern.",
+    "journal": "FEBS letters",
+    "year": "2023",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8094",
+    "product_name": "7-Deaza-ATP",
+    "pmid": "36533569",
+    "doi": "10.1002/anie.202213764",
+    "title": "Chloroacetamide-Modified Nucleotide and RNA for Bioconjugations and Cross-Linking with RNA-Binding Proteins.",
+    "journal": "Angewandte Chemie (International ed. in English)",
+    "year": "2023",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": [
+      "CuAAC Bioconjugation"
+    ]
+  },
+  {
+    "product": "SC8096",
+    "product_name": "7-Deaza-dAMP",
+    "pmid": "18652488",
+    "doi": "10.1021/bi800684f",
+    "title": "Formation of noncanonical DNA structures mediated by human ORC4, a protein component of the origin recognition complex.",
+    "journal": "Biochemistry",
+    "year": "2008",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8105",
+    "product_name": "3’-Azido-ddATP",
+    "pmid": "20164971",
+    "doi": "",
+    "title": "Patents.",
+    "journal": "Applied optics",
+    "year": "1976",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8105",
+    "product_name": "3’-Azido-ddATP",
+    "pmid": "38983975",
+    "doi": "10.1002/ejic.202300607",
+    "title": "[Ru",
+    "journal": "European journal of inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8105",
+    "product_name": "3’-Azido-ddATP",
+    "pmid": "16498703",
+    "doi": "10.1002/yea.1338",
+    "title": "Yeast 14-3-3 proteins.",
+    "journal": "Yeast (Chichester, England)",
+    "year": "2006",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8106",
+    "product_name": "3’-Azido-ddGTP",
+    "pmid": "24211331",
+    "doi": "10.1016/j.antiviral.2013.10.017",
+    "title": "Molecular mechanism of HIV-1 resistance to 3'-azido-2',3'-dideoxyguanosine.",
+    "journal": "Antiviral research",
+    "year": "2014",
+    "methods": [
+      "BigDye Terminator Sequencing",
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8107",
+    "product_name": "3’-Azido-ddCTP",
+    "pmid": "20164971",
+    "doi": "",
+    "title": "Patents.",
+    "journal": "Applied optics",
+    "year": "1976",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8107",
+    "product_name": "3’-Azido-ddCTP",
+    "pmid": "38983975",
+    "doi": "10.1002/ejic.202300607",
+    "title": "[Ru",
+    "journal": "European journal of inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8107",
+    "product_name": "3’-Azido-ddCTP",
+    "pmid": "16498703",
+    "doi": "10.1002/yea.1338",
+    "title": "Yeast 14-3-3 proteins.",
+    "journal": "Yeast (Chichester, England)",
+    "year": "2006",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8108",
+    "product_name": "3’-Azido-ddUTP",
+    "pmid": "19761402",
+    "doi": "10.3109/14756360902950422",
+    "title": "Differential inhibition of homotrimeric dUTPases by the 3'-azido derivative of dideoxy-UTP.",
+    "journal": "Journal of enzyme inhibition and medicinal chemistry",
+    "year": "2010",
+    "methods": [
+      "BigDye Terminator Sequencing"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8109",
+    "product_name": "3’-Azido-ddTTP",
+    "pmid": "17184158",
+    "doi": "10.1517/17425247.4.1.5",
+    "title": "Polymeric nanogel formulations of nucleoside analogs.",
+    "journal": "Expert opinion on drug delivery",
+    "year": "2007",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8109",
+    "product_name": "3’-Azido-ddTTP",
+    "pmid": "38983975",
+    "doi": "10.1002/ejic.202300607",
+    "title": "[Ru",
+    "journal": "European journal of inorganic chemistry",
+    "year": "2024",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8109",
+    "product_name": "3’-Azido-ddTTP",
+    "pmid": "30853213",
+    "doi": "10.1016/j.cmet.2019.02.014",
+    "title": "LINE1 Derepression in Aged Wild-Type and SIRT6-Deficient Mice Drives Inflammation.",
+    "journal": "Cell metabolism",
+    "year": "2019",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8109",
+    "product_name": "3’-Azido-ddTTP",
+    "pmid": "1285301",
+    "doi": "10.3109/14756369209041354",
+    "title": "Inhibitors of HIV-1 reverse transcriptase and fidelity of in vitro DNA replication.",
+    "journal": "Journal of enzyme inhibition",
+    "year": "1992",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8109",
+    "product_name": "3’-Azido-ddTTP",
+    "pmid": "20164971",
+    "doi": "",
+    "title": "Patents.",
+    "journal": "Applied optics",
+    "year": "1976",
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  {
+    "product": "SC8110",
+    "product_name": "3’-Amino-ddATP",
+    "pmid": "20164971",
+    "doi": "",
+    "title": "Patents.",
+    "journal": "Applied optics",
+    "year": "1976",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8110",
+    "product_name": "3’-Amino-ddATP",
+    "pmid": "38983975",
+    "doi": "10.1002/ejic.202300607",
+    "title": "[Ru",
+    "journal": "European journal of inorganic chemistry",
+    "year": "2024",
+    "methods": [],
+    "applications": []
+  },
+  {
+    "product": "SC8110",
+    "product_name": "3’-Amino-ddATP",
+    "pmid": "16498703",
+    "doi": "10.1002/yea.1338",
+    "title": "Yeast 14-3-3 proteins.",
+    "journal": "Yeast (Chichester, England)",
+    "year": "2006",
+    "methods": [],
+    "applications": []
+  }
+]

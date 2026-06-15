@@ -134,6 +134,12 @@ const routes = [
     meta: { title: 'Order Processing', requiresAuth: true },
   },
   {
+    path: '/knowledge-intake',
+    name: 'KnowledgeIntake',
+    component: () => import('@/views/KnowledgeIntake.vue'),
+    meta: { title: 'Knowledge Intake' },
+  },
+  {
     path: '/products/new',
     name: 'ProductNew',
     component: () => import('@/views/products/ProductEditPage.vue'),
