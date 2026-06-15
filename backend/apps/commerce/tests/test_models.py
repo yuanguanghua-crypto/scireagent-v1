@@ -88,8 +88,8 @@ class ProductModelTest(TestCase):
         self.assertEqual(product.shelf_life, timedelta(days=365))
 
     def test_shelf_life_nullable(self):
-        product = ProductFactory(shelf_life=None)
-        self.assertIsNone(product.shelf_life)
+        product = ProductFactory(shelf_life='')
+        self.assertEqual(product.shelf_life, '')
 
     def test_research_use_only_default(self):
         product = ProductFactory()
