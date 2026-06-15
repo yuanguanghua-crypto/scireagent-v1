@@ -20,7 +20,7 @@ def get_related_products(product, limit=4):
     # Get this product's application IDs
     app_ids = list(
         Application.objects.filter(
-            methods__id__in=method_ids, status='active'
+            methods__id__in=method_ids, status__in=['active', 'published']
         ).values_list('id', flat=True).distinct()
     )
 
@@ -66,7 +66,7 @@ def get_related_products(product, limit=4):
     if product.product_class:
         same_class_ids = set(
             Product.objects.filter(
-                product_class=product.product_class, status='active'
+                product_class=product.product_class, status__in=['active', 'published']
             ).exclude(id=product.id).values_list('id', flat=True)
         )
         for pid in same_class_ids:
@@ -79,7 +79,7 @@ def get_related_products(product, limit=4):
     sorted_ids = sorted(scores.keys(), key=lambda pid: scores[pid], reverse=True)[:limit]
 
     # Build result with match_reason
-    products = Product.objects.filter(id__in=sorted_ids, status='active')
+    products = Product.objects.filter(id__in=sorted_ids, status__in=['active', 'published'])
     product_map = {p.id: p for p in products}
 
     result = []

@@ -1,0 +1,48 @@
+pack_id: protein-engineering
+pack_name: Protein Engineering
+version: "1.0"
+description: >
+  Knowledge domain for protein modification, fluorescent labeling,
+  and engineering for improved function and detection.
+
+entry_goal:
+  name: Protein Engineering
+  summary: >
+    Modifying proteins for improved function, labeling, or detection
+    in research and therapeutic applications.
+
+applications:
+  - name: Protein Fluorescent Labeling
+    summary: >
+      Attach fluorescent dyes to proteins via NHS-ester conjugation or
+      click chemistry for imaging and FRET studies.
+
+methods:
+  - name: NHS-Ester Conjugation
+    applications: [Protein Fluorescent Labeling]
+  - name: Cy3/Cy5 Protein Labeling
+    applications: [Protein Fluorescent Labeling]
+  - name: CuAAC Click Chemistry
+    applications: [Protein Fluorescent Labeling]
+
+products:
+  classes: [10, 23]  # Modified NTPs, Labeled Nucleotides
+  filters:
+    - "nhs" in name.lower()
+    - "ester" in name.lower()
+    - "cy3" in name.lower() or "cy5" in name.lower()
+    - "maleimide" in name.lower()
+
+seo:
+  title: "Protein Engineering Reagents — Fluorescent Labeling & Modification | SciReagent"
+  description: >
+    NHS-ester and cyanine dye reagents for protein fluorescent labeling.
+    Bioconjugation tools for imaging and FRET studies.
+  keywords:
+    - protein labeling
+    - NHS-ester
+    - Cy3 protein
+    - Cy5 protein
+    - fluorescent protein
+    - FRET
+    - bioconjugation
