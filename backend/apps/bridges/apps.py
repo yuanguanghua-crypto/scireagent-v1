@@ -3,4 +3,4 @@ from django.apps import AppConfig
 class BridgesConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'apps.bridges'
-    verbose_name = '桥接表'
+    verbose_name = 'Relationships'
