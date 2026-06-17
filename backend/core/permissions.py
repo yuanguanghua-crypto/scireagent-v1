@@ -1,6 +1,7 @@
 """
 Custom permission classes for the SciReagent project.
 """
+from django.conf import settings
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 from rest_framework.throttling import AnonRateThrottle
 
@@ -19,5 +20,12 @@ class LoginRateThrottle(AnonRateThrottle):
     """
     Rate limit for login endpoint: 5 requests per minute per IP.
     Prevents brute-force password attacks.
+
+    Disabled when settings.DISABLE_THROTTLE is True (dev/test).
     """
     rate = '5/min'
+
+    def allow_request(self, request, view):
+        if getattr(settings, 'DISABLE_THROTTLE', False):
+            return True
+        return super().allow_request(request, view)

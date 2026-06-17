@@ -16,5 +16,6 @@ if os.getenv('DB_ENGINE', 'postgres') == 'sqlite':
     INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'django.contrib.postgres']
 
 # Disable throttling in development/testing to avoid rate limit interference
+DISABLE_THROTTLE = True
 REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES'] = []
 REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {}
