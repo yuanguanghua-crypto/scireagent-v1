@@ -5,6 +5,7 @@ from apps.knowledge.tests.factories import (
     ProtocolFactory, ProtocolStepFactory, ReferenceFactory, CompatibilityFactory
 )
 from apps.bridges.tests.factories import ProductMethodFactory, MethodProtocolFactory
+from apps.accounts.tests.factories import UserFactory
 
 
 class ResearchGoalAPITest(TestCase):
@@ -53,6 +54,10 @@ class ResearchGoalAPITest(TestCase):
         self.assertIn('created_at', data)
 
     def test_create(self):
+        # Create admin user for write operations
+        admin = UserFactory(is_staff=True)
+        self.client.force_authenticate(user=admin)
+
         resp = self.client.post('/api/v1/research-goals/', {
             'name': 'New Goal', 'slug': 'new-goal', 'summary': 'Test'
         }, format='json')

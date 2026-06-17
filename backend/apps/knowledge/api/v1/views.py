@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from core.mixins import EnvelopeMixin
+from core.permissions import IsAdminOrReadOnly
 from core.jsonld import build_method_jsonld, build_protocol_jsonld
 from apps.knowledge.models import (
     ResearchGoal, Application, Method, Protocol, Reference, Compatibility
@@ -17,6 +18,7 @@ from apps.knowledge import selectors
 class ResearchGoalViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     queryset = selectors.get_research_goals_with_applications()
     serializer_class = ResearchGoalListSerializer
+    permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'summary']
     ordering_fields = ['priority', 'name']
 
@@ -24,6 +26,7 @@ class ResearchGoalViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 class ApplicationViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Application.objects.select_related('research_goal').all()
     serializer_class = ApplicationListSerializer
+    permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'summary']
     ordering_fields = ['sort_order', 'name']
     filterset_fields = ['research_goal_id', 'status']
@@ -37,6 +40,7 @@ class ApplicationViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 class MethodViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Method.objects.select_related('application').all()
     serializer_class = MethodListSerializer
+    permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'purpose', 'advantages', 'limitations']
     ordering_fields = ['name', 'cost_band']
     filterset_fields = ['application_id', 'status']
@@ -57,6 +61,7 @@ class MethodViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Protocol.objects.select_related('method').prefetch_related('steps').all()
     serializer_class = ProtocolListSerializer
+    permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'objective', 'materials', 'reagents']
     ordering_fields = ['name', 'version']
     filterset_fields = ['method_id', 'status']
@@ -78,6 +83,7 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 class ReferenceViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Reference.objects.all()
     serializer_class = ReferenceSerializer
+    permission_classes = [IsAdminOrReadOnly]
     search_fields = ['title', 'authors', 'doi', 'pmid']
     ordering_fields = ['year', 'title']
     filterset_fields = ['source_type']
@@ -86,6 +92,7 @@ class ReferenceViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 class CompatibilityViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Compatibility.objects.all()
     serializer_class = CompatibilitySerializer
+    permission_classes = [IsAdminOrReadOnly]
     search_fields = ['code', 'summary']
     ordering_fields = ['code']
     filterset_fields = ['scope', 'rule_type', 'severity', 'status']
