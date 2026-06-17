@@ -98,24 +98,24 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
 
 class SKUViewSet(EnvelopeMixin, viewsets.ModelViewSet):
-    queryset = SKU.objects.select_related('product').all()
+    queryset = SKU.objects.select_related('product').all().order_by('id')
     serializer_class = SKUSerializer
     filterset_fields = ['product_id', 'inventory_status']
     search_fields = ['sku_code']
 
 
 class ProductClassViewSet(EnvelopeMixin, viewsets.ReadOnlyModelViewSet):
-    queryset = ProductClass.objects.all()
+    queryset = ProductClass.objects.all().order_by('sort_order', 'id')
     serializer_class = ProductClassSerializer
 
 
 class CatalogGroupViewSet(EnvelopeMixin, viewsets.ReadOnlyModelViewSet):
-    queryset = CatalogGroup.objects.filter(active=True)
+    queryset = CatalogGroup.objects.filter(active=True).order_by('name')
     serializer_class = CatalogGroupSerializer
 
 
 class ProductDocumentViewSet(EnvelopeMixin, viewsets.ModelViewSet):
-    queryset = ProductDocument.objects.select_related('product').all()
+    queryset = ProductDocument.objects.select_related('product').all().order_by('-created_at')
     serializer_class = ProductDocumentSerializer
     filterset_fields = ['product_id', 'document_type']
     parser_classes = [MultiPartParser, FormParser]

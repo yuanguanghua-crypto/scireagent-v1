@@ -6,6 +6,6 @@ from apps.assets.api.v1.serializers import PdfFileSerializer
 
 
 class PdfFileViewSet(EnvelopeMixin, viewsets.ModelViewSet):
-    queryset = PdfFile.objects.all()
+    queryset = PdfFile.objects.all().order_by('-created_at')
     serializer_class = PdfFileSerializer
     permission_classes = [IsAdminOrReadOnly]

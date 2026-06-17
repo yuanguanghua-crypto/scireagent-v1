@@ -58,5 +58,7 @@ class WishlistViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         if self.request.user.is_authenticated:
-            return Wishlist.objects.filter(user=self.request.user).prefetch_related('products')
+            return Wishlist.objects.filter(
+                user=self.request.user
+            ).prefetch_related('products').order_by('-created_at')
         return Wishlist.objects.none()
