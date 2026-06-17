@@ -3,6 +3,7 @@ Knowledge Intake API — Accepts knowledge content from the postdoc form.
 Creates/updates Research Goals, Applications, Methods, Protocols, and relationships.
 """
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 from core.mixins import EnvelopeMixin
@@ -12,7 +13,8 @@ from apps.bridges.models import ProductMethod, MethodProtocol
 
 
 class KnowledgeIntakeView(EnvelopeMixin, APIView):
-    """POST /api/v1/knowledge-intake/ — Submit knowledge content for a product."""
+    """POST /api/v1/knowledge-intake/ — Submit knowledge content for a product (admin only)."""
+    permission_classes = [IsAdminUser]
 
     def post(self, request):
         data = request.data
