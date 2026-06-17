@@ -9,8 +9,17 @@
  *   - layout: Cytoscape layout name (default 'cose')
  */
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import cytoscape from 'cytoscape'
 import { useRouter } from 'vue-router'
+
+// Lazy load Cytoscape to reduce main bundle size
+let cytoscape = null
+async function loadCytoscape() {
+  if (!cytoscape) {
+    const mod = await import('cytoscape')
+    cytoscape = mod.default || mod
+  }
+  return cytoscape
+}
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -102,7 +111,7 @@ function runLayout() {
   cyInstance.layout(layoutConfig).run()
 }
 
-function initCytoscape() {
+async function initCytoscape() {
   if (!containerRef.value) return
   if (cyInstance) {
     cyInstance.destroy()
@@ -111,7 +120,8 @@ function initCytoscape() {
 
   if (!props.nodes.length) return
 
-  cyInstance = cytoscape({
+  const cy = await loadCytoscape()
+  cyInstance = cy({
     container: containerRef.value,
     elements: buildCytoscapeElements(),
     style: [
