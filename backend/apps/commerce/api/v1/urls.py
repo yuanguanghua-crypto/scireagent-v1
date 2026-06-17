@@ -4,6 +4,7 @@ from apps.commerce.api.v1.views import (
     ProductViewSet, SKUViewSet, ProductClassViewSet, CatalogGroupViewSet,
     ProductDocumentViewSet, ProductDetailAPIView,
 )
+from apps.commerce.api.v1.faq_views import ProductFAQView
 from apps.commerce.api.v1.categories import CategoryTreeView
 
 router = DefaultRouter()
@@ -16,5 +17,6 @@ router.register('documents', ProductDocumentViewSet, basename='document')
 urlpatterns = [
     path('categories', CategoryTreeView.as_view(), name='categories'),
     path('products/<int:pk>/detail/', ProductDetailAPIView.as_view(), name='product-detail-v2'),
+    path('products/<int:pk>/faq/', ProductFAQView.as_view(), name='product-faq'),
     path('', include(router.urls)),
 ]
