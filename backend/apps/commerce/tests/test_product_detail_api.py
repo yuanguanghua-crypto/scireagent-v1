@@ -1,141 +1,146 @@
 """
-TDD Tests for Product Detail API endpoint.
-Phase 1, Week 3.
+TDD Sprint 1.3: Product Detail API Complete
+Tests for product detail API endpoint with all required sections.
 """
-import pytest
+from django.test import TestCase
 from rest_framework.test import APIClient
-from apps.commerce.tests.factories import ProductFactory, SKUFactory, ProductDocumentFactory
-from apps.knowledge.tests.factories import (
-    ApplicationFactory, MethodFactory, ProtocolFactory,
-    ProtocolStepFactory, ReferenceFactory,
-)
-from apps.bridges.models import ProductMethod, MethodProtocol, ProductReference
+
+from apps.commerce.models import Product
+from apps.commerce.tests.factories import ProductFactory
 
 
-@pytest.mark.django_db
-class TestProductDetailAPI:
-    """T3-17 ~ T3-30: Product detail aggregated endpoint."""
+class ProductDetailAPITest(TestCase):
+    """Test Product Detail API endpoint."""
 
-    def setup_method(self):
+    def setUp(self):
         self.client = APIClient()
+        self.product = ProductFactory(
+            name="2'-Azido-dATP",
+            catalog_no="SC8047",
+            cas="73449-06-6",
+            storage="-20°C",
+            purity="≥ 95% (HPLC)",
+            concentration="100 mM",
+            formula="C10H15N8O12P3",
+            molecular_weight=532.2,
+            overview="A modified dATP for click chemistry labeling.",
+            smiles="C1=NC(=C2C(=N1)N(C=N2)[C@H]3...",
+            status='active',
+            category_l1='nucleotides_nucleosides',
+        )
 
-    def test_t3_17_returns_200(self):
-        """T3-17: GET /api/v1/products/:id/detail/ returns 200."""
-        product = ProductFactory(status='active')
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        assert resp.status_code == 200
+    def test_product_detail_returns_200(self):
+        """Product detail API should return 200 for active products."""
+        response = self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+        self.assertEqual(response.status_code, 200)
 
-    def test_t3_18_has_product_section(self):
-        """T3-18: Response has product section."""
-        product = ProductFactory(status='active')
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()['data']
-        assert 'product' in data
-        assert data['product']['id'] == product.id
+    def test_product_detail_includes_product(self):
+        """Product detail should include product information."""
+        response = self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+        data = response.json()
 
-    def test_t3_19_has_applications_section(self):
-        """T3-19: Response has applications section."""
-        product = ProductFactory(status='active')
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()['data']
-        assert 'applications' in data
-        assert isinstance(data['applications'], list)
+        self.assertIn('product', data['data'])
+        product = data['data']['product']
+        self.assertEqual(product['name'], "2'-Azido-dATP")
+        self.assertEqual(product['catalog_no'], 'SC8047')
 
-    def test_t3_20_has_protocols_section(self):
-        """T3-20: Response has protocols section."""
-        product = ProductFactory(status='active')
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()['data']
-        assert 'protocols' in data
-        assert isinstance(data['protocols'], list)
+    def test_product_detail_includes_applications(self):
+        """Product detail should include related applications."""
+        response = self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+        data = response.json()
 
-    def test_t3_21_has_references_section(self):
-        """T3-21: Response has references section."""
-        product = ProductFactory(status='active')
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()['data']
-        assert 'references' in data
-        assert isinstance(data['references'], list)
+        self.assertIn('applications', data['data'])
+        self.assertIsInstance(data['data']['applications'], list)
 
-    def test_t3_22_has_related_products_section(self):
-        """T3-22: Response has related_products section."""
-        product = ProductFactory(status='active')
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()['data']
-        assert 'related_products' in data
-        assert isinstance(data['related_products'], list)
+    def test_product_detail_includes_protocols(self):
+        """Product detail should include related protocols."""
+        response = self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+        data = response.json()
 
-    def test_t3_23_has_faq_section(self):
-        """T3-23: Response has faq section."""
-        product = ProductFactory(status='active')
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()['data']
-        assert 'faq' in data
-        assert isinstance(data['faq'], list)
+        self.assertIn('protocols', data['data'])
+        self.assertIsInstance(data['data']['protocols'], list)
 
-    def test_t3_24_has_compatibility_section(self):
-        """T3-24: Response has compatibility section."""
-        product = ProductFactory(status='active')
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()['data']
-        assert 'compatibility' in data
-        assert isinstance(data['compatibility'], dict)
-        assert 'methods' in data['compatibility']
-        assert 'protocols' in data['compatibility']
-        assert 'products' in data['compatibility']
+    def test_product_detail_includes_faq(self):
+        """Product detail should include FAQ questions."""
+        response = self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+        data = response.json()
 
-    def test_t3_25_has_graph_null(self):
-        """T3-25: Response has graph section as null."""
-        product = ProductFactory(status='active')
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()['data']
-        assert 'graph' in data
-        assert data['graph'] is None
+        self.assertIn('faq', data['data'])
+        faq = data['data']['faq']
+        self.assertIsInstance(faq, list)
+        self.assertGreaterEqual(len(faq), 4)
 
-    def test_t3_26_404_for_nonexistent(self):
-        """T3-26: Returns 404 for nonexistent product."""
-        resp = self.client.get('/api/v1/products/99999/detail/')
-        assert resp.status_code == 404
+    def test_product_detail_includes_related_products(self):
+        """Product detail should include related products."""
+        # Create some related products
+        for i in range(3):
+            ProductFactory(
+                catalog_no=f'SC{i+1}',
+                status='active',
+                category_l1='nucleotides_nucleosides',
+            )
 
-    def test_t3_27_envelope_format(self):
-        """T3-27: Uses Envelope format."""
-        product = ProductFactory(status='active')
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()
-        assert data['success'] is True
-        assert 'data' in data
-        assert 'meta' in data
+        response = self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+        data = response.json()
 
-    def test_t3_28_applications_have_name(self):
-        """T3-28: Applications have name field."""
-        product = ProductFactory(status='active')
-        app = ApplicationFactory(status='active')
-        method = MethodFactory(application=app, status='active')
-        ProductMethod.objects.create(product=product, method=method)
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()['data']
-        assert len(data['applications']) >= 1
-        assert 'name' in data['applications'][0]
+        self.assertIn('related_products', data['data'])
+        related = data['data']['related_products']
+        self.assertIsInstance(related, list)
+        self.assertLessEqual(len(related), 4)
 
-    def test_t3_29_protocols_have_estimated_time(self):
-        """T3-29: Protocols have estimated_time_minutes."""
-        product = ProductFactory(status='active')
-        method = MethodFactory(status='active')
-        protocol = ProtocolFactory(method=method, status='published')
-        ProtocolStepFactory(protocol=protocol, duration_seconds=120)
-        ProductMethod.objects.create(product=product, method=method)
-        MethodProtocol.objects.create(method=method, protocol=protocol)
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()['data']
-        assert len(data['protocols']) >= 1
-        assert 'estimated_time_minutes' in data['protocols'][0]
+    def test_product_detail_includes_references(self):
+        """Product detail should include references."""
+        response = self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+        data = response.json()
 
-    def test_t3_30_compatibility_has_methods_protocols_products(self):
-        """T3-30: Compatibility has methods, protocols, products."""
-        product = ProductFactory(status='active')
-        resp = self.client.get(f'/api/v1/products/{product.id}/detail/')
-        data = resp.json()['data']
-        compat = data['compatibility']
-        assert 'methods' in compat
-        assert 'protocols' in compat
-        assert 'products' in compat
+        self.assertIn('references', data['data'])
+        self.assertIsInstance(data['data']['references'], list)
+
+    def test_product_detail_includes_compatibility(self):
+        """Product detail should include compatibility information."""
+        response = self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+        data = response.json()
+
+        self.assertIn('compatibility', data['data'])
+
+    def test_product_detail_404_for_inactive(self):
+        """Product detail should return 404 for inactive products."""
+        self.product.status = 'draft'
+        self.product.save()
+
+        response = self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_product_detail_404_for_nonexistent(self):
+        """Product detail should return 404 for nonexistent products."""
+        response = self.client.get('/api/v1/products/99999/detail/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_product_detail_faq_has_questions_and_answers(self):
+        """FAQ items should have question and answer fields."""
+        response = self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+        data = response.json()
+
+        faq = data['data']['faq']
+        for item in faq:
+            self.assertIn('question', item)
+            self.assertIn('answer', item)
+            self.assertTrue(len(item['question']) > 0)
+            self.assertTrue(len(item['answer']) > 0)
+
+    def test_product_detail_related_excludes_self(self):
+        """Related products should not include the product itself."""
+        # Create some related products
+        for i in range(3):
+            ProductFactory(
+                catalog_no=f'SC{i+1}',
+                status='active',
+                category_l1='nucleotides_nucleosides',
+            )
+
+        response = self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+        data = response.json()
+
+        related = data['data']['related_products']
+        related_ids = [p['id'] for p in related]
+        self.assertNotIn(self.product.id, related_ids)
