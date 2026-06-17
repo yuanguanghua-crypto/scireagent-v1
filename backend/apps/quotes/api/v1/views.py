@@ -1,4 +1,5 @@
 from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from apps.quotes.models import QuoteRequest
 from apps.quotes.api.v1.serializers import (
@@ -23,8 +24,12 @@ class QuoteRequestCreateView(generics.CreateAPIView):
 
 
 class QuoteRequestDetailView(generics.RetrieveAPIView):
-    """GET /api/v1/quote-requests/:id/ — 获取报价请求详情"""
-    queryset = QuoteRequest.objects.prefetch_related('items__product', 'items__sku')
+    """GET /api/v1/quote-requests/:id/ — 获取报价请求详情（需登录）"""
     serializer_class = QuoteRequestDetailSerializer
-    permission_classes = []
-    authentication_classes = []
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        # Users can only see their own quote requests
+        return QuoteRequest.objects.filter(
+            contact_email=self.request.user.email
+        ).prefetch_related('items__product', 'items__sku')

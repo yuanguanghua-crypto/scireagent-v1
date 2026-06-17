@@ -110,3 +110,18 @@ class QuoteRequestAPITest(TestCase):
 
         item = QuoteRequestItem.objects.first()
         self.assertEqual(item.quantity, 7)
+
+    def test_quote_request_detail_requires_auth(self):
+        """Quote request detail should require authentication (IDOR fix)."""
+        # Create a quote request
+        self.client.post('/api/v1/quote-requests/', {
+            'contact_name': 'Auth Test',
+            'contact_email': 'auth@example.com',
+            'items': [{'product_id': self.product.id, 'quantity': 1}],
+        }, format='json')
+
+        qr = QuoteRequest.objects.first()
+
+        # Try to access without auth
+        response = self.client.get(f'/api/v1/quote-requests/{qr.id}/')
+        self.assertEqual(response.status_code, 401)

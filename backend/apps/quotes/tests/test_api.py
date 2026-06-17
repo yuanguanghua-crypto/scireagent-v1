@@ -2,6 +2,7 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
 from apps.commerce.tests.factories import ProductFactory, SKUFactory
+from apps.accounts.tests.factories import UserFactory
 
 
 class QuoteRequestAPICreateTest(TestCase):
@@ -59,24 +60,34 @@ class QuoteRequestAPICreateTest(TestCase):
         self.assertEqual(resp.status_code, 400)
 
     def test_retrieve(self):
-        """T4-12: GET retrieves quote request → 200"""
+        """T4-12: GET retrieves quote request → 200 (requires auth)"""
         create_resp = self.client.post(
             '/api/v1/quote-requests/',
             self.valid_payload,
             format='json',
         )
         qr_id = create_resp.json()['data']['id']
+
+        # Login as user with matching email
+        user = UserFactory(email='smith@lab.edu')
+        self.client.force_authenticate(user=user)
+
         resp = self.client.get(f'/api/v1/quote-requests/{qr_id}/')
         self.assertEqual(resp.status_code, 200)
 
     def test_retrieve_includes_items(self):
-        """T4-13: Retrieved quote request includes items list"""
+        """T4-13: Retrieved quote request includes items list (requires auth)"""
         create_resp = self.client.post(
             '/api/v1/quote-requests/',
             self.valid_payload,
             format='json',
         )
         qr_id = create_resp.json()['data']['id']
+
+        # Login as user with matching email
+        user = UserFactory(email='smith@lab.edu')
+        self.client.force_authenticate(user=user)
+
         resp = self.client.get(f'/api/v1/quote-requests/{qr_id}/')
         data = resp.json()
         self.assertIsInstance(data['data']['items'], list)
