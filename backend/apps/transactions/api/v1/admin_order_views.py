@@ -1,5 +1,6 @@
 """Admin order management endpoints."""
 from datetime import date, timedelta
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAdminUser
@@ -29,8 +30,8 @@ class AdminOrderListView(APIView):
             orders = orders.filter(status=status_filter)
         search = request.query_params.get('search', '')
         if search:
-            orders = models.Q(order_no__icontains=search) | models.Q(po_number__icontains=search)
-            orders = Order.objects.filter(orders)
+            q = Q(order_no__icontains=search) | Q(po_number__icontains=search)
+            orders = orders.filter(q)
 
         page = int(request.query_params.get('page', 1))
         page_size = int(request.query_params.get('page_size', 20))
