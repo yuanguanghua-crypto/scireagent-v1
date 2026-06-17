@@ -27,9 +27,16 @@ class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
 
 class QuoteViewSet(EnvelopeMixin, viewsets.ModelViewSet):
-    queryset = Quote.objects.prefetch_related('items').all()
     serializer_class = QuoteListSerializer
     filterset_fields = ['status']
+
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return Quote.objects.none()
+        if user.is_staff:
+            return Quote.objects.prefetch_related('items').all().order_by('-created_at')
+        return Quote.objects.filter(user=user).prefetch_related('items').order_by('-created_at')
 
     def get_serializer_class(self):
         if self.action == 'retrieve':

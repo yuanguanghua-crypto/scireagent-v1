@@ -14,3 +14,7 @@ if os.getenv('DB_ENGINE', 'postgres') == 'sqlite':
     }
     # Remove postgres-specific apps that require psycopg2
     INSTALLED_APPS = [app for app in INSTALLED_APPS if app != 'django.contrib.postgres']
+
+# Disable throttling in development/testing to avoid rate limit interference
+REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES'] = []
+REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {}

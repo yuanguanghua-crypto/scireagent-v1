@@ -3,6 +3,7 @@ V1.2 Serializers — Phase 1, Week 3.
 All serializers per-model, no cross-model reuse.
 """
 from rest_framework import serializers
+from core.svg_sanitizer import sanitize_svg
 from apps.knowledge.models import Application, Method, Protocol, Reference
 from apps.commerce.models import Product, SKU, ProductDocument
 from math import ceil
@@ -92,6 +93,7 @@ class ProductFullSerializer(serializers.ModelSerializer):
     documents = ProductDocumentSerializerV2(many=True, read_only=True)
     product_class_name = serializers.SerializerMethodField()
     product_class_path = serializers.SerializerMethodField()
+    structure_svg = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -107,6 +109,10 @@ class ProductFullSerializer(serializers.ModelSerializer):
 
     def get_product_class_name(self, obj):
         return obj.product_class.name if obj.product_class else None
+
+    def get_structure_svg(self, obj):
+        """Sanitize SVG before output to prevent XSS."""
+        return sanitize_svg(obj.structure_svg) if obj.structure_svg else None
 
     def get_product_class_path(self, obj):
         if not obj.product_class:

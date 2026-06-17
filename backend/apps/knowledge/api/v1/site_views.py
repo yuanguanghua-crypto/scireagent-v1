@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.http import HttpResponse
 from django.db.models import Count, Q
+from core.svg_sanitizer import sanitize_svg
 from apps.knowledge.models import Application, Method, Protocol, ResearchGoal, Reference
 from apps.commerce.models import Product
 from apps.bridges.models import ProductMethod
@@ -69,10 +70,11 @@ def site_home(request):
         .order_by('-display_priority', 'id')[:6]
     )
 
-    # Featured products (by display_priority)
-    featured_products = (
+    # Featured products (by display_priority) — prefetch SKUs to avoid N+1
+    featured_products = list(
         Product.objects
         .filter(status='active')
+        .prefetch_related('skus')
         .order_by('-display_priority', 'name')[:8]
     )
 
@@ -121,6 +123,35 @@ def site_home(request):
     # References (recent)
     references = Reference.objects.order_by('-year', '-id')[:5]
 
+    # Stats — single query using aggregate instead of 4 separate .count() calls
+    from django.db.models import Count as AggCount
+    stats_data = Application.objects.filter(status='active').aggregate(
+        _app_count=AggCount('id'),
+    )
+    method_count = Method.objects.filter(status='active').count()
+    protocol_count = Protocol.objects.filter(status='published').count()
+    product_count = Product.objects.filter(status__in=['active', 'published']).count()
+
+    # Build featured_products data using prefetched SKUs (no N+1)
+    products_data = []
+    for p in featured_products:
+        skus = list(p.skus.all())
+        first_sku = skus[0] if skus else None
+        products_data.append({
+            'id': p.id,
+            'name': p.name,
+            'slug': p.slug,
+            'catalog_no': p.catalog_no,
+            'cas': p.cas,
+            'formula': p.formula,
+            'purity': p.purity,
+            'price': str(first_sku.price) if first_sku else None,
+            'currency': first_sku.currency if first_sku else 'USD',
+            'structure_svg': sanitize_svg(p.structure_svg) if p.structure_svg else None,
+            'display_priority': p.display_priority,
+            'status': p.status,
+        })
+
     return Response({
         'success': True,
         'data': {
@@ -130,10 +161,10 @@ def site_home(request):
                 'suggested_searches': SUGGESTED_SEARCHES,
             },
             'stats': {
-                'applications': Application.objects.filter(status='active').count(),
-                'methods': Method.objects.filter(status='active').count(),
-                'protocols': Protocol.objects.filter(status='published').count(),
-                'products': Product.objects.filter(status__in=['active', 'published']).count(),
+                'applications': stats_data['_app_count'],
+                'methods': method_count,
+                'protocols': protocol_count,
+                'products': product_count,
             },
             'featured_applications': [
                 {
@@ -157,23 +188,7 @@ def site_home(request):
                 }
                 for m in featured_methods
             ],
-            'featured_products': [
-                {
-                    'id': p.id,
-                    'name': p.name,
-                    'slug': p.slug,
-                    'catalog_no': p.catalog_no,
-                    'cas': p.cas,
-                    'formula': p.formula,
-                    'purity': p.purity,
-                    'price': str(p.skus.first().price) if p.skus.exists() else None,
-                    'currency': p.skus.first().currency if p.skus.exists() else 'USD',
-                    'structure_svg': p.structure_svg or None,
-                    'display_priority': p.display_priority,
-                    'status': p.status,
-                }
-                for p in featured_products
-            ],
+            'featured_products': products_data,
             'featured_solutions': [
                 {
                     'application_id': a.id,

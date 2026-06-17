@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from core.serializers import BaseModelSerializer
+from core.svg_sanitizer import sanitize_svg
 from apps.commerce.models import Product, SKU, ProductClass, CatalogGroup, ProductDocument
 from apps.knowledge.models import Method, Protocol
 
@@ -168,6 +169,7 @@ class ProductDetailSerializer(BaseModelSerializer):
     protocol_ids = serializers.SerializerMethodField()
     reference_ids = serializers.SerializerMethodField()
     compatibility_summary = serializers.SerializerMethodField()
+    structure_svg = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -186,6 +188,10 @@ class ProductDetailSerializer(BaseModelSerializer):
         if obj.product_class:
             return obj.product_class.name
         return None
+
+    def get_structure_svg(self, obj):
+        """Sanitize SVG before output to prevent XSS."""
+        return sanitize_svg(obj.structure_svg) if obj.structure_svg else None
 
     def get_product_class_path(self, obj):
         """Return breadcrumb path: [L1_name, L2_name, L3_name]"""

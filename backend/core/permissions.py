@@ -2,6 +2,7 @@
 Custom permission classes for the SciReagent project.
 """
 from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.throttling import AnonRateThrottle
 
 
 class IsAdminOrReadOnly(BasePermission):
@@ -12,3 +13,11 @@ class IsAdminOrReadOnly(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return request.user and request.user.is_staff
+
+
+class LoginRateThrottle(AnonRateThrottle):
+    """
+    Rate limit for login endpoint: 5 requests per minute per IP.
+    Prevents brute-force password attacks.
+    """
+    rate = '5/min'

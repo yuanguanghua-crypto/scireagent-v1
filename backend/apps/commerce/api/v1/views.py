@@ -1,3 +1,4 @@
+import os
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -11,6 +12,23 @@ from apps.commerce.api.v1.serializers import (
     SKUSerializer, ProductClassSerializer, CatalogGroupSerializer, ProductDocumentSerializer,
 )
 from apps.commerce import selectors
+
+# ── File Upload Validation ──
+ALLOWED_UPLOAD_EXTENSIONS = {
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    '.png', '.jpg', '.jpeg', '.gif', '.svg', '.csv', '.txt', '.zip',
+}
+MAX_UPLOAD_SIZE_MB = 10  # 10 MB limit
+
+
+def _validate_uploaded_file(file_obj):
+    """Validate file extension and size. Returns error message or None."""
+    ext = os.path.splitext(file_obj.name)[1].lower()
+    if ext not in ALLOWED_UPLOAD_EXTENSIONS:
+        return f'File type "{ext}" is not allowed. Allowed types: {", ".join(sorted(ALLOWED_UPLOAD_EXTENSIONS))}'
+    if file_obj.size > MAX_UPLOAD_SIZE_MB * 1024 * 1024:
+        return f'File size exceeds the {MAX_UPLOAD_SIZE_MB}MB limit.'
+    return None
 
 
 class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
@@ -57,6 +75,10 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         file_obj = request.FILES.get('file')
         if not file_obj:
             return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        # Validate file type and size
+        validation_error = _validate_uploaded_file(file_obj)
+        if validation_error:
+            return Response({'error': validation_error}, status=status.HTTP_400_BAD_REQUEST)
         doc = ProductDocument.objects.create(
             product=product,
             document_type=request.data.get('document_type', 'datasheet'),
@@ -102,6 +124,10 @@ class ProductDocumentViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         file_obj = request.FILES.get('file')
         if not file_obj:
             return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+        # Validate file type and size
+        validation_error = _validate_uploaded_file(file_obj)
+        if validation_error:
+            return Response({'error': validation_error}, status=status.HTTP_400_BAD_REQUEST)
         data = request.data.copy()
         data['original_filename'] = file_obj.name
         serializer = self.get_serializer(data=data)

@@ -64,36 +64,39 @@ class OrderAPITest(TestCase):
 class QuoteAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.user = UserFactory()
+        self.client.force_authenticate(user=self.user)
 
     def test_list_empty(self):
         resp = self.client.get('/api/v1/quotes/')
         self.assertEqual(resp.status_code, 200)
 
     def test_list_with_data(self):
-        QuoteFactory.create_batch(2)
+        QuoteFactory(user=self.user)
+        QuoteFactory(user=self.user)
         resp = self.client.get('/api/v1/quotes/')
         self.assertEqual(resp.status_code, 200)
 
     def test_list_fields(self):
-        QuoteFactory()
+        QuoteFactory(user=self.user)
         resp = self.client.get('/api/v1/quotes/')
         self.assertEqual(resp.status_code, 200)
 
     def test_detail_includes_items(self):
-        quote = QuoteFactory()
+        quote = QuoteFactory(user=self.user)
         QuoteItemFactory(quote=quote)
         QuoteItemFactory(quote=quote)
         resp = self.client.get(f'/api/v1/quotes/{quote.id}/')
         self.assertEqual(resp.status_code, 200)
 
     def test_detail_item_fields(self):
-        quote = QuoteFactory()
+        quote = QuoteFactory(user=self.user)
         item = QuoteItemFactory(quote=quote)
         resp = self.client.get(f'/api/v1/quotes/{quote.id}/')
         self.assertEqual(resp.status_code, 200)
 
     def test_detail_extra_fields(self):
-        quote = QuoteFactory()
+        quote = QuoteFactory(user=self.user)
         resp = self.client.get(f'/api/v1/quotes/{quote.id}/')
         self.assertEqual(resp.status_code, 200)
 
