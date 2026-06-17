@@ -36,6 +36,7 @@ class OrderDetailSerializer(BaseModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     invoice = serializers.SerializerMethodField()
     shipping = serializers.SerializerMethodField()
+    internal_notes = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -49,6 +50,13 @@ class OrderDetailSerializer(BaseModelSerializer):
             'items', 'invoice', 'shipping',
             'created_at', 'updated_at',
         ]
+
+    def get_internal_notes(self, obj):
+        # Only show internal_notes to admin users
+        request = self.context.get('request')
+        if request and request.user and request.user.is_staff:
+            return obj.internal_notes
+        return None
 
     def get_invoice(self, obj):
         if hasattr(obj, 'invoice') and obj.invoice:
