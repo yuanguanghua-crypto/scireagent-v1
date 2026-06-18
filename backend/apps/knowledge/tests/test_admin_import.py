@@ -39,9 +39,9 @@ class ImportAdminViewTest(TestCase):
         """Verify the test user can access admin."""
         self.assertTrue(self.user.is_staff)
         self.assertTrue(self.user.is_superuser)
-        # Try accessing the admin index
+        # Admin index now redirects to dashboard
         resp = self.client.get('/admin/')
-        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.status_code, 302)
 
     def test_import_page_accessible(self):
         """Import page should return 200 for staff."""
