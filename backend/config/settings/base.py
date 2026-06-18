@@ -181,6 +181,14 @@ UNFOLD = {
         "show_search": True,
         "show_all_applications": False,
         "navigation": [
+            # ── Dashboard (researcher home) ──
+            {
+                "title": "Dashboard",
+                "icon": "dashboard",
+                "items": [
+                    {"title": "Dashboard", "link": "/admin/dashboard/", "icon": "home"},
+                ],
+            },
             # ── Researcher-visible (all staff users) ──
             {
                 "title": "Products",
