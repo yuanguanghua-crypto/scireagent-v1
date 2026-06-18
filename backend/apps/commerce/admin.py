@@ -5,6 +5,7 @@ from django import forms
 from django.utils.safestring import mark_safe
 
 from .models import ProductClass, CatalogGroup, Product, SKU, ProductDocument
+from apps.bridges.models import ProductMethod, ProductReference, ProductCompatibility, ProductProduct
 
 
 # ── SKU Form ─────────────────────────────────────────
@@ -26,7 +27,53 @@ class SKUInline(admin.TabularInline):
     extra = 0
     fields = ('sku_code', 'pack_size', 'price', 'currency', 'inventory_status', 'is_default')
     verbose_name = 'SKU'
-    verbose_name_plural = 'SKUs（规格）'
+    verbose_name_plural = 'SKUs'
+
+
+class ProductMethodInline(admin.TabularInline):
+    """Inline for Product ↔ Method bridge — researcher adds without navigating away."""
+    model = ProductMethod
+    extra = 0
+    autocomplete_fields = ('method',)
+    fields = ('method', 'role', 'evidence_level', 'display_order')
+    classes = ('collapse',)
+    verbose_name = 'Method'
+    verbose_name_plural = 'Methods'
+
+
+class ProductReferenceInline(admin.TabularInline):
+    """Inline for Product ↔ Reference bridge."""
+    model = ProductReference
+    extra = 0
+    autocomplete_fields = ('reference',)
+    fields = ('reference', 'citation_role', 'display_order')
+    classes = ('collapse',)
+    verbose_name = 'Reference'
+    verbose_name_plural = 'References'
+
+
+class ProductCompatibilityInline(admin.TabularInline):
+    """Inline for Product ↔ Product compatibility facts."""
+    model = ProductCompatibility
+    fk_name = 'source_product'
+    extra = 0
+    autocomplete_fields = ('target_product', 'compatibility')
+    fields = ('target_product', 'compatibility', 'verdict', 'notes')
+    classes = ('collapse',)
+    verbose_name = 'Compatibility'
+    verbose_name_plural = 'Compatibility'
+
+
+class ProductProductInline(admin.TabularInline):
+    """Inline for Product ↔ Product relations (substitutes, complements, etc.)."""
+    model = ProductProduct
+    fk_name = 'source_product'
+    extra = 0
+    autocomplete_fields = ('target_product',)
+    fields = ('target_product', 'relation_type', 'direction', 'strength')
+    classes = ('collapse',)
+    verbose_name = 'Related Product'
+    verbose_name_plural = 'Related Products'
 
 
 # ── ProductClass ─────────────────────────────────────
@@ -57,7 +104,8 @@ class ProductAdmin(ModelAdmin):
     search_fields = ('name', 'cas', 'catalog_no', 'smiles', 'inchi', 'formula')
     prepopulated_fields = {'slug': ('name',)}
     autocomplete_fields = ('product_class', 'catalog_group')
-    inlines = [SKUInline]
+    inlines = [SKUInline, ProductMethodInline, ProductReferenceInline,
+               ProductCompatibilityInline, ProductProductInline]
     list_per_page = 50
     save_on_top = True
 
