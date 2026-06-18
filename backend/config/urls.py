@@ -4,9 +4,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from apps.knowledge.api.v1.site_views import robots_txt, sitemap_xml
+from apps.knowledge.admin_views import knowledge_import_view
 
 urlpatterns = [
+    path('admin/knowledge-import/', knowledge_import_view, name='knowledge-import'),
     path('admin/', admin.site.urls),
+    path('robots.txt', robots_txt, name='robots-txt'),
     path('robots.txt', robots_txt, name='robots-txt'),
     path('sitemap.xml', sitemap_xml, name='sitemap-xml'),
     path('api/v1/', include('apps.accounts.api.v1.urls')),

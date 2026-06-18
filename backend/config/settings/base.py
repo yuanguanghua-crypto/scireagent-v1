@@ -201,6 +201,7 @@ UNFOLD = {
                     {"title": "Protocols", "link": "/admin/knowledge/protocol/", "icon": "lab_research"},
                     {"title": "References", "link": "/admin/knowledge/reference/", "icon": "menu_book"},
                     {"title": "Compatibility Rules", "link": "/admin/knowledge/compatibility/", "icon": "rule"},
+                    {"title": "Knowledge Import", "link": "/admin/knowledge-import/", "icon": "upload_file"},
                 ],
             },
             # ── Admin-only (superuser required) ──
