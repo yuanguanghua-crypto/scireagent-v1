@@ -181,6 +181,7 @@ UNFOLD = {
         "show_search": True,
         "show_all_applications": False,
         "navigation": [
+            # ── Researcher-visible (all staff users) ──
             {
                 "title": "Products",
                 "icon": "inventory_2",
@@ -199,21 +200,14 @@ UNFOLD = {
                     {"title": "Methods", "link": "/admin/knowledge/method/", "icon": "psychology"},
                     {"title": "Protocols", "link": "/admin/knowledge/protocol/", "icon": "lab_research"},
                     {"title": "References", "link": "/admin/knowledge/reference/", "icon": "menu_book"},
-                ],
-            },
-            {
-                "title": "Relationships",
-                "icon": "hub",
-                "items": [
-                    {"title": "Product ↔ Method", "link": "/admin/bridges/productmethod/", "icon": "link"},
-                    {"title": "Product ↔ Product", "link": "/admin/bridges/productproduct/", "icon": "sync_alt"},
-                    {"title": "Product Compatibility", "link": "/admin/bridges/productcompatibility/", "icon": "verified"},
                     {"title": "Compatibility Rules", "link": "/admin/knowledge/compatibility/", "icon": "rule"},
                 ],
             },
+            # ── Admin-only (superuser required) ──
             {
-                "title": "Commerce",
+                "title": "Operations",
                 "icon": "shopping_cart",
+                "permission": lambda request: request.user.is_superuser,
                 "items": [
                     {"title": "Orders", "link": "/admin/transactions/order/", "icon": "receipt_long"},
                     {"title": "Quotes", "link": "/admin/transactions/quote/", "icon": "request_quote"},
@@ -226,6 +220,7 @@ UNFOLD = {
             {
                 "title": "Accounts",
                 "icon": "group",
+                "permission": lambda request: request.user.is_superuser,
                 "items": [
                     {"title": "Users", "link": "/admin/accounts/user/", "icon": "person"},
                     {"title": "Organizations", "link": "/admin/accounts/organization/", "icon": "business"},
@@ -234,11 +229,12 @@ UNFOLD = {
             {
                 "title": "System",
                 "icon": "settings",
+                "permission": lambda request: request.user.is_superuser,
                 "items": [
                     {"title": "Tokens", "link": "/admin/authtoken/tokenproxy/", "icon": "key"},
                     {"title": "Groups", "link": "/admin/auth/group/", "icon": "group_work"},
                     {"title": "PDF Files", "link": "/admin/assets/pdffile/", "icon": "picture_as_pdf"},
-                    {"title": "SKU Management", "link": "/admin/commerce/sku/", "icon": "sell"},
+                    {"title": "PDF Uploads", "link": "/api/v1/pdf-files/", "icon": "upload_file"},
                     {"title": "Basket", "link": "/admin/transactions/basket/", "icon": "shopping_basket"},
                     {"title": "Wishlist", "link": "/admin/transactions/wishlist/", "icon": "favorite"},
                 ],
