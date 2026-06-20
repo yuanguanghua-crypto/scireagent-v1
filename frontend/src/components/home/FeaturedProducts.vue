@@ -8,7 +8,7 @@ const props = defineProps({
 const router = useRouter()
 
 function formatPrice(price, currency) {
-  if (!price && price !== 0) return null
+  if (price == null || price === '') return null
   const sym = currency === 'CNY' ? '¥' : '$'
   return `${sym}${parseFloat(price).toFixed(2)}`
 }

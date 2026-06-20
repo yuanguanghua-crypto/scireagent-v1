@@ -6,6 +6,7 @@ const props = defineProps({
   title: { type: String, default: 'SciReagent' },
   subtitle: { type: String, default: '' },
   suggestedSearches: { type: Array, default: () => [] },
+  stats: { type: Object, default: () => ({ products: 118, skus: 293, methods: 10, protocols: 88, areas: 8 }) },
 })
 
 const router = useRouter()
@@ -61,23 +62,23 @@ const tags = props.suggestedSearches.length ? props.suggestedSearches : hotTags
 
         <div class="hero-stats">
           <div class="hero-stat">
-            <span class="hero-stat-num">118</span>
+            <span class="hero-stat-num">{{ stats.products || 0 }}</span>
             <span class="hero-stat-label">Products</span>
           </div>
           <div class="hero-stat">
-            <span class="hero-stat-num">293</span>
+            <span class="hero-stat-num">{{ stats.skus || 0 }}</span>
             <span class="hero-stat-label">SKUs</span>
           </div>
           <div class="hero-stat">
-            <span class="hero-stat-num">10</span>
+            <span class="hero-stat-num">{{ stats.methods || 0 }}</span>
             <span class="hero-stat-label">Methods</span>
           </div>
           <div class="hero-stat">
-            <span class="hero-stat-num">88</span>
+            <span class="hero-stat-num">{{ stats.protocols || 0 }}</span>
             <span class="hero-stat-label">Protocols</span>
           </div>
           <div class="hero-stat">
-            <span class="hero-stat-num">8</span>
+            <span class="hero-stat-num">{{ stats.areas || 0 }}</span>
             <span class="hero-stat-label">Areas</span>
           </div>
         </div>

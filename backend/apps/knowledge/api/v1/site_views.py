@@ -123,14 +123,54 @@ def site_home(request):
     # References (recent)
     references = Reference.objects.order_by('-year', '-id')[:5]
 
-    # Stats — single query using aggregate instead of 4 separate .count() calls
-    from django.db.models import Count as AggCount
-    stats_data = Application.objects.filter(status='active').aggregate(
-        _app_count=AggCount('id'),
-    )
+    # Stats — aggregate counts from all relevant models
+    sku_count = Product.objects.filter(status__in=['active', 'published']).aggregate(
+        total=Count('skus__id', distinct=True)
+    )['total'] or 0
+    area_count = ResearchGoal.objects.count()
     method_count = Method.objects.filter(status='active').count()
     protocol_count = Protocol.objects.filter(status='published').count()
     product_count = Product.objects.filter(status__in=['active', 'published']).count()
+
+    # Stats payload — aligned with frontend StatsBar
+    stats_payload = {
+        'products': product_count,
+        'skus': sku_count,
+        'methods': method_count,
+        'protocols': protocol_count,
+        'areas': area_count,
+    }
+
+    # Categories — L1 breakdown with product counts
+    category_data = (
+        Product.objects
+        .filter(status__in=['active', 'published'], category_l1__isnull=False)
+        .exclude(category_l1='')
+        .values('category_l1')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+    categories_payload = []
+    CATEGORY_META = {
+        'nucleotides_nucleosides': {'name': 'Nucleotides', 'slug': 'nucleotides', 'color': '#7C3AED', 'bg': '#EDE9FE'},
+        'click_chemistry': {'name': 'Click Chemistry', 'slug': 'click-chemistry', 'color': '#0F766E', 'bg': '#F0FDFA'},
+        'fluorescent_probes': {'name': 'Fluorescent Probes', 'slug': 'fluorescent-probes', 'color': '#0EA5E9', 'bg': '#E0F2FE'},
+        'bioconjugation': {'name': 'Bioconjugation', 'slug': 'bioconjugation', 'color': '#CA8A04', 'bg': '#FEF3C7'},
+        'modifiers': {'name': 'Modifiers', 'slug': 'modifiers', 'color': '#E11D48', 'bg': '#FCE7F3'},
+        'molecular_biology': {'name': 'Molecular Biology', 'slug': 'molecular-biology', 'color': '#64748B', 'bg': '#F1F5F9'},
+    }
+    for c in category_data:
+        key = c['category_l1']
+        meta = CATEGORY_META.get(key, {'name': key.replace('_', ' ').title(), 'slug': key, 'color': '#64748B', 'bg': '#F1F5F9'})
+        categories_payload.append({**meta, 'count': c['count']})
+
+    # Knowledge section data — aligned with frontend KnowledgeSection
+    knowledge_payload = {
+        'goals': ResearchGoal.objects.count(),
+        'applications': Application.objects.filter(status='active').count(),
+        'methods': method_count,
+        'protocols': protocol_count,
+    }
 
     # Build featured_products data using prefetched SKUs (no N+1)
     products_data = []
@@ -144,6 +184,7 @@ def site_home(request):
             'catalog_no': p.catalog_no,
             'cas': p.cas,
             'formula': p.formula,
+            'category_l1': p.category_l1,
             'purity': p.purity,
             'price': str(first_sku.price) if first_sku else None,
             'currency': first_sku.currency if first_sku else 'USD',
@@ -160,12 +201,9 @@ def site_home(request):
                 'subtitle': 'AI-Native Scientific Reagent Platform for Nucleotides & Click Chemistry',
                 'suggested_searches': SUGGESTED_SEARCHES,
             },
-            'stats': {
-                'applications': stats_data['_app_count'],
-                'methods': method_count,
-                'protocols': protocol_count,
-                'products': product_count,
-            },
+            'stats': stats_payload,
+            'categories': categories_payload,
+            'knowledge': knowledge_payload,
             'featured_applications': [
                 {
                     'id': a.id,

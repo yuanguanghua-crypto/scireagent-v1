@@ -17,8 +17,10 @@ const KnowledgeSection = defineAsyncComponent(() => import('@/components/home/Kn
 const loading = ref(true)
 const homeData = ref({
   hero: { title: 'SciReagent', subtitle: '', suggested_searches: [] },
-  stats: { applications: 0, methods: 0, protocols: 0, products: 0 },
+  stats: { products: 0, skus: 0, methods: 0, protocols: 0, areas: 0 },
   featured_products: [],
+  categories: [],
+  knowledge: { goals: 0, applications: 0, methods: 0, protocols: 0 },
 })
 
 onMounted(async () => {
@@ -51,12 +53,13 @@ onMounted(async () => {
         :title="homeData.hero?.title"
         :subtitle="homeData.hero?.subtitle"
         :suggested-searches="homeData.hero?.suggested_searches"
+        :stats="homeData.stats"
       />
 
       <!-- Content area (contained width) -->
       <div class="content-area">
         <!-- 2. Category Pills -->
-        <CategoryPills />
+        <CategoryPills :categories="homeData.categories" />
 
         <!-- 3. Featured Products Grid -->
         <FeaturedProducts :products="homeData.featured_products" />
@@ -71,7 +74,7 @@ onMounted(async () => {
 
         <!-- 5. Knowledge Section (collapsible) -->
         <Suspense>
-          <KnowledgeSection />
+          <KnowledgeSection :knowledge="homeData.knowledge" />
           <template #fallback>
             <div class="loading-skeleton" style="height: 80px;"></div>
           </template>
