@@ -1,161 +1,245 @@
 <script setup>
 import { useRouter } from 'vue-router'
-import { formatCurrency } from '@/utils/helpers'
 
-defineProps({
+const props = defineProps({
   products: { type: Array, default: () => [] },
 })
 
 const router = useRouter()
 
-function goToDetail(product) {
-  router.push(`/products/${product.id}`)
+function formatPrice(price, currency) {
+  if (!price && price !== 0) return null
+  const sym = currency === 'CNY' ? '¥' : '$'
+  return `${sym}${parseFloat(price).toFixed(2)}`
+}
+
+function domainStyle(category) {
+  const map = {
+    nucleotide: { bg: '#EDE9FE', color: '#7C3AED' },
+    click: { bg: '#F0FDFA', color: '#0F766E' },
+    fluor: { bg: '#E0F2FE', color: '#0EA5E9' },
+    bioconjugate: { bg: '#FEF3C7', color: '#CA8A04' },
+    modifier: { bg: '#FCE7F3', color: '#E11D48' },
+  }
+  const key = (category || '').toLowerCase().replace(/[^a-z]/g, '')
+  for (const [k, v] of Object.entries(map)) {
+    if (key.includes(k)) return v
+  }
+  return { bg: '#F1F5F9', color: '#64748B' }
+}
+
+function viewAllLink() {
+  return `/products`
 }
 </script>
 
 <template>
-  <section v-if="products.length" class="section" aria-label="Featured Products">
-    <div class="section-header">
-      <h2 class="section-title">Featured Products</h2>
-      <router-link to="/products" class="section-link">View all →</router-link>
-    </div>
-    <div class="products-grid">
-      <div
-        v-for="product in products"
-        :key="product.id"
-        class="product-card"
-        @click="goToDetail(product)"
-      >
-        <div class="product-structure">
-          <div v-if="product.structure_svg" v-html="product.structure_svg" class="svg-wrap"></div>
-          <div v-else class="structure-placeholder">
-            <span>{{ product.formula || '—' }}</span>
-          </div>
-        </div>
-        <div class="product-info">
-          <h3 class="product-name">{{ product.name }}</h3>
-          <div class="product-meta">
-            <span v-if="product.catalog_no" class="meta-tag primary">{{ product.catalog_no }}</span>
-            <span v-if="product.cas" class="meta-tag">{{ product.cas }}</span>
-          </div>
-          <p v-if="product.purity" class="product-purity">Purity: {{ product.purity }}</p>
-          <div v-if="product.price" class="product-price">
-            {{ formatCurrency(product.price, product.currency || 'USD') }}
-          </div>
-        </div>
-        <button class="btn-detail" @click.stop="goToDetail(product)">View Details →</button>
+  <section v-if="products.length" class="fp" aria-label="Featured products">
+    <div class="section-h">
+      <div>
+        <h2>Featured Products</h2>
+        <div class="sub">High-purity reagents for life science research</div>
       </div>
+      <router-link :to="viewAllLink()" class="section-link">View all {{ products.length }}+ →</router-link>
+    </div>
+    <div class="section-divider"></div>
+
+    <div class="product-grid">
+      <button
+        v-for="p in products.slice(0, 10)"
+        :key="p.id"
+        class="product-card"
+        @click="router.push(`/products/${p.id}`)"
+      >
+        <span
+          class="domain-tag"
+          :style="{ background: domainStyle(p.category_l1).bg, color: domainStyle(p.category_l1).color }"
+        >
+          {{ p.category_l1 || 'General' }}
+        </span>
+        <h3>{{ p.name }}</h3>
+        <div class="cas-meta">
+          <span v-if="p.cas" class="cas">CAS: {{ p.cas }}</span>
+          <span v-if="p.formula" class="formula-badge">{{ p.formula }}</span>
+        </div>
+        <div class="price-row">
+          <span v-if="formatPrice(p.price, p.currency)" class="price">
+            <span class="currency">{{ p.currency === 'CNY' ? '¥' : '$' }}</span>
+            {{ formatPrice(p.price, p.currency) }}
+          </span>
+          <span v-else class="price">—</span>
+          <span class="stock in-stock">In Stock</span>
+        </div>
+      </button>
     </div>
   </section>
 </template>
 
 <style scoped>
-.section { margin-bottom: 32px; }
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
+.fp {
+  padding: 8px 0 48px;
 }
-.section-title {
-  font-size: 20px;
-  font-weight: 700;
+.section-h {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.section-h h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
   color: var(--color-text);
   margin: 0;
 }
+.sub {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
 .section-link {
   font-size: 14px;
+  font-weight: 500;
   color: var(--color-primary);
   text-decoration: none;
-  font-weight: 500;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
-.section-link:hover { text-decoration: underline; }
-.products-grid {
+.section-link:hover {
+  color: var(--color-primary-hover);
+  gap: 8px;
+}
+.section-divider {
+  height: 2px;
+  width: 80px;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-teal-100) 100%);
+  border-radius: 2px;
+  margin-bottom: 24px;
+}
+
+.product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 16px;
 }
+
 .product-card {
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  padding: 20px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
-  transition: all 0.15s;
+  text-align: left;
+  font-family: var(--font-sans);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+.product-card::before {
+  content: '';
+  position: absolute;
+  top: -1.5px;
+  left: 15%;
+  right: 15%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary), #38BDF8);
+  border-radius: 0 0 3px 3px;
+  opacity: 0;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .product-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-color: var(--color-teal-100);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.10);
 }
-.product-structure {
-  height: 160px;
-  background: var(--color-bg);
+.product-card:hover::before {
+  opacity: 1;
+  left: 10%;
+  right: 10%;
+}
+
+.domain-tag {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.product-card h3 {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 4px;
+  color: var(--color-text);
+}
+.cas-meta {
   display: flex;
   align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-.svg-wrap { max-width: 100%; max-height: 100%; }
-.svg-wrap :deep(svg) { max-width: 100%; max-height: 160px; }
-.structure-placeholder {
-  font-family: var(--font-mono);
-  font-size: 14px;
-  color: var(--color-text-secondary);
-}
-.product-info { padding: 14px; }
-.product-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text);
-  margin: 0 0 8px;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.product-meta {
-  display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
-.meta-tag {
-  font-size: 11px;
-  padding: 2px 8px;
-  background: var(--color-bg);
-  border-radius: var(--radius-full);
-  color: var(--color-text-secondary);
+.cas {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
   font-family: var(--font-mono);
 }
-.meta-tag.primary {
-  background: var(--color-primary);
-  color: white;
+.formula-badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--color-gray-100);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
 }
-.product-purity {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  margin: 0 0 8px;
+.price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-gray-100);
 }
-.product-price {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--color-primary);
-  font-variant-numeric: tabular-nums;
-}
-.btn-detail {
-  display: block;
-  width: 100%;
-  padding: 10px;
-  background: var(--color-bg);
-  border: none;
-  border-top: 1px solid var(--color-border);
-  font-size: 13px;
+.price {
+  font-family: var(--font-display);
+  font-size: 18px;
   font-weight: 600;
-  color: var(--color-primary);
-  cursor: pointer;
-  font-family: var(--font-sans);
-  transition: background 0.15s;
+  color: var(--color-text);
 }
-.btn-detail:hover { background: var(--color-primary-light); }
+.currency {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+.stock {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.stock.in-stock {
+  background: #D1FAE5;
+  color: #065F46;
+}
+
+@media (max-width: 1024px) {
+  .product-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 768px) {
+  .product-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .product-grid { grid-template-columns: 1fr; }
+}
 </style>

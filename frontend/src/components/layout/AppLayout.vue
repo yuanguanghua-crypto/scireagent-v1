@@ -11,6 +11,8 @@ function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
+const isPublicPage = () => route.meta?.noSidebar
+
 const navItems = [
   {
     section: 'Discover',
@@ -33,7 +35,7 @@ const navItems = [
 
 <template>
   <div class="app-layout">
-    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
+    <aside v-if="!isPublicPage()" class="sidebar" :class="{ collapsed: sidebarCollapsed }">
       <!-- Logo -->
       <div class="sidebar-header">
         <div class="logo">
@@ -70,9 +72,9 @@ const navItems = [
     </aside>
 
     <div class="main-wrapper">
-      <AppHeader @toggle-sidebar="toggleSidebar" />
+      <AppHeader v-if="!isPublicPage()" @toggle-sidebar="toggleSidebar" />
 
-      <main class="content-area">
+      <main class="content-area" :class="{ 'content-full': route.meta?.noSidebar }">
         <slot />
       </main>
 
@@ -234,6 +236,10 @@ const navItems = [
 .content-area {
   flex: 1;
   padding: 20px 24px;
+  overflow-y: auto;
+}
+.content-full {
+  padding: 0;
   overflow-y: auto;
 }
 

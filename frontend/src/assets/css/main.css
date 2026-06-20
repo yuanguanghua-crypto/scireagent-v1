@@ -1,65 +1,84 @@
 @import "tailwindcss";
 
 /* ============================================
-   SciReagent Design System v1.0
-   Direction: Lab Precision
-   Colors from the chemistry lab:
-     Teal = solutions  |  Amber = heat
-     White = surfaces  |  Gray = instruments
+   SciReagent Design System v2.0
+   Direction: Lab Precision × Modern Edge
+
+   Token Architecture (Primitive → Semantic → Component):
+     Primitive:  raw color scales, spacing, type ratios
+     Semantic:   role-based tokens (bg, text, border, state)
+     Component:  spec-level tokens (btn, card, input)
+
+   Colors:
+     Teal  = chemical solutions (primary)
+     Amber = chemical heat     (accent, CTAs)
+     Gray  = lab instruments   (neutral)
+     Blue  = life science      (information)
+     Domain colors = product categories
    ============================================ */
 
 @theme {
-  /* ── Primary: Teal (chemical solutions) ── */
-  --color-primary: #0F766E;
-  --color-primary-hover: #0D9488;
-  --color-primary-light: #CCFBF1;
-  --color-primary-subtle: #F0FDFA;
-  --color-primary-soft: #F0FDFA;
+  /* ════════════════════════════════════════════
+     PRIMITIVE TOKENS
+     ════════════════════════════════════════════ */
 
-  /* ── Secondary: Emerald (life science) ── */
-  --color-secondary: #059669;
-  --color-secondary-hover: #047857;
-  --color-secondary-light: #D1FAE5;
-  --color-secondary-soft: #ECFDF5;
+  /* ── Brand Colors ── */
+  --color-teal-50: #F0FDFA;
+  --color-teal-100: #CCFBF1;
+  --color-teal-200: #99F6E4;
+  --color-teal-300: #5EEAD4;
+  --color-teal-400: #2DD4BF;
+  --color-teal-500: #14B8A6;
+  --color-teal-600: #0D9488;
+  --color-teal-700: #0F766E;
+  --color-teal-800: #115E59;
+  --color-teal-900: #134E4A;
+  --color-teal-950: #042F2E;
 
-  /* ── Accent: Amber (chemical heat, CTAs) ── */
-  --color-accent: #D97706;
-  --color-accent-hover: #B45309;
-  --color-accent-light: #FEF3C7;
-  --color-warning-soft: #FFFBEB;
+  --color-amber-50: #FFFBEB;
+  --color-amber-100: #FEF3C7;
+  --color-amber-200: #FDE68A;
+  --color-amber-300: #FCD34D;
+  --color-amber-400: #FBBF24;
+  --color-amber-500: #F59E0B;
+  --color-amber-600: #D97706;
+  --color-amber-700: #B45309;
+  --color-amber-800: #92400E;
+  --color-amber-900: #78350F;
 
-  /* ── Neutral Scale (lab instrument grays) ── */
-  --color-gray-950: #020617;
-  --color-gray-900: #0F172A;
-  --color-gray-700: #334155;
-  --color-gray-500: #64748B;
-  --color-gray-400: #94A3B8;
-  --color-gray-300: #CBD5E1;
-  --color-gray-200: #E2E8F0;
-  --color-gray-100: #F1F5F9;
+  /* ── Neutral (Slate) ── */
   --color-gray-50: #F8FAFC;
+  --color-gray-100: #F1F5F9;
+  --color-gray-200: #E2E8F0;
+  --color-gray-300: #CBD5E1;
+  --color-gray-400: #94A3B8;
+  --color-gray-500: #64748B;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1E293B;
+  --color-gray-900: #0F172A;
+  --color-gray-950: #020617;
 
-  /* ── Page / Surface ── */
-  --color-bg: #F8FAFC;
-  --color-surface: #FFFFFF;
-  --color-border: #E2E8F0;
-  --color-border-hover: #CBD5E1;
-  --color-border-light: #F1F5F9;
-  --color-text: #0F172A;
-  --color-text-secondary: #64748B;
-  --color-text-tertiary: #94A3B8;
+  /* ── Status Colors ── */
+  --color-green-50: #F0FDF4;
+  --color-green-100: #DCFCE7;
+  --color-green-500: #22C55E;
+  --color-green-600: #16A34A;
+  --color-green-700: #15803D;
 
-  /* ── Semantic ── */
-  --color-success: #059669;
-  --color-success-light: #D1FAE5;
-  --color-warning: #D97706;
-  --color-warning-light: #FEF3C7;
-  --color-danger: #DC2626;
-  --color-danger-light: #FEE2E2;
-  --color-info: #0284C7;
-  --color-info-light: #E0F2FE;
+  --color-red-50: #FEF2F2;
+  --color-red-100: #FEE2E2;
+  --color-red-500: #EF4444;
+  --color-red-600: #DC2626;
+  --color-red-700: #B91C1C;
 
-  /* ── Domain-Specific (chemical categories) ── */
+  --color-blue-50: #EFF6FF;
+  --color-blue-100: #DBEAFE;
+  --color-blue-500: #3B82F6;
+  --color-blue-600: #2563EB;
+  --color-blue-700: #1D4ED8;
+
+  /* ── Domain (product category) Colors ── */
   --color-domain-nucleotide: #7C3AED;
   --color-domain-nucleotide-soft: #EDE9FE;
   --color-domain-click: #0F766E;
@@ -71,25 +90,91 @@
   --color-domain-modifier: #E11D48;
   --color-domain-modifier-soft: #FCE7F3;
 
-  /* Legacy aliases */
-  --color-chem-nucleotide: #7C3AED;
-  --color-chem-click: #0F766E;
-  --color-chem-fluor: #0EA5E9;
-  --color-chem-bioconjugate: #CA8A04;
-  --color-chem-modifier: #E11D48;
+  /* ════════════════════════════════════════════
+     SEMANTIC TOKENS — role-based, context-aware
+     ════════════════════════════════════════════ */
 
-  /* ── Typography ── */
+  /* ── Primary (teal) ── */
+  --color-primary: var(--color-teal-700);
+  --color-primary-hover: var(--color-teal-600);
+  --color-primary-active: var(--color-teal-800);
+  --color-primary-light: var(--color-teal-100);
+  --color-primary-subtle: var(--color-teal-50);
+  --color-primary-fg: #FFFFFF;
+  --color-primary-ring: rgba(15, 118, 110, 0.25);
+
+  /* ── Secondary (teal-500) ── */
+  --color-secondary: var(--color-teal-500);
+  --color-secondary-hover: var(--color-teal-400);
+  --color-secondary-active: var(--color-teal-600);
+  --color-secondary-light: var(--color-teal-100);
+  --color-secondary-soft: var(--color-teal-50);
+  --color-secondary-fg: #FFFFFF;
+
+  /* ── Accent (amber — CTAs, highlights) ── */
+  --color-accent: var(--color-amber-600);
+  --color-accent-hover: var(--color-amber-700);
+  --color-accent-active: var(--color-amber-800);
+  --color-accent-light: var(--color-amber-100);
+  --color-accent-soft: var(--color-amber-50);
+  --color-accent-fg: #FFFFFF;
+
+  /* ── Surfaces ── */
+  --color-bg: var(--color-gray-50);
+  --color-bg-alt: var(--color-gray-100);
+  --color-surface: #FFFFFF;
+  --color-surface-hover: var(--color-gray-50);
+  --color-surface-glass: rgba(255, 255, 255, 0.88);
+
+  /* ── Borders ── */
+  --color-border: var(--color-gray-200);
+  --color-border-hover: var(--color-gray-300);
+  --color-border-light: var(--color-gray-100);
+  --color-border-active: var(--color-primary);
+  --color-border-focus: var(--color-primary);
+
+  /* ── Text ── */
+  --color-text: var(--color-gray-900);
+  --color-text-secondary: var(--color-gray-600);
+  --color-text-tertiary: var(--color-gray-400);
+  --color-text-inverse: #FFFFFF;
+  --color-text-link: var(--color-primary);
+  --color-text-link-hover: var(--color-primary-hover);
+
+  /* ── Status ── */
+  --color-success: var(--color-green-600);
+  --color-success-light: var(--color-green-100);
+  --color-success-bg: var(--color-green-50);
+  --color-warning: var(--color-amber-600);
+  --color-warning-light: var(--color-amber-100);
+  --color-warning-bg: var(--color-amber-50);
+  --color-danger: var(--color-red-600);
+  --color-danger-light: var(--color-red-100);
+  --color-danger-bg: var(--color-red-50);
+  --color-info: var(--color-blue-600);
+  --color-info-light: var(--color-blue-100);
+  --color-info-bg: var(--color-blue-50);
+
+  /* ── Focus Ring ── */
+  --ring-color: var(--color-primary-ring);
+  --ring-offset: 2px;
+  --ring-width: 3px;
+
+  /* ════════════════════════════════════════════
+     LAYOUT & TYPOGRAPHY
+     ════════════════════════════════════════════ */
+
+  /* ── Fonts ── */
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Space Grotesk', var(--font-sans);
   --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
 
-  /* ── Type Scale ── */
+  /* ── Type Scale (modular scale 1.125 = major second) ── */
   --text-display: 36px;
   --text-h1: 28px;
   --text-h2: 22px;
   --text-h3: 18px;
   --text-h4: 16px;
-  --text-section-title: 16px;
-  --text-card-title: 15px;
   --text-body-lg: 16px;
   --text-body: 15px;
   --text-body-sm: 14px;
@@ -98,47 +183,110 @@
   --text-mono: 14px;
   --text-mono-sm: 13px;
 
-  /* ── Spacing Scale ── */
+  /* ── Line Height Scale ── */
+  --leading-tight: 1.15;
+  --leading-snug: 1.30;
+  --leading-normal: 1.50;
+  --leading-relaxed: 1.625;
+  --leading-loose: 1.75;
+
+  /* ── Spacing (4px base) ── */
   --spacing-0: 0;
+  --spacing-px: 1px;
   --spacing-0-5: 2px;
   --spacing-1: 4px;
   --spacing-1-5: 6px;
   --spacing-2: 8px;
+  --spacing-2-5: 10px;
   --spacing-3: 12px;
+  --spacing-3-5: 14px;
   --spacing-4: 16px;
   --spacing-5: 20px;
   --spacing-6: 24px;
+  --spacing-7: 28px;
   --spacing-8: 32px;
+  --spacing-9: 36px;
   --spacing-10: 40px;
   --spacing-12: 48px;
+  --spacing-14: 56px;
   --spacing-16: 64px;
+  --spacing-20: 80px;
   --spacing-24: 96px;
+  --spacing-32: 128px;
 
   /* ── Border Radius ── */
+  --radius-none: 0;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-xl: 12px;
-  --radius-pill: 9999px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
   --radius-full: 9999px;
 
-  /* ── Shadows ── */
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
-  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.06);
-  --shadow-dropdown: 0 4px 16px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
-  --shadow-modal: 0 16px 48px rgba(0, 0, 0, 0.12), 0 4px 16px rgba(0, 0, 0, 0.06);
+  /* ════════════════════════════════════════════
+     ELEVATION & SHADOWS
+     ════════════════════════════════════════════ */
 
-  /* ── Motion ── */
+  /* Shadow elevation system (level 0–4) */
+  --shadow-none: 0 0 transparent;
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --shadow-md: 0 4px 8px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.08), 0 4px 8px rgba(15, 23, 42, 0.04);
+  --shadow-xl: 0 16px 48px rgba(15, 23, 42, 0.10), 0 4px 16px rgba(15, 23, 42, 0.06);
+  --shadow-2xl: 0 24px 64px rgba(15, 23, 42, 0.14);
+
+  /* Semantic shadows */
+  --shadow-card: var(--shadow-sm);
+  --shadow-card-hover: var(--shadow-lg);
+  --shadow-dropdown: var(--shadow-md);
+  --shadow-modal: var(--shadow-xl);
+  --shadow-toast: var(--shadow-lg);
+  --shadow-glow: 0 0 20px rgba(15, 118, 110, 0.10);
+
+  /* ── Opacity ── */
+  --opacity-disabled: 0.5;
+  --opacity-muted: 0.6;
+  --opacity-subtle: 0.8;
+  --opacity-glass: 0.85;
+
+  /* ── Z-Index Scale ── */
+  --z-dropdown: 50;
+  --z-sticky: 100;
+  --z-navbar: 150;
+  --z-overlay: 200;
+  --z-modal: 250;
+  --z-toast: 300;
+  --z-tooltip: 350;
+
+  /* ════════════════════════════════════════════
+     MOTION & TRANSITIONS
+     ════════════════════════════════════════════ */
+
+  /* Durations */
+  --duration-instant: 0ms;
   --duration-fast: 100ms;
   --duration-normal: 150ms;
+  --duration-moderate: 200ms;
   --duration-slow: 250ms;
   --duration-modal: 200ms;
+  --duration-enter: 250ms;
+  --duration-leave: 150ms;
+
+  /* Easing curves */
   --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
   --ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* ── Layout ── */
+  /* ════════════════════════════════════════════
+     LAYOUT CONSTANTS
+     ════════════════════════════════════════════ */
+
   --header-height: 56px;
   --sidebar-width: 240px;
   --sidebar-collapsed-width: 64px;
@@ -195,40 +343,76 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ──────────────────────────────────────────────
-   Card System
-   ────────────────────────────────────────────── */
+/* ════════════════════════════════════════════
+   CARD SYSTEM
+   Spec: elevated container with optional header/body/footer
+         Five variants: default, interactive, highlighted, bordered, glass
+   States: rest, hover, active, focus-visible
+   ════════════════════════════════════════════ */
 
 .card {
-  background: var(--color-bg);
-  border: 1px solid var(--color-gray-200);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--spacing-4);
-  transition: border-color var(--duration-normal) var(--ease-default),
-              box-shadow var(--duration-normal) var(--ease-default);
+  transition:
+    border-color var(--duration-normal) var(--ease-default),
+    box-shadow var(--duration-normal) var(--ease-default),
+    transform var(--duration-normal) var(--ease-out);
 }
 
-.card:hover {
-  border-color: var(--color-gray-300);
-  box-shadow: var(--shadow-card-hover);
+.card-header {
+  padding: var(--spacing-4) var(--spacing-4) var(--spacing-3);
+  border-bottom: 1px solid var(--color-border-light);
 }
 
+.card-body {
+  padding: var(--spacing-4);
+}
+
+.card-footer {
+  padding: var(--spacing-3) var(--spacing-4);
+  border-top: 1px solid var(--color-border-light);
+}
+
+/* Interactive (clickable) */
 .card-interactive {
   cursor: pointer;
 }
 
 .card-interactive:hover {
-  border-color: var(--color-primary);
+  border-color: var(--color-border-hover);
   box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
 }
 
+.card-interactive:focus-visible {
+  outline: var(--ring-width) solid var(--color-primary-ring);
+  outline-offset: var(--ring-offset);
+  border-color: var(--color-border-active);
+}
+
+.card-interactive:active {
+  transform: translateY(0);
+}
+
+/* Highlighted (left accent) */
 .card-highlighted {
   border-left: 3px solid var(--color-primary);
   background: var(--color-primary-subtle);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-lg);
 }
 
-.card-category {
-  background: var(--color-surface);
+/* Bordered (visual emphasis) */
+.card-bordered {
+  border-width: 2px;
+}
+
+/* Glass (translucent surface) */
+.card-glass {
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
 }
 
 /* ──────────────────────────────────────────────
@@ -277,36 +461,146 @@ body {
 .badge-bioconjugate { background: #FEF3C7; color: var(--color-chem-bioconjugate); }
 .badge-modifier { background: #FCE7F3; color: var(--color-chem-modifier); }
 
-/* ──────────────────────────────────────────────
-   Navigation
-   ────────────────────────────────────────────── */
+/* ════════════════════════════════════════════
+   NAVIGATION SYSTEM
+   Spec: sidebar nav items, tab bar, breadcrumbs, pagination
+   ════════════════════════════════════════════ */
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-2-5, 10px);
+  gap: var(--spacing-2-5);
   padding: var(--spacing-2) var(--spacing-3);
   border-radius: var(--radius-md);
   font-size: var(--text-body-sm);
-  color: var(--color-gray-500);
+  font-weight: 500;
+  color: var(--color-text-secondary);
   transition: all var(--duration-fast) var(--ease-default);
   text-decoration: none;
 }
 
 .nav-item:hover {
-  background: var(--color-gray-100);
-  color: var(--color-gray-900);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
 }
 
 .nav-item.active {
   background: var(--color-primary-light);
   color: var(--color-primary);
+  font-weight: 600;
+}
+
+.nav-item:focus-visible {
+  outline: var(--ring-width) solid var(--color-primary-ring);
+  outline-offset: var(--ring-offset);
+}
+
+/* Tab bar */
+.tab {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--spacing-2) var(--spacing-4);
+  font-size: var(--text-body-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  color: var(--color-text);
+}
+
+.tab.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* Breadcrumbs */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1-5);
+  font-size: var(--text-caption);
+  color: var(--color-text-tertiary);
+  flex-wrap: wrap;
+}
+
+.breadcrumb a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color var(--duration-fast);
+}
+
+.breadcrumb a:hover {
+  color: var(--color-text-link);
+}
+
+.breadcrumb .sep {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.breadcrumb .current {
+  color: var(--color-text);
   font-weight: 500;
 }
 
-/* ──────────────────────────────────────────────
-   Button System
-   ────────────────────────────────────────────── */
+/* ── Pagination ── */
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+.pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-body-sm);
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+}
+
+.pagination-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.pagination-btn.active {
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+  border-color: var(--color-primary);
+}
+
+.pagination-btn:disabled {
+  opacity: var(--opacity-disabled);
+  pointer-events: none;
+}
+
+.pagination-btn:focus-visible {
+  outline: var(--ring-width) solid var(--color-primary-ring);
+  outline-offset: var(--ring-offset);
+}
+
+/* ════════════════════════════════════════════
+   BUTTON SYSTEM
+   Spec: https://ui.shadcn.com/docs/components/button
+   Variants: primary, secondary, outline, ghost, danger, accent, link
+   Sizes:    sm (32px), default (40px), lg (48px), icon (40px)
+   States:   rest, hover, active, focus-visible, disabled, loading
+   ════════════════════════════════════════════ */
 
 .btn {
   display: inline-flex;
@@ -315,83 +609,265 @@ body {
   gap: var(--spacing-1-5);
   font-family: var(--font-sans);
   font-weight: 500;
-  border: none;
+  border: 1.5px solid transparent;
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-default);
+  transition:
+    all var(--duration-fast) var(--ease-out);
   text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1;
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: var(--opacity-disabled);
   pointer-events: none;
 }
 
 .btn:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: var(--ring-width) solid var(--color-primary-ring);
+  outline-offset: var(--ring-offset);
 }
 
 /* Sizes */
-.btn-sm { height: 32px; padding: 0 12px; font-size: var(--text-caption); border-radius: var(--radius-md); }
-.btn-md { height: 36px; padding: 0 16px; font-size: var(--text-body-sm); border-radius: var(--radius-md); }
-.btn-lg { height: 44px; padding: 0 24px; font-size: var(--text-body); border-radius: var(--radius-lg); }
+.btn-sm    { height: 32px; padding: 0 12px; font-size: var(--text-caption); border-radius: var(--radius-md); gap: 4px; }
+.btn-md    { height: 40px; padding: 0 18px; font-size: var(--text-body-sm); border-radius: var(--radius-md); gap: 6px; }
+.btn-lg    { height: 48px; padding: 0 24px; font-size: var(--text-body); border-radius: var(--radius-lg); gap: 8px; }
+.btn-icon  { width: 40px; height: 40px; padding: 0; border-radius: var(--radius-md); }
+.btn-icon-sm { width: 32px; height: 32px; padding: 0; border-radius: var(--radius-md); }
 
-/* Variants */
-.btn-primary { background: var(--color-primary); color: white; }
-.btn-primary:hover { background: var(--color-primary-hover); }
+/* ── Variants ── */
 
-.btn-secondary { background: var(--color-gray-100); color: var(--color-gray-900); border: 1px solid var(--color-gray-200); }
-.btn-secondary:hover { background: var(--color-gray-200); }
+/* Primary (teal fill) */
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-primary-fg);
+  border-color: var(--color-primary);
+}
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  background: var(--color-primary-active);
+  border-color: var(--color-primary-active);
+  transform: translateY(0);
+}
 
-.btn-outline { background: transparent; color: var(--color-primary); border: 1px solid var(--color-primary); }
-.btn-outline:hover { background: var(--color-primary-subtle); }
+/* Secondary (teal-500 fill) */
+.btn-secondary {
+  background: var(--color-secondary);
+  color: var(--color-secondary-fg);
+  border-color: var(--color-secondary);
+}
+.btn-secondary:hover {
+  background: var(--color-secondary-hover);
+  transform: translateY(-1px);
+}
+.btn-secondary:active {
+  background: var(--color-secondary-active);
+  transform: translateY(0);
+}
 
-.btn-ghost { background: transparent; color: var(--color-gray-500); }
-.btn-ghost:hover { background: var(--color-gray-100); color: var(--color-gray-900); }
+/* Outline (bordered, transparent) */
+.btn-outline {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+.btn-outline:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  border-color: var(--color-border-hover);
+}
+.btn-outline:active {
+  background: var(--color-bg-alt);
+}
 
-.btn-danger { background: var(--color-danger); color: white; }
-.btn-danger:hover { background: #B91C1C; }
+/* Ghost (no border, transparent) */
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: transparent;
+}
+.btn-ghost:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+.btn-ghost:active {
+  background: var(--color-bg-alt);
+}
 
-.btn-accent { background: var(--color-accent); color: white; }
-.btn-accent:hover { background: var(--color-accent-hover); }
+/* Danger */
+.btn-danger {
+  background: var(--color-danger);
+  color: white;
+  border-color: var(--color-danger);
+}
+.btn-danger:hover {
+  background: var(--color-red-700);
+  border-color: var(--color-red-700);
+}
+.btn-danger:active {
+  background: var(--color-red-700);
+}
 
-/* ──────────────────────────────────────────────
-   Input System
-   ────────────────────────────────────────────── */
+/* Accent (amber) */
+.btn-accent {
+  background: var(--color-accent);
+  color: var(--color-accent-fg);
+  border-color: var(--color-accent);
+}
+.btn-accent:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+/* Link (text only) */
+.btn-link {
+  background: transparent;
+  color: var(--color-text-link);
+  border-color: transparent;
+  padding: 0;
+  height: auto;
+  font-weight: 500;
+}
+.btn-link:hover {
+  color: var(--color-text-link-hover);
+  text-decoration: underline;
+}
+
+/* Loading state */
+.btn-loading {
+  position: relative;
+  pointer-events: none;
+}
+.btn-loading .btn-label {
+  opacity: 0;
+}
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: btnSpinner 0.6s linear infinite;
+}
+@keyframes btnSpinner {
+  to { transform: rotate(360deg); }
+}
+
+/* ════════════════════════════════════════════
+   INPUT SYSTEM
+   Spec: text input with label, help text, error message
+   Sizes: sm (32px), default (40px), lg (48px)
+   States: rest, focus, hover, disabled, error, read-only
+   ════════════════════════════════════════════ */
 
 .input {
-  height: 36px;
+  width: 100%;
+  height: 40px;
   padding: 0 var(--spacing-3);
-  border: 1px solid var(--color-gray-300);
+  border: 1.5px solid var(--color-border);
   border-radius: var(--radius-md);
   font-family: var(--font-sans);
   font-size: var(--text-body-sm);
-  color: var(--color-gray-900);
-  background: white;
-  transition: border-color var(--duration-normal) var(--ease-default),
-              box-shadow var(--duration-normal) var(--ease-default);
+  color: var(--color-text);
+  background: var(--color-surface);
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.input:hover {
+  border-color: var(--color-border-hover);
 }
 
 .input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px var(--color-primary-light);
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 var(--ring-width) var(--color-primary-ring);
   outline: none;
 }
 
 .input::placeholder {
-  color: var(--color-gray-400);
+  color: var(--color-text-tertiary);
+}
+
+.input:disabled {
+  opacity: var(--opacity-disabled);
+  background: var(--color-bg-alt);
+  pointer-events: none;
+}
+
+.input[readonly] {
+  background: var(--color-bg-alt);
+}
+
+/* Sizes */
+.input-sm {
+  height: 32px;
+  font-size: var(--text-caption);
+  padding: 0 var(--spacing-2);
+  border-radius: var(--radius-sm);
 }
 
 .input-lg {
-  height: 44px;
+  height: 48px;
   padding: 0 var(--spacing-4);
   font-size: var(--text-body);
   border-radius: var(--radius-lg);
 }
 
-/* ──────────────────────────────────────────────
-   Table System
-   ────────────────────────────────────────────── */
+/* States */
+.input-error {
+  border-color: var(--color-danger);
+}
+
+.input-error:focus {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 var(--ring-width) rgba(220, 38, 38, 0.2);
+}
+
+.input-error:hover {
+  border-color: var(--color-red-500);
+}
+
+.input-success {
+  border-color: var(--color-success);
+}
+
+/* Form group (label + input + hint + error) */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.form-label {
+  font-size: var(--text-body-sm);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.form-hint {
+  font-size: var(--text-caption);
+  color: var(--color-text-tertiary);
+}
+
+.form-error {
+  font-size: var(--text-caption);
+  color: var(--color-danger);
+}
+
+/* ════════════════════════════════════════════
+   TABLE SYSTEM
+   Spec: data table with sortable headers, row actions
+   ════════════════════════════════════════════ */
 
 .table {
   width: 100%;
@@ -401,53 +877,40 @@ body {
 
 .table th {
   text-align: left;
-  padding: 10px var(--spacing-4);
-  font-weight: 500;
+  padding: 12px var(--spacing-4);
+  font-weight: 600;
   font-size: var(--text-micro);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-gray-500);
-  border-bottom: 1px solid var(--color-gray-200);
-  background: var(--color-gray-50);
+  color: var(--color-text-tertiary);
+  border-bottom: 1.5px solid var(--color-border);
+  background: var(--color-bg);
+  white-space: nowrap;
 }
 
 .table td {
   padding: var(--spacing-3) var(--spacing-4);
-  border-bottom: 1px solid var(--color-gray-100);
-  color: var(--color-gray-700);
+  border-bottom: 1px solid var(--color-border-light);
+  color: var(--color-text-secondary);
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
 }
 
 .table tr:hover td {
   background: var(--color-primary-subtle);
 }
 
-/* ──────────────────────────────────────────────
-   Pagination
-   ────────────────────────────────────────────── */
-
-.pagination-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--radius-md);
-  font-size: var(--text-body-sm);
-  color: var(--color-gray-500);
-  background: transparent;
-  border: none;
+/* Sortable header */
+.table th.sortable {
   cursor: pointer;
-  transition: all var(--duration-fast) var(--ease-default);
+  user-select: none;
 }
 
-.pagination-btn:hover {
-  background: var(--color-gray-100);
-  color: var(--color-gray-900);
-}
-
-.pagination-btn.active {
-  background: var(--color-primary);
-  color: white;
+.table th.sortable:hover {
+  color: var(--color-text);
 }
 
 /* ──────────────────────────────────────────────

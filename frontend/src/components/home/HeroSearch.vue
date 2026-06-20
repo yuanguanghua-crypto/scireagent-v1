@@ -17,281 +17,250 @@ function handleSearch() {
   }
 }
 
-function handlePopularSearch(term) {
+function handleTagSearch(term) {
   searchQuery.value = term
   handleSearch()
 }
 
-const researchShortcuts = [
-  { label: 'RNA Labeling', query: 'RNA labeling' },
-  { label: 'Click Chemistry', query: 'Click chemistry' },
-  { label: 'NGS Library Prep', query: 'NGS library prep' },
-  { label: 'mRNA Synthesis', query: 'mRNA synthesis' },
-  { label: 'Protein Bioconjugation', query: 'Protein bioconjugation' },
-]
+const hotTags = ['ATP', 'PCR', 'Click Chemistry', 'Fluorescent Probes', 'Cell Assay']
+const tags = props.suggestedSearches.length ? props.suggestedSearches : hotTags
 </script>
 
 <template>
-  <section class="hero-section" aria-label="Platform introduction">
-    <div class="hero-pattern" aria-hidden="true">
-      <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="hex-pattern" width="60" height="52" patternUnits="userSpaceOnUse" patternTransform="scale(1.2)">
-            <polygon points="30,2 54,15 54,37 30,50 6,37 6,15" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#hex-pattern)"/>
-      </svg>
-    </div>
-    <div class="hero-glow" aria-hidden="true"></div>
+  <section class="hero" aria-label="Platform introduction">
+    <div class="hero-container">
+      <div class="hero-text">
+        <div class="hero-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+          Knowledge Graph · Powered Discovery
+        </div>
+        <h1 class="hero-title">
+          From research goal to<br>
+          <span class="hero-gradient">precision reagent</span>
+        </h1>
+        <p class="hero-subtitle">{{ subtitle || '118 high-purity products connected to 10 core methods and 88 standard protocols. Search by product, CAS, or method.' }}</p>
 
-    <div class="hero-content">
-      <div class="hero-badge">
-        <span class="hero-badge-dot" aria-hidden="true"></span>
-        AI-Native Scientific Commerce Platform
-      </div>
-      <h1 class="hero-title">{{ title }}</h1>
-      <p class="hero-subtitle">{{ subtitle || 'Discover reagents by research intent. Search by application, method, protocol, CAS, or catalog number.' }}</p>
+        <div class="hero-search">
+          <div class="search-box">
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Search products, CAS, methods…"
+              @keyup.enter="handleSearch"
+            />
+            <button @click="handleSearch">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              Search
+            </button>
+          </div>
+          <div class="search-tags">
+            <span>Popular:</span>
+            <button v-for="tag in tags" :key="tag" class="tag" @click="handleTagSearch(tag)">{{ tag }}</button>
+          </div>
+        </div>
 
-      <!-- Search Bar -->
-      <div class="hero-search-wrapper">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Search products, methods, protocols, applications..."
-          class="hero-search-input"
-          aria-label="Search the platform"
-          @keyup.enter="handleSearch"
-        />
-        <button class="hero-search-btn" @click="handleSearch">Search</button>
-      </div>
-
-      <!-- Research Shortcuts -->
-      <div class="hero-shortcuts" aria-label="Research shortcuts">
-        <span class="hero-shortcuts-label">Popular research areas:</span>
-        <button
-          v-for="s in researchShortcuts"
-          :key="s.label"
-          class="hero-shortcut-chip"
-          @click="handlePopularSearch(s.query)"
-        >
-          {{ s.label }}
-        </button>
-      </div>
-
-      <!-- Trending Searches -->
-      <div v-if="suggestedSearches.length" class="hero-popular" aria-label="Suggested searches">
-        <span class="hero-popular-label">Trending:</span>
-        <button
-          v-for="term in suggestedSearches"
-          :key="term"
-          class="hero-popular-chip"
-          @click="handlePopularSearch(term)"
-        >
-          {{ term }}
-        </button>
-      </div>
-
-      <!-- Quick CTAs -->
-      <div class="hero-ctas">
-        <button class="hero-cta-btn hero-cta-primary" @click="router.push('/applications')">Browse Applications</button>
-        <button class="hero-cta-btn hero-cta-outline" @click="router.push('/quote-request')">Custom Synthesis</button>
-        <button class="hero-cta-btn hero-cta-outline" @click="router.push('/products')">View Catalog</button>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <span class="hero-stat-num">118</span>
+            <span class="hero-stat-label">Products</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-num">293</span>
+            <span class="hero-stat-label">SKUs</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-num">10</span>
+            <span class="hero-stat-label">Methods</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-num">88</span>
+            <span class="hero-stat-label">Protocols</span>
+          </div>
+          <div class="hero-stat">
+            <span class="hero-stat-num">8</span>
+            <span class="hero-stat-label">Areas</span>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-.hero-section {
+.hero {
   position: relative;
-  padding: 48px 20px;
-  background: linear-gradient(135deg, #0f766e 0%, #134e4a 100%);
-  border-radius: var(--radius-lg);
   overflow: hidden;
-  text-align: center;
+  background: linear-gradient(180deg, #0A1628 0%, #0F1F3D 60%, #0A1628 100%);
+  padding: 100px 0 40px;
 }
-.hero-pattern { position: absolute; inset: 0; opacity: 0.3; }
-.hero-glow {
+.hero::after {
+  content: '';
   position: absolute;
-  top: -50%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 160px;
+  background: linear-gradient(to bottom, transparent 20%, var(--color-bg) 90%);
   pointer-events: none;
 }
-.hero-content { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; }
+.hero-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 32px;
+  position: relative;
+  z-index: 2;
+}
+.hero-text {
+  max-width: 640px;
+}
 .hero-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  background: rgba(255,255,255,0.12);
-  border-radius: 20px;
+  gap: 8px;
+  padding: 5px 16px;
+  border-radius: 9999px;
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255,255,255,0.9);
-  margin-bottom: 12px;
-}
-.hero-badge-dot {
-  width: 6px;
-  height: 6px;
-  background: #5eead4;
-  border-radius: 50%;
+  color: #CCFBF1;
+  background: rgba(13, 109, 105, 0.2);
+  border: 1px solid rgba(13, 109, 105, 0.3);
+  margin-bottom: 20px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 .hero-title {
-  font-size: 34px;
-  font-weight: 800;
-  color: white;
-  margin: 0 0 8px;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 4.5vw, 50px);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  color: #F1F5F9;
+  margin: 0 0 16px;
+}
+.hero-gradient {
+  background: linear-gradient(135deg, #5EEAD4 0%, #38BDF8 60%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 .hero-subtitle {
-  font-size: 15px;
-  color: rgba(255,255,255,0.75);
-  margin: 0 0 24px;
-  line-height: 1.5;
+  font-size: 16px;
+  color: #94A3B8;
+  line-height: 1.7;
+  margin: 0 0 32px;
+  max-width: 520px;
 }
 
 /* Search */
-.hero-search-wrapper {
+.hero-search { max-width: 540px; }
+.search-box {
   display: flex;
-  gap: 8px;
-  max-width: 560px;
-  margin: 0 auto 16px;
-}
-.hero-search-input {
-  flex: 1;
-  height: 46px;
-  padding: 0 16px;
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: var(--radius-md);
-  background: rgba(255,255,255,0.1);
-  color: white;
-  font-size: 14px;
-  font-family: var(--font-sans);
-  outline: none;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 4px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   backdrop-filter: blur(8px);
 }
-.hero-search-input::placeholder { color: rgba(255,255,255,0.5); }
-.hero-search-input:focus {
-  border-color: rgba(255,255,255,0.4);
-  background: rgba(255,255,255,0.15);
+.search-box:focus-within {
+  border-color: rgba(94, 234, 212, 0.4);
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: 0 0 30px rgba(13, 109, 105, 0.15);
 }
-.hero-search-btn {
-  height: 46px;
-  padding: 0 22px;
-  background: white;
-  color: #0f766e;
+.search-box input {
+  flex: 1;
   border: none;
-  border-radius: var(--radius-md);
+  outline: none;
+  padding: 13px 0 13px 18px;
+  font-size: 15px;
+  font-family: var(--font-body);
+  color: #F1F5F9;
+  background: transparent;
+}
+.search-box input::placeholder {
+  color: #94A3B8;
+  opacity: 0.6;
+}
+.search-box button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-teal-700);
+  color: #fff;
   font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  transition: opacity 0.15s;
-}
-.hero-search-btn:hover { opacity: 0.9; }
-
-/* Research Shortcuts */
-.hero-shortcuts {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 10px;
-}
-.hero-shortcuts-label {
-  font-size: 12px;
-  color: rgba(255,255,255,0.5);
-}
-.hero-shortcut-chip {
-  padding: 3px 10px;
-  background: rgba(255,255,255,0.15);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 16px;
-  color: rgba(255,255,255,0.9);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  transition: all 0.15s;
-}
-.hero-shortcut-chip:hover {
-  background: rgba(255,255,255,0.25);
-  border-color: rgba(255,255,255,0.4);
-}
-
-/* Trending */
-.hero-popular {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-.hero-popular-label {
-  font-size: 12px;
-  color: rgba(255,255,255,0.45);
-}
-.hero-popular-chip {
-  padding: 2px 10px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 16px;
-  color: rgba(255,255,255,0.7);
-  font-size: 12px;
-  cursor: pointer;
-  font-family: var(--font-sans);
-  transition: all 0.15s;
-}
-.hero-popular-chip:hover {
-  background: rgba(255,255,255,0.18);
-  border-color: rgba(255,255,255,0.25);
-}
-
-/* Quick CTAs */
-.hero-ctas {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.hero-cta-btn {
-  height: 36px;
-  padding: 0 18px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  font-family: var(--font-sans);
+  transition: background 0.15s;
+  font-family: var(--font-body);
+}
+.search-box button:hover {
+  background: var(--color-teal-600);
+}
+
+/* Tags */
+.search-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.search-tags span {
+  font-size: 13px;
+  color: #64748B;
+}
+.tag {
+  display: inline-flex;
+  padding: 4px 14px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #94A3B8;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
   transition: all 0.15s;
+  font-family: var(--font-body);
 }
-.hero-cta-primary {
-  background: rgba(255,255,255,0.95);
-  color: #0f766e;
-  border: none;
+.tag:hover {
+  color: #E2E8F0;
+  background: rgba(255, 255, 255, 0.1);
 }
-.hero-cta-primary:hover { background: white; }
-.hero-cta-outline {
-  background: transparent;
-  color: rgba(255,255,255,0.9);
-  border: 1px solid rgba(255,255,255,0.3);
+
+/* Stats */
+.hero-stats {
+  display: flex;
+  gap: 28px;
+  margin-top: 36px;
 }
-.hero-cta-outline:hover {
-  background: rgba(255,255,255,0.1);
-  border-color: rgba(255,255,255,0.5);
+.hero-stat {
+  text-align: left;
+}
+.hero-stat-num {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: #F1F5F9;
+  line-height: 1;
+  display: block;
+}
+.hero-stat-label {
+  font-size: 12px;
+  color: #64748B;
+  font-weight: 500;
+  margin-top: 2px;
+  display: block;
 }
 
 @media (max-width: 768px) {
-  .hero-section { padding: 32px 16px; }
-  .hero-title { font-size: 26px; }
-  .hero-search-wrapper { flex-direction: column; }
-  .hero-search-btn { width: 100%; }
-  .hero-ctas { flex-direction: column; align-items: center; }
+  .hero { padding: 80px 0 32px; }
+  .hero-container { padding: 0 20px; }
+  .hero-title { font-size: 28px; }
+  .hero-stats { gap: 16px; flex-wrap: wrap; }
+  .hero-stat-num { font-size: 18px; }
 }
 </style>
