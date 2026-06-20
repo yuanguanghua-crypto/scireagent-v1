@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from './AppHeader.vue'
 import AppFooter from './AppFooter.vue'
+import PublicNav from './PublicNav.vue'
 
 const route = useRoute()
 const sidebarCollapsed = ref(false)
@@ -72,7 +73,10 @@ const navItems = [
     </aside>
 
     <div class="main-wrapper">
-      <AppHeader v-if="!isPublicPage()" @toggle-sidebar="toggleSidebar" />
+      <!-- Public pages: use PublicNav (transparent, fixed top) -->
+      <PublicNav v-if="isPublicPage()" />
+      <!-- Non-public pages: use AppHeader + sidebar toggle -->
+      <AppHeader v-else @toggle-sidebar="toggleSidebar" />
 
       <main class="content-area" :class="{ 'content-full': route.meta?.noSidebar }">
         <slot />

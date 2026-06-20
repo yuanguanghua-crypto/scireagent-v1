@@ -9,12 +9,21 @@ import { useGraph } from '@/composables/useGraph'
 import ProductLayout from '@/components/layout/ProductLayout.vue'
 import KnowledgeGraph from '@/components/graph/KnowledgeGraph.vue'
 import ContextCards from '@/components/navigation/ContextCards.vue'
+import ExpandableSection from './admin/components/ExpandableSection.vue'
 import ResearchPathCard from '@/components/navigation/ResearchPathCard.vue'
 import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 import ResearchBreadcrumb from '@/components/navigation/ResearchBreadcrumb.vue'
 import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
 import RelationshipWidget from '@/components/navigation/RelationshipWidget.vue'
 import { useResearchPathStore } from '@/stores/researchPath'
+
+/* ── Collapse state for long sections ── */
+const DEFAULT_SHOW = 3
+const showAllApps = ref(false)
+const showAllMethods = ref(false)
+const showAllProtocols = ref(false)
+const showAllRefs = ref(false)
+const showAllRelated = ref(false)
 
 const route = useRoute()
 const router = useRouter()
@@ -316,87 +325,101 @@ function onSearch(query) {
     </section>
 
     <!-- Used In Applications (V1.2) -->
-    <section class="pd-section">
-      <h2 class="pd-section-title">Used In Applications</h2>
-      <div v-if="applications.length" class="pd-card-grid">
-        <router-link v-for="app in applications" :key="app.id" :to="`/applications/${app.id}`" class="pd-card">
+    <ExpandableSection
+      title="Used In Applications"
+      :items="applications"
+      :default-show="DEFAULT_SHOW"
+      item-type="application"
+      fallback-msg="Application data is being curated for this product."
+      fallback-link="/applications"
+      fallback-link-text="Browse all applications"
+    >
+      <template #item="{ item }">
+        <router-link :to="`/applications/${item.id}`" class="pd-card">
           <div class="pd-card-icon pd-icon-app">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
           </div>
           <div class="pd-card-body">
-            <h3 class="pd-card-title">{{ app.name }}</h3>
-            <p v-if="app.summary" class="pd-card-desc">{{ app.summary }}</p>
+            <h3 class="pd-card-title">{{ item.name }}</h3>
+            <p v-if="item.summary" class="pd-card-desc">{{ item.summary }}</p>
           </div>
           <span class="pd-card-arrow">&rarr;</span>
         </router-link>
-      </div>
-      <div v-else class="pd-fallback">
-        <p>Application data is being curated for this product.</p>
-        <router-link to="/applications" class="pd-fallback-link">Browse all applications &rarr;</router-link>
-      </div>
-    </section>
+      </template>
+    </ExpandableSection>
 
     <!-- Methods (V1.2) -->
-    <section class="pd-section">
-      <h2 class="pd-section-title">Compatible Methods</h2>
-      <div v-if="compatibility.methods?.length" class="pd-card-grid">
-        <router-link v-for="m in compatibility.methods" :key="m.id" :to="`/methods/${m.id}`" class="pd-card">
+    <ExpandableSection
+      title="Compatible Methods"
+      :items="compatibility.methods || []"
+      :default-show="DEFAULT_SHOW"
+      item-type="method"
+      fallback-msg="Method associations are being mapped for this product."
+      fallback-link="/methods"
+      fallback-link-text="Browse all methods"
+    >
+      <template #item="{ item }">
+        <router-link :to="`/methods/${item.id}`" class="pd-card">
           <div class="pd-card-icon pd-icon-method">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
           </div>
           <div class="pd-card-body">
-            <h3 class="pd-card-title">{{ m.name }}</h3>
-            <p v-if="m.purpose" class="pd-card-desc">{{ m.purpose }}</p>
+            <h3 class="pd-card-title">{{ item.name }}</h3>
+            <p v-if="item.purpose" class="pd-card-desc">{{ item.purpose }}</p>
           </div>
           <span class="pd-card-arrow">&rarr;</span>
         </router-link>
-      </div>
-      <div v-else class="pd-fallback">
-        <p>Method associations are being mapped for this product.</p>
-        <router-link to="/methods" class="pd-fallback-link">Browse all methods &rarr;</router-link>
-      </div>
-    </section>
+      </template>
+    </ExpandableSection>
 
     <!-- Protocols (V1.2) -->
-    <section class="pd-section">
-      <h2 class="pd-section-title">Protocols</h2>
-      <div v-if="protocols.length" class="pd-card-grid">
-        <router-link v-for="p in protocols" :key="p.id" :to="`/protocols/${p.id}`" class="pd-card">
+    <ExpandableSection
+      title="Protocols"
+      :items="protocols"
+      :default-show="DEFAULT_SHOW"
+      item-type="protocol"
+      fallback-msg="Validated protocols are being documented for this product."
+      fallback-link="/protocols"
+      fallback-link-text="Browse all protocols"
+    >
+      <template #item="{ item }">
+        <router-link :to="`/protocols/${item.id}`" class="pd-card">
           <div class="pd-card-icon pd-icon-protocol">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           </div>
           <div class="pd-card-body">
-            <h3 class="pd-card-title">{{ p.name }}</h3>
-            <p v-if="p.objective" class="pd-card-desc">{{ p.objective }}</p>
-            <span v-if="p.estimated_time_minutes" class="pd-card-meta">{{ p.estimated_time_minutes }} min</span>
+            <h3 class="pd-card-title">{{ item.name }}</h3>
+            <p v-if="item.objective" class="pd-card-desc">{{ item.objective }}</p>
+            <span v-if="item.estimated_time_minutes" class="pd-card-meta">{{ item.estimated_time_minutes }} min</span>
           </div>
           <span class="pd-card-arrow">&rarr;</span>
         </router-link>
-      </div>
-      <div v-else class="pd-fallback">
-        <p>Validated protocols are being documented for this product.</p>
-        <router-link to="/protocols" class="pd-fallback-link">Browse all protocols &rarr;</router-link>
-      </div>
-    </section>
+      </template>
+    </ExpandableSection>
 
     <!-- References (V1.2) -->
-    <section class="pd-section" v-if="references.length">
-      <h2 class="pd-section-title">References</h2>
-      <div class="pd-refs-list">
-        <div v-for="ref in references" :key="ref.id" class="pd-ref-item">
+    <ExpandableSection
+      v-if="references.length"
+      title="References"
+      :items="references"
+      :default-show="DEFAULT_SHOW"
+      item-type="reference"
+    >
+      <template #item="{ item }">
+        <div class="pd-ref-item">
           <div class="pd-ref-body">
-            <h4 class="pd-ref-title">{{ ref.title }}</h4>
+            <h4 class="pd-ref-title">{{ item.title }}</h4>
             <div class="pd-ref-meta">
-              <span v-if="ref.journal" class="pd-ref-journal">{{ ref.journal }}</span>
-              <span v-if="ref.year" class="pd-ref-year">{{ ref.year }}</span>
+              <span v-if="item.journal" class="pd-ref-journal">{{ item.journal }}</span>
+              <span v-if="item.year" class="pd-ref-year">{{ item.year }}</span>
             </div>
           </div>
-          <a v-if="ref.doi" :href="`https://doi.org/${ref.doi}`" target="_blank" rel="noopener" class="pd-ref-doi">
+          <a v-if="item.doi" :href="`https://doi.org/${item.doi}`" target="_blank" rel="noopener" class="pd-ref-doi">
             DOI &rarr;
           </a>
         </div>
-      </div>
-    </section>
+      </template>
+    </ExpandableSection>
 
     <!-- FAQ (V1.2) -->
     <section class="pd-section" v-if="faq.length">
@@ -451,14 +474,6 @@ function onSearch(query) {
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 2h6l4 4v8a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M10 2v4h4" stroke="currentColor" stroke-width="1.5"/></svg>
           <span>{{ doc.document_type }} — {{ doc.original_filename }}</span>
         </a>
-      </div>
-    </section>
-
-    <!-- Knowledge Graph -->
-    <section class="pd-section" v-if="graphNodes.length">
-      <h2 class="pd-section-title">Knowledge Graph</h2>
-      <div class="pd-graph-wrap">
-        <KnowledgeGraph :nodes="graphNodes" :edges="graphEdges" height="380px" />
       </div>
     </section>
 

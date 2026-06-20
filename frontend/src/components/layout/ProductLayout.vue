@@ -34,7 +34,7 @@ const l1List = computed(() =>
     children: val.children || [],
     count: val.count || 0,
     l2Counts: val.l2_counts || {},
-  }))
+  })).filter(l1 => l1.count > 0)  // only show categories with products
 )
 
 /* Get L3 children for a given L1+L2 */
@@ -147,52 +147,35 @@ defineExpose({ setFilter, clearFilter, selectedL1, selectedL2, selectedL3 })
 
 <template>
   <div class="product-layout">
-    <!-- Left sidebar: Category tree -->
-    <aside class="category-sidebar">
-      <div class="sidebar-header">
-        <h3 class="sidebar-title">Categories</h3>
-        <button v-if="hasActiveFilter" class="clear-btn" @click="clearFilter">Clear</button>
-      </div>
+    <!-- Top: Category pills bar (horizontal) -->
+    <div class="category-pills-bar" v-if="l1List.length">
+      <button
+        v-for="l1 in l1List"
+        :key="l1.key"
+        class="cat-pill"
+        :class="{ 'cat-pill--active': selectedL1 === l1.key }"
+        @click="selectL1(l1.key)"
+      >
+        {{ l1.label }}
+        <span class="cat-pill-count">{{ l1.count }}</span>
+      </button>
+      <button v-if="hasActiveFilter" class="cat-pill-clear" @click="clearFilter">Clear filter</button>
+    </div>
 
-      <div class="category-tree">
-        <div v-for="l1 in l1List" :key="l1.key" class="cat-l1-group">
-          <!-- L1 header -->
-          <div
-            class="cat-l1"
-            :class="{ 'cat-l1--active': selectedL1 === l1.key && !selectedL2 }"
-            @click="selectL1(l1.key)"
-          >
-            <button
-              class="cat-expand"
-              :class="{ 'cat-expand--open': expandedL1[l1.key] }"
-              @click.stop="toggleL1(l1.key)"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
-            <span class="cat-l1-label">{{ l1.label }}</span>
-            <span class="cat-count">{{ l1.count }}</span>
-          </div>
+    <!-- L2 sub-pills (shown when L1 is selected) -->
+    <div v-if="selectedL1 && l1List.find(l => l.key === selectedL1)?.children.length" class="cat-l2-pills">
+      <button
+        v-for="l2 in l1List.find(l => l.key === selectedL1)?.children || []"
+        :key="l2"
+        class="cat-l2-pill"
+        :class="{ 'cat-l2-pill--active': selectedL2 === l2 }"
+        @click="selectL2(selectedL1, l2)"
+      >
+        {{ l2 }}
+      </button>
+    </div>
 
-          <!-- L2 children -->
-          <div v-if="expandedL1[l1.key]" class="cat-l2-list">
-            <div
-              v-for="l2 in l1.children"
-              :key="l2"
-              class="cat-l2"
-              :class="{ 'cat-l2--active': selectedL1 === l1.key && selectedL2 === l2 }"
-              @click="selectL2(l1.key, l2)"
-            >
-              <span>{{ l2 }}</span>
-              <span v-if="l1.l2Counts && l1.l2Counts[l2]" class="cat-l2-count">
-                {{ (l1.l2Counts[l2]?.count ?? l1.l2Counts[l2]) || '' }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- Right: content area -->
+    <!-- Content area -->
     <div class="product-content">
       <!-- Page title (shared across product pages) -->
       <div class="product-page-header">
@@ -249,47 +232,45 @@ defineExpose({ setFilter, clearFilter, selectedL1, selectedL2, selectedL3 })
 </template>
 
 <style scoped>
-.product-layout { display: flex; gap: 20px; align-items: flex-start; max-width: 1200px; margin: 0 auto; }
+.product-layout { max-width: 1280px; margin: 0 auto; padding: 0 32px; }
 
-/* Category sidebar */
-.category-sidebar {
-  width: 240px; flex-shrink: 0; position: sticky; top: 80px;
-  background: var(--color-surface); border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg); overflow: hidden; max-height: calc(100vh - 100px); overflow-y: auto;
+/* Category pills bar (horizontal, top) */
+.category-pills-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 12px 0 20px; margin-bottom: 20px;
+  border-bottom: 1px solid var(--color-border);
 }
-.sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid var(--color-border); }
-.sidebar-title { font-size: 13px; font-weight: 700; color: var(--color-text); margin: 0; text-transform: uppercase; letter-spacing: 0.04em; }
-.clear-btn { font-size: 11px; color: var(--color-primary); background: none; border: none; cursor: pointer; font-weight: 600; font-family: var(--font-sans); }
-.clear-btn:hover { text-decoration: underline; }
+.cat-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 9999px;
+  font-size: 13px; font-weight: 500; font-family: var(--font-sans);
+  background: var(--color-surface); color: var(--color-text-secondary);
+  border: 1.5px solid var(--color-border); cursor: pointer;
+  transition: all 0.15s;
+}
+.cat-pill:hover { border-color: var(--color-primary); color: var(--color-text); }
+.cat-pill--active { background: var(--color-primary); border-color: var(--color-primary); color: white; }
+.cat-pill-count { font-size: 11px; opacity: 0.7; }
+.cat-pill-clear {
+  font-size: 12px; background: none; border: none; cursor: pointer; color: var(--color-text-tertiary);
+  margin-left: 4px; font-family: var(--font-sans);
+}
+.cat-pill-clear:hover { color: var(--color-danger); }
 
-.category-tree { padding: 4px 0; }
-.cat-l1-group { border-bottom: 1px solid var(--color-border-light); }
-.cat-l1-group:last-child { border-bottom: none; }
-.cat-l1 {
-  display: flex; align-items: center; gap: 6px; padding: 8px 12px;
-  cursor: pointer; font-size: 13px; font-weight: 500; color: var(--color-text);
-  transition: background 0.1s;
+/* L2 sub-pills */
+.cat-l2-pills {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  padding: 0 0 16px; margin-top: -8px; margin-bottom: 8px;
 }
-.cat-l1:hover { background: var(--color-bg); }
-.cat-l1--active { background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; }
-.cat-expand {
-  width: 18px; height: 18px; display: flex; align-items: center; justify-content: center;
-  background: none; border: none; cursor: pointer; color: var(--color-text-tertiary);
-  transition: transform 0.15s; padding: 0; flex-shrink: 0;
+.cat-l2-pill {
+  padding: 5px 14px; border-radius: 9999px;
+  font-size: 12px; font-weight: 500; font-family: var(--font-sans);
+  background: var(--color-bg); color: var(--color-text-secondary);
+  border: 1px solid var(--color-border); cursor: pointer;
+  transition: all 0.15s;
 }
-.cat-expand--open { transform: rotate(90deg); }
-.cat-l1-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cat-count { font-size: 11px; color: var(--color-text-tertiary); background: var(--color-bg); padding: 1px 6px; border-radius: 8px; }
-
-.cat-l2-list { padding: 0 0 4px 0; }
-.cat-l2 {
-  padding: 5px 12px 5px 36px; font-size: 12px; color: var(--color-text-secondary);
-  cursor: pointer; transition: all 0.1s;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.cat-l2:hover { background: var(--color-bg); color: var(--color-text); }
-.cat-l2--active { background: var(--color-primary-light); color: var(--color-primary); font-weight: 600; }
-.cat-l2-count { font-size: 10px; color: var(--color-text-tertiary); background: var(--color-bg); padding: 1px 5px; border-radius: 6px; }
+.cat-l2-pill:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.cat-l2-pill--active { background: var(--color-primary-light); border-color: var(--color-primary); color: var(--color-primary); font-weight: 600; }
 
 /* Product content area */
 .product-content { flex: 1; min-width: 0; }
