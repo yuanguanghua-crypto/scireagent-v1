@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { createProduct, updateProduct, getProduct, getCategories } from '@/api/products'
 import { useAuthStore } from '@/stores/auth'
 import http from '@/utils/http'
+import AiToolsPanel from './components/AiToolsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -438,6 +439,16 @@ onMounted(async () => {
         <button type="button" class="btn-cancel" @click="router.push('/products')">Cancel</button>
       </div>
     </form>
+
+    <!-- AI Tools Panel (edit mode only) -->
+    <div v-if="isEdit" class="form-card ai-tools-section">
+      <AiToolsPanel
+        :product-id="route.params.id"
+        :product-name="form.name"
+        :product-cas="form.cas"
+        :product-smiles="form.smiles"
+      />
+    </div>
   </div>
 
   <!-- Access Denied -->
@@ -508,4 +519,8 @@ onMounted(async () => {
 .loading { text-align: center; padding: 40px; color: var(--color-text-secondary); }
 
 @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } .form-full { grid-column: span 1; } }
+
+.ai-tools-section {
+  margin-top: 20px;
+}
 </style>
