@@ -9,6 +9,7 @@ from apps.knowledge.api.v1.search_views import search, search_suggest
 from apps.knowledge.api.v1.search_grouped_views import search_grouped
 from apps.knowledge.api.v1.graph_views import graph_view
 from apps.knowledge.api.v1.intake_views import KnowledgeIntakeView
+from apps.knowledge.api.v1.dashboard_views import DashboardStatsView
 
 router = DefaultRouter()
 router.register('research-goals', ResearchGoalViewSet, basename='research-goal')
@@ -27,5 +28,6 @@ urlpatterns = [
     path('search/grouped', search_grouped, name='api-search-grouped'),
     path('graph', graph_view, name='api-graph'),
     path('knowledge-intake', KnowledgeIntakeView.as_view(), name='api-knowledge-intake'),
+    path('admin/dashboard-stats/', DashboardStatsView.as_view(), name='admin-dashboard-stats'),
     path('', include(router.urls)),
 ]

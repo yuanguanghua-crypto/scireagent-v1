@@ -34,6 +34,8 @@ def dashboard_view(request):
 
     # Counts
     total_products = Product.objects.filter(status='active').count()
+    products_with_cas = Product.objects.filter(status='active').exclude(cas='').count()
+    pubchem_coverage = round(products_with_cas / total_products * 100, 1) if total_products else 0.0
 
     context = {
         'title': 'Dashboard',
@@ -42,6 +44,8 @@ def dashboard_view(request):
         'recent_products': recent_products,
         'products_without_method': products_without_method,
         'total_products': total_products,
+        'products_with_cas': products_with_cas,
+        'pubchem_coverage': pubchem_coverage,
     }
 
     return render(request, 'admin/dashboard.html', context)
