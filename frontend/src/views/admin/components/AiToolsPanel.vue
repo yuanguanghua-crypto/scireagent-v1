@@ -19,7 +19,7 @@ const props = defineProps({
   productSmiles: { type: String, default: '' },
 })
 
-/* ── Tab state ── */
+const emit = defineEmits(['adopt-smiles', 'adopt-formula-weight', 'adopt-protocol', 'adopt-reference'])
 const tabs = [
   { key: 'validate', label: 'Validate', icon: '🔬' },
   { key: 'protocols', label: 'Protocols', icon: '🧪' },
@@ -127,6 +127,17 @@ runActiveTab()
         <h3>Overall</h3>
         <p class="verdict">{{ validateResult.overall_match ? '✅ PASS' : '⚠️ REVIEW NEEDED' }}</p>
       </div>
+      <!-- Adopt buttons -->
+      <div v-if="validateResult?.pubchem?.canonical_smiles" class="adopt-row">
+        <button type="button" class="btn-adopt" @click="emit('adopt-smiles', validateResult.pubchem.canonical_smiles)">
+          💡 Adopt canonical SMILES
+        </button>
+      </div>
+      <div v-if="validateResult?.pubchem?.molecular_formula || validateResult?.pubchem?.molecular_weight" class="adopt-row">
+        <button type="button" class="btn-adopt" @click="emit('adopt-formula-weight', { formula: validateResult.pubchem.molecular_formula, weight: validateResult.pubchem.molecular_weight })">
+          💡 Adopt formula & molecular weight
+        </button>
+      </div>
     </div>
 
     <!-- ═══ Protocols Tab ═══ -->
@@ -139,6 +150,9 @@ runActiveTab()
           </div>
           <p class="dim">Score: {{ rec.relevance_score?.toFixed(2) }}</p>
           <p class="reason">{{ rec.match_reason }}</p>
+          <button type="button" class="btn-adopt" @click="emit('adopt-protocol', rec.protocol)">
+            💡 Adopt this protocol
+          </button>
         </div>
       </div>
       <EmptyState
@@ -175,6 +189,9 @@ runActiveTab()
             PMID: <a :href="`https://pubmed.ncbi.nlm.nih.gov/${ref.pmid}/`" target="_blank" rel="noopener">{{ ref.pmid }}</a>
             <span v-if="ref.doi"> | DOI: {{ ref.doi }}</span>
           </p>
+          <button type="button" class="btn-adopt" @click="emit('adopt-reference', ref)">
+            💡 Adopt as reference
+          </button>
         </div>
       </div>
 
@@ -432,4 +449,7 @@ runActiveTab()
 .pmid a {
   color: var(--color-primary);
 }
+.adopt-row { margin: 8px 0; }
+.btn-adopt { padding: 4px 10px; border: 1px solid var(--color-primary); background: var(--color-primary-light); color: var(--color-primary); border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500; font-family: var(--font-sans); }
+.btn-adopt:hover { background: var(--color-primary); color: white; }
 </style>

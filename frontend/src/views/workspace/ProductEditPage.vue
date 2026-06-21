@@ -232,6 +232,34 @@ async function saveInlineEntity() {
   }
 }
 
+// ── AI adopt handlers ───────────────────────────────
+async function adoptProtocol(protocolData) {
+  // Create protocol entity + link to product
+  try {
+    const resp = await http.post('/protocols/', { name: protocolData.title })
+    const newId = resp.data?.data?.id
+    if (newId) { protocolIds.value.push(newId); await loadKnowledge() }
+  } catch (e) {
+    alert('Failed to adopt protocol: ' + (e.response?.data?.meta?.error?.message || e.message))
+  }
+}
+
+async function adoptReference(refData) {
+  // Create reference entity
+  try {
+    const resp = await http.post('/references/', {
+      title: refData.citation || refData.doi || 'Untitled',
+      doi: refData.doi || '',
+      citation: refData.citation || '',
+      source_type: 'journal',
+    })
+    const newId = resp.data?.data?.id
+    if (newId) { /* linked on next product load */ }
+  } catch (e) {
+    alert('Failed to adopt reference: ' + (e.response?.data?.meta?.error?.message || e.message))
+  }
+}
+
 // ── Load / Save / Publish ───────────────────────────
 async function loadProduct() {
   if (!productId.value) return
@@ -364,6 +392,10 @@ onMounted(loadProduct)
             :product-name="productName"
             :product-cas="productCas"
             :product-smiles="productSmiles"
+            @adopt-smiles="(s) => form.smiles = s"
+            @adopt-formula-weight="({ formula, weight }) => { if (formula) form.formula = formula; if (weight) form.molecular_weight = weight }"
+            @adopt-protocol="adoptProtocol"
+            @adopt-reference="adoptReference"
           />
         </div>
       </section>
