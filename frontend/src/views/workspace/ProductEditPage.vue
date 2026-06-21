@@ -19,13 +19,18 @@ const showPublishDialog = ref(false)
 const loading = ref(false)
 const loadError = ref('')
 
-// Word import state
+// Word import / AI / inline-entity states
 const wordImporting = ref(false)
 const wordFile = ref(null)
 const wordResult = ref(null)
-
-// AI tools visibility
 const showAiPanel = ref(false)
+
+// ── Knowledge inline editor ─────────────────
+const showInlineEditor = ref(false)
+const inlineEntityType = ref('method')
+const inlineForm = reactive({ name: '', summary: '', purpose: '', reagent: '', amount: '', duration: '' })
+const inlineSaving = ref(false)
+const knowledgeList = ref({ goals: [], apps: [], methods: [], protocols: [] })
 
 // Form
 const form = reactive({
@@ -166,6 +171,67 @@ async function autoGenerateSeo() {
   }
 }
 
+// ── Knowledge inline editor ───────────────────────
+const apiEndpoints = {
+  goal: '/research-goals/', app: '/applications/', method: '/methods/',
+  protocol: '/protocols/', reference: '/references/',
+}
+
+async function loadKnowledge() {
+  try {
+    const [g, a, m, p] = await Promise.all([
+      http.get('/research-goals/', { params: { page_size: 200 } }),
+      http.get('/applications/', { params: { page_size: 200 } }),
+      http.get('/methods/', { params: { page_size: 200 } }),
+      http.get('/protocols/', { params: { page_size: 500 } }),
+    ])
+    knowledgeList.value.goals = (g.data?.data?.results || g.data?.data || [])
+    knowledgeList.value.apps = (a.data?.data?.results || a.data?.data || [])
+    knowledgeList.value.methods = (m.data?.data?.results || m.data?.data || [])
+    knowledgeList.value.protocols = (p.data?.data?.results || p.data?.data || [])
+  } catch { /* ignore */ }
+}
+
+function openInlineNew(type) {
+  inlineEntityType.value = type
+  Object.assign(inlineForm, { name: '', summary: '', purpose: '', reagent: '', amount: '', duration: '' })
+  showInlineEditor.value = true
+}
+
+function toggleMethodId(id) {
+  const idx = methodIds.value.indexOf(id)
+  if (idx === -1) methodIds.value.push(id)
+  else methodIds.value.splice(idx, 1)
+}
+
+function toggleProtocolId(id) {
+  const idx = protocolIds.value.indexOf(id)
+  if (idx === -1) protocolIds.value.push(id)
+  else protocolIds.value.splice(idx, 1)
+}
+
+async function saveInlineEntity() {
+  inlineSaving.value = true
+  const type = inlineEntityType.value
+  const payload = { name: inlineForm.name }
+  if (type === 'goal' || type === 'app') payload.summary = inlineForm.summary
+  if (type === 'method') payload.purpose = inlineForm.purpose
+  try {
+    const resp = await http.post(apiEndpoints[type], payload)
+    const newId = resp.data?.data?.id
+    if (newId) {
+      if (type === 'method') methodIds.value.push(newId)
+      if (type === 'protocol') protocolIds.value.push(newId)
+    }
+    showInlineEditor.value = false
+    await loadKnowledge()
+  } catch (e) {
+    alert('Save failed: ' + (e.response?.data?.meta?.error?.message || e.message))
+  } finally {
+    inlineSaving.value = false
+  }
+}
+
 // ── Load / Save / Publish ───────────────────────────
 async function loadProduct() {
   if (!productId.value) return
@@ -181,6 +247,7 @@ async function loadProduct() {
       researchGoalIds.value = d.research_goal_ids || []
       applicationIds.value = d.application_ids || []
     }
+    loadKnowledge()
   } catch (e) {
     loadError.value = 'Failed to load product'
   } finally {
@@ -348,14 +415,49 @@ onMounted(loadProduct)
       <!-- 5. Knowledge Links -->
       <section class="form-section">
         <h3>5. Knowledge Links</h3>
-        <p class="form-hint">
-          Method IDs: <input v-model="methodIds" placeholder="e.g. 1,2,3" />
-          (comma-separated numeric IDs)
-        </p>
-        <p class="form-hint">
-          Protocol IDs: <input v-model="protocolIds" placeholder="e.g. 1,2,3" />
-          (comma-separated numeric IDs)
-        </p>
+
+        <!-- Methods -->
+        <div class="chip-group">
+          <span class="chip-label">Methods:</span>
+          <span v-for="mid in methodIds" :key="mid" class="chip">
+            {{ knowledgeList.methods.find(m => m.id === mid)?.name || `#${mid}` }}
+            <button type="button" class="chip-remove" @click="toggleMethodId(mid)">✕</button>
+          </span>
+        </div>
+
+        <!-- Protocols -->
+        <div class="chip-group">
+          <span class="chip-label">Protocols:</span>
+          <span v-for="pid in protocolIds" :key="pid" class="chip">
+            {{ knowledgeList.protocols.find(p => p.id === pid)?.name || `#${pid}` }}
+            <button type="button" class="chip-remove" @click="toggleProtocolId(pid)">✕</button>
+          </span>
+        </div>
+
+        <!-- Search & select existing -->
+        <div class="entity-select-row">
+          <select class="filter-select" v-model="batchLinkMethodId">
+            <option value="">— Add Method —</option>
+            <option v-for="m in knowledgeList.methods" :key="m.id" :value="m.id">{{ m.name }}</option>
+          </select>
+          <button type="button" class="btn btn-ghost btn-sm"
+            @click="if(batchLinkMethodId){ toggleMethodId(Number(batchLinkMethodId)); batchLinkMethodId='' }">Add</button>
+        </div>
+
+        <div class="entity-select-row">
+          <select class="filter-select" v-model="batchLinkProtocolId">
+            <option value="">— Add Protocol —</option>
+            <option v-for="p in knowledgeList.protocols" :key="p.id" :value="p.id">{{ p.name }}</option>
+          </select>
+          <button type="button" class="btn btn-ghost btn-sm"
+            @click="if(batchLinkProtocolId){ toggleProtocolId(Number(batchLinkProtocolId)); batchLinkProtocolId='' }">Add</button>
+        </div>
+
+        <!-- Quick-create inline -->
+        <div class="inline-buttons">
+          <button type="button" class="btn btn-ghost btn-sm" @click="openInlineNew('method')">+ New Method</button>
+          <button type="button" class="btn btn-ghost btn-sm" @click="openInlineNew('protocol')">+ New Protocol</button>
+        </div>
       </section>
 
       <!-- 6. Description -->
@@ -437,6 +539,21 @@ onMounted(loadProduct)
         </div>
       </div>
     </div>
+    <!-- Inline entity editor dialog -->
+    <div v-if="showInlineEditor" class="dialog-overlay" @click.self="showInlineEditor = false">
+      <div class="dialog">
+        <h3>New {{ {goal:'Research Goal',app:'Application',method:'Method',protocol:'Protocol'}[inlineEntityType] }}</h3>
+        <label>Name <input v-model="inlineForm.name" class="input-full" /></label>
+        <label v-if="inlineEntityType==='goal'||inlineEntityType==='app'">Summary <textarea v-model="inlineForm.summary" rows="3" class="input-full"></textarea></label>
+        <label v-if="inlineEntityType==='method'">Purpose <textarea v-model="inlineForm.purpose" rows="3" class="input-full"></textarea></label>
+        <div class="dialog-actions">
+          <button class="btn btn-ghost btn-sm" @click="showInlineEditor = false">Cancel</button>
+          <button class="btn btn-primary btn-sm" @click="saveInlineEntity" :disabled="inlineSaving">
+            {{ inlineSaving ? 'Saving...' : 'Save & Link' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
   <div v-else class="loading">Loading product...</div>
 </template>
@@ -484,4 +601,15 @@ onMounted(loadProduct)
 .word-status { font-size: 13px; }
 .word-ok { color: #176b3a; font-weight: 500; }
 .word-err { color: #dc3545; }
+
+/* Knowledge inline */
+.chip-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.chip-label { font-size: 13px; color: var(--color-text-secondary); font-weight: 600; margin-right: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--color-primary-light); color: var(--color-primary); border-radius: 6px; font-size: 12px; font-weight: 500; }
+.chip-remove { background: none; border: none; cursor: pointer; padding: 0; font-size: 12px; color: var(--color-primary); opacity: 0.6; }
+.chip-remove:hover { opacity: 1; }
+.entity-select-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; }
+.entity-select-row select { flex: 1; }
+.inline-buttons { display: flex; gap: 8px; margin-top: 8px; }
+.input-full { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 14px; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); resize: vertical; }
 </style>
