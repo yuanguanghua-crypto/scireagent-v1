@@ -16,6 +16,7 @@ export const useAuthStore = defineStore('auth', () => {
   const role = computed(() => user.value?.role || '')
   const organization = computed(() => user.value?.organization || null)
   const isOrgAdmin = computed(() => user.value?.is_org_admin || false)
+  const isStaff = computed(() => user.value?.is_staff || false)
 
   async function fetchUser() {
     if (!token.value) return
@@ -88,6 +89,7 @@ export const useAuthStore = defineStore('auth', () => {
     role,
     organization,
     isOrgAdmin,
+    isStaff,
     login,
     register,
     updateProfile,

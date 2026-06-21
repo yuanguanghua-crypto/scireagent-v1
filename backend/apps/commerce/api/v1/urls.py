@@ -12,6 +12,7 @@ from apps.commerce.api.v1.ai_views import (
     ProductRecommendLiteratureView, BatchValidateView,
     BatchRecommendLiteratureView,
 )
+from apps.commerce.api.v1.word_views import WordParseView
 
 router = DefaultRouter()
 router.register('products', ProductViewSet, basename='product')
@@ -32,5 +33,7 @@ urlpatterns = [
     path('products/<int:pk>/detail/', ProductDetailAPIView.as_view(), name='product-detail-v2'),
     path('products/<int:pk>/faq/', ProductFAQView.as_view(), name='product-faq'),
     path('products/<int:pk>/related/', RelatedProductsView.as_view(), name='product-related'),
+    # Word import / AI tool endpoints
+    path('products/parse-word/', WordParseView.as_view(), name='product-parse-word'),
     path('', include(router.urls)),
 ]

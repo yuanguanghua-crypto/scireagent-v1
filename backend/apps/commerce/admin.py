@@ -5,6 +5,7 @@ from django import forms
 from django.utils.safestring import mark_safe
 
 from .models import ProductClass, CatalogGroup, Product, SKU, ProductDocument
+from .services.seo_generator import generate_seo
 from apps.bridges.models import ProductMethod, ProductReference, ProductCompatibility, ProductProduct
 
 
@@ -108,6 +109,16 @@ class ProductAdmin(ModelAdmin):
                ProductCompatibilityInline, ProductProductInline]
     list_per_page = 50
     save_on_top = True
+    # Product editing moved to Vue workspace; Django Admin is read-only snapshot
+    readonly_fields = ['name', 'slug', 'catalog_no', 'cas', 'synonyms',
+                       'status', 'research_use_only', 'display_priority',
+                       'overview', 'smiles', 'inchi', 'formula', 'molecular_weight',
+                       'purity', 'concentration', 'storage', 'shipping',
+                       'lead_time', 'shelf_life', 'handling_notes',
+                       'product_class', 'catalog_group',
+                       'category_l1', 'category_l2',
+                       'seo_title', 'seo_description']
+    actions = None  # disable batch actions (no write allowed)
 
     # ── 扁平化：所有字段在一个 section ───────────────
     fieldsets = (
@@ -135,49 +146,6 @@ class ProductAdmin(ModelAdmin):
     # ── 加载自定义 JS（L1→L2 联动）─────────────────
     class Media:
         js = ('admin/js/category_chained.js',)
-
-    # ── 批量操作 ────────────────────────────────────
-
-    @action(description='批量激活 (Set Active)')
-    def make_active(self, request, queryset):
-        count = queryset.update(status='active')
-        self.message_user(request, f'{count} 个产品已激活。')
-
-    @action(description='批量设为草稿 (Set Draft)')
-    def make_draft(self, request, queryset):
-        count = queryset.update(status='draft')
-        self.message_user(request, f'{count} 个产品已设为草稿。')
-
-    @action(description='批量生成 SEO (Auto-generate SEO)')
-    def auto_generate_seo(self, request, queryset):
-        count = 0
-        for product in queryset:
-            if not product.seo_title:
-                product.seo_title = f'{product.name} | SciReagent'
-            if not product.seo_description:
-                desc = f'Buy {product.name}'
-                if product.cas:
-                    desc += f' (CAS: {product.cas})'
-                desc += '. High purity research reagent. Order from SciReagent.'
-                product.seo_description = desc
-            product.save(update_fields=['seo_title', 'seo_description'])
-            count += 1
-        self.message_user(request, f'{count} 个产品的 SEO 已生成。')
-
-    actions = ['make_active', 'make_draft', 'auto_generate_seo']
-
-    # ── Auto-generate SEO on save ────────────────────
-
-    def save_model(self, request, obj, form, change):
-        if not obj.seo_title:
-            obj.seo_title = f'{obj.name} | SciReagent'
-        if not obj.seo_description:
-            desc = f'Buy {obj.name}'
-            if obj.cas:
-                desc += f' (CAS: {obj.cas})'
-            desc += '. High purity research reagent. Order from SciReagent.'
-            obj.seo_description = desc
-        super().save_model(request, obj, form, change)
 
 
 # ── SKU ──────────────────────────────────────────────

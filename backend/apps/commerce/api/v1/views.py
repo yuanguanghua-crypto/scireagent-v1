@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
 from core.mixins import EnvelopeMixin
+from core.permissions import IsAdminOrReadOnly
 from core.jsonld import build_product_jsonld
 from apps.commerce.models import Product, SKU, ProductClass, CatalogGroup, ProductDocument
 from apps.commerce.api.v1.serializers import (
@@ -34,6 +35,7 @@ def _validate_uploaded_file(file_obj):
 class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Product.objects.select_related('product_class').prefetch_related('skus', 'documents').all()
     serializer_class = ProductListSerializer
+    permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'cas', 'smiles', 'inchi', 'catalog_no', 'formula']
     ordering_fields = ['name', 'created_at', 'catalog_no']
     filterset_fields = ['product_class_id', 'status', 'category_l1', 'research_use_only']
@@ -95,6 +97,17 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         product = self.get_object()
         docs = product.documents.all()
         return Response(ProductDocumentSerializer(docs, many=True).data)
+
+    @action(detail=True, methods=['post'], url_path='generate-seo')
+    def generate_seo(self, request, pk=None):
+        """自动生成产品 SEO 标题和描述（仅在字段为空时生成）。"""
+        product = self.get_object()
+        from apps.commerce.services.seo_generator import generate_seo as _gen_seo
+        _, changed = _gen_seo(product)
+        if changed:
+            product.save(update_fields=['seo_title', 'seo_description'])
+        serializer = self.get_serializer(product)
+        return self.success_response(serializer.data, meta={'changed': changed})
 
 
 class SKUViewSet(EnvelopeMixin, viewsets.ModelViewSet):

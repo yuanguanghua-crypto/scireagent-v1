@@ -41,9 +41,39 @@ class ProductDocumentSerializer(BaseModelSerializer):
         read_only_fields = ['id', 'created_at']
 
 
+def _is_product_complete(product):
+    """判断产品是否完整（3 条件）。
+
+    1. Name 不为空 + catalog_no 不为空
+    2. category_l1 不为空
+    3. 至少 1 个 SKU 且 is_default=True
+    """
+    if not (product.name and product.catalog_no):
+        return False
+    if not product.category_l1:
+        return False
+    if not product.skus.filter(is_default=True).exists():
+        return False
+    return True
+
+
+def _incomplete_items(product):
+    """返回不完整条件的名称列表，用于发布弹窗展示。"""
+    items = []
+    if not (product.name and product.catalog_no):
+        items.append('基本信息')
+    if not product.category_l1:
+        items.append('分类')
+    if not product.skus.filter(is_default=True).exists():
+        items.append('SKU (需设置默认 SKU)')
+    return items
+
+
 class ProductListSerializer(BaseModelSerializer):
     sku_summary = serializers.SerializerMethodField()
     product_class_name = serializers.SerializerMethodField()
+    is_complete = serializers.SerializerMethodField()
+    incomplete_items = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -52,7 +82,7 @@ class ProductListSerializer(BaseModelSerializer):
             'formula', 'molecular_weight', 'purity', 'concentration', 'storage',
             'shipping', 'lead_time', 'status', 'research_use_only',
             'product_class_id', 'product_class_name', 'category_l1', 'category_l2',
-            'sku_summary', 'created_at',
+            'sku_summary', 'created_at', 'updated_at', 'is_complete', 'incomplete_items',
         ]
 
     def get_product_class_name(self, obj):
@@ -70,6 +100,12 @@ class ProductListSerializer(BaseModelSerializer):
             } if skus else None,
             'statuses': list(skus.values_list('inventory_status', flat=True).distinct()),
         }
+
+    def get_is_complete(self, obj):
+        return _is_product_complete(obj)
+
+    def get_incomplete_items(self, obj):
+        return _incomplete_items(obj)
 
 
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
@@ -170,6 +206,8 @@ class ProductDetailSerializer(BaseModelSerializer):
     reference_ids = serializers.SerializerMethodField()
     compatibility_summary = serializers.SerializerMethodField()
     structure_svg = serializers.SerializerMethodField()
+    is_complete = serializers.SerializerMethodField()
+    incomplete_items = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -182,6 +220,7 @@ class ProductDetailSerializer(BaseModelSerializer):
             'product_class_name', 'product_class_path',
             'skus', 'documents', 'application_ids', 'method_ids', 'protocol_ids',
             'reference_ids', 'compatibility_summary', 'created_at', 'updated_at',
+            'is_complete', 'incomplete_items',
         ]
 
     def get_product_class_name(self, obj):
@@ -227,3 +266,9 @@ class ProductDetailSerializer(BaseModelSerializer):
         from apps.bridges.models import ProductCompatibility
         facts = ProductCompatibility.objects.filter(source_product=obj)
         return {'count': facts.count()}
+
+    def get_is_complete(self, obj):
+        return _is_product_complete(obj)
+
+    def get_incomplete_items(self, obj):
+        return _incomplete_items(obj)

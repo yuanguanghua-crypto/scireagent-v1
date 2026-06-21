@@ -16,6 +16,16 @@ class IsAdminOrReadOnly(BasePermission):
         return request.user and request.user.is_staff
 
 
+class IsStaffUser(BasePermission):
+    """统一工作台 API 权限 — 检查 is_staff。
+
+    GET/POST/PUT/PATCH/DELETE 均要求 request.user.is_staff = True。
+    与 IsAdminOrReadOnly 的区别：不放开匿名读。
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.is_staff
+
+
 class LoginRateThrottle(AnonRateThrottle):
     """
     Rate limit for login endpoint: 5 requests per minute per IP.

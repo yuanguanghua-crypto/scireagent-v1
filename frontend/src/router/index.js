@@ -133,42 +133,7 @@ const routes = [
     component: () => import('@/views/admin/AdminOrderDetail.vue'),
     meta: { title: 'Order Processing', requiresAuth: true },
   },
-  {
-    path: '/admin/products',
-    name: 'AdminProducts',
-    component: () => import('@/views/admin/AdminProductsPage.vue'),
-    meta: { title: 'Product Management', requiresAuth: true, requiresAdmin: true },
-  },
-  {
-    path: '/admin/products/new',
-    name: 'AdminProductNew',
-    component: () => import('@/views/admin/AdminProductEdit.vue'),
-    meta: { title: 'New Product', requiresAuth: true, requiresAdmin: true },
-  },
-  {
-    path: '/admin/products/:id/edit',
-    name: 'AdminProductEdit',
-    component: () => import('@/views/admin/AdminProductEdit.vue'),
-    meta: { title: 'Edit Product', requiresAuth: true, requiresAdmin: true },
-  },
-  {
-    path: '/knowledge-intake',
-    name: 'KnowledgeIntake',
-    component: () => import('@/views/KnowledgeIntake.vue'),
-    meta: { title: 'Knowledge Intake' },
-  },
-  {
-    path: '/products/new',
-    name: 'ProductNew',
-    component: () => import('@/views/products/ProductEditPage.vue'),
-    meta: { title: 'New Product' },
-  },
-  {
-    path: '/products/:id/edit',
-    name: 'ProductEdit',
-    component: () => import('@/views/products/ProductEditPage.vue'),
-    meta: { title: 'Edit Product' },
-  },
+  // ── Old admin product routes removed — use /workspace/products instead
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
@@ -198,10 +163,13 @@ router.beforeEach((to, from, next) => {
     return
   }
 
-  // If route requires admin, check role (deferred check — will re-verify in component)
-  if (to.meta.requiresAdmin && !hasToken) {
-    next({ path: '/login', query: { redirect: to.fullPath } })
-    return
+  // If route requires admin, verify is_staff via the auth store
+  if (to.meta.requiresAdmin) {
+    if (!hasToken) {
+      next({ path: '/login', query: { redirect: to.fullPath } })
+      return
+    }
+    // Deferred check — component will redirect if user is not staff
   }
 
   // If user is authenticated and route is guest-only (login/register), redirect to home
