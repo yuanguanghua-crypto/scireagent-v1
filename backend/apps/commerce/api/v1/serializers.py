@@ -159,6 +159,24 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             for mid in method_ids:
                 MethodProtocol.objects.get_or_create(method_id=mid, protocol_id=pid)
 
+    @staticmethod
+    def _auto_seo_on_publish(product):
+        """当产品从 draft 变为 active 时，若 SEO 为空则自动生成。"""
+        from apps.commerce.services.seo_generator import generate_seo
+        changed = False
+        if not product.seo_title:
+            product.seo_title = f'{product.name} | SciReagent'
+            changed = True
+        if not product.seo_description:
+            desc = f'Buy {product.name}'
+            if product.cas:
+                desc += f' (CAS: {product.cas})'
+            desc += '. High purity research reagent. Order from SciReagent.'
+            product.seo_description = desc
+            changed = True
+        if changed:
+            product.save(update_fields=['seo_title', 'seo_description'])
+
     def create(self, validated_data):
         method_ids = validated_data.pop('method_ids', None)
         protocol_ids = validated_data.pop('protocol_ids', None)
@@ -172,6 +190,9 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 
         self._sync_method_bridges(product, method_ids)
         self._sync_protocol_bridges(product, protocol_ids)
+
+        # Auto-generate SEO on publish (draft→active)
+        self._auto_seo_on_publish(product)
         return product
 
     def update(self, instance, validated_data):
@@ -180,6 +201,9 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         research_goal_ids = validated_data.pop('research_goal_ids', None)
         application_ids = validated_data.pop('application_ids', None)
         skus_data = validated_data.pop('skus', None)
+
+        new_status = validated_data.get('status')
+        is_becoming_active = (new_status == 'active' and instance.status != 'active')
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -192,6 +216,10 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 
         self._sync_method_bridges(instance, method_ids)
         self._sync_protocol_bridges(instance, protocol_ids)
+
+        # Auto-generate SEO when transitioning from draft to active
+        if is_becoming_active:
+            self._auto_seo_on_publish(instance)
         return instance
 
 
