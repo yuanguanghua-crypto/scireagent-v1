@@ -44,25 +44,25 @@ if (!auth.isStaff) {
 
         <div class="nav-group">
           <div class="nav-group-title">Knowledge</div>
-          <router-link to="/workspace/goals" class="nav-item nav-item--disabled" active-class="active">
+          <router-link to="/workspace/goals" class="nav-item" active-class="active">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
               <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
             </svg>
             Research Goals
           </router-link>
-          <router-link to="/workspace/applications" class="nav-item nav-item--disabled" active-class="active">
+          <router-link to="/workspace/applications" class="nav-item" active-class="active">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
               <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" />
             </svg>
             Applications
           </router-link>
-          <router-link to="/workspace/methods" class="nav-item nav-item--disabled" active-class="active">
+          <router-link to="/workspace/methods" class="nav-item" active-class="active">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
               <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
             </svg>
             Methods
           </router-link>
-          <router-link to="/workspace/protocols" class="nav-item nav-item--disabled" active-class="active">
+          <router-link to="/workspace/protocols" class="nav-item" active-class="active">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
               <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
               <rect x="9" y="3" width="6" height="4" rx="1" />

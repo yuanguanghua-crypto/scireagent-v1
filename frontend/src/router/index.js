@@ -133,6 +133,23 @@ const routes = [
     component: () => import('@/views/admin/AdminOrderDetail.vue'),
     meta: { title: 'Order Processing', requiresAuth: true },
   },
+  // ── Workspace routes ──────────────────────────────
+  {
+    path: '/workspace',
+    name: 'Workspace',
+    component: () => import('@/views/workspace/AdminLayout.vue'),
+    meta: { title: 'Workspace', requiresAuth: true, requiresAdmin: true },
+    children: [
+      { path: '', name: 'Dashboard', component: () => import('@/views/workspace/DashboardPage.vue'), meta: { title: 'Dashboard' } },
+      { path: 'products', name: 'WorkspaceProducts', component: () => import('@/views/workspace/ProductsPage.vue'), meta: { title: 'Products' } },
+      { path: 'products/new', name: 'WorkspaceProductNew', component: () => import('@/views/workspace/ProductEditPage.vue'), meta: { title: 'New Product' } },
+      { path: 'products/:id/edit', name: 'WorkspaceProductEdit', component: () => import('@/views/workspace/ProductEditPage.vue'), meta: { title: 'Edit Product' } },
+      { path: 'goals', name: 'WorkspaceGoals', component: () => import('@/views/workspace/GoalsPage.vue'), meta: { title: 'Research Goals' } },
+      { path: 'applications', name: 'WorkspaceApps', component: () => import('@/views/workspace/AppsPage.vue'), meta: { title: 'Applications' } },
+      { path: 'methods', name: 'WorkspaceMethods', component: () => import('@/views/workspace/MethodsPage.vue'), meta: { title: 'Methods' } },
+      { path: 'protocols', name: 'WorkspaceProtocols', component: () => import('@/views/workspace/ProtocolsPage.vue'), meta: { title: 'Protocols' } },
+    ],
+  },
   // ── Old admin product routes removed — use /workspace/products instead
   {
     path: '/:pathMatch(.*)*',

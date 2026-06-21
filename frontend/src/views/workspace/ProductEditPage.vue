@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/http'
 import AiToolsPanel from '@/views/admin/components/AiToolsPanel.vue'
+import StructureViewer from './components/StructureViewer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -286,10 +287,7 @@ onMounted(loadProduct)
             </button>
           </div>
           <div class="chem-preview">
-            <div class="structure-placeholder">
-              <p>Structure preview</p>
-              <p class="hint">Enter SMILES to preview</p>
-            </div>
+            <StructureViewer :smiles="form.smiles" />
           </div>
         </div>
         <!-- AI Tools Panel -->
@@ -460,9 +458,6 @@ onMounted(loadProduct)
 .chem-inputs { flex: 1; display: flex; flex-direction: column; gap: 10px; }
 .chem-inputs label { font-size: 13px; color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 4px; }
 .chem-inputs input, .chem-inputs textarea { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 14px; background: var(--color-bg); color: var(--color-text); resize: vertical; }
-.chem-preview { width: 250px; min-height: 250px; border: 1px solid var(--color-border); border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--color-bg); flex-shrink: 0; }
-.structure-placeholder { text-align: center; color: var(--color-text-secondary); }
-.structure-placeholder .hint { font-size: 12px; }
 .ai-panel-wrapper { margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 16px; }
 .form-hint { font-size: 12px; color: var(--color-text-secondary); margin-top: 8px; }
 .form-hint input { padding: 4px 8px; border: 1px solid var(--color-border); border-radius: 4px; font-size: 13px; background: var(--color-bg); color: var(--color-text); width: 300px; margin-left: 8px; }
