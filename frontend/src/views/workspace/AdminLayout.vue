@@ -69,6 +69,12 @@ if (!auth.isStaff) {
             </svg>
             Protocols
           </router-link>
+          <router-link to="/workspace/references" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M4 6h16M4 10h16M4 14h16M4 18h12" />
+            </svg>
+            References
+          </router-link>
         </div>
       </nav>
 
