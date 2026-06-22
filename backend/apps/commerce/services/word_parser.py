@@ -30,6 +30,21 @@ class WordParserService:
     # 匹配 "Label: value" 模式
     LABEL_PATTERN = re.compile(r'^([A-Za-z ]+?):\s*(.+)$')
 
+    # 匹配 "10ul (100 mM)" 或 "1mg" — 拆出数值、单位、(可选)浓度数值、浓度单位
+    SIZE_PATTERN = re.compile(
+        r'^(\d+(?:\.\d+)?)\s*([a-zA-Zµµ]+)'
+        r'(?:\s*\(\s*(\d+(?:\.\d+)?)\s*([a-zA-Zµµ%]+)\s*\))?'
+    )
+
+    # 单位标准化（小写输入 → 标准显示形式）
+    UNIT_NORMALIZE = {
+        'ul': 'µL', 'µl': 'µL',
+        'ml': 'mL', 'l': 'L',
+        'ug': 'µg', 'µg': 'µg',
+        'mg': 'mg', 'g': 'g',
+        'mm': 'mM', 'um': 'µM',
+    }
+
     def parse(self, file):
         """解析上传的 .docx 文件，返回结构化字段字典。
 
@@ -118,11 +133,12 @@ class WordParserService:
         return None
 
     def _parse_skus(self, result):
-        """从 'size' 和 'price' 字段解析 SKU 列表。
+        """从 'size' 和 'price' 字段解析 SKU 列表，拆分出 pack_unit/conc_unit。
 
         Size: "10ul (100 mM)/ 50ul (100 mM)/ 100ul (100 mM)"
         Price: "$79/$349/$649"
-        按 / 分割后按位置配对。
+        按 / 分割后按位置配对，再把每个 size 拆成 pack_size+pack_unit
+        (+ concentration+conc_unit)。
         """
         if 'size' not in result or 'price' not in result:
             return
@@ -131,10 +147,17 @@ class WordParserService:
         prices = [s.strip().replace('$', '') for s in result['price'].split('/')]
 
         for i in range(min(len(sizes), len(prices))):
-            result['skus'].append({
-                'pack_size': sizes[i],
-                'price': prices[i],
-            })
+            sku = {'pack_size': sizes[i], 'price': prices[i]}
+            m = self.SIZE_PATTERN.match(sizes[i])
+            if m:
+                sku['pack_size'] = m.group(1)
+                sku['pack_unit'] = self.UNIT_NORMALIZE.get(
+                    m.group(2).lower(), m.group(2))
+                if m.group(3):
+                    sku['concentration'] = m.group(3)
+                    sku['conc_unit'] = self.UNIT_NORMALIZE.get(
+                        m.group(4).lower(), m.group(4))
+            result['skus'].append(sku)
 
     def _extract_images(self, doc):
         """从文档中提取第一张嵌入式图片的 base64 编码。

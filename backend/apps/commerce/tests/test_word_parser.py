@@ -130,15 +130,27 @@ class WordParserServiceTest(TestCase):
         self.assertEqual(result['concentration'], '10 mM')
 
     def test_parse_docx_skus_size_price_pairing(self):
-        """Size 和 Price 按 / 分割后按位置正确配对"""
+        """Size 和 Price 按 / 分割后按位置正确配对，单位拆分到 pack_unit/conc_unit"""
         file = self._make_uploaded_file(WORD_MINIMAL)
         result = self.service.parse(file)
 
         skus = result['skus']
         self.assertEqual(len(skus), 3)
-        self.assertEqual(skus[0], {'pack_size': '10ul (100 mM)', 'price': '79'})
-        self.assertEqual(skus[1], {'pack_size': '50ul (100 mM)', 'price': '349'})
-        self.assertEqual(skus[2], {'pack_size': '100ul (100 mM)', 'price': '649'})
+        self.assertEqual(skus[0], {
+            'pack_size': '10', 'pack_unit': 'µL',
+            'concentration': '100', 'conc_unit': 'mM',
+            'price': '79',
+        })
+        self.assertEqual(skus[1], {
+            'pack_size': '50', 'pack_unit': 'µL',
+            'concentration': '100', 'conc_unit': 'mM',
+            'price': '349',
+        })
+        self.assertEqual(skus[2], {
+            'pack_size': '100', 'pack_unit': 'µL',
+            'concentration': '100', 'conc_unit': 'mM',
+            'price': '649',
+        })
 
     def test_parse_docx_single_sku(self):
         """单 SKU 产品"""
@@ -147,7 +159,23 @@ class WordParserServiceTest(TestCase):
 
         skus = result['skus']
         self.assertEqual(len(skus), 1)
-        self.assertEqual(skus[0], {'pack_size': '50ul (1 mM)', 'price': '199'})
+        self.assertEqual(skus[0]['pack_size'], '50')
+        self.assertEqual(skus[0]['pack_unit'], 'µL')
+        self.assertEqual(skus[0]['concentration'], '1')
+        self.assertEqual(skus[0]['conc_unit'], 'mM')
+        self.assertEqual(skus[0]['price'], '199')
+
+    def test_parse_skus_without_concentration(self):
+        """Size 不带浓度时 → pack_size/pack_unit 有值，无 concentration/conc_unit"""
+        # 直接用 service 内部方法测试无浓度场景
+        result = {'skus': [], 'size': '1mg/5mg', 'price': '$10/$40'}
+        self.service._parse_skus(result)
+        self.assertEqual(result['skus'][0], {
+            'pack_size': '1', 'pack_unit': 'mg', 'price': '10',
+        })
+        self.assertEqual(result['skus'][1], {
+            'pack_size': '5', 'pack_unit': 'mg', 'price': '40',
+        })
 
     def test_parse_docx_empty_description(self):
         """无描述段的文档 — description 为空或不存在"""

@@ -11,6 +11,7 @@ from apps.commerce.api.v1.ai_views import (
     ProductValidateView, ProductRecommendProtocolsView,
     ProductRecommendLiteratureView, BatchValidateView,
     BatchRecommendLiteratureView, PubChemEnrichView,
+    ValidateUnsavedView, RecommendProtocolsUnsavedView, RecommendLiteratureUnsavedView,
 )
 from apps.commerce.api.v1.word_views import WordParseView
 
@@ -26,6 +27,9 @@ urlpatterns = [
     # AI tool endpoints — must precede router include to avoid pk matching
     path('products/batch-validate/', BatchValidateView.as_view(), name='batch-validate'),
     path('products/batch-recommend-literature/', BatchRecommendLiteratureView.as_view(), name='batch-recommend-literature'),
+    path('products/validate-unsaved/', ValidateUnsavedView.as_view(), name='validate-unsaved'),
+    path('products/recommend-protocols-unsaved/', RecommendProtocolsUnsavedView.as_view(), name='recommend-protocols-unsaved'),
+    path('products/recommend-literature-unsaved/', RecommendLiteratureUnsavedView.as_view(), name='recommend-literature-unsaved'),
     path('products/<int:pk>/validate/', ProductValidateView.as_view(), name='product-validate'),
     path('products/<int:pk>/recommend-protocols/', ProductRecommendProtocolsView.as_view(), name='product-recommend-protocols'),
     path('products/<int:pk>/recommend-literature/', ProductRecommendLiteratureView.as_view(), name='product-recommend-literature'),

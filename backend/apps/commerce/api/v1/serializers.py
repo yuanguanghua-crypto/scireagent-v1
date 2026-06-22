@@ -217,9 +217,11 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         for sku_data in skus_data:
             SKU.objects.create(product=product, **sku_data)
 
-        # Merge direct method_ids with cascaded from research_goal_ids/application_ids
-        merged_method_ids = self._merge_method_ids(method_ids, research_goal_ids, application_ids)
-        self._sync_method_bridges(product, list(merged_method_ids) if merged_method_ids else None)
+        # Sync method bridges only if any method-related field was explicitly provided.
+        # Explicit empty list clears all bridges; omitting all fields preserves existing.
+        if method_ids is not None or research_goal_ids is not None or application_ids is not None:
+            merged = self._merge_method_ids(method_ids, research_goal_ids, application_ids)
+            self._sync_method_bridges(product, list(merged))
         self._sync_protocol_bridges(product, protocol_ids)
 
         # Auto-generate SEO on publish (draft→active)
@@ -245,9 +247,11 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             for sku_data in skus_data:
                 SKU.objects.create(product=instance, **sku_data)
 
-        # Merge direct method_ids with cascaded from research_goal_ids/application_ids
-        merged_method_ids = self._merge_method_ids(method_ids, research_goal_ids, application_ids)
-        self._sync_method_bridges(instance, list(merged_method_ids) if merged_method_ids else None)
+        # Sync method bridges only if any method-related field was explicitly provided.
+        # Explicit empty list clears all bridges; omitting all fields preserves existing.
+        if method_ids is not None or research_goal_ids is not None or application_ids is not None:
+            merged = self._merge_method_ids(method_ids, research_goal_ids, application_ids)
+            self._sync_method_bridges(instance, list(merged))
         self._sync_protocol_bridges(instance, protocol_ids)
 
         # Auto-generate SEO when transitioning from draft to active

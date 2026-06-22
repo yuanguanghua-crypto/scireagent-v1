@@ -120,6 +120,20 @@ function addSku() {
 }
 function removeSku(idx) { skus.value.splice(idx, 1) }
 
+// 拆分存储的 "10 µL" 字符串 → {value, unit}，用于回填 SKU 表格的分离输入
+// 非数字开头（如 "solid"）整体作为 value，无单位
+function splitValueUnit(str, defaultUnit) {
+  if (!str) return { value: '', unit: defaultUnit }
+  const m = String(str).match(/^(\d+(?:\.\d+)?)\s*(.*)$/)
+  if (m) return { value: m[1], unit: m[2] || defaultUnit }
+  return { value: String(str), unit: '' }
+}
+// 合并 value+unit → "10 µL"，unit 为空时只返回 value
+function joinValueUnit(value, unit) {
+  if (!value) return ''
+  return unit ? `${value} ${unit}`.trim() : String(value)
+}
+
 // ── Word Import ─────────────────────────────────────
 async function handleWordFile(e) {
   wordFile.value = e.target.files?.[0]
@@ -386,7 +400,16 @@ async function loadProduct() {
     if (resp.data) {
       const d = resp.data
       Object.keys(form).forEach(k => { if (k in d) form[k] = d[k] ?? form[k] })
-      if (d.skus) skus.value = d.skus.map(s => ({ ...s, _key: s.id || Date.now() + Math.random() }))
+      if (d.skus) skus.value = d.skus.map(s => {
+        const ps = splitValueUnit(s.pack_size, 'mg')
+        const cs = splitValueUnit(s.concentration, 'mM')
+        return {
+          ...s,
+          _key: s.id || Date.now() + Math.random(),
+          pack_size: ps.value, pack_unit: ps.unit,
+          concentration: cs.value, conc_unit: cs.unit,
+        }
+      })
       methodIds.value = d.method_ids || []
       protocolIds.value = d.protocol_ids || []
       // 2.11 — check if published but missing suggested fields
@@ -416,7 +439,11 @@ async function saveDraft() {
   saving.value = true
   const payload = {
     ...form,
-    skus: skus.value.map(({ _key, pack_unit, conc_unit, ...s }) => s),
+    skus: skus.value.map(({ _key, pack_unit, conc_unit, ...s }) => ({
+      ...s,
+      pack_size: joinValueUnit(s.pack_size, pack_unit),
+      concentration: joinValueUnit(s.concentration, conc_unit),
+    })),
     method_ids: methodIds.value,
     protocol_ids: protocolIds.value,
   }

@@ -106,14 +106,33 @@ class PubChemClient:
 
 
 class BioProCorpusLookup:
-    """BioProCorpus 本地索引检索"""
+    """BioProCorpus 本地索引检索 — 复用 ProtocolRetriever（14,675 条协议）
+
+    用类级缓存避免每次 validate 都重建索引。
+    """
+
+    _retriever = None
 
     def __init__(self, data_dir: Optional[str] = None):
-        self.data_dir = data_dir
+        # data_dir 参数保留以兼容旧签名，ProtocolRetriever 自己解析默认路径
+        if BioProCorpusLookup._retriever is None:
+            from apps.knowledge.services.protocol_recommender import ProtocolRetriever
+            BioProCorpusLookup._retriever = ProtocolRetriever()
 
     def search(self, query: str, top_k: int = 5) -> list:
         """按关键词检索匹配的协议"""
-        return []
+        if not query:
+            return []
+        results = BioProCorpusLookup._retriever.search(query, top_k=top_k)
+        return [
+            {
+                'id': r.get('id', ''),
+                'title': r.get('title', ''),
+                'source': r.get('source', ''),
+                'score': r.get('score', 0),
+            }
+            for r in results
+        ]
 
 
 class ProductValidator:

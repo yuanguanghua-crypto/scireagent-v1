@@ -21,6 +21,21 @@ export function recommendLiterature(id, topK = 5) {
   return http.post(`/products/${id}/recommend-literature/`, { top_k: topK })
 }
 
+/** Validate an unsaved product (new product page, no productId). */
+export function validateUnsavedProduct(name, cas, smiles) {
+  return http.post('/products/validate-unsaved/', { name, cas, smiles })
+}
+
+/** Recommend protocols for an unsaved product (new product page). */
+export function recommendProtocolsUnsaved(name, topK = 5) {
+  return http.post('/products/recommend-protocols-unsaved/', { name, top_k: topK })
+}
+
+/** Recommend literature for an unsaved product (new product page). */
+export function recommendLiteratureUnsaved(name, cas, topK = 5) {
+  return http.post('/products/recommend-literature-unsaved/', { name, cas, top_k: topK })
+}
+
 /** Batch validate multiple products at once. */
 export function batchValidate(productIds) {
   return http.post('/products/batch-validate/', { product_ids: productIds })

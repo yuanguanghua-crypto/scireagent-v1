@@ -6,8 +6,11 @@ DRF views exposing the three AI tools to the admin UI:
 - ProductRecommendLiteratureView: PubMed literature recommendations
 - BatchValidateView: batch product validation
 - BatchRecommendLiteratureView: batch literature recommendations
+- ValidateUnsavedView / RecommendProtocolsUnsavedView / RecommendLiteratureUnsavedView:
+  新建页无 productId 时用 payload 直接调用服务
 """
 import logging
+from types import SimpleNamespace
 
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
@@ -223,3 +226,65 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
             enriched = enhancer.resolve_to_properties(product_name.strip())
 
         return self.success_response(enriched)
+
+
+# ── Unsaved-product Views (新建页无 productId 时使用) ────────────────
+
+def _build_fake_product(name, cas='', smiles=''):
+    """用 SimpleNamespace 包装 payload — 三个 AI 服务只访问 name/cas/smiles/id。"""
+    return SimpleNamespace(id=None, name=name, cas=cas or '', smiles=smiles or '')
+
+
+class ValidateUnsavedView(EnvelopeMixin, APIView):
+    """POST /api/v1/products/validate-unsaved/  body: {name, cas?, smiles?}
+
+    新建产品页（未保存）的 AI 校验。三个服务不依赖持久化对象，
+    只读取 name/cas/smiles 字段（id 仅用于日志）。
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        data = request.data or {}
+        name = (data.get('name') or '').strip()
+        if not name:
+            return self.error_response('name is required')
+        fake = _build_fake_product(
+            name=name,
+            cas=(data.get('cas') or '').strip(),
+            smiles=(data.get('smiles') or '').strip(),
+        )
+        validator = ProductValidator()
+        report = validator.validate(fake)
+        return self.success_response(serialize_validation_report(report, fake))
+
+
+class RecommendProtocolsUnsavedView(EnvelopeMixin, APIView):
+    """POST /api/v1/products/recommend-protocols-unsaved/  body: {name, top_k?}"""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        data = request.data or {}
+        name = (data.get('name') or '').strip()
+        if not name:
+            return self.error_response('name is required')
+        top_k = int(data.get('top_k', 5))
+        recommender = ProtocolRecommender()
+        return self.success_response(recommender.recommend(name, top_k=top_k))
+
+
+class RecommendLiteratureUnsavedView(EnvelopeMixin, APIView):
+    """POST /api/v1/products/recommend-literature-unsaved/  body: {name, cas?, top_k?}"""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        data = request.data or {}
+        name = (data.get('name') or '').strip()
+        if not name:
+            return self.error_response('name is required')
+        top_k = int(data.get('top_k', 5))
+        fake = _build_fake_product(
+            name=name,
+            cas=(data.get('cas') or '').strip(),
+        )
+        recommender = LiteratureRecommender()
+        return self.success_response(recommender.recommend(fake, top_k=top_k))

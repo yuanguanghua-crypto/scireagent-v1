@@ -126,6 +126,22 @@ class BioProCorpusValidatorTest(TestCase):
         report = validator.validate(product)
         self.assertEqual(len(report.matched_protocols), 0)
 
+    def test_bioprocorpus_lookup_returns_results_for_real_keyword(self):
+        """真实索引：已知关键词返回非空匹配（验证不再是空壳）"""
+        from apps.commerce.services.validators.product_validator import BioProCorpusLookup
+        lookup = BioProCorpusLookup()
+        results = lookup.search("Polyhydroxybutyrate", top_k=3)
+        self.assertGreater(len(results), 0)
+        self.assertIn('title', results[0])
+        self.assertIn('source', results[0])
+
+    def test_bioprocorpus_lookup_empty_query_returns_empty(self):
+        """空 query 返回空列表"""
+        from apps.commerce.services.validators.product_validator import BioProCorpusLookup
+        lookup = BioProCorpusLookup()
+        self.assertEqual(lookup.search(""), [])
+        self.assertEqual(lookup.search(None), [])
+
 
 class FullValidationTest(TestCase):
     """完整校验端到端测试"""

@@ -325,3 +325,80 @@ class BatchRecommendLiteratureAPITest(TestCase):
         data = resp.json()
         self.assertTrue(data["success"])
         self.assertEqual(len(data["data"]), 0)
+
+
+class UnsavedProductAIViewsTest(TestCase):
+    """AI 工具 unsaved 端点 — 新建页无需 productId。
+
+    三个服务都只依赖 name/cas/smiles 字段，不访问数据库。
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_superuser(
+            username="admin_unsaved", password="pass123", email="au@test.com"
+        )
+        self.client.force_authenticate(user=self.admin)
+
+    def test_validate_unsaved_requires_name(self):
+        """缺 name → error 响应"""
+        resp = self.client.post("/api/v1/products/validate-unsaved/", {}, format="json")
+        data = resp.json()
+        self.assertFalse(data["success"])
+
+    def test_validate_unsaved_with_name_only(self):
+        """只传 name（无 CAS）→ 返回 completed，不触发 PubChem 网络请求"""
+        with patch("apps.commerce.services.validators.product_validator.BioProCorpusLookup.search", return_value=[]):
+            resp = self.client.post(
+                "/api/v1/products/validate-unsaved/",
+                {"name": "Test Compound"}, format="json"
+            )
+        data = resp.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(data["data"]["status"], "completed")
+        self.assertEqual(data["data"]["product"]["name"], "Test Compound")
+        self.assertIsNone(data["data"]["product"]["id"])
+
+    @patch("apps.knowledge.services.protocol_recommender.ProtocolRetriever.search")
+    def test_recommend_protocols_unsaved_returns_list(self, mock_search):
+        """recommend-protocols-unsaved 用 name 返回推荐列表"""
+        mock_search.return_value = [
+            {"id": "P1", "title": "Click Chemistry Protocol",
+             "source": "Bio-protocol", "score": 2.0, "text_snippet": "..."}
+        ]
+        resp = self.client.post(
+            "/api/v1/products/recommend-protocols-unsaved/",
+            {"name": "Click Chemistry Reagent"}, format="json"
+        )
+        data = resp.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(len(data["data"]), 1)
+        self.assertEqual(data["data"][0]["protocol"]["title"], "Click Chemistry Protocol")
+
+    @patch("apps.knowledge.services.literature_recommender.LiteratureRecommender.recommend")
+    def test_recommend_literature_unsaved_returns_sections(self, mock_recommend):
+        """recommend-literature-unsaved 用 name 返回四 section 结构"""
+        mock_recommend.return_value = {
+            "applications": ["imaging"], "methods": ["pcr"],
+            "references": [], "protocols": [],
+            "matched_methods": [], "matched_apps": [],
+            "unmatched_method_keywords": [], "unmatched_app_keywords": [],
+        }
+        resp = self.client.post(
+            "/api/v1/products/recommend-literature-unsaved/",
+            {"name": "dATP Labeling Reagent"}, format="json"
+        )
+        data = resp.json()
+        self.assertTrue(data["success"])
+        self.assertIn("applications", data["data"])
+        self.assertIn("references", data["data"])
+
+    def test_unsaved_views_require_admin(self):
+        """非 admin 用户 → 403"""
+        user = User.objects.create_user(username="normal_user", password="pass123")
+        self.client.force_authenticate(user=user)
+        resp = self.client.post(
+            "/api/v1/products/validate-unsaved/",
+            {"name": "X"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 403)

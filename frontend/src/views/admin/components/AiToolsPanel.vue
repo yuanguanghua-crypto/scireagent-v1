@@ -9,12 +9,15 @@
  *   Literature   — PubMed literature with knowledge chain extraction + DB matching
  */
 import { ref, computed } from 'vue'
-import { validateProduct, recommendProtocols, recommendLiterature } from '@/api/aiTools'
+import {
+  validateProduct, recommendProtocols, recommendLiterature,
+  validateUnsavedProduct, recommendProtocolsUnsaved, recommendLiteratureUnsaved,
+} from '@/api/aiTools'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 
 const props = defineProps({
-  productId: { type: [Number, String], required: true },
+  productId: { type: [Number, String], default: null },
   productName: { type: String, required: true },
   productCas: { type: String, default: '' },
   productSmiles: { type: String, default: '' },
@@ -44,17 +47,28 @@ const activeTabLabel = computed(() => {
 })
 
 async function runActiveTab() {
+  // 新建页（无 productId）必须先填产品名才能调用 unsaved 端点
+  if (!props.productId && !props.productName) {
+    errorMsg.value = '请先填写产品名，再运行 AI 工具'
+    return
+  }
   loading.value = true
   errorMsg.value = ''
   try {
     if (activeTab.value === 'validate') {
-      const res = await validateProduct(props.productId)
+      const res = props.productId
+        ? await validateProduct(props.productId)
+        : await validateUnsavedProduct(props.productName, props.productCas, props.productSmiles)
       validateResult.value = res.data
     } else if (activeTab.value === 'protocols') {
-      const res = await recommendProtocols(props.productId)
+      const res = props.productId
+        ? await recommendProtocols(props.productId)
+        : await recommendProtocolsUnsaved(props.productName)
       protocolRecommendations.value = res.data
     } else if (activeTab.value === 'literature') {
-      const res = await recommendLiterature(props.productId)
+      const res = props.productId
+        ? await recommendLiterature(props.productId)
+        : await recommendLiteratureUnsaved(props.productName, props.productCas)
       literatureResult.value = res.data
     }
   } catch (e) {
@@ -64,8 +78,10 @@ async function runActiveTab() {
   }
 }
 
-/* Auto-run validate on mount */
-runActiveTab()
+/* Auto-run validate on mount — 仅当已有 productId 或 productName 时 */
+if (props.productId || props.productName) {
+  runActiveTab()
+}
 </script>
 
 <template>
