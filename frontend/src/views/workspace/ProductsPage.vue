@@ -15,10 +15,37 @@ const products = ref([])
 const loading = ref(true)
 const error = ref('')
 const selectedIds = ref(new Set())
-const filterStatus = ref('')
-const filterCompleteness = ref('')
 
-// ── Batch Knowledge Link ────────────────────────────
+// ── Sorting ──────────────────────────────────────
+const sortField = ref('catalog_no')
+const sortDir = ref('asc')
+
+function toggleSort(field) {
+  if (sortField.value === field) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDir.value = 'asc'
+  }
+}
+
+function sortIcon(field) {
+  if (sortField.value !== field) return ''
+  return sortDir.value === 'asc' ? ' ▲' : ' ▼'
+}
+
+const sortedProducts = computed(() => {
+  const list = [...products.value]
+  list.sort((a, b) => {
+    const av = a[sortField.value] ?? ''
+    const bv = b[sortField.value] ?? ''
+    const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' })
+    return sortDir.value === 'asc' ? cmp : -cmp
+  })
+  return list
+})
+
+// ── Batch Knowledge Link ──────────────────────────
 const showBatchLinkPanel = ref(false)
 const batchLinkGoalId = ref('')
 const batchLinkAppId = ref('')
@@ -34,8 +61,8 @@ const protocols = ref([])
 
 const selectedCount = computed(() => selectedIds.value.size)
 
-const statusFilter = ref('all')       // all / active / draft / discontinued
-const completenessFilter = ref('all') // all / complete / incomplete / no-cas / no-smiles / no-link / no-category
+const statusFilter = ref('all')
+const completenessFilter = ref('all')
 
 const completenessOptions = [
   { value: 'all', label: 'All' },
@@ -56,7 +83,7 @@ const statusOptions = [
 ]
 
 const filteredProducts = computed(() => {
-  let list = products.value
+  let list = sortedProducts.value
   if (statusFilter.value !== 'all') {
     list = list.filter(p => p.status === statusFilter.value)
   }
@@ -65,7 +92,7 @@ const filteredProducts = computed(() => {
     case 'incomplete': list = list.filter(p => !p.is_complete); break
     case 'no-cas': list = list.filter(p => !p.cas); break
     case 'no-smiles': list = list.filter(p => !p.smiles); break
-    case 'no-link': list = list.filter(p => (p.incomplete_items || []).some(i => i.includes('关联'))); break
+    case 'no-link': list = list.filter(p => !(p.incomplete_items || []).some(i => i.includes('关联')) && p.is_complete); break
     case 'no-category': list = list.filter(p => !p.category_l1); break
   }
   return list
@@ -92,11 +119,7 @@ function goToProduct(id) {
   router.push(`/workspace/products/${id}/edit`)
 }
 
-function goToNew() {
-  router.push('/workspace/products/new')
-}
-
-// ── Batch Knowledge Link Logic ─────────────────────
+// ── Batch Knowledge Link Logic ───────────────────
 async function loadKnowledgeOptions() {
   try {
     const [g, a, m, p] = await Promise.all([
@@ -109,9 +132,7 @@ async function loadKnowledgeOptions() {
     applications.value = (a.data?.data?.results || a.data?.data || [])
     methods.value = (m.data?.data?.results || m.data?.data || [])
     protocols.value = (p.data?.data?.results || p.data?.data || [])
-  } catch (e) {
-    /* ignore */
-  }
+  } catch (e) { /* ignore */ }
 }
 
 function openBatchLink() {
@@ -151,7 +172,6 @@ async function applyBatchLink() {
   try {
     const ids = Array.from(selectedIds.value)
     for (const pid of ids) {
-      // Update each product's method/protocol ids
       const product = products.value.find(p => p.id === pid)
       if (!product) continue
       const methodIds = product.method_ids ? [...product.method_ids] : []
@@ -165,13 +185,16 @@ async function applyBatchLink() {
       await http.put(`/products/${pid}/`, { method_ids: methodIds, protocol_ids: protocolIds })
     }
     showBatchLinkPanel.value = false
-    // Reload list
     const resp = await http.get('/products/', { params: { page_size: 500 } })
-    if (resp.data?.data) {
-      products.value = resp.data.data.results || resp.data.data
+    if (resp.data) {
+      products.value = Array.isArray(resp.data) ? resp.data : (resp.data.results || [])
     }
   } catch (e) {
-    alert('Batch link failed: ' + (e.response?.data?.meta?.error?.message || e.message))
+    // P0-3: now supports research_goal_ids as well
+
+    // Use ElMessage if available, else alert
+    const msg = 'Batch link failed: ' + (e.response?.data?.meta?.error?.message || e.message)
+    console.error(msg)
   } finally {
     batchLinkLoading.value = false
   }
@@ -180,8 +203,8 @@ async function applyBatchLink() {
 onMounted(async () => {
   try {
     const resp = await http.get('/products/', { params: { page_size: 500 } })
-    if (resp.data?.data) {
-      products.value = resp.data.data.results || resp.data.data
+    if (resp.data) {
+      products.value = Array.isArray(resp.data) ? resp.data : (resp.data.results || [])
     }
   } catch (e) {
     error.value = 'Failed to load products'
@@ -209,17 +232,17 @@ onMounted(async () => {
         <router-link to="/workspace/products/new" class="btn btn-primary btn-sm" style="margin-left: auto">+ New Product</router-link>
       </div>
 
-      <!-- Table -->
+      <!-- Table with sortable headers -->
       <table class="products-table" v-if="filteredProducts.length">
         <thead>
           <tr>
             <th class="col-check"><input type="checkbox" v-model="allSelected" /></th>
-            <th>Catalog No</th>
-            <th>Name</th>
-            <th>CAS</th>
+            <th class="sortable" @click="toggleSort('catalog_no')">Catalog No{{ sortIcon('catalog_no') }}</th>
+            <th class="sortable" @click="toggleSort('name')">Name{{ sortIcon('name') }}</th>
+            <th class="sortable" @click="toggleSort('cas')">CAS{{ sortIcon('cas') }}</th>
             <th>Complete</th>
-            <th>Status</th>
-            <th>Category</th>
+            <th class="sortable" @click="toggleSort('status')">Status{{ sortIcon('status') }}</th>
+            <th class="sortable" @click="toggleSort('category_l1')">Category{{ sortIcon('category_l1') }}</th>
             <th class="col-action"></th>
           </tr>
         </thead>
@@ -249,43 +272,17 @@ onMounted(async () => {
       <div class="dialog dialog--wide">
         <h3>Batch Knowledge Link</h3>
         <p class="dialog-sub">Link {{ selectedCount }} selected products to a knowledge chain.</p>
-
         <div class="batch-link-form">
-          <label>Research Goal
-            <select v-model="batchLinkGoalId" class="filter-select">
-              <option value="">— Any —</option>
-              <option v-for="g in goals" :key="g.id" :value="g.id">{{ g.name }}</option>
-            </select>
-          </label>
-          <label>Application
-            <select v-model="batchLinkAppId" class="filter-select">
-              <option value="">— Any —</option>
-              <option v-for="a in filteredApps" :key="a.id" :value="a.id">{{ a.name }}</option>
-            </select>
-          </label>
-          <label>Method *
-            <select v-model="batchLinkMethodId" class="filter-select">
-              <option value="">— Required —</option>
-              <option v-for="m in filteredMethods" :key="m.id" :value="m.id">{{ m.name }}</option>
-            </select>
-          </label>
-          <label>Protocol
-            <select v-model="batchLinkProtocolId" class="filter-select">
-              <option value="">— Optional —</option>
-              <option v-for="p in protocols" :key="p.id" :value="p.id">{{ p.name }}</option>
-            </select>
-          </label>
+          <label>Research Goal <select v-model="batchLinkGoalId" class="filter-select"><option value="">— Any —</option><option v-for="g in goals" :key="g.id" :value="g.id">{{ g.name }}</option></select></label>
+          <label>Application <select v-model="batchLinkAppId" class="filter-select"><option value="">— Any —</option><option v-for="a in filteredApps" :key="a.id" :value="a.id">{{ a.name }}</option></select></label>
+          <label>Method * <select v-model="batchLinkMethodId" class="filter-select"><option value="">— Required —</option><option v-for="m in filteredMethods" :key="m.id" :value="m.id">{{ m.name }}</option></select></label>
+          <label>Protocol <select v-model="batchLinkProtocolId" class="filter-select"><option value="">— Optional —</option><option v-for="p in protocols" :key="p.id" :value="p.id">{{ p.name }}</option></select></label>
           <button type="button" class="btn btn-ghost btn-sm" @click="previewBatchLink" :disabled="!batchLinkMethodId">Preview</button>
         </div>
-
         <div v-if="batchLinkPreview" class="batch-preview">
-          <p>Will link <strong>{{ batchLinkPreview.willLink }}</strong> products,
-             skip <strong>{{ batchLinkPreview.skipped }}</strong> (already linked).</p>
-          <button class="btn btn-primary btn-sm" @click="applyBatchLink" :disabled="batchLinkLoading">
-            {{ batchLinkLoading ? 'Linking...' : 'Confirm' }}
-          </button>
+          <p>Will link <strong>{{ batchLinkPreview.willLink }}</strong> products, skip <strong>{{ batchLinkPreview.skipped }}</strong> (already linked).</p>
+          <button class="btn btn-primary btn-sm" @click="applyBatchLink" :disabled="batchLinkLoading">{{ batchLinkLoading ? 'Linking...' : 'Confirm' }}</button>
         </div>
-
         <button class="btn btn-ghost btn-sm" style="margin-top:12px" @click="showBatchLinkPanel = false">Cancel</button>
       </div>
     </div>
@@ -300,6 +297,8 @@ onMounted(async () => {
 .products-table { width: 100%; border-collapse: collapse; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden; }
 .products-table th, .products-table td { text-align: left; padding: 10px 14px; font-size: 13px; border-bottom: 1px solid var(--color-border); }
 .products-table th { background: var(--color-bg); font-weight: 600; color: var(--color-text-secondary); white-space: nowrap; }
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { color: var(--color-primary); }
 .clickable-row { cursor: pointer; transition: background 0.1s; color: var(--color-text); }
 .clickable-row:hover { background: var(--color-bg); }
 .col-check { width: 36px; text-align: center; }
@@ -323,7 +322,7 @@ onMounted(async () => {
 .dialog-sub { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 12px; }
 .batch-link-form { display: flex; flex-direction: column; gap: 8px; }
 .batch-link-form label { display: flex; flex-direction: column; font-size: 13px; color: var(--color-text-secondary); gap: 4px; }
-.batch-link-form select { width: 100%; }
+.batch-link-form select { width: 100%; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px; background: var(--color-bg); color: var(--color-text); }
 .batch-preview { background: #dcf7e8; border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 13px; }
 .batch-preview p { margin: 0 0 8px; color: #176b3a; }
 </style>

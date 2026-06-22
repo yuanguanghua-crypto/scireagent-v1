@@ -7,6 +7,8 @@ import { http } from '@/api/http'
 const auth = useAuthStore()
 const router = useRouter()
 
+console.log('DashboardPage mounted, isStaff:', auth.isStaff, 'token:', !!localStorage.getItem('token'))
+
 if (!auth.isStaff) {
   router.replace('/')
 }
@@ -29,16 +31,20 @@ function pct(n, total) {
 
 onMounted(async () => {
   try {
+    console.log('Fetching dashboard stats...')
     const resp = await http.get('/admin/dashboard-stats/')
-    if (resp.data?.data) {
-      stats.value = resp.data.data
+    console.log('Dashboard resp:', JSON.stringify(resp).slice(0, 300))
+    if (resp.success) {
+      stats.value = resp.data
     }
     // Load recent products
     const prodResp = await http.get('/products/', { params: { page_size: 10, ordering: '-updated_at' } })
-    if (prodResp.data?.data) {
-      recentProducts.value = (prodResp.data.data.results || prodResp.data.data).slice(0, 10)
+    console.log('Products resp:', JSON.stringify(prodResp).slice(0, 300))
+    if (prodResp.success) {
+      recentProducts.value = (prodResp.data.results || prodResp.data).slice(0, 10)
     }
   } catch (e) {
+    console.error('Dashboard error:', e)
     error.value = 'Failed to load dashboard data'
   } finally {
     loading.value = false

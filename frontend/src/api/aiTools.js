@@ -1,8 +1,8 @@
 /**
  * AI Tools API
  *
- * Product validation, protocol recommendation, and literature recommendation
- * endpoints for the admin AI tools panel.
+ * Product validation, protocol recommendation, literature recommendation,
+ * and PubChem data enrichment endpoints for the admin AI tools panel.
  */
 import http from '@/utils/http'
 
@@ -29,4 +29,17 @@ export function batchValidate(productIds) {
 /** Batch recommend literature for multiple products at once. */
 export function batchRecommendLiterature(productIds) {
   return http.post('/products/batch-recommend-literature/', { product_ids: productIds })
+}
+
+/** Enrich product chemical properties from PubChem by name/CAS. */
+export function enrichFromPubchem(productName, cas = null) {
+  return http.post('/products/enrich-from-pubchem/', {
+    product_name: productName,
+    cas: cas,
+  })
+}
+
+/** Batch enrich multiple products from PubChem. */
+export function batchEnrichFromPubchem(productIds) {
+  return http.post('/products/enrich-from-pubchem/', { product_ids: productIds })
 }

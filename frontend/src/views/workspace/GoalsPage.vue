@@ -24,7 +24,7 @@ async function loadList() {
   loading.value = true
   try {
     const resp = await http.get('/research-goals/', { params: { page_size: 200 } })
-    entities.value = (resp.data?.data?.results || resp.data?.data || [])
+    entities.value = (resp.data?.results || resp.data || [])
   } catch (e) {
     error.value = 'Failed to load'
   } finally {

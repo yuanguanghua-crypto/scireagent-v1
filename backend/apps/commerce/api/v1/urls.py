@@ -10,7 +10,7 @@ from apps.commerce.api.v1.categories import CategoryTreeView
 from apps.commerce.api.v1.ai_views import (
     ProductValidateView, ProductRecommendProtocolsView,
     ProductRecommendLiteratureView, BatchValidateView,
-    BatchRecommendLiteratureView,
+    BatchRecommendLiteratureView, PubChemEnrichView,
 )
 from apps.commerce.api.v1.word_views import WordParseView
 
@@ -35,5 +35,6 @@ urlpatterns = [
     path('products/<int:pk>/related/', RelatedProductsView.as_view(), name='product-related'),
     # Word import / AI tool endpoints
     path('products/parse-word/', WordParseView.as_view(), name='product-parse-word'),
+    path('products/enrich-from-pubchem/', PubChemEnrichView.as_view(), name='product-enrich-pubchem'),
     path('', include(router.urls)),
 ]

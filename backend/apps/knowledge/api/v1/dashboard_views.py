@@ -3,7 +3,7 @@
 Provides aggregated statistics for the admin dashboard.
 """
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAdminUser
+from core.permissions import IsStaffUser
 
 from core.mixins import EnvelopeMixin
 from apps.commerce.models import Product
@@ -16,7 +16,7 @@ class DashboardStatsView(EnvelopeMixin, APIView):
 
     Returns aggregated dashboard statistics.
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsStaffUser]
 
     def get(self, request):
         # Product counts

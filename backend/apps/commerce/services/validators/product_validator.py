@@ -122,6 +122,8 @@ class ProductValidator:
     def __init__(self):
         self.pubchem = PubChemClient()
         self.biocorpus = BioProCorpusLookup()
+        from apps.commerce.services.validators.pubchem_enhancer import PubChemEnhancer
+        self.pubchem_enhancer = PubChemEnhancer()
 
     def validate(self, product):
         """入口：对单个产品执行全维度校验"""
@@ -131,6 +133,9 @@ class ProductValidator:
         mismatches = []
         matched_protocols = []
         bioprocorpus_result = None
+        molecular_properties = None
+        lipinski = None
+        similar_compounds = []
 
         # PubChem 校验
         if product.cas:
@@ -148,6 +153,22 @@ class ProductValidator:
                         pubchem_cid = lookup["cid"]
             except Exception as e:
                 logger.error(f"PubChem validation error for product {product.id}: {e}")
+
+        # ── PubChemEnhancer: 完整分子属性 + Lipinski + 相似度搜索 ──
+        if pubchem_cid:
+            try:
+                molecular_properties = self.pubchem_enhancer.get_full_properties(
+                    str(pubchem_cid), 'cid')
+                if molecular_properties:
+                    lipinski = self.pubchem_enhancer.check_lipinski(molecular_properties)
+            except Exception as e:
+                logger.warning(f"PubChemEnhancer properties failed for product {product.id}: {e}")
+        if product.smiles and product.smiles.strip():
+            try:
+                similar_compounds = self.pubchem_enhancer.find_similar(
+                    product.smiles, threshold=85, max_results=5)
+            except Exception as e:
+                logger.warning(f"PubChemEnhancer similarity failed for product {product.id}: {e}")
 
         # BioProCorpus 检索
         if product.name:
@@ -169,4 +190,8 @@ class ProductValidator:
             bioprocorpus_result=bioprocorpus_result,
             overall_match=overall_match,
         )
+        # Attach enhanced fields
+        report.molecular_properties = molecular_properties
+        report.lipinski = lipinski
+        report.similar_compounds = similar_compounds
         return report

@@ -4,10 +4,11 @@
  *
  * Three tabs:
  *   Validate     — PubChem SMILES check + BioProCorpus protocol match
+ *                    + Molecular Properties + Lipinski + Similar Compounds
  *   Protocols    — BioProCorpus protocol recommendations
- *   Literature   — PubMed literature recommendations with knowledge chain extraction
+ *   Literature   — PubMed literature with knowledge chain extraction + DB matching
  */
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { validateProduct, recommendProtocols, recommendLiterature } from '@/api/aiTools'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -19,7 +20,12 @@ const props = defineProps({
   productSmiles: { type: String, default: '' },
 })
 
-const emit = defineEmits(['adopt-smiles', 'adopt-formula-weight', 'adopt-protocol', 'adopt-reference'])
+const emit = defineEmits([
+  'adopt-smiles', 'adopt-formula-weight',
+  'adopt-protocol', 'adopt-reference',
+  'link-method', 'link-app',
+])
+
 const tabs = [
   { key: 'validate', label: 'Validate', icon: '🔬' },
   { key: 'protocols', label: 'Protocols', icon: '🧪' },
@@ -37,7 +43,6 @@ const activeTabLabel = computed(() => {
   return t ? t.label : ''
 })
 
-/* ── Actions ── */
 async function runActiveTab() {
   loading.value = true
   errorMsg.value = ''
@@ -70,10 +75,7 @@ runActiveTab()
     <!-- Tab bar -->
     <div class="tab-bar">
       <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        type="button"
-        class="tab-btn"
+        v-for="tab in tabs" :key="tab.key" type="button" class="tab-btn"
         :class="{ 'tab-active': activeTab === tab.key }"
         @click="activeTab = tab.key"
       >
@@ -89,13 +91,12 @@ runActiveTab()
       </button>
     </div>
 
-    <!-- Loading / Error -->
     <LoadingSpinner v-if="loading" text="Running AI tool…" />
     <div v-if="errorMsg" class="error-msg">{{ errorMsg }}</div>
 
     <!-- ═══ Validate Tab ═══ -->
     <div v-if="activeTab === 'validate' && validateResult && !loading" class="result-panel">
-      <!-- PubChem -->
+      <!-- PubChem Card -->
       <div class="result-card" :class="validateResult.pubchem?.match ? 'card-success' : 'card-warning'">
         <h3>PubChem</h3>
         <p v-if="validateResult.pubchem?.cid">
@@ -111,6 +112,55 @@ runActiveTab()
         <ul v-if="validateResult.mismatches?.length" class="issue-list">
           <li v-for="m in validateResult.mismatches" :key="m">Mismatch: {{ m }}</li>
         </ul>
+
+        <!-- Molecular Properties -->
+        <div v-if="validateResult.pubchem?.molecular_properties" class="props-table">
+          <h4>📊 Molecular Properties</h4>
+          <table>
+            <tr v-if="validateResult.pubchem.molecular_properties.molecular_formula">
+              <td>Formula</td><td class="prop-val">{{ validateResult.pubchem.molecular_properties.molecular_formula }}</td>
+            </tr>
+            <tr v-if="validateResult.pubchem.molecular_properties.molecular_weight">
+              <td>MW</td><td class="prop-val">{{ validateResult.pubchem.molecular_properties.molecular_weight }} Da</td>
+            </tr>
+            <tr v-if="validateResult.pubchem.molecular_properties.xlogp != null">
+              <td>LogP</td><td class="prop-val">{{ validateResult.pubchem.molecular_properties.xlogp }}</td>
+            </tr>
+            <tr v-if="validateResult.pubchem.molecular_properties.tpsa != null">
+              <td>TPSA</td><td class="prop-val">{{ validateResult.pubchem.molecular_properties.tpsa }} Å²</td>
+            </tr>
+            <tr v-if="validateResult.pubchem.molecular_properties.h_bond_donor_count != null">
+              <td>HBD</td><td class="prop-val">{{ validateResult.pubchem.molecular_properties.h_bond_donor_count }}</td>
+            </tr>
+            <tr v-if="validateResult.pubchem.molecular_properties.h_bond_acceptor_count != null">
+              <td>HBA</td><td class="prop-val">{{ validateResult.pubchem.molecular_properties.h_bond_acceptor_count }}</td>
+            </tr>
+            <tr v-if="validateResult.pubchem.molecular_properties.rotatable_bond_count != null">
+              <td>RotBonds</td><td class="prop-val">{{ validateResult.pubchem.molecular_properties.rotatable_bond_count }}</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Lipinski -->
+        <div v-if="validateResult.pubchem?.lipinski" class="lipinski-badge" :class="validateResult.pubchem.lipinski.passed ? 'lipinski-pass' : 'lipinski-fail'">
+          💊 Lipinski Rule of Five:
+          <strong>{{ validateResult.pubchem.lipinski.passed ? '✅ PASS' : '⚠️ FAIL' }}</strong>
+          <ul v-if="validateResult.pubchem.lipinski.violations?.length" class="issue-list">
+            <li v-for="v in validateResult.pubchem.lipinski.violations" :key="v">{{ v }}</li>
+          </ul>
+          <span v-else class="dim"> All 5 rules satisfied</span>
+        </div>
+
+        <!-- Similar Compounds -->
+        <div v-if="validateResult.pubchem?.similar_compounds?.length" class="similar-list">
+          <h4>🔍 Similar Compounds (PubChem)</h4>
+          <div v-for="sc in validateResult.pubchem.similar_compounds" :key="sc.cid" class="similar-item">
+            <a :href="`https://pubchem.ncbi.nlm.nih.gov/compound/${sc.cid}`" target="_blank" rel="noopener">
+              CID {{ sc.cid }}: {{ sc.iupac_name || sc.molecular_formula || '—' }}
+            </a>
+            <span class="dim">(MW: {{ sc.molecular_weight || '?' }})</span>
+          </div>
+        </div>
       </div>
 
       <!-- BioProCorpus -->
@@ -127,15 +177,19 @@ runActiveTab()
         <h3>Overall</h3>
         <p class="verdict">{{ validateResult.overall_match ? '✅ PASS' : '⚠️ REVIEW NEEDED' }}</p>
       </div>
+
       <!-- Adopt buttons -->
       <div v-if="validateResult?.pubchem?.canonical_smiles" class="adopt-row">
         <button type="button" class="btn-adopt" @click="emit('adopt-smiles', validateResult.pubchem.canonical_smiles)">
           💡 Adopt canonical SMILES
         </button>
       </div>
-      <div v-if="validateResult?.pubchem?.molecular_formula || validateResult?.pubchem?.molecular_weight" class="adopt-row">
-        <button type="button" class="btn-adopt" @click="emit('adopt-formula-weight', { formula: validateResult.pubchem.molecular_formula, weight: validateResult.pubchem.molecular_weight })">
-          💡 Adopt formula & molecular weight
+      <div v-if="validateResult?.pubchem?.molecular_properties" class="adopt-row">
+        <button type="button" class="btn-adopt" @click="emit('adopt-formula-weight', {
+          formula: validateResult.pubchem.molecular_properties.molecular_formula,
+          weight: validateResult.pubchem.molecular_properties.molecular_weight
+        })">
+          💡 Adopt molecular properties (formula & MW)
         </button>
       </div>
     </div>
@@ -145,41 +199,55 @@ runActiveTab()
       <div v-if="protocolRecommendations.length">
         <div v-for="(rec, i) in protocolRecommendations" :key="i" class="result-card">
           <h3>{{ rec.protocol?.title }}</h3>
-          <div class="score-bar">
-            <div class="score-fill" :style="{ width: (rec.relevance_score * 20) + '%' }"></div>
-          </div>
+          <div class="score-bar"><div class="score-fill" :style="{ width: (rec.relevance_score * 20) + '%' }"></div></div>
           <p class="dim">Score: {{ rec.relevance_score?.toFixed(2) }}</p>
           <p class="reason">{{ rec.match_reason }}</p>
-          <button type="button" class="btn-adopt" @click="emit('adopt-protocol', rec.protocol)">
-            💡 Adopt this protocol
-          </button>
+          <button type="button" class="btn-adopt" @click="emit('adopt-protocol', rec.protocol)">💡 Adopt this protocol</button>
         </div>
       </div>
-      <EmptyState
-        v-else-if="validateResult !== null || errorMsg"
-        title="No protocols found"
-        description="No matching protocols in BioProCorpus for this product name."
-      />
+      <EmptyState v-else-if="validateResult !== null || errorMsg" title="No protocols found" description="No matching protocols in BioProCorpus for this product name." />
     </div>
 
     <!-- ═══ Literature Tab ═══ -->
     <div v-if="activeTab === 'literature' && literatureResult && !loading" class="result-panel">
-      <!-- Applications -->
-      <div v-if="literatureResult.applications?.length" class="result-card">
-        <h3>Applications ({{ literatureResult.applications.length }})</h3>
-        <div class="chips">
-          <span v-for="app in literatureResult.applications" :key="app" class="chip">{{ app }}</span>
+      <!-- Matched Methods -->
+      <div v-if="literatureResult.matched_methods?.length" class="result-card card-success">
+        <h3>🔗 Matched Methods ({{ literatureResult.matched_methods.length }})</h3>
+        <div v-for="mm in literatureResult.matched_methods" :key="mm.keyword" class="match-group">
+          <p class="match-kw">"{{ mm.keyword }}" →</p>
+          <div v-for="m in mm.matches" :key="m.id" class="match-row">
+            <span class="match-name">{{ m.name }}</span>
+            <span class="match-slug">({{ m.slug }})</span>
+            <button type="button" class="btn-adopt" @click="emit('link-method', m)">🔗 Link this method</button>
+          </div>
         </div>
       </div>
-
-      <!-- Methods -->
-      <div v-if="literatureResult.methods?.length" class="result-card">
-        <h3>Methods ({{ literatureResult.methods.length }})</h3>
-        <div class="chips">
-          <span v-for="m in literatureResult.methods" :key="m" class="chip method-chip">{{ m }}</span>
+      <!-- Matched Apps -->
+      <div v-if="literatureResult.matched_apps?.length" class="result-card card-success">
+        <h3>🔗 Matched Applications ({{ literatureResult.matched_apps.length }})</h3>
+        <div v-for="ma in literatureResult.matched_apps" :key="ma.keyword" class="match-group">
+          <p class="match-kw">"{{ ma.keyword }}" →</p>
+          <div v-for="a in ma.matches" :key="a.id" class="match-row">
+            <span class="match-name">{{ a.name }}</span>
+            <span class="match-slug">({{ a.slug }})</span>
+            <button type="button" class="btn-adopt" @click="emit('link-app', a)">🔗 Link this application</button>
+          </div>
         </div>
       </div>
-
+      <!-- Unmatched -->
+      <div v-if="literatureResult.unmatched_method_keywords?.length" class="result-card card-info">
+        <h3>💡 Unmatched — may need creation</h3>
+        <p class="dim">These method keywords have no match in the knowledge base:</p>
+        <div class="chips">
+          <span v-for="kw in literatureResult.unmatched_method_keywords" :key="kw" class="chip unmatched-chip">{{ kw }}</span>
+        </div>
+      </div>
+      <div v-if="literatureResult.unmatched_app_keywords?.length" class="result-card card-info">
+        <h3>💡 Unmatched Applications</h3>
+        <div class="chips">
+          <span v-for="kw in literatureResult.unmatched_app_keywords" :key="kw" class="chip unmatched-chip">{{ kw }}</span>
+        </div>
+      </div>
       <!-- References -->
       <div v-if="literatureResult.references?.length" class="result-card">
         <h3>References ({{ literatureResult.references.length }})</h3>
@@ -189,12 +257,9 @@ runActiveTab()
             PMID: <a :href="`https://pubmed.ncbi.nlm.nih.gov/${ref.pmid}/`" target="_blank" rel="noopener">{{ ref.pmid }}</a>
             <span v-if="ref.doi"> | DOI: {{ ref.doi }}</span>
           </p>
-          <button type="button" class="btn-adopt" @click="emit('adopt-reference', ref)">
-            💡 Adopt as reference
-          </button>
+          <button type="button" class="btn-adopt" @click="emit('adopt-reference', ref)">💡 Adopt as reference</button>
         </div>
       </div>
-
       <!-- Protocol references -->
       <div v-if="literatureResult.protocols?.length" class="result-card">
         <h3>Protocol References ({{ literatureResult.protocols.length }})</h3>
@@ -203,253 +268,111 @@ runActiveTab()
           <p class="dim">{{ p.source }} — PMID: {{ p.pmid }}</p>
         </div>
       </div>
-
       <EmptyState
-        v-if="!literatureResult.applications?.length && !literatureResult.references?.length"
-        title="No literature found"
-        description="No PubMed articles match this product."
+        v-if="!literatureResult.matched_methods?.length && !literatureResult.matched_apps?.length
+          && !literatureResult.unmatched_method_keywords?.length && !literatureResult.unmatched_app_keywords?.length
+          && !literatureResult.references?.length"
+        title="No literature found" description="No PubMed articles match this product."
       />
     </div>
   </div>
 </template>
 
 <style scoped>
-.ai-tools-panel {
-  /* Uses parent card styling */
-}
+.ai-tools-panel {}
 
 .panel-title {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0 0 12px;
-  color: var(--color-text);
+  font-size: 16px; font-weight: 700; margin: 0 0 12px; color: var(--color-text);
 }
 
-/* ── Tab bar ── */
 .tab-bar {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 8px;
+  display: flex; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--color-border); padding-bottom: 8px;
 }
-
 .tab-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition: all 0.15s;
+  display: flex; align-items: center; gap: 6px; padding: 6px 14px; border: 1px solid transparent; border-radius: var(--radius-md);
+  background: transparent; color: var(--color-text-secondary); font-size: 13px; font-family: var(--font-sans); cursor: pointer; transition: all 0.15s;
 }
+.tab-btn:hover { color: var(--color-text); background: var(--color-bg); }
+.tab-active { background: var(--color-primary); color: white; border-color: var(--color-primary); font-weight: 600; }
+.tab-active:hover { background: var(--color-primary); color: white; }
+.tab-icon { font-size: 16px; }
 
-.tab-btn:hover {
-  color: var(--color-text);
-  background: var(--color-bg);
-}
-
-.tab-active {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-  font-weight: 600;
-}
-
-.tab-active:hover {
-  background: var(--color-primary);
-  color: white;
-}
-
-.tab-icon {
-  font-size: 16px;
-}
-
-/* ── Run section ── */
-.run-section {
-  margin-bottom: 16px;
-}
-
+.run-section { margin-bottom: 16px; }
 .btn-run {
-  padding: 8px 24px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: var(--font-sans);
+  padding: 8px 24px; background: var(--color-primary); color: white; border: none; border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font-sans);
 }
-
-.btn-run:hover {
-  opacity: 0.9;
-}
-
-.btn-run:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
+.btn-run:hover { opacity: 0.9; }
+.btn-run:disabled { opacity: 0.5; cursor: not-allowed; }
 .error-msg {
-  padding: 10px 14px;
-  background: #fee2e2;
-  color: #991b1b;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  margin-bottom: 12px;
+  padding: 10px 14px; background: #fee2e2; color: #991b1b; border-radius: var(--radius-md); font-size: 13px; margin-bottom: 12px;
 }
 
-/* ── Result panel ── */
-.result-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
+.result-panel { display: flex; flex-direction: column; gap: 12px; }
 .result-card {
-  padding: 14px 16px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
+  padding: 14px 16px; border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface);
 }
+.result-card h3 { font-size: 13px; font-weight: 700; margin: 0 0 8px; color: var(--color-text); }
+.result-card p { font-size: 13px; margin: 4px 0; color: var(--color-text-secondary); }
+.result-card a { color: var(--color-primary); }
+.card-success { border-left: 3px solid #059669; }
+.card-warning { border-left: 3px solid #d97706; }
+.card-info { border-left: 3px solid var(--color-primary); }
+.dim { color: var(--color-text-tertiary); font-size: 12px; }
+.verdict { font-size: 16px; font-weight: 700; }
+.issue-list { margin: 4px 0 0; padding-left: 20px; font-size: 12px; color: var(--color-text-secondary); }
+.issue-list li { margin-bottom: 2px; }
+.protocol-list { margin: 4px 0 0; padding-left: 20px; font-size: 12px; }
+.score-bar { height: 4px; background: var(--color-border); border-radius: 2px; margin: 6px 0; overflow: hidden; }
+.score-fill { height: 100%; background: var(--color-primary); border-radius: 2px; max-width: 100%; }
+.reason { font-size: 12px; color: var(--color-text-tertiary); font-style: italic; }
 
-.result-card h3 {
-  font-size: 13px;
-  font-weight: 700;
-  margin: 0 0 8px;
-  color: var(--color-text);
-}
+/* Props table */
+.props-table { margin-top: 12px; border-top: 1px solid var(--color-border); padding-top: 10px; }
+.props-table h4 { font-size: 12px; font-weight: 600; margin: 0 0 6px; color: var(--color-text-secondary); }
+.props-table table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.props-table td { padding: 3px 6px; border-bottom: 1px solid var(--color-border-light, #f1f5f9); }
+.props-table td:first-child { color: var(--color-text-secondary); width: 80px; }
+.prop-val { font-weight: 600; color: var(--color-text); font-family: var(--font-mono); }
 
-.result-card p {
-  font-size: 13px;
-  margin: 4px 0;
-  color: var(--color-text-secondary);
-}
+/* Lipinski badge */
+.lipinski-badge { margin-top: 10px; padding: 8px 10px; border-radius: 6px; font-size: 12px; }
+.lipinski-pass { background: #dcf7e8; color: #176b3a; }
+.lipinski-fail { background: #fff3cd; color: #856404; }
 
-.result-card a {
-  color: var(--color-primary);
-}
+/* Similar compounds */
+.similar-list { margin-top: 12px; border-top: 1px solid var(--color-border); padding-top: 10px; }
+.similar-list h4 { font-size: 12px; font-weight: 600; margin: 0 0 6px; color: var(--color-text-secondary); }
+.similar-item { font-size: 12px; margin-bottom: 4px; }
+.similar-item a { color: var(--color-primary); text-decoration: none; }
+.similar-item a:hover { text-decoration: underline; }
 
-.card-success {
-  border-left: 3px solid #059669;
-}
-
-.card-warning {
-  border-left: 3px solid #d97706;
-}
-
-.card-info {
-  border-left: 3px solid var(--color-primary);
-}
-
-.dim {
-  color: var(--color-text-tertiary);
-  font-size: 12px;
-}
-
-.verdict {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-/* ── Issue list ── */
-.issue-list {
-  margin: 4px 0 0;
-  padding-left: 20px;
-  font-size: 12px;
-  color: var(--color-text-secondary);
-}
-
-.issue-list li {
-  margin-bottom: 2px;
-}
-
-/* ── Protocol list ── */
-.protocol-list {
-  margin: 4px 0 0;
-  padding-left: 20px;
-  font-size: 12px;
-}
-
-/* ── Score bar ── */
-.score-bar {
-  height: 4px;
-  background: var(--color-border);
-  border-radius: 2px;
-  margin: 6px 0;
-  overflow: hidden;
-}
-
-.score-fill {
-  height: 100%;
-  background: var(--color-primary);
-  border-radius: 2px;
-  max-width: 100%;
-}
-
-.reason {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-  font-style: italic;
-}
-
-/* ── Chips ── */
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
-}
-
+/* Chips */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .chip {
-  display: inline-flex;
-  padding: 3px 10px;
-  border-radius: 14px;
-  font-size: 11px;
-  font-weight: 600;
-  background: #dbeafe;
-  color: #1e40af;
+  display: inline-flex; padding: 3px 10px; border-radius: 14px; font-size: 11px; font-weight: 600;
+  background: #dbeafe; color: #1e40af;
 }
+.unmatched-chip { background: #fef3c7; color: #92400e; }
 
-.method-chip {
-  background: #d1fae5;
-  color: #065f46;
-}
+/* Match groups */
+.match-group { margin-bottom: 8px; }
+.match-kw { font-size: 12px; color: var(--color-text-tertiary); margin: 4px 0; font-style: italic; }
+.match-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.match-name { font-size: 13px; font-weight: 600; color: var(--color-text); }
+.match-slug { font-size: 11px; color: var(--color-text-tertiary); font-family: var(--font-mono); }
 
-/* ── References ── */
-.ref-item {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--color-border-light, #f1f5f9);
-}
+/* References */
+.ref-item { padding: 10px 0; border-bottom: 1px solid var(--color-border-light, #f1f5f9); }
+.ref-item:last-child { border-bottom: none; }
+.citation { font-size: 13px; color: var(--color-text); margin: 0; line-height: 1.5; }
+.pmid { font-size: 11px; color: var(--color-text-tertiary); margin: 4px 0 0; font-family: var(--font-mono); }
+.pmid a { color: var(--color-primary); }
 
-.ref-item:last-child {
-  border-bottom: none;
-}
-
-.citation {
-  font-size: 13px;
-  color: var(--color-text);
-  margin: 0;
-  line-height: 1.5;
-}
-
-.pmid {
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-  margin: 4px 0 0;
-  font-family: var(--font-mono);
-}
-
-.pmid a {
-  color: var(--color-primary);
-}
 .adopt-row { margin: 8px 0; }
-.btn-adopt { padding: 4px 10px; border: 1px solid var(--color-primary); background: var(--color-primary-light); color: var(--color-primary); border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500; font-family: var(--font-sans); }
+.btn-adopt {
+  padding: 4px 10px; border: 1px solid var(--color-primary); background: var(--color-primary-light);
+  color: var(--color-primary); border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500; font-family: var(--font-sans);
+}
 .btn-adopt:hover { background: var(--color-primary); color: white; }
 </style>

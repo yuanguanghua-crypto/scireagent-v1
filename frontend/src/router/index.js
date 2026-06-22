@@ -5,103 +5,103 @@ const routes = [
     path: '/',
     name: 'Home',
     component: () => import('@/views/HomePage.vue'),
-    meta: { title: 'Home', noSidebar: true },
+    meta: { title: 'Home', nav: 'public' },
   },
   {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/LoginPage.vue'),
-    meta: { title: 'Sign In', guest: true },
+    meta: { title: 'Sign In', guest: true, nav: 'public' },
   },
   {
     path: '/register',
     name: 'Register',
     component: () => import('@/views/RegisterPage.vue'),
-    meta: { title: 'Register', guest: true },
+    meta: { title: 'Register', guest: true, nav: 'public' },
   },
   {
     path: '/search',
     name: 'Search',
     component: () => import('@/views/SearchPage.vue'),
-    meta: { title: 'Search', noSidebar: true },
+    meta: { title: 'Search', nav: 'public' },
   },
   {
     path: '/applications',
     name: 'Applications',
     component: () => import('@/views/ApplicationIndex.vue'),
-    meta: { title: 'Applications', noSidebar: true },
+    meta: { title: 'Applications', nav: 'public' },
   },
   {
     path: '/applications/:id',
     name: 'ApplicationDetail',
     component: () => import('@/views/ApplicationDetail.vue'),
-    meta: { title: 'Application Detail', noSidebar: true },
+    meta: { title: 'Application Detail', nav: 'public' },
   },
   {
     path: '/methods',
     name: 'Methods',
     component: () => import('@/views/MethodIndex.vue'),
-    meta: { title: 'Methods', noSidebar: true },
+    meta: { title: 'Methods', nav: 'public' },
   },
   {
     path: '/methods/:id',
     name: 'MethodDetail',
     component: () => import('@/views/MethodDetail.vue'),
-    meta: { title: 'Method Detail', noSidebar: true },
+    meta: { title: 'Method Detail', nav: 'public' },
   },
   {
     path: '/protocols',
     name: 'Protocols',
     component: () => import('@/views/ProtocolIndex.vue'),
-    meta: { title: 'Protocols', noSidebar: true },
+    meta: { title: 'Protocols', nav: 'public' },
   },
   {
     path: '/protocols/:id',
     name: 'ProtocolDetail',
     component: () => import('@/views/ProtocolDetail.vue'),
-    meta: { title: 'Protocol Detail', noSidebar: true },
+    meta: { title: 'Protocol Detail', nav: 'public' },
   },
   {
     path: '/products',
     name: 'Products',
     component: () => import('@/views/ProductIndex.vue'),
-    meta: { title: 'Products', noSidebar: true },
+    meta: { title: 'Products', nav: 'public' },
   },
   {
     path: '/products/:id',
     name: 'ProductDetail',
     component: () => import('@/views/ProductDetail.vue'),
-    meta: { title: 'Product Detail', noSidebar: true },
+    meta: { title: 'Product Detail', nav: 'public' },
   },
   {
     path: '/research-goals',
     name: 'ResearchGoals',
     component: () => import('@/views/ResearchGoalIndex.vue'),
-    meta: { title: 'Research Goals', noSidebar: true },
+    meta: { title: 'Research Goals', nav: 'public' },
   },
   {
     path: '/research-goals/:id',
     name: 'ResearchGoalDetail',
     component: () => import('@/views/ResearchGoalDetail.vue'),
-    meta: { title: 'Research Goal Detail', noSidebar: true },
+    meta: { title: 'Research Goal Detail', nav: 'public' },
   },
   {
     path: '/quote-request',
     name: 'QuoteRequest',
     component: () => import('@/views/QuoteRequestPage.vue'),
-    meta: { title: 'Request Quote', noSidebar: true },
+    meta: { title: 'Request Quote', nav: 'public' },
   },
   {
     path: '/cart',
     name: 'Cart',
     component: () => import('@/views/CartPage.vue'),
-    meta: { title: 'Shopping Cart', noSidebar: true },
+    meta: { title: 'Shopping Cart', nav: 'public' },
   },
   {
     path: '/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsPage.vue'),
-    meta: { title: 'Settings' },
+    meta: { title: 'Settings', requiresAuth: true },
   },
   {
     path: '/checkout',
@@ -138,7 +138,7 @@ const routes = [
     path: '/workspace',
     name: 'Workspace',
     component: () => import('@/views/workspace/AdminLayout.vue'),
-    meta: { title: 'Workspace', requiresAuth: true, requiresAdmin: true },
+    meta: { title: 'Dashboard', requiresAuth: true, requiresAdmin: true },
     children: [
       { path: '', name: 'Dashboard', component: () => import('@/views/workspace/DashboardPage.vue'), meta: { title: 'Dashboard' } },
       { path: 'products', name: 'WorkspaceProducts', component: () => import('@/views/workspace/ProductsPage.vue'), meta: { title: 'Products' } },
@@ -151,12 +151,11 @@ const routes = [
       { path: 'references', name: 'WorkspaceRefs', component: () => import('@/views/workspace/ReferencesPage.vue'), meta: { title: 'References' } },
     ],
   },
-  // ── Old admin product routes removed — use /workspace/products instead
   {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/NotFound.vue'),
-    meta: { title: '404' },
+    meta: { title: '404', nav: 'public' },
   },
 ]
 
@@ -172,28 +171,19 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   document.title = `${to.meta.title || 'SciReagent'} - LabPro Global`
 
-  // Read token directly from localStorage to avoid circular store imports
   const hasToken = !!localStorage.getItem('token')
 
-  // If route requires auth and user is not authenticated, redirect to login
   if (to.meta.requiresAuth && !hasToken) {
     next({ path: '/login', query: { redirect: to.fullPath } })
     return
   }
 
-  // If route requires admin, verify is_staff via the auth store
   if (to.meta.requiresAdmin) {
     if (!hasToken) {
       next({ path: '/login', query: { redirect: to.fullPath } })
       return
     }
-    // Deferred check — component will redirect if user is not staff
-  }
-
-  // If user is authenticated and route is guest-only (login/register), redirect to home
-  if (to.meta.guest && hasToken) {
-    next({ path: '/' })
-    return
+    // Deferred check — AdminLayout will redirect if user is not staff
   }
 
   next()

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
@@ -8,6 +8,15 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const registeredSuccess = ref(!!route.query.registered)
+
+// If there's a stale token in localStorage, clear it so the login form works.
+// This handles the case where an expired/foreign token was left behind.
+onMounted(() => {
+  const token = localStorage.getItem('token')
+  if (token && !authStore.isAuthenticated) {
+    localStorage.removeItem('token')
+  }
+})
 
 const form = reactive({
   username: '',
@@ -54,7 +63,15 @@ async function handleSubmit() {
       username: form.username.trim(),
       password: form.password,
     })
-    router.push('/')
+    // Staff users → workspace; others → home; respect redirect param
+    const redirect = route.query.redirect
+    if (redirect) {
+      router.push(redirect)
+    } else if (authStore.isStaff) {
+      router.push('/workspace')
+    } else {
+      router.push('/')
+    }
   } catch (err) {
     const status = err?.response?.status || err?.status
     if (status === 401) {

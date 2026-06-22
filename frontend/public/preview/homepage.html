@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SciReagent — Design Preview v3</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ============================================
+       SciReagent v3 — Dark Hero + Light Content
+       ============================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* ── Hero Dark Palette ── */
+      --hero-bg: #0A1628;
+      --hero-gradient: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(13, 109, 105, 0.15) 0%, transparent 60%),
+                       radial-gradient(ellipse 60% 50% at 80% 100%, rgba(14, 165, 233, 0.08) 0%, transparent 50%);
+      --hero-text: #F1F5F9;
+      --hero-text-secondary: #94A3B8;
+      --hero-border: rgba(148, 163, 184, 0.15);
+
+      /* ── Light Palette ── */
+      --teal: #0D6D69;
+      --teal-hover: #0B5E5A;
+      --teal-light: #CCFBF1;
+      --teal-subtle: #F0FDFA;
+      --amber: #D97706;
+
+      --slate-900: #0F172A;
+      --slate-800: #1E293B;
+      --slate-700: #334155;
+      --slate-600: #475569;
+      --slate-500: #64748B;
+      --slate-400: #94A3B8;
+      --slate-300: #CBD5E1;
+      --slate-200: #E2E8F0;
+      --slate-100: #F1F5F9;
+      --slate-50: #F8FAFC;
+
+      --bg: #F2F5F9;
+      --surface: #FFFFFF;
+      --border: #DEE4EC;
+      --border-strong: #CBD5E1;
+      --text: #0F172A;
+      --text-secondary: #475569;
+      --text-tertiary: #8A94A6;
+
+      --domain-nucleotide: #7C3AED;
+      --domain-nucleotide-bg: #EDE9FE;
+      --domain-click: #0F766E;
+      --domain-click-bg: #F0FDFA;
+      --domain-fluor: #0EA5E9;
+      --domain-fluor-bg: #E0F2FE;
+      --domain-bioconjugate: #CA8A04;
+      --domain-bioconjugate-bg: #FEF3C7;
+      --domain-modifier: #E11D48;
+      --domain-modifier-bg: #FCE7F3;
+
+      /* ── Transitions ── */
+      --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --fast: 200ms; --normal: 350ms; --slow: 700ms;
+
+      /* ── Fonts ── */
+      --font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+      --font-body: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; }
+    body { font-family: var(--font-body); color: var(--text); background: var(--bg); line-height: 1.6; overflow-x: hidden; }
+    .container { max-width: 1280px; margin: 0 auto; padding: 0 32px; }
+
+    /* ── Buttons ── */
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 24px; border-radius: 8px;
+      font-size: 14px; font-weight: 600; text-decoration: none;
+      transition: all var(--fast) var(--ease-expo);
+      cursor: pointer; font-family: var(--font-body);
+    }
+    .btn-outline-light {
+      border: 1.5px solid rgba(255,255,255,0.2); color: var(--hero-text); background: transparent;
+    }
+    .btn-outline-light:hover { border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.05); }
+    .btn-solid {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 24px; border-radius: 8px;
+      font-size: 14px; font-weight: 600; text-decoration: none; border: none;
+      transition: all var(--fast) var(--ease-expo);
+      cursor: pointer; font-family: var(--font-body);
+    }
+    .btn-solid-teal { background: var(--teal); color: #fff; }
+    .btn-solid-teal:hover { background: var(--teal-hover); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(13, 109, 105, 0.25); }
+    .btn-solid-white { background: #fff; color: var(--slate-900); }
+    .btn-solid-white:hover { background: var(--slate-100); transform: translateY(-1px); }
+
+    /* ════════════════════════════════════════════
+       NAVBAR (transparent on hero, solid on scroll)
+       ════════════════════════════════════════════ */
+    .navbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 0 32px;
+      transition: background var(--normal) var(--ease-expo), backdrop-filter var(--normal);
+    }
+    .navbar.scrolled {
+      background: rgba(255,255,255,0.92);
+      backdrop-filter: blur(14px) saturate(1.3);
+      -webkit-backdrop-filter: blur(14px) saturate(1.3);
+      border-bottom: 1px solid var(--border);
+    }
+    .navbar-inner {
+      max-width: 1280px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 72px;
+    }
+
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none;
+      font-family: var(--font-display); font-weight: 700; font-size: 21px;
+      letter-spacing: -0.02em;
+    }
+    .nav-brand .light { color: var(--hero-text); }
+    .nav-brand .dark { color: var(--text); }
+    .nav-brand .accent { color: var(--teal); }
+    /* Hide dark logo by default (hero is dark) */
+    .nav-brand .dark { display: none; }
+    .navbar.scrolled .nav-brand .light { display: none; }
+    .navbar.scrolled .nav-brand .dark { display: flex; align-items: center; gap: 10px; }
+
+    .nav-links { display: flex; align-items: center; gap: 4px; }
+    .nav-links a {
+      text-decoration: none; font-size: 14px; font-weight: 500;
+      padding: 8px 18px; border-radius: 6px;
+      transition: all var(--fast) var(--ease-expo);
+    }
+    .navbar:not(.scrolled) .nav-links a { color: var(--hero-text-secondary); }
+    .navbar:not(.scrolled) .nav-links a:hover { color: var(--hero-text); background: rgba(255,255,255,0.05); }
+    .navbar.scrolled .nav-links a { color: var(--text-secondary); }
+    .navbar.scrolled .nav-links a:hover { color: var(--text); background: var(--slate-100); }
+
+    .navbar:not(.scrolled) .btn-outline-light {  }
+    .navbar.scrolled .btn-outline-light { border-color: var(--border); color: var(--text-secondary); }
+    .navbar.scrolled .btn-outline-light:hover { border-color: var(--border-strong); color: var(--text); background: var(--slate-50); }
+
+    /* ════════════════════════════════════════════
+       HERO — Dark, Weighty, Impactful
+       ════════════════════════════════════════════ */
+    .hero {
+      min-height: 0;
+      padding: 100px 0 40px;
+      display: flex; align-items: center;
+      background: var(--hero-bg);
+      background-image: var(--hero-gradient);
+      position: relative;
+      overflow: hidden;
+    }
+    /* Subtle grid pattern */
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+    }
+    /* Edge fade */
+    .hero::after {
+      content: '';
+      position: absolute; bottom: -2px; left: 0; right: 0; height: 160px;
+      background: linear-gradient(to bottom, transparent 20%, var(--bg) 90%);
+      pointer-events: none;
+    }
+
+    .hero-inner {
+      display: flex; align-items: center; gap: 48px;
+      position: relative; z-index: 2;
+      width: 100%; max-width: 1280px; margin: 0 auto; padding: 0 32px;
+    }
+    .hero-text { flex: 1; min-width: 0; }
+    .hero-visual { flex: 0 0 440px; height: 440px; position: relative; }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 18px; border-radius: 9999px;
+      font-size: 12px; font-weight: 600;
+      color: var(--teal-light); background: rgba(13, 109, 105, 0.2);
+      border: 1px solid rgba(13, 109, 105, 0.3);
+      margin-bottom: 24px; letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(40px, 5vw, 58px);
+      font-weight: 700;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+      color: var(--hero-text);
+      margin-bottom: 20px;
+    }
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, #5EEAD4 0%, #38BDF8 60%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero h1 .outline {
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(255,255,255,0.15);
+    }
+    .hero p {
+      font-size: 17px; color: var(--hero-text-secondary);
+      max-width: 520px; line-height: 1.75;
+      margin-bottom: 36px;
+    }
+
+    /* Hero search */
+    .hero-search { max-width: 520px; }
+    .hero-search-box {
+      display: flex; align-items: center;
+      background: rgba(255,255,255,0.06);
+      border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 4px;
+      transition: all var(--normal) var(--ease-expo);
+      backdrop-filter: blur(8px);
+    }
+    .hero-search-box:focus-within {
+      border-color: rgba(94, 234, 212, 0.4);
+      background: rgba(255,255,255,0.09);
+      box-shadow: 0 0 30px rgba(13, 109, 105, 0.15);
+    }
+    .hero-search-box input {
+      flex: 1; border: none; outline: none;
+      padding: 14px 0 14px 18px;
+      font-size: 15px; font-family: var(--font-body);
+      color: var(--hero-text); background: transparent;
+    }
+    .hero-search-box input::placeholder { color: var(--hero-text-secondary); opacity: 0.6; }
+    .hero-search-box button {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 24px; border: none;
+      border-radius: 8px;
+      background: var(--teal); color: #fff;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: all var(--fast) var(--ease-expo);
+      font-family: var(--font-body);
+    }
+    .hero-search-box button:hover { background: var(--teal-hover); }
+
+    .hero-stats-row {
+      display: flex; gap: 24px; margin-top: 32px;
+    }
+    .hero-stat { text-align: left; }
+    .hero-stat-num {
+      font-family: var(--font-display);
+      font-size: 22px; font-weight: 700;
+      color: var(--hero-text);
+      line-height: 1;
+    }
+    .hero-stat-label {
+      font-size: 13px; color: var(--hero-text-secondary);
+      margin-top: 4px; font-weight: 500;
+    }
+
+    /* ── Hero Visual — Abstract molecular geometry ── */
+    .hero-visual {
+      flex: 0 0 320px; height: 320px;
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .hero-mol {
+      width: 100%; height: 100%;
+      position: relative;
+    }
+
+    /* Central glow */
+    .mol-glow {
+      position: absolute; top: 50%; left: 50%;
+      width: 240px; height: 240px;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(94, 234, 212, 0.08) 0%, transparent 70%);
+      border-radius: 50%;
+      animation: pulseGlow 6s ease-in-out infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+      50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+    }
+
+    /* Orbital rings */
+    .mol-ring {
+      position: absolute; top: 50%; left: 50%;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.06);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+    .mol-ring-1 { width: 260px; height: 260px; }
+    .mol-ring-2 { width: 180px; height: 180px; border-color: rgba(94, 234, 212, 0.08); }
+    .mol-ring-3 { width: 100px; height: 100px; border-color: rgba(56, 189, 248, 0.06); }
+
+    /* Orbiting nodes */
+    .mol-orbit {
+      position: absolute; top: 50%; left: 50%;
+      width: 260px; height: 260px;
+      transform: translate(-50%, -50%);
+      animation: spin 40s linear infinite;
+    }
+    .mol-orbit-2 { width: 180px; height: 180px; animation-duration: 30s; animation-direction: reverse; }
+    .mol-orbit-3 { width: 100px; height: 100px; animation-duration: 20s; }
+
+    @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+    .mol-dot {
+      position: absolute;
+      border-radius: 50%;
+      box-shadow: 0 0 12px currentColor;
+    }
+    /* Positions on orbit ring */
+    .mol-dot-1 { top: -6px; left: 50%; width: 12px; height: 12px; background: var(--teal-light); color: var(--teal-light); margin-left: -6px; }
+    .mol-dot-2 { top: 50%; right: -6px; width: 10px; height: 10px; background: #38BDF8; color: #38BDF8; margin-top: -5px; }
+    .mol-dot-3 { bottom: -5px; left: 50%; width: 10px; height: 10px; background: #A78BFA; color: #A78BFA; margin-left: -5px; }
+    .mol-dot-4 { top: 50%; left: -5px; width: 8px; height: 8px; background: #FBBF24; color: #FBBF24; margin-top: -4px; }
+
+    /* Inner orbit dots */
+    .mol-dot-5 { top: -5px; left: 50%; width: 10px; height: 10px; background: rgba(94, 234, 212, 0.6); color: var(--teal-light); margin-left: -5px; }
+    .mol-dot-6 { bottom: -4px; left: 50%; width: 8px; height: 8px; background: rgba(56, 189, 248, 0.5); color: #38BDF8; margin-left: -4px; }
+    .mol-dot-7 { top: 50%; right: -4px; width: 8px; height: 8px; background: rgba(167, 139, 250, 0.5); color: #A78BFA; margin-top: -4px; }
+
+    /* Center node */
+    .mol-center {
+      position: absolute; top: 50%; left: 50%;
+      width: 20px; height: 20px;
+      transform: translate(-50%, -50%);
+      background: var(--teal);
+      border-radius: 50%;
+      box-shadow: 0 0 30px rgba(13, 109, 105, 0.3), 0 0 60px rgba(13, 109, 105, 0.1);
+      animation: centerPulse 4s ease-in-out infinite;
+    }
+    @keyframes centerPulse {
+      0%, 100% { box-shadow: 0 0 30px rgba(13, 109, 105, 0.3), 0 0 60px rgba(13, 109, 105, 0.1); }
+      50% { box-shadow: 0 0 40px rgba(13, 109, 105, 0.4), 0 0 80px rgba(13, 109, 105, 0.15); }
+    }
+
+    /* Connecting lines between dots */
+    .mol-line {
+      position: absolute; top: 50%; left: 50%;
+      width: 1px; height: 1px;
+      background: rgba(94, 234, 212, 0.08);
+    }
+
+    /* Glow spots */
+    .mol-glow-spot {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      filter: blur(40px);
+    }
+    .mol-glow-1 { width: 180px; height: 180px; top: 10%; left: 5%; background: rgba(13, 109, 105, 0.08); }
+    .mol-glow-2 { width: 140px; height: 140px; bottom: 5%; right: 10%; background: rgba(56, 189, 248, 0.06); }
+    .mol-glow-3 { width: 100px; height: 100px; top: 40%; left: 60%; background: rgba(167, 139, 250, 0.04); }
+
+    /* Floating particles */
+    .hero-particle {
+      position: absolute; border-radius: 50%; pointer-events: none;
+      animation: floatP 12s var(--ease-expo) infinite;
+    }
+    @keyframes floatP {
+      0%, 100% { transform: translateY(0) scale(1); opacity: 0.15; }
+      25% { transform: translateY(-12px) scale(1.3); opacity: 0.35; }
+      75% { transform: translateY(8px) scale(0.8); opacity: 0.2; }
+    }
+    .hp-1 { width: 3px; height: 3px; background: var(--teal-light); top: 15%; left: 80%; animation-delay: 0s; }
+    .hp-2 { width: 4px; height: 4px; background: #38BDF8; top: 70%; left: 90%; animation-delay: 2s; }
+    .hp-3 { width: 3px; height: 3px; background: #A78BFA; top: 25%; left: 10%; animation-delay: 4s; }
+    .hp-4 { width: 5px; height: 5px; background: #FBBF24; top: 80%; left: 5%; animation-delay: 6s; opacity: 0.1; }
+    .hp-5 { width: 2px; height: 2px; background: var(--teal-light); top: 45%; left: 95%; animation-delay: 1s; }
+    .hp-6 { width: 4px; height: 4px; background: #38BDF8; top: 60%; left: 20%; animation-delay: 3s; }
+
+    /* ════════════════════════════════════════════
+       CATEGORY PILLS
+       ════════════════════════════════════════════ */
+    .categories {
+      padding: 8px 0 40px; position: relative;
+    }
+    /* Bridge accent — a thin gradient line that visually ties dark hero to light content */
+    .bridge-line {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(13, 109, 105, 0.15) 20%, rgba(56, 189, 248, 0.10) 50%, rgba(13, 109, 105, 0.15) 80%, transparent);
+      margin: 0 auto 40px;
+      max-width: 480px;
+    }
+    .categories-scroll { display: flex; gap: 8px; flex-wrap: wrap; }
+    .cat-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 11px 22px; border-radius: 9999px;
+      font-size: 14px; font-weight: 500; text-decoration: none;
+      transition: all var(--normal) var(--ease-expo);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: var(--text-secondary);
+      box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+    }
+    .cat-pill:hover {
+      border-color: var(--border-strong); color: var(--text);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(15,23,42,0.08);
+    }
+    .cat-pill .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .cat-pill .count { font-size: 12px; color: var(--text-tertiary); font-weight: 400; }
+
+    /* ── Section headers ── */
+    .section-h { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; }
+    .section-h h2 { font-family: var(--font-display); font-size: 24px; font-weight: 600; color: var(--text); letter-spacing: -0.02em; }
+    .section-h .sub { font-size: 14px; color: var(--text-secondary); margin-top: 4px; }
+    .section-link {
+      font-size: 14px; font-weight: 500; color: var(--teal);
+      text-decoration: none; transition: all var(--fast) var(--ease-expo);
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .section-link:hover { color: var(--teal-hover); gap: 8px; }
+    .section-line {
+      height: 2px; width: 80px;
+      background: linear-gradient(90deg, var(--teal) 0%, var(--teal-light) 100%);
+      border-radius: 2px; margin-bottom: 28px;
+    }
+
+    /* ── Featured Products ── */
+    .fp { padding: 0 0 48px; }
+    .prod-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; }
+
+    .prod-card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 24px 20px 20px;
+      text-decoration: none; color: inherit;
+      transition: all var(--normal) var(--ease-expo);
+      box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+      position: relative; overflow: hidden;
+    }
+    .prod-card::before {
+      content: ''; position: absolute; top: -1.5px; left: 15%; right: 15%;
+      height: 3px;
+      background: linear-gradient(90deg, var(--teal), #38BDF8);
+      border-radius: 0 0 3px 3px;
+      opacity: 0; transition: all var(--normal) var(--ease-expo);
+    }
+    .prod-card:hover {
+      border-color: var(--teal-light);
+      transform: translateY(-5px);
+      box-shadow: 0 12px 32px rgba(15,23,42,0.10);
+    }
+    .prod-card:hover::before { opacity: 1; left: 10%; right: 10%; }
+
+    .prod-card .domain {
+      display: inline-flex; padding: 3px 10px;
+      border-radius: 4px; font-size: 11px; font-weight: 600;
+      letter-spacing: 0.03em; text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .prod-card h3 { font-family: var(--font-display); font-size: 15px; font-weight: 600; line-height: 1.3; margin-bottom: 4px; }
+    .prod-card .meta { font-size: 12px; color: var(--text-tertiary); font-family: var(--font-mono); margin-bottom: 8px; }
+    .prod-card .formula {
+      display: inline-flex; padding: 2px 8px; border-radius: 4px;
+      font-size: 11px; font-weight: 500;
+      background: var(--slate-100); color: var(--text-tertiary);
+      font-family: var(--font-mono);
+    }
+    .prod-card .price-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 14px; border-top: 1px solid var(--slate-100);
+    }
+    .prod-card .price { font-family: var(--font-display); font-size: 20px; font-weight: 600; color: var(--text); }
+    .prod-card .price .cur { font-size: 13px; font-weight: 500; color: var(--text-tertiary); }
+    .prod-card .stock {
+      display: inline-flex; padding: 3px 10px; border-radius: 4px;
+      font-size: 11px; font-weight: 600;
+    }
+    .prod-card .stock.ok { background: #D1FAE5; color: #065F46; }
+    .prod-card .stock.low { background: #FEF3C7; color: #92400E; }
+
+    .prod-card .actions {
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 14px;
+      opacity: 0; transform: translateY(6px);
+      transition: all var(--normal) var(--ease-expo);
+    }
+    .prod-card:hover .actions { opacity: 1; transform: translateY(0); }
+    .btn-cart {
+      flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+      padding: 8px 12px; border: none; border-radius: 6px;
+      background: var(--teal); color: #fff;
+      font-size: 12px; font-weight: 600; cursor: pointer;
+      transition: all var(--fast) var(--ease-expo);
+      font-family: var(--font-body);
+    }
+    .btn-cart:hover { background: var(--teal-hover); }
+    .btn-fav {
+      width: 32px; height: 32px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1.5px solid var(--border); border-radius: 6px;
+      background: transparent; cursor: pointer;
+      color: var(--text-tertiary); font-size: 14px;
+      transition: all var(--fast) var(--ease-expo);
+    }
+    .btn-fav:hover { border-color: var(--border-strong); color: var(--domain-modifier); background: var(--domain-modifier-bg); }
+
+    /* ── Stats ── */
+    .stats { padding: 40px 0 56px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--border); border-radius: 12px; overflow: hidden; border: 1.5px solid var(--border); }
+    .stat-item { background: var(--surface); padding: 32px 24px; text-align: center; }
+    .stat-item .num { font-family: var(--font-display); font-size: 30px; font-weight: 700; color: var(--text); line-height: 1; margin-bottom: 6px; }
+    .stat-item .lbl { font-size: 13px; color: var(--text-secondary); font-weight: 500; }
+
+    /* ── Knowledge ── */
+    .know { padding: 8px 0 80px; }
+    .know-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; padding: 20px 24px;
+      border: 1.5px solid var(--border); border-radius: 10px;
+      background: var(--surface); cursor: pointer;
+      font-family: var(--font-display); font-size: 18px; font-weight: 600;
+      color: var(--text); transition: all var(--fast) var(--ease-expo);
+      box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+    }
+    .know-toggle:hover { border-color: var(--teal-light); box-shadow: 0 4px 16px rgba(15,23,42,0.08); }
+    .know-toggle .chev { transition: transform var(--normal) var(--ease-expo); color: var(--text-tertiary); }
+    .know-toggle.open .chev { transform: rotate(180deg); }
+    .know-toggle .pill { font-size: 12px; font-weight: 500; padding: 2px 10px; border-radius: 9999px; background: var(--slate-100); color: var(--text-tertiary); margin-left: 10px; }
+
+    .know-body { overflow: hidden; max-height: 0; opacity: 0; transition: all var(--slow) var(--ease-expo); }
+    .know-body.open { max-height: 600px; opacity: 1; }
+
+    .know-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; padding: 28px 0 12px; }
+    .know-card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 10px; padding: 28px 24px;
+      text-decoration: none; color: inherit;
+      transition: all var(--normal) var(--ease-expo);
+      box-shadow: 0 1px 3px rgba(15,23,42,0.06);
+    }
+    .know-card:hover { border-color: var(--border-strong); transform: translateY(-4px); box-shadow: 0 12px 32px rgba(15,23,42,0.10); }
+    .know-card .ki {
+      width: 40px; height: 40px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 18px; font-size: 18px;
+    }
+    .know-card h4 { font-family: var(--font-display); font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+    .know-card p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+    .know-card .kl { font-size: 13px; font-weight: 500; color: var(--teal); margin-top: 16px; display: inline-flex; align-items: center; gap: 4px; transition: gap var(--fast); }
+    .know-card:hover .kl { gap: 8px; }
+
+    /* ── Footer ── */
+    .footer { padding: 56px 0 32px; border-top: 1.5px solid var(--border); background: var(--surface); }
+    .footer-top { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px; }
+    .footer-brand p { font-size: 13px; color: var(--text-tertiary); margin-top: 12px; max-width: 320px; line-height: 1.7; }
+    .footer-col h5 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); margin-bottom: 16px; }
+    .footer-col a { display: block; font-size: 14px; color: var(--text-secondary); text-decoration: none; padding: 5px 0; transition: color var(--fast); }
+    .footer-col a:hover { color: var(--teal); }
+    .footer-bot { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text-tertiary); }
+
+    /* ── Animations ── */
+    .anim { opacity: 0; transform: translateY(18px); animation: fadeUp 0.7s var(--ease-expo) forwards; }
+    .d1 { animation-delay: 0.05s; }
+    .d2 { animation-delay: 0.10s; }
+    .d3 { animation-delay: 0.15s; }
+    .d4 { animation-delay: 0.20s; }
+    .d5 { animation-delay: 0.25s; }
+    .d6 { animation-delay: 0.30s; }
+    .d7 { animation-delay: 0.35s; }
+    .d8 { animation-delay: 0.40s; }
+
+    @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
+
+    .reveal { opacity: 0; transform: translateY(24px); transition: all 0.7s var(--ease-expo); }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── Responsive ── */
+    @media (max-width: 1024px) {
+      .hero-inner { flex-direction: column; gap: 48px; }
+      .hero-visual { flex: none; width: 360px; height: 360px; }
+      .prod-grid { grid-template-columns: repeat(3, 1fr); }
+      .stats-grid { grid-template-columns: repeat(3, 1fr); }
+      .know-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .container { padding: 0 20px; }
+      .navbar { padding: 0 20px; }
+      .hero-inner { padding: 0 20px; }
+      .hero { padding: 100px 0 60px; }
+      .hero h1 { font-size: 32px; }
+      .hero-visual { width: 280px; height: 280px; flex: none; }
+      .prod-grid { grid-template-columns: repeat(2, 1fr); }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .footer-top { grid-template-columns: 1fr 1fr; gap: 24px; }
+    }
+    @media (max-width: 480px) {
+      .prod-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: 1fr; }
+      .know-grid { grid-template-columns: 1fr; }
+      .hero-stats-row { flex-wrap: wrap; gap: 16px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══ NAVBAR ═══ -->
+  <nav class="navbar" id="navbar">
+    <div class="navbar-inner">
+      <a href="#" class="nav-brand light">
+        <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+          <circle cx="14" cy="14" r="12" stroke="currentColor" stroke-width="2" opacity="0.8"/>
+          <circle cx="10" cy="10" r="3" fill="var(--teal)"/>
+          <circle cx="18" cy="10" r="3" fill="#38BDF8"/>
+          <circle cx="14" cy="19" r="3" fill="#FBBF24"/>
+        </svg>
+        Sci<span class="accent">Reagent</span>
+      </a>
+      <a href="#" class="nav-brand dark">
+        <svg width="26" height="26" viewBox="0 0 28 28" fill="none">
+          <circle cx="14" cy="14" r="12" stroke="var(--slate-700)" stroke-width="2"/>
+          <circle cx="10" cy="10" r="3" fill="var(--teal)"/>
+          <circle cx="18" cy="10" r="3" fill="var(--domain-fluor)"/>
+          <circle cx="14" cy="19" r="3" fill="var(--amber)"/>
+        </svg>
+        Sci<span class="accent">Reagent</span>
+      </a>
+      <div class="nav-links">
+        <a href="#">Products</a>
+        <a href="#">Knowledge</a>
+        <a href="#">About</a>
+        <a href="#" class="btn-outline btn-outline-light">Sign In</a>
+        <a href="#" class="btn-solid btn-solid-teal">Register</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ═══ HERO ═══ -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-text anim">
+        <div class="hero-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+          Knowledge Graph · Powered Discovery
+        </div>
+        <h1>From research goal to<br><span class="gradient">precision reagent</span></h1>
+        <p>118 high-purity products connected to 10 core methods and 88 standardized protocols. Search by product, CAS, method — or explore by research domain.</p>
+
+        <div class="hero-search">
+          <div class="hero-search-box">
+            <input type="text" placeholder="Search products, CAS, methods…" />
+            <button>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              Search
+            </button>
+          </div>
+        </div>
+
+        <div class="hero-stats-row">
+          <div class="hero-stat"><div class="hero-stat-num">118</div><div class="hero-stat-label">Products</div></div>
+          <div class="hero-stat"><div class="hero-stat-num">293</div><div class="hero-stat-label">SKUs</div></div>
+          <div class="hero-stat"><div class="hero-stat-num">10</div><div class="hero-stat-label">Methods</div></div>
+          <div class="hero-stat"><div class="hero-stat-num">88</div><div class="hero-stat-label">Protocols</div></div>
+          <div class="hero-stat"><div class="hero-stat-num">8</div><div class="hero-stat-label">Research Areas</div></div>
+        </div>
+      </div>
+
+      <!-- ═══ Hero Visual - Abstract Molecular Orbit ═══ -->
+      <div class="hero-visual anim d2">
+        <div class="hero-mol">
+          <div class="mol-glow"></div>
+          <div class="mol-glow-spot mol-glow-1"></div>
+          <div class="mol-glow-spot mol-glow-2"></div>
+          <div class="mol-glow-spot mol-glow-3"></div>
+          <div class="mol-ring mol-ring-1"></div>
+          <div class="mol-ring mol-ring-2"></div>
+          <div class="mol-ring mol-ring-3"></div>
+
+          <div class="mol-orbit">
+            <div class="mol-dot mol-dot-1"></div>
+            <div class="mol-dot mol-dot-2"></div>
+            <div class="mol-dot mol-dot-3"></div>
+            <div class="mol-dot mol-dot-4"></div>
+          </div>
+          <div class="mol-orbit mol-orbit-2">
+            <div class="mol-dot mol-dot-5"></div>
+            <div class="mol-dot mol-dot-6"></div>
+            <div class="mol-dot mol-dot-7"></div>
+          </div>
+          <div class="mol-orbit mol-orbit-3"></div>
+
+          <div class="mol-center"></div>
+
+          <div class="hero-particle hp-1"></div>
+          <div class="hero-particle hp-2"></div>
+          <div class="hero-particle hp-3"></div>
+          <div class="hero-particle hp-4"></div>
+          <div class="hero-particle hp-5"></div>
+          <div class="hero-particle hp-6"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ CATEGORIES ═══ -->
+  <section class="categories">
+    <div class="container">
+      <div class="categories-scroll anim d3">
+        <a href="#" class="cat-pill"><span class="dot" style="background:var(--domain-nucleotide)"></span> Nucleotides <span class="count">28</span></a>
+        <a href="#" class="cat-pill"><span class="dot" style="background:var(--domain-click)"></span> Click Chemistry <span class="count">22</span></a>
+        <a href="#" class="cat-pill"><span class="dot" style="background:var(--domain-fluor)"></span> Fluorescent Probes <span class="count">31</span></a>
+        <a href="#" class="cat-pill"><span class="dot" style="background:var(--domain-bioconjugate)"></span> Bioconjugation <span class="count">18</span></a>
+        <a href="#" class="cat-pill"><span class="dot" style="background:var(--domain-modifier)"></span> Modifiers <span class="count">15</span></a>
+        <a href="#" class="cat-pill"><span class="dot" style="background:var(--slate-500)"></span> Molecular Biology <span class="count">24</span></a>
+      </div>
+      <div class="bridge-line"></div>
+    </div>
+  </section>
+
+  <!-- ═══ FEATURED PRODUCTS ═══ -->
+  <section class="fp reveal">
+    <div class="container">
+      <div class="section-h">
+        <div>
+          <h2>Featured Products</h2>
+          <div class="sub">High-purity reagents for life science research</div>
+        </div>
+        <a href="#" class="section-link">View all 118 products →</a>
+      </div>
+      <div class="section-line"></div>
+
+      <div class="prod-grid">
+        <a href="#" class="prod-card anim d2">
+          <span class="domain" style="background:var(--domain-nucleotide-bg);color:var(--domain-nucleotide)">Nucleotides</span>
+          <h3>ATP Solution</h3>
+          <div class="meta">CAS: 56-65-5 · ≥99% (HPLC)</div>
+          <span class="formula">C₁₀H₁₆N₅O₁₃P₃</span>
+          <div class="price-row">
+            <span class="price"><span class="cur">$</span>89.00</span>
+            <span class="stock ok">In Stock</span>
+          </div>
+          <div class="actions">
+            <button class="btn-cart">Add to Cart</button>
+            <button class="btn-fav">♡</button>
+          </div>
+        </a>
+
+        <a href="#" class="prod-card anim d3">
+          <span class="domain" style="background:var(--domain-click-bg);color:var(--domain-click)">Click Chemistry</span>
+          <h3>DBCO-PEG₄-NHS</h3>
+          <div class="meta">CAS: 1427004-19-0 · ≥95%</div>
+          <span class="formula">C₃₁H₃₉N₃O₉</span>
+          <div class="price-row">
+            <span class="price"><span class="cur">$</span>249.00</span>
+            <span class="stock ok">In Stock</span>
+          </div>
+          <div class="actions">
+            <button class="btn-cart">Add to Cart</button>
+            <button class="btn-fav">♡</button>
+          </div>
+        </a>
+
+        <a href="#" class="prod-card anim d4">
+          <span class="domain" style="background:var(--domain-fluor-bg);color:var(--domain-fluor)">Fluorescent</span>
+          <h3>FITC Isomer I</h3>
+          <div class="meta">CAS: 3326-32-7 · ≥98% (HPLC)</div>
+          <span class="formula">C₂₁H₁₂O₇S</span>
+          <div class="price-row">
+            <span class="price"><span class="cur">$</span>135.00</span>
+            <span class="stock ok">In Stock</span>
+          </div>
+          <div class="actions">
+            <button class="btn-cart">Add to Cart</button>
+            <button class="btn-fav">♡</button>
+          </div>
+        </a>
+
+        <a href="#" class="prod-card anim d5">
+          <span class="domain" style="background:var(--domain-bioconjugate-bg);color:var(--domain-bioconjugate)">Bioconjugation</span>
+          <h3>SMCC Crosslinker</h3>
+          <div class="meta">CAS: 64987-85-5 · ≥98%</div>
+          <span class="formula">C₁₆H₁₈N₂O₆</span>
+          <div class="price-row">
+            <span class="price"><span class="cur">$</span>175.00</span>
+            <span class="stock low">Low Stock</span>
+          </div>
+          <div class="actions">
+            <button class="btn-cart">Add to Cart</button>
+            <button class="btn-fav">♡</button>
+          </div>
+        </a>
+
+        <a href="#" class="prod-card anim d6">
+          <span class="domain" style="background:var(--domain-modifier-bg);color:var(--domain-modifier)">Modifiers</span>
+          <h3>dATP Solution</h3>
+          <div class="meta">CAS: 74299-50-6 · 100 mM</div>
+          <span class="formula">C₁₀H₁₆N₅O₁₂P₃</span>
+          <div class="price-row">
+            <span class="price"><span class="cur">$</span>59.00</span>
+            <span class="stock ok">In Stock</span>
+          </div>
+          <div class="actions">
+            <button class="btn-cart">Add to Cart</button>
+            <button class="btn-fav">♡</button>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ STATS ═══ -->
+  <section class="stats reveal">
+    <div class="container">
+      <div class="stats-grid">
+        <div class="stat-item"><div class="num">118</div><div class="lbl">High-purity Products</div></div>
+        <div class="stat-item"><div class="num">293</div><div class="lbl">SKU Variants</div></div>
+        <div class="stat-item"><div class="num">10</div><div class="lbl">Core Methods</div></div>
+        <div class="stat-item"><div class="num">88</div><div class="lbl">Standard Protocols</div></div>
+        <div class="stat-item"><div class="num">8</div><div class="lbl">Research Domains</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ KNOWLEDGE SECTION ═══ -->
+  <section class="know reveal">
+    <div class="container">
+      <button class="know-toggle" id="kt" onclick="tk()">
+        <span>
+          Explore Knowledge Graph
+          <span class="pill">6 domains</span>
+        </span>
+        <span class="chev">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+      </button>
+      <div class="know-body" id="kb">
+        <div class="know-grid">
+          <a href="#" class="know-card">
+            <div class="ki" style="background:var(--domain-nucleotide-bg);color:var(--domain-nucleotide)">🎯</div>
+            <h4>Research Goals</h4>
+            <p>Explore 8 research directions — from cellular metabolism to gene expression regulation and protein interaction networks.</p>
+            <span class="kl">Browse 8 goals →</span>
+          </a>
+          <a href="#" class="know-card">
+            <div class="ki" style="background:var(--domain-click-bg);color:var(--domain-click)">🧪</div>
+            <h4>Applications</h4>
+            <p>qPCR, Western Blot, flow cytometry, ELISA — standard experimental applications across molecular biology.</p>
+            <span class="kl">Browse 8 applications →</span>
+          </a>
+          <a href="#" class="know-card">
+            <div class="ki" style="background:var(--domain-fluor-bg);color:var(--domain-fluor)">🔬</div>
+            <h4>Methods</h4>
+            <p>Detailed principles, protocols, advantages, and limitations for 10 core experimental methods.</p>
+            <span class="kl">Browse 10 methods →</span>
+          </a>
+          <a href="#" class="know-card">
+            <div class="ki" style="background:var(--domain-bioconjugate-bg);color:var(--domain-bioconjugate)">📋</div>
+            <h4>Protocols</h4>
+            <p>Step-by-step guides with reagent preparation, timing, troubleshooting, and expected results.</p>
+            <span class="kl">Browse 88 protocols →</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ FOOTER ═══ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <a href="#" class="nav-brand dark" style="margin-bottom:8px">
+            <svg width="22" height="22" viewBox="0 0 28 28" fill="none">
+              <circle cx="14" cy="14" r="12" stroke="var(--slate-700)" stroke-width="2"/>
+              <circle cx="10" cy="10" r="3" fill="var(--teal)"/>
+              <circle cx="18" cy="10" r="3" fill="var(--domain-fluor)"/>
+              <circle cx="14" cy="19" r="3" fill="var(--amber)"/>
+            </svg>
+            Sci<span class="accent">Reagent</span>
+          </a>
+          <p>AI-powered knowledge graph platform for life science reagents. From research goals to experimental protocols — precision tools for every scientist.</p>
+        </div>
+        <div class="footer-col">
+          <h5>Products</h5>
+          <a href="#">Nucleotides</a>
+          <a href="#">Click Chemistry</a>
+          <a href="#">Fluorescent Probes</a>
+          <a href="#">Bioconjugation</a>
+          <a href="#">Modifiers</a>
+        </div>
+        <div class="footer-col">
+          <h5>Knowledge</h5>
+          <a href="#">Research Goals</a>
+          <a href="#">Applications</a>
+          <a href="#">Methods</a>
+          <a href="#">Protocols</a>
+          <a href="#">References</a>
+        </div>
+        <div class="footer-col">
+          <h5>About</h5>
+          <a href="#">About Us</a>
+          <a href="#">Contact</a>
+          <a href="#">Help Center</a>
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+        </div>
+      </div>
+      <div class="footer-bot">
+        <span>&copy; 2026 SciReagent. All rights reserved.</span>
+        <span>LabPro Global</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ── Navbar scroll state ──
+    window.addEventListener('scroll', () => {
+      document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 60);
+    });
+
+    // ── Knowledge toggle ──
+    function tk() {
+      document.getElementById('kt').classList.toggle('open');
+      document.getElementById('kb').classList.toggle('open');
+    }
+
+    // ── Scroll reveal ──
+    document.querySelectorAll('.reveal').forEach(el => {
+      new IntersectionObserver((entries) => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); } });
+      }, { threshold: 0.1 }).observe(el);
+    });
+
+    // Auto-open knowledge after delay
+    setTimeout(tk, 2500);
+  </script>
+</body>
+</html>

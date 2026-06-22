@@ -6,7 +6,9 @@ Searches PubMed for product-related literature and extracts:
 """
 import logging
 from typing import Optional
+from django.db import models as db_models
 from apps.knowledge.services.pubmed_client import PubMedClient
+from apps.knowledge.models import Application, Method, Reference as RefModel
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +75,72 @@ class LiteratureRecommender:
                     "pmid": article["pmid"],
                 })
 
+        # 去重
+        app_keywords = list(set(applications))
+        method_keywords = list(set(methods))
+
+        # ── 反向匹配已有知识实体 ──
+        matched_apps, matched_methods, unmatched_apps, unmatched_methods = \
+            self._match_against_db(app_keywords, method_keywords)
+
         return {
-            "applications": list(set(applications)),
-            "methods": list(set(methods)),
+            "applications": app_keywords,
+            "methods": method_keywords,
             "references": references,
             "protocols": protocols,
+            # 新增的匹配信息
+            "matched_apps": matched_apps,
+            "matched_methods": matched_methods,
+            "unmatched_app_keywords": unmatched_apps,
+            "unmatched_method_keywords": unmatched_methods,
         }
+
+    def _match_against_db(self, app_keywords, method_keywords):
+        """检查提取的关键词是否匹配已有知识实体。
+        返回 (matched_apps, matched_methods, unmatched_app_kw, unmatched_method_kw)
+        """
+        matched_apps = []
+        unmatched_app_keywords = []
+
+        for kw in app_keywords:
+            readable = kw.replace('_', ' ')
+            # Search name, summary, AND slug for matches
+            found = Application.objects.filter(
+                db_models.Q(name__icontains=readable) |
+                db_models.Q(summary__icontains=readable) |
+                db_models.Q(slug__icontains=kw) |
+                db_models.Q(slug__icontains=readable.replace(' ', '-'))
+            ).values('id', 'name', 'slug', 'research_goal_id')[:3]
+            if found:
+                matched_apps.append({
+                    'keyword': kw,
+                    'matches': list(found),
+                })
+            else:
+                unmatched_app_keywords.append(kw)
+
+        matched_methods = []
+        unmatched_method_keywords = []
+
+        for kw in method_keywords:
+            readable = kw.replace('_', ' ')
+            # Search name, summary, purpose, AND slug for matches
+            found = Method.objects.filter(
+                db_models.Q(name__icontains=readable) |
+                db_models.Q(summary__icontains=readable) |
+                db_models.Q(purpose__icontains=readable) |
+                db_models.Q(slug__icontains=kw) |
+                db_models.Q(slug__icontains=readable.replace(' ', '-'))
+            ).values('id', 'name', 'slug', 'application_id')[:3]
+            if found:
+                matched_methods.append({
+                    'keyword': kw,
+                    'matches': list(found),
+                })
+            else:
+                unmatched_method_keywords.append(kw)
+
+        return matched_apps, matched_methods, unmatched_app_keywords, unmatched_method_keywords
 
     def _extract_applications(self, title: str) -> list:
         """从文献标题提取应用场景"""

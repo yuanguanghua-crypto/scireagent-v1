@@ -147,7 +147,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'date_joined',
-            'organization', 'organization_name', 'role', 'is_org_admin', 'is_superuser',
+            'organization', 'organization_name', 'role', 'is_org_admin', 'is_staff', 'is_superuser',
             'nickname', 'phone', 'department', 'title',
             'default_shipping_address', 'shipping_name', 'shipping_phone', 'shipping_email',
             'default_payment_method', 'default_po_number',

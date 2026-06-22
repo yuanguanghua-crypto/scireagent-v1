@@ -15,11 +15,13 @@ if (!auth.isStaff) { router.replace('/') }
 const isEdit = computed(() => !!route.params.id)
 const productId = computed(() => route.params.id)
 const saving = ref(false)
+const saveFeedback = ref({ type: '', message: '' })   // toast instead of alert
 const showPublishDialog = ref(false)
 const loading = ref(false)
 const loadError = ref('')
+const publishedButIncomplete = ref(false)  // 2.11 — 已发布但不够完整
 
-// Word import / AI / inline-entity states
+// Word import / AI states
 const wordImporting = ref(false)
 const wordFile = ref(null)
 const wordResult = ref(null)
@@ -46,28 +48,52 @@ const form = reactive({
 const skus = ref([])
 const methodIds = ref([])
 const protocolIds = ref([])
-const researchGoalIds = ref([])
-const applicationIds = ref([])
 
-// Completeness
+// ── Dropdown options — pulled from Product model Choices ────
+const purityOpts = ['≥ 99% (HPLC)', '≥ 98% (HPLC)', '≥ 97% (HPLC)', '≥ 95% (HPLC)', '≥ 90% (HPLC)', '≥ 99% (PAGE)', '≥ 95% (PAGE)', '≥ 98% (TLC)']
+const concentrationOpts = ['100 mM', '50 mM', '10 mM', '1 mM', '100 µM', '10 µM', 'solid']
+const storageOpts = ['-20°C', '-20°C, protect from light', '-80°C', '4°C', '4°C, protect from light', 'Room temperature', 'Room temperature, dry']
+const shippingOpts = ['Dry Ice', 'Blue Ice', 'Ambient', 'Cold Pack']
+const leadTimeOpts = ['In stock, ships same day', '1-3 business days', '3-5 business days', '1-2 weeks', '2-4 weeks', '4-6 weeks']
+const shelfLifeOpts = ['12 months', '24 months', '6 months']
+const packSizeUnits = ['µg', 'mg', 'g', 'µL', 'mL', 'L']
+const concentrationUnits = ['mM', 'µM', 'M', 'mg/mL', 'µg/mL', '%']
+
+// L1/L2 category options — loaded from ProductClass API
+const categoryL1Options = ref([])
+const categoryL2Options = ref([])
+
+async function loadCategoryOptions() {
+  try {
+    const resp = await http.get('/product-classes/', { params: { page_size: 500 } })
+    const all = resp.data?.results || resp.data || []
+    categoryL1Options.value = all.filter(c => !c.parent_id).map(c => ({ value: c.slug, label: c.name }))
+    categoryL2Options.value = all.filter(c => c.parent_id).map(c => ({ value: c.name, label: c.name, parent_slug: c.parent_id }))
+  } catch { /* ignore */ }
+}
+
+// Completeness — 5 conditions matching backend _is_product_complete
 const isComplete = computed(() => {
-  return !!(form.name && form.catalog_no && form.category_l1 &&
+  return !!(form.name && form.catalog_no && form.cas && form.smiles && form.category_l1 &&
     skus.value.some(s => s.is_default))
 })
 const incompleteItems = computed(() => {
   const items = []
-  if (!(form.name && form.catalog_no)) items.push('基本信息')
-  if (!form.category_l1) items.push('分类')
-  if (!skus.value.some(s => s.is_default)) items.push('默认SKU')
+  if (!(form.name && form.catalog_no)) items.push('Name/Catalog No')
+  if (!form.cas) items.push('CAS')
+  if (!form.smiles) items.push('SMILES')
+  if (!form.category_l1) items.push('Category L1')
+  if (!skus.value.some(s => s.is_default)) items.push('Default SKU')
   return items
 })
 const suggestionsMissing = computed(() => {
   const missing = []
   if (!form.cas) missing.push('CAS')
   if (!form.smiles) missing.push('SMILES')
-  if (!form.formula) missing.push('分子式')
-  if (!methodIds.value.length && !protocolIds.value.length) missing.push('知识关联')
-  if (!form.seo_title && !form.seo_description) missing.push('SEO')
+  if (!form.formula) missing.push('Formula')
+  if (!form.molecular_weight) missing.push('Molecular Weight')
+  if (!methodIds.value.length && !protocolIds.value.length) missing.push('Knowledge Links')
+  if (!form.seo_title && !form.seo_description) missing.push('SEO metadata')
   return missing
 })
 
@@ -84,19 +110,11 @@ const skuDuplicate = computed(() => {
   return dupes
 })
 
-// Dropdown presets
-const purityOpts = ['≥ 99% (HPLC)', '≥ 98% (HPLC)', '≥ 97% (HPLC)', '≥ 95% (HPLC)', '≥ 90% (HPLC)']
-const concentrationOpts = ['100 mM', '50 mM', '10 mM', '1 mM']
-const storageOpts = ['-20°C', '-80°C', '4°C', 'Room temperature']
-const shippingOpts = ['Blue Ice', 'Dry Ice', 'Ambient', 'Cold Pack']
-const leadTimeOpts = ['In stock', '1-3 days', '3-5 days', '1-2 weeks', '2-4 weeks']
-const shelfLifeOpts = ['12 months', '24 months', '6 months']
-const categoryL1Opts = ['Nucleotides', 'Click Chemistry', 'Fluorescent Labels', 'Biotin Labels', 'Modified Bases']
-
 function addSku() {
   skus.value.push({
-    _key: Date.now(), sku_code: '', pack_size: '', concentration: form.concentration || '',
-    price: '0.00', currency: 'USD', inventory_status: 'in_stock',
+    _key: Date.now() + Math.random(),
+    sku_code: '', pack_size: '', pack_unit: 'mg', concentration: form.concentration || '',
+    conc_unit: 'mM', price: '0.00', currency: 'USD', inventory_status: 'in_stock',
     lead_time: '', is_default: skus.value.length === 0,
   })
 }
@@ -104,7 +122,7 @@ function removeSku(idx) { skus.value.splice(idx, 1) }
 
 // ── Word Import ─────────────────────────────────────
 async function handleWordFile(e) {
-  wordFile.value = e.target.files[0]
+  wordFile.value = e.target.files?.[0]
   if (!wordFile.value) return
   wordImporting.value = true
   wordResult.value = null
@@ -114,8 +132,8 @@ async function handleWordFile(e) {
     const resp = await http.post('/products/parse-word/', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
-    wordResult.value = resp.data?.data
-    if (wordResult.value) {
+    wordResult.value = resp.data
+    if (wordResult.value && !wordResult.value.error) {
       prefillFromWord(wordResult.value)
     }
   } catch (e) {
@@ -137,20 +155,24 @@ function prefillFromWord(data) {
   if (data.shipping) form.shipping = data.shipping
   if (data.synonyms) form.synonyms = data.synonyms
   if (data.description) form.overview = data.description
-  // Prefill SKUs from word import
+  // Pre-fill SKUs from word import
   if (data.skus && data.skus.length) {
     skus.value = data.skus.map((s, i) => ({
       _key: Date.now() + i,
-      sku_code: '',
+      sku_code: s.sku_code || '',
       pack_size: s.pack_size || '',
-      concentration: data.concentration || form.concentration || '',
+      pack_unit: s.pack_unit || 'mg',
+      concentration: s.concentration || form.concentration || '',
+      conc_unit: s.conc_unit || 'mM',
       price: s.price || '0.00',
-      currency: 'USD',
-      inventory_status: 'in_stock',
+      currency: s.currency || 'USD',
+      inventory_status: s.inventory_status || 'in_stock',
       lead_time: '',
       is_default: i === 0,
     }))
   }
+  // Clear the completeness flag after prefill to avoid misleading ✓
+  wordResult.value.prefilled = true
 }
 
 // ── SEO Auto-Generate ───────────────────────────────
@@ -160,18 +182,47 @@ async function autoGenerateSeo() {
   seoGenerating.value = true
   try {
     const resp = await http.post(`/products/${productId.value}/generate-seo/`)
-    if (resp.data?.data) {
-      if (resp.data.data.seo_title) form.seo_title = resp.data.data.seo_title
-      if (resp.data.data.seo_description) form.seo_description = resp.data.data.seo_description
+    if (resp.data) {
+      if (resp.data.seo_title) form.seo_title = resp.data.seo_title
+      if (resp.data.seo_description) form.seo_description = resp.data.seo_description
+      setFeedback('success', 'SEO generated successfully')
     }
   } catch (e) {
-    alert('SEO generation failed')
+    setFeedback('error', 'SEO generation failed')
   } finally {
     seoGenerating.value = false
   }
 }
 
-// ── Knowledge inline editor ───────────────────────
+// ── Feedback toast (replaces alert) ──────────────────
+function setFeedback(type, message) {
+  saveFeedback.value = { type, message }
+  setTimeout(() => { saveFeedback.value = { type: '', message: '' } }, 4000)
+}
+
+// ── Input validation ─────────────────────────────────
+function validateField(fieldName) {
+  const val = form[fieldName]
+  if (!val && typeof val === 'string') return null
+  // Detect obviously invalid CAS/SMILES patterns
+  if (fieldName === 'cas' && val) {
+    // CAS format: digits-digits-digits (last digit is checksum)
+    if (!/^\d{1,7}-\d{2}-\d$/.test(val)) return 'Invalid CAS format (e.g. 1927-31-7)'
+  }
+  if (fieldName === 'smiles' && val) {
+    // Basic SMILES check — no unescaped special chars
+    if (/[<>{}|\\]/.test(val)) return 'SMILES contains invalid characters'
+  }
+  if (fieldName === 'formula' && val) {
+    if (/[^A-Za-z0-9\s().,+\-*/[\]]/.test(val)) return 'Formula contains invalid characters'
+  }
+  if (fieldName === 'molecular_weight' && val !== null) {
+    if (isNaN(val) || val <= 0) return 'Molecular weight must be a positive number'
+  }
+  return null
+}
+
+// ── Knowledge inline ────────────────────────────────
 const apiEndpoints = {
   goal: '/research-goals/', app: '/applications/', method: '/methods/',
   protocol: '/protocols/', reference: '/references/',
@@ -185,10 +236,10 @@ async function loadKnowledge() {
       http.get('/methods/', { params: { page_size: 200 } }),
       http.get('/protocols/', { params: { page_size: 500 } }),
     ])
-    knowledgeList.value.goals = (g.data?.data?.results || g.data?.data || [])
-    knowledgeList.value.apps = (a.data?.data?.results || a.data?.data || [])
-    knowledgeList.value.methods = (m.data?.data?.results || m.data?.data || [])
-    knowledgeList.value.protocols = (p.data?.data?.results || p.data?.data || [])
+    knowledgeList.value.goals = (Array.isArray(g.data) ? g.data : (g.data?.results || []))
+    knowledgeList.value.apps = (Array.isArray(a.data) ? a.data : (a.data?.results || []))
+    knowledgeList.value.methods = (Array.isArray(m.data) ? m.data : (m.data?.results || []))
+    knowledgeList.value.protocols = (Array.isArray(p.data) ? p.data : (p.data?.results || []))
   } catch { /* ignore */ }
 }
 
@@ -210,6 +261,16 @@ function toggleProtocolId(id) {
   else protocolIds.value.splice(idx, 1)
 }
 
+// Combined add-existing toggle — replaces two separate select+button blocks
+const linkMethodSelect = ref('')
+const linkProtocolSelect = ref('')
+function addSelectedMethod() {
+  if (linkMethodSelect.value) { toggleMethodId(Number(linkMethodSelect.value)); linkMethodSelect.value = '' }
+}
+function addSelectedProtocol() {
+  if (linkProtocolSelect.value) { toggleProtocolId(Number(linkProtocolSelect.value)); linkProtocolSelect.value = '' }
+}
+
 async function saveInlineEntity() {
   inlineSaving.value = true
   const type = inlineEntityType.value
@@ -218,34 +279,91 @@ async function saveInlineEntity() {
   if (type === 'method') payload.purpose = inlineForm.purpose
   try {
     const resp = await http.post(apiEndpoints[type], payload)
-    const newId = resp.data?.data?.id
+    const newId = resp.data?.id
     if (newId) {
       if (type === 'method') methodIds.value.push(newId)
       if (type === 'protocol') protocolIds.value.push(newId)
     }
     showInlineEditor.value = false
     await loadKnowledge()
+    setFeedback('success', `${type} created and linked`)
   } catch (e) {
-    alert('Save failed: ' + (e.response?.data?.meta?.error?.message || e.message))
+    setFeedback('error', 'Save failed: ' + (e.response?.data?.meta?.error?.message || e.message))
   } finally {
     inlineSaving.value = false
   }
 }
 
 // ── AI adopt handlers ───────────────────────────────
+// P0-1: link-method / link-app from AiToolsPanel matched results
+async function handleLinkMethod(methodData) {
+  const mId = methodData.id
+  if (!mId) return
+  toggleMethodId(mId)
+  if (!knowledgeList.value.methods.find(m => m.id === mId)) {
+    await loadKnowledge()
+  }
+  setFeedback('success', `Linked Method: ${methodData.name}`)
+}
+
+async function handleLinkApp(appData) {
+  const aId = appData.id
+  if (!aId) return
+  // Load the app's methods and link them all
+  try {
+    const resp = await http.get(`/applications/${aId}/`)
+    const methods = resp.data?.methods || []
+    for (const m of methods) {
+      toggleMethodId(m.id)
+    }
+    setFeedback('success', `Linked Application "${appData.name}" → ${methods.length} methods`)
+  } catch {
+    setFeedback('error', 'Failed to load application methods')
+  }
+}
+
+// ── PubChem Auto-fill ────────────────────────────
+import { enrichFromPubchem } from '@/api/aiTools'
+const pubchemEnriching = ref(false)
+const pubchemEnrichResult = ref(null)
+
+async function runPubchemEnrich() {
+  if (!form.name || !form.name.trim()) return
+  pubchemEnriching.value = true
+  pubchemEnrichResult.value = null
+  try {
+    const resp = await enrichFromPubchem(form.name, form.cas || null)
+    pubchemEnrichResult.value = resp.data
+  } catch (e) {
+    pubchemEnrichResult.value = { error: e?.response?.data?.meta?.error?.message || 'Enrich failed' }
+  } finally {
+    pubchemEnriching.value = false
+  }
+}
+
+function applyPubchemProperties() {
+  const data = pubchemEnrichResult.value
+  if (!data || !data.properties) return
+  const p = data.properties
+  if (p.canonical_smiles) form.smiles = p.canonical_smiles
+  if (p.molecular_formula) form.formula = p.molecular_formula
+  if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
+  if (data.cas_resolved && !form.cas) form.cas = data.cas_resolved
+  pubchemEnrichResult.value = { ...data, applied: true }
+  setFeedback('success', 'PubChem properties applied to form')
+}
+
 async function adoptProtocol(protocolData) {
-  // Create protocol entity + link to product
   try {
     const resp = await http.post('/protocols/', { name: protocolData.title })
-    const newId = resp.data?.data?.id
-    if (newId) { protocolIds.value.push(newId); await loadKnowledge() }
+    const newId = resp.data?.id
+    if (newId) { protocolIds.value.push(newId); await loadKnowledge(); setFeedback('success', 'Protocol adopted') }
   } catch (e) {
-    alert('Failed to adopt protocol: ' + (e.response?.data?.meta?.error?.message || e.message))
+    setFeedback('error', 'Failed to adopt protocol')
   }
 }
 
 async function adoptReference(refData) {
-  // Create reference entity
   try {
     const resp = await http.post('/references/', {
       title: refData.citation || refData.doi || 'Untitled',
@@ -253,29 +371,40 @@ async function adoptReference(refData) {
       citation: refData.citation || '',
       source_type: 'journal',
     })
-    const newId = resp.data?.data?.id
-    if (newId) { /* linked on next product load */ }
+    if (resp.data?.id) { setFeedback('success', 'Reference adopted') }
   } catch (e) {
-    alert('Failed to adopt reference: ' + (e.response?.data?.meta?.error?.message || e.message))
+    setFeedback('error', 'Failed to adopt reference')
   }
 }
 
 // ── Load / Save / Publish ───────────────────────────
 async function loadProduct() {
-  if (!productId.value) return
+  if (!productId.value) { loadCategoryOptions(); loadKnowledge(); return }  // load knowledge list for new products too
   loading.value = true
   try {
     const resp = await http.get(`/products/${productId.value}/`)
-    if (resp.data?.data) {
-      const d = resp.data.data
+    if (resp.data) {
+      const d = resp.data
       Object.keys(form).forEach(k => { if (k in d) form[k] = d[k] ?? form[k] })
-      if (d.skus) skus.value = d.skus.map(s => ({ ...s, _key: s.id || Date.now() }))
+      if (d.skus) skus.value = d.skus.map(s => ({ ...s, _key: s.id || Date.now() + Math.random() }))
       methodIds.value = d.method_ids || []
       protocolIds.value = d.protocol_ids || []
-      researchGoalIds.value = d.research_goal_ids || []
-      applicationIds.value = d.application_ids || []
+      // 2.11 — check if published but missing suggested fields
+      if (d.status === 'active') {
+        const missing = []
+        if (!d.cas) missing.push('CAS')
+        if (!d.smiles) missing.push('SMILES')
+        if (!d.formula) missing.push('Formula')
+        if (!d.molecular_weight) missing.push('Molecular Weight')
+        if (!(d.method_ids || []).length && !(d.protocol_ids || []).length) missing.push('Knowledge Links')
+        if (!d.seo_title && !d.seo_description) missing.push('SEO')
+        if (missing.length) {
+          publishedButIncomplete.value = true
+        }
+      }
     }
     loadKnowledge()
+    loadCategoryOptions()
   } catch (e) {
     loadError.value = 'Failed to load product'
   } finally {
@@ -287,23 +416,24 @@ async function saveDraft() {
   saving.value = true
   const payload = {
     ...form,
-    skus: skus.value.map(({ _key, ...s }) => s),
+    skus: skus.value.map(({ _key, pack_unit, conc_unit, ...s }) => s),
     method_ids: methodIds.value,
     protocol_ids: protocolIds.value,
-    research_goal_ids: researchGoalIds.value,
-    application_ids: applicationIds.value,
   }
   try {
     if (isEdit.value) {
       await http.put(`/products/${productId.value}/`, payload)
+      setFeedback('success', 'Draft saved')
     } else {
       const resp = await http.post('/products/', payload)
-      const newId = resp.data?.data?.id
-      if (newId) router.replace(`/workspace/products/${newId}/edit`)
+      const newId = resp.data?.id
+      if (newId) {
+        router.replace(`/workspace/products/${newId}/edit`)
+        setFeedback('success', 'Product created. Edit details and publish when ready.')
+      }
     }
-    alert('Saved!')
   } catch (e) {
-    alert('Save failed: ' + (e.response?.data?.meta?.error?.message || e.message))
+    setFeedback('error', 'Save failed: ' + (e.response?.data?.meta?.error?.message || e.message))
   } finally {
     saving.value = false
   }
@@ -319,12 +449,22 @@ function handlePublish() {
   showPublishDialog.value = true
 }
 
-onMounted(loadProduct)
+onMounted(() => {
+  loadProduct()
+  if (!isEdit.value) loadCategoryOptions()
+})
 </script>
 
 <template>
   <div class="product-edit" v-if="!loading">
     <div v-if="loadError" class="error">{{ loadError }}</div>
+
+    <!-- Published incomplete warning (2.11) -->
+    <div v-if="publishedButIncomplete && form.status === 'active'" class="incomplete-banner">
+      ⚠ This product is published but is missing some recommended fields
+      ({{ suggestionsMissing.join(', ') }}).
+      Consider completing them for better quality.
+    </div>
 
     <!-- Completeness bar -->
     <div class="completeness-bar" :class="isComplete ? 'completeness-ok' : 'completeness-warn'">
@@ -332,12 +472,24 @@ onMounted(loadProduct)
       <span v-else>✗ Incomplete — missing: {{ incompleteItems.join(', ') }}</span>
     </div>
 
-    <!-- Word Import Panel -->
+    <!-- Feedback toast -->
+    <div v-if="saveFeedback.message" class="toast" :class="'toast-' + saveFeedback.type">
+      {{ saveFeedback.message }}
+    </div>
+
+    <!-- Word Import Panel — 3.9 clearer button -->
     <section class="form-section word-import-section">
-      <h3>📄 Word Import</h3>
+      <h3>📄 Word Import (optional)</h3>
       <div class="word-import-row">
-        <input type="file" accept=".docx" @change="handleWordFile" />
-        <span v-if="wordImporting" class="word-status">Parsing...</span>
+        <label class="file-upload-btn">
+          Choose .docx File
+          <input type="file" accept=".docx" @change="handleWordFile" hidden />
+        </label>
+        <span v-if="wordFile" class="file-name">{{ wordFile.name }}</span>
+        <span v-if="wordImporting" class="word-status">Parsing…</span>
+        <span v-else-if="wordResult && wordResult.prefilled" class="word-status word-ok">
+          ✓ {{ wordResult.fields_found || '' }} fields extracted — review before publishing
+        </span>
         <span v-else-if="wordResult && !wordResult.error" class="word-status word-ok">
           {{ wordResult.fields_found }} fields extracted
         </span>
@@ -348,16 +500,70 @@ onMounted(loadProduct)
       <p class="form-hint">Upload a .docx product specification to pre-fill the form. All pre-filled values must be reviewed before publishing.</p>
     </section>
 
+    <!-- PubChem Auto-fill Panel -->
+    <section v-if="form.name" class="form-section pubchem-enrich-section">
+      <h3>🔍 Auto-fill from PubChem</h3>
+      <div class="word-import-row">
+        <button type="button" class="file-upload-btn" @click="runPubchemEnrich" :disabled="pubchemEnriching || !form.name">
+          {{ pubchemEnriching ? 'Searching PubChem…' : `Look up "${form.name}" in PubChem` }}
+        </button>
+        <span v-if="pubchemEnrichResult && !pubchemEnrichResult.error && !pubchemEnrichResult.applied" class="word-status word-ok">
+          ✓ Found: CID {{ pubchemEnrichResult.cid }}
+        </span>
+        <span v-else-if="pubchemEnrichResult && pubchemEnrichResult.applied" class="word-status word-ok">
+          ✓ Properties applied to form
+        </span>
+        <span v-else-if="pubchemEnrichResult && pubchemEnrichResult.error" class="word-status word-err">
+          {{ pubchemEnrichResult.error }}
+        </span>
+      </div>
+      <!-- Preview -->
+      <div v-if="pubchemEnrichResult && pubchemEnrichResult.properties && !pubchemEnrichResult.applied" class="pubchem-preview">
+        <table>
+          <tr><td>Resolved Name:</td><td>{{ pubchemEnrichResult.resolved_name || '—' }}</td></tr>
+          <tr><td>CID:</td><td>{{ pubchemEnrichResult.cid }}</td></tr>
+          <tr v-if="pubchemEnrichResult.cas_resolved"><td>CAS:</td><td class="prop-highlight">{{ pubchemEnrichResult.cas_resolved }}</td></tr>
+          <tr v-if="pubchemEnrichResult.properties.canonical_smiles"><td>SMILES:</td><td class="prop-highlight">{{ pubchemEnrichResult.properties.canonical_smiles }}</td></tr>
+          <tr v-if="pubchemEnrichResult.properties.molecular_formula"><td>Formula:</td><td class="prop-highlight">{{ pubchemEnrichResult.properties.molecular_formula }}</td></tr>
+          <tr v-if="pubchemEnrichResult.properties.molecular_weight"><td>MW:</td><td class="prop-highlight">{{ pubchemEnrichResult.properties.molecular_weight }} Da</td></tr>
+          <tr v-if="pubchemEnrichResult.properties.xlogp != null"><td>LogP:</td><td>{{ pubchemEnrichResult.properties.xlogp }}</td></tr>
+          <tr v-if="pubchemEnrichResult.properties.tpsa != null"><td>TPSA:</td><td>{{ pubchemEnrichResult.properties.tpsa }} Å²</td></tr>
+        </table>
+        <button type="button" class="btn btn-primary btn-sm" style="margin-top:8px" @click="applyPubchemProperties">
+          Apply All to Form
+        </button>
+      </div>
+      <!-- Ambiguous candidates -->
+      <div v-if="pubchemEnrichResult && pubchemEnrichResult.candidates?.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview">
+        <p class="form-hint">Multiple candidates found. Select the correct one or try with a CAS number.</p>
+        <div v-for="c in pubchemEnrichResult.candidates" :key="c.cid" class="candidate-item">
+          <strong>{{ c.iupac_name || '—' }}</strong>
+          <span>CID: {{ c.cid }}, MW: {{ c.molecular_weight }}</span>
+          <span v-if="c.cas">, CAS: {{ c.cas }}</span>
+        </div>
+      </div>
+      <p class="form-hint">Search PubChem by product name to auto-fill CAS, SMILES, Formula, and Molecular Weight.</p>
+    </section>
+
     <form @submit.prevent="saveDraft" class="edit-form">
       <!-- 1. Basic Info -->
       <section class="form-section">
         <h3>1. Basic Information</h3>
         <div class="field-grid">
-          <label>Name * <input v-model="form.name" /></label>
-          <label>Catalog No * <input v-model="form.catalog_no" /></label>
-          <label>CAS <input v-model="form.cas" placeholder="e.g. 1927-31-7" /></label>
-          <label>Synonyms <input v-model="form.synonyms" placeholder="comma separated" /></label>
-          <label>Slug <input v-model="form.slug" /></label>
+          <label>Name *
+            <input v-model="form.name" required placeholder="e.g. 2'-Amino-ATP" />
+          </label>
+          <label>Catalog No *
+            <input v-model="form.catalog_no" required placeholder="e.g. SC8043" />
+          </label>
+          <label>CAS
+            <input v-model="form.cas" placeholder="e.g. 1927-31-7" />
+            <span v-if="validateField('cas')" class="field-error">{{ validateField('cas') }}</span>
+          </label>
+          <label>Synonyms
+            <input v-model="form.synonyms" placeholder="comma separated" />
+          </label>
+          <label>Slug <input v-model="form.slug" placeholder="auto-generated-if-empty" /></label>
           <label>Status
             <select v-model="form.status">
               <option value="draft">Draft</option>
@@ -373,10 +579,19 @@ onMounted(loadProduct)
         <h3>2. Chemical Structure</h3>
         <div class="chem-row">
           <div class="chem-inputs">
-            <label>SMILES <textarea v-model="form.smiles" rows="2"></textarea></label>
-            <label>InChI <textarea v-model="form.inchi" rows="2"></textarea></label>
-            <label>Formula <input v-model="form.formula" /></label>
-            <label>Molecular Weight <input v-model.number="form.molecular_weight" type="number" step="0.01" /></label>
+            <label>SMILES
+              <textarea v-model="form.smiles" rows="2" placeholder="e.g. C1=CC=C(C=C1)N"></textarea>
+              <span v-if="validateField('smiles')" class="field-error">{{ validateField('smiles') }}</span>
+            </label>
+            <label>InChI <textarea v-model="form.inchi" rows="2" placeholder="Standard InChI"></textarea></label>
+            <label>Formula
+              <input v-model="form.formula" placeholder="e.g. C10H17N6O13P3" />
+              <span v-if="validateField('formula')" class="field-error">{{ validateField('formula') }}</span>
+            </label>
+            <label>Molecular Weight
+              <input v-model.number="form.molecular_weight" type="number" step="0.01" placeholder="e.g. 522.2" />
+              <span v-if="validateField('molecular_weight')" class="field-error">{{ validateField('molecular_weight') }}</span>
+            </label>
             <button type="button" class="btn btn-ghost btn-sm" @click="showAiPanel = !showAiPanel">
               {{ showAiPanel ? 'Hide AI Tools' : 'AI Tools' }}
             </button>
@@ -386,131 +601,161 @@ onMounted(loadProduct)
           </div>
         </div>
         <!-- AI Tools Panel -->
-        <div v-if="showAiPanel && isEdit" class="ai-panel-wrapper">
+        <div v-if="showAiPanel" class="ai-panel-wrapper">
           <AiToolsPanel
             :product-id="productId"
-            :product-name="productName"
-            :product-cas="productCas"
-            :product-smiles="productSmiles"
+            :product-name="form.name"
+            :product-cas="form.cas"
+            :product-smiles="form.smiles"
             @adopt-smiles="(s) => form.smiles = s"
             @adopt-formula-weight="({ formula, weight }) => { if (formula) form.formula = formula; if (weight) form.molecular_weight = weight }"
             @adopt-protocol="adoptProtocol"
             @adopt-reference="adoptReference"
+            @link-method="handleLinkMethod"
+            @link-app="handleLinkApp"
           />
         </div>
       </section>
 
-      <!-- 3. Scientific Parameters -->
+      <!-- 3. Scientific Parameters — real select dropdowns -->
       <section class="form-section">
         <h3>3. Scientific Parameters</h3>
         <div class="field-grid">
           <label>Purity
-            <input v-model="form.purity" list="purity-list" />
-            <datalist id="purity-list"><option v-for="o in purityOpts" :key="o" :value="o" /></datalist>
+            <select v-model="form.purity">
+              <option value="">— Custom —</option>
+              <option v-for="o in purityOpts" :key="o" :value="o">{{ o }}</option>
+            </select>
+            <input v-if="form.purity === ''" v-model="form.purity" placeholder="Or enter custom" class="custom-under" />
           </label>
           <label>Concentration
-            <input v-model="form.concentration" list="conc-list" />
-            <datalist id="conc-list"><option v-for="o in concentrationOpts" :key="o" :value="o" /></datalist>
+            <select v-model="form.concentration">
+              <option value="">— Custom —</option>
+              <option v-for="o in concentrationOpts" :key="o" :value="o">{{ o }}</option>
+            </select>
           </label>
           <label>Storage
-            <input v-model="form.storage" list="storage-list" />
-            <datalist id="storage-list"><option v-for="o in storageOpts" :key="o" :value="o" /></datalist>
+            <select v-model="form.storage">
+              <option value="">— Custom —</option>
+              <option v-for="o in storageOpts" :key="o" :value="o">{{ o }}</option>
+            </select>
           </label>
           <label>Shipping
-            <input v-model="form.shipping" list="shipping-list" />
-            <datalist id="shipping-list"><option v-for="o in shippingOpts" :key="o" :value="o" /></datalist>
+            <select v-model="form.shipping">
+              <option value="">— Custom —</option>
+              <option v-for="o in shippingOpts" :key="o" :value="o">{{ o }}</option>
+            </select>
           </label>
           <label>Lead Time
-            <input v-model="form.lead_time" list="lead-list" />
-            <datalist id="lead-list"><option v-for="o in leadTimeOpts" :key="o" :value="o" /></datalist>
+            <select v-model="form.lead_time">
+              <option value="">— Custom —</option>
+              <option v-for="o in leadTimeOpts" :key="o" :value="o">{{ o }}</option>
+            </select>
           </label>
           <label>Shelf Life
-            <input v-model="form.shelf_life" list="shelf-list" />
-            <datalist id="shelf-list"><option v-for="o in shelfLifeOpts" :key="o" :value="o" /></datalist>
+            <select v-model="form.shelf_life">
+              <option value="">— Custom —</option>
+              <option v-for="o in shelfLifeOpts" :key="o" :value="o">{{ o }}</option>
+            </select>
           </label>
           <label class="full-width">Handling Notes <textarea v-model="form.handling_notes" rows="2"></textarea></label>
         </div>
       </section>
 
-      <!-- 4. Category -->
+      <!-- 4. Category — real L1/L2 dropdowns from DB -->
       <section class="form-section">
         <h3>4. Category</h3>
         <div class="field-grid">
           <label>L1 *
-            <input v-model="form.category_l1" list="catl1-list" />
-            <datalist id="catl1-list"><option v-for="o in categoryL1Opts" :key="o" :value="o" /></datalist>
+            <select v-model="form.category_l1">
+              <option value="">— Select L1 category —</option>
+              <option v-for="o in categoryL1Options" :key="o.value" :value="o.value">{{ o.label }}</option>
+            </select>
           </label>
-          <label>L2 <input v-model="form.category_l2" placeholder="e.g. Modified dNTPs" /></label>
+          <label>L2
+            <select v-model="form.category_l2">
+              <option value="">— Optional —</option>
+              <option v-for="o in categoryL2Options.filter(x => x.parent_slug === form.category_l1 || !form.category_l1)" :key="o.value" :value="o.value">{{ o.label }}</option>
+            </select>
+          </label>
         </div>
       </section>
 
-      <!-- 5. Knowledge Links -->
+      <!-- 5. Knowledge Links — chips with click-to-view, single add buttons -->
       <section class="form-section">
         <h3>5. Knowledge Links</h3>
 
-        <!-- Methods -->
+        <!-- Methods chips -->
         <div class="chip-group">
           <span class="chip-label">Methods:</span>
           <span v-for="mid in methodIds" :key="mid" class="chip">
-            {{ knowledgeList.methods.find(m => m.id === mid)?.name || `#${mid}` }}
-            <button type="button" class="chip-remove" @click="toggleMethodId(mid)">✕</button>
+            <a :href="`/methods/${mid}`" target="_blank" class="chip-link">{{ knowledgeList.methods.find(m => m.id === mid)?.name || `#${mid}` }}</a>
+            <button type="button" class="chip-remove" @click="toggleMethodId(mid)" title="Unlink">✕</button>
           </span>
+          <span v-if="!methodIds.length" class="chip-none">None</span>
         </div>
 
-        <!-- Protocols -->
+        <!-- Protocols chips -->
         <div class="chip-group">
           <span class="chip-label">Protocols:</span>
           <span v-for="pid in protocolIds" :key="pid" class="chip">
-            {{ knowledgeList.protocols.find(p => p.id === pid)?.name || `#${pid}` }}
-            <button type="button" class="chip-remove" @click="toggleProtocolId(pid)">✕</button>
+            <a :href="`/protocols/${pid}`" target="_blank" class="chip-link">{{ knowledgeList.protocols.find(p => p.id === pid)?.name || `#${pid}` }}</a>
+            <button type="button" class="chip-remove" @click="toggleProtocolId(pid)" title="Unlink">✕</button>
           </span>
+          <span v-if="!protocolIds.length" class="chip-none">None</span>
         </div>
 
-        <!-- Search & select existing -->
+        <!-- Add existing (single select + add button) -->
         <div class="entity-select-row">
-          <select class="filter-select" v-model="batchLinkMethodId">
-            <option value="">— Add Method —</option>
-            <option v-for="m in knowledgeList.methods" :key="m.id" :value="m.id">{{ m.name }}</option>
+          <select v-model="linkMethodSelect" class="filter-select">
+            <option value="">— Link existing Method —</option>
+            <option v-for="m in knowledgeList.methods" :key="m.id" :value="String(m.id)" :disabled="methodIds.includes(m.id)">{{ m.name }}</option>
           </select>
-          <button type="button" class="btn btn-ghost btn-sm"
-            @click="if(batchLinkMethodId){ toggleMethodId(Number(batchLinkMethodId)); batchLinkMethodId='' }">Add</button>
+          <button type="button" class="btn btn-ghost btn-sm" @click="addSelectedMethod" :disabled="!linkMethodSelect">Link</button>
+
+          <select v-model="linkProtocolSelect" class="filter-select" style="margin-left:16px">
+            <option value="">— Link existing Protocol —</option>
+            <option v-for="p in knowledgeList.protocols" :key="p.id" :value="String(p.id)" :disabled="protocolIds.includes(p.id)">{{ p.name }}</option>
+          </select>
+          <button type="button" class="btn btn-ghost btn-sm" @click="addSelectedProtocol" :disabled="!linkProtocolSelect">Link</button>
         </div>
 
-        <div class="entity-select-row">
-          <select class="filter-select" v-model="batchLinkProtocolId">
-            <option value="">— Add Protocol —</option>
-            <option v-for="p in knowledgeList.protocols" :key="p.id" :value="p.id">{{ p.name }}</option>
-          </select>
-          <button type="button" class="btn btn-ghost btn-sm"
-            @click="if(batchLinkProtocolId){ toggleProtocolId(Number(batchLinkProtocolId)); batchLinkProtocolId='' }">Add</button>
-        </div>
-
-        <!-- Quick-create inline -->
+        <!-- Quick-create inline (single button, dropdown type) -->
         <div class="inline-buttons">
+          <span class="inline-label">Quick create:</span>
           <button type="button" class="btn btn-ghost btn-sm" @click="openInlineNew('method')">+ New Method</button>
           <button type="button" class="btn btn-ghost btn-sm" @click="openInlineNew('protocol')">+ New Protocol</button>
         </div>
       </section>
 
-      <!-- 6. Description -->
+      <!-- 6. Description — wide input -->
       <section class="form-section">
         <h3>6. Description</h3>
-        <label class="full-width">Overview <textarea v-model="form.overview" rows="6" maxlength="5000"></textarea></label>
+        <label class="full-width-label">Overview
+          <textarea v-model="form.overview" rows="8" maxlength="5000" class="desc-textarea" placeholder="Describe the product, its applications, and key features…"></textarea>
+        </label>
+        <span class="char-count">{{ (form.overview || '').length }} / 5000</span>
       </section>
 
-      <!-- 7. SKUs -->
+      <!-- 7. SKUs — pack unit + conc unit as dropdowns -->
       <section class="form-section">
         <h3>7. SKUs</h3>
         <table class="sku-table" v-if="skus.length">
           <thead>
-            <tr><th>Code</th><th>Pack Size</th><th>Concn</th><th>Price</th><th>Curr</th><th>Default</th><th></th></tr>
+            <tr><th>Code</th><th>Pack Size</th><th>Unit</th><th>Concn</th><th>Unit</th><th>Price</th><th>Curr</th><th>Default</th><th></th></tr>
           </thead>
           <tbody>
             <tr v-for="(s, i) in skus" :key="s._key" :class="{ 'sku-duplicate': skuDuplicate.has(i) }">
               <td><input v-model="s.sku_code" style="width:90px" /></td>
-              <td><input v-model="s.pack_size" style="width:70px" /></td>
-              <td><input v-model="s.concentration" style="width:70px" /></td>
-              <td><input v-model="s.price" style="width:70px" type="number" step="0.01" /></td>
+              <td><input v-model="s.pack_size" style="width:60px" type="number" step="any" min="0" /></td>
+              <td>
+                <select v-model="s.pack_unit"><option v-for="u in packSizeUnits" :key="u" :value="u">{{ u }}</option></select>
+              </td>
+              <td><input v-model="s.concentration" style="width:60px" /></td>
+              <td>
+                <select v-model="s.conc_unit"><option v-for="u in concentrationUnits" :key="u" :value="u">{{ u }}</option></select>
+              </td>
+              <td><input v-model="s.price" style="width:70px" type="number" step="0.01" min="0" /></td>
               <td>
                 <select v-model="s.currency"><option>USD</option><option>CNY</option><option>EUR</option></select>
               </td>
@@ -523,20 +768,21 @@ onMounted(loadProduct)
           </tbody>
         </table>
         <button type="button" @click="addSku" class="btn btn-ghost btn-sm">+ Add SKU</button>
-        <p v-if="skuDuplicate.size" class="sku-warning">⚠ Duplicate pack_size + concentration detected (rows highlighted)</p>
-        <p class="form-hint">Duplicate pack_size + concentration will be flagged in yellow.</p>
+        <p v-if="skuDuplicate.size" class="sku-warning">⚠ Duplicate pack size + concentration combination detected</p>
+        <p class="form-hint">Each SKU represents a purchasable variant. Set one as Default.</p>
       </section>
 
       <!-- 8. SEO -->
       <section class="form-section">
-        <h3>8. SEO (optional)</h3>
+        <h3>8. SEO (auto-generated on publish)</h3>
         <div class="field-grid">
-          <label>SEO Title <input v-model="form.seo_title" /></label>
-          <label>SEO Description <input v-model="form.seo_description" /></label>
+          <label>SEO Title <input v-model="form.seo_title" placeholder="Auto-generated if left empty" /></label>
+          <label>SEO Description <input v-model="form.seo_description" placeholder="Auto-generated if left empty" /></label>
         </div>
         <button v-if="isEdit" type="button" class="btn btn-ghost btn-sm" style="margin-top:8px" @click="autoGenerateSeo" :disabled="seoGenerating">
           {{ seoGenerating ? 'Generating...' : 'Auto-generate SEO' }}
         </button>
+        <p class="form-hint">SEO fields are auto-generated when publishing from draft → active if left empty.</p>
       </section>
 
       <!-- Actions -->
@@ -544,7 +790,9 @@ onMounted(loadProduct)
         <button type="button" @click="saveDraft" class="btn btn-secondary" :disabled="saving">
           {{ saving ? 'Saving...' : 'Save Draft' }}
         </button>
-        <button type="button" @click="handlePublish" class="btn btn-primary" :disabled="saving">Publish</button>
+        <button type="button" @click="handlePublish" class="btn btn-primary" :disabled="saving || !isComplete">
+          {{ isComplete ? 'Publish' : 'Incomplete — fill required fields first' }}
+        </button>
       </div>
     </form>
 
@@ -553,24 +801,25 @@ onMounted(loadProduct)
       <div class="dialog">
         <h3>Confirm Publish</h3>
         <div v-if="!isComplete" class="dialog-warn">
-          <p>Product is incomplete:</p>
+          <p>Product is incomplete — required fields missing:</p>
           <ul>
             <li v-for="item in incompleteItems" :key="item">✗ {{ item }}</li>
           </ul>
         </div>
         <div v-if="suggestionsMissing.length" class="dialog-suggest">
-          <p>Suggest completing:</p>
+          <p>Recommended improvements:</p>
           <ul>
-            <li v-for="s in suggestionsMissing" :key="s">{{ s }}</li>
+            <li v-for="s in suggestionsMissing" :key="s">◯ {{ s }}</li>
           </ul>
         </div>
-        <p>The product can still be published. Confirm?</p>
+        <p>Confirm publishing this product?</p>
         <div class="dialog-actions">
           <button class="btn btn-ghost" @click="showPublishDialog = false">Cancel</button>
           <button class="btn btn-primary" @click="publish">Confirm Publish</button>
         </div>
       </div>
     </div>
+
     <!-- Inline entity editor dialog -->
     <div v-if="showInlineEditor" class="dialog-overlay" @click.self="showInlineEditor = false">
       <div class="dialog">
@@ -595,6 +844,7 @@ onMounted(loadProduct)
 .completeness-bar { padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; font-weight: 500; }
 .completeness-ok { background: #dcf7e8; color: #176b3a; }
 .completeness-warn { background: #ffeeba; color: #856404; }
+.incomplete-banner { padding: 10px 16px; background: #d1ecf1; color: #0c5460; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
 .edit-form { display: flex; flex-direction: column; gap: 0; }
 .form-section { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
 .form-section h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--color-text); }
@@ -603,13 +853,42 @@ onMounted(loadProduct)
 .field-grid input, .field-grid select, .field-grid textarea { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 14px; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); }
 .field-grid textarea { resize: vertical; }
 .full-width { grid-column: span 2; }
+.full-width-label { display: flex; flex-direction: column; font-size: 13px; color: var(--color-text-secondary); gap: 4px; }
+.desc-textarea { width: 100%; padding: 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 14px; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); resize: vertical; min-height: 120px; }
+.char-count { font-size: 12px; color: var(--color-text-secondary); margin-top: 4px; }
 .chem-row { display: flex; gap: 20px; }
 .chem-inputs { flex: 1; display: flex; flex-direction: column; gap: 10px; }
 .chem-inputs label { font-size: 13px; color: var(--color-text-secondary); display: flex; flex-direction: column; gap: 4px; }
 .chem-inputs input, .chem-inputs textarea { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 14px; background: var(--color-bg); color: var(--color-text); resize: vertical; }
 .ai-panel-wrapper { margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 16px; }
 .form-hint { font-size: 12px; color: var(--color-text-secondary); margin-top: 8px; }
-.form-hint input { padding: 4px 8px; border: 1px solid var(--color-border); border-radius: 4px; font-size: 13px; background: var(--color-bg); color: var(--color-text); width: 300px; margin-left: 8px; }
+.field-error { font-size: 12px; color: #dc3545; }
+.custom-under { margin-top: 4px; }
+.toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.toast-success { background: #dcf7e8; color: #176b3a; }
+.toast-error { background: #f8d7da; color: #721c24; }
+
+/* Word Import */
+.word-import-section { background: var(--color-bg); border-style: dashed; }
+.word-import-row { display: flex; align-items: center; gap: 12px; }
+.file-upload-btn { display: inline-block; padding: 8px 16px; border: 1.5px solid var(--color-primary); border-radius: 6px; color: var(--color-primary); font-size: 13px; font-weight: 500; cursor: pointer; background: white; }
+.file-upload-btn:hover { background: var(--color-primary-light); }
+.file-name { font-size: 13px; color: var(--color-text-secondary); }
+.word-status { font-size: 13px; }
+.word-ok { color: #176b3a; font-weight: 500; }
+.word-err { color: #dc3545; }
+
+/* PubChem Enrich */
+.pubchem-enrich-section { background: var(--color-bg); border-style: dashed; }
+.pubchem-preview { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 13px; }
+.pubchem-preview table { width: 100%; border-collapse: collapse; }
+.pubchem-preview td { padding: 4px 8px; border-bottom: 1px solid #dcfce7; font-size: 12px; }
+.pubchem-preview td:first-child { color: var(--color-text-secondary); width: 120px; }
+.prop-highlight { color: #059669; font-weight: 600; font-family: var(--font-mono); }
+.candidate-item { padding: 6px 8px; margin: 4px 0; background: #fff; border: 1px solid var(--color-border); border-radius: 6px; }
+.candidate-item span { font-size: 11px; color: var(--color-text-secondary); margin-left: 8px; }
+
+/* SKU table */
 .sku-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
 .sku-table th, .sku-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--color-border); font-size: 13px; }
 .sku-table th { color: var(--color-text-secondary); font-weight: 600; }
@@ -617,31 +896,30 @@ onMounted(loadProduct)
 .sku-duplicate td { background: #fff3cd; }
 .col-default { text-align: center; }
 .sku-warning { font-size: 12px; color: #856404; margin: 4px 0; }
+
+/* Knowledge inline */
+.chip-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.chip-label { font-size: 13px; color: var(--color-text-secondary); font-weight: 600; margin-right: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--color-primary-light); color: var(--color-primary); border-radius: 6px; font-size: 12px; font-weight: 500; }
+.chip-link { color: var(--color-primary); text-decoration: none; }
+.chip-link:hover { text-decoration: underline; }
+.chip-remove { background: none; border: none; cursor: pointer; padding: 0; font-size: 12px; color: var(--color-primary); opacity: 0.6; }
+.chip-remove:hover { opacity: 1; }
+.chip-none { font-size: 12px; color: var(--color-text-secondary); font-style: italic; }
+.entity-select-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; flex-wrap: wrap; }
+.entity-select-row select { flex: 1; min-width: 180px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px; background: var(--color-bg); color: var(--color-text); }
+.inline-buttons { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+.inline-label { font-size: 13px; color: var(--color-text-secondary); }
+.input-full { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 14px; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); resize: vertical; }
+
 .form-actions { display: flex; gap: 12px; justify-content: flex-end; padding: 16px 0; }
+
 .dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.dialog { background: var(--color-surface); border-radius: 12px; padding: 24px; max-width: 420px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
+.dialog { background: var(--color-surface); border-radius: 12px; padding: 24px; max-width: 480px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,0.2); }
 .dialog h3 { margin-bottom: 16px; color: var(--color-text); }
 .dialog-warn ul, .dialog-suggest ul { margin: 8px 0 0 16px; font-size: 14px; color: var(--color-text-secondary); }
 .dialog-warn ul li { color: #856404; }
 .dialog p { margin: 8px 0; font-size: 14px; color: var(--color-text); }
 .dialog-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 .loading, .error { text-align: center; padding: 40px; color: var(--color-text-secondary); }
-
-/* Word Import */
-.word-import-section { background: var(--color-bg); border-style: dashed; }
-.word-import-row { display: flex; align-items: center; gap: 12px; }
-.word-status { font-size: 13px; }
-.word-ok { color: #176b3a; font-weight: 500; }
-.word-err { color: #dc3545; }
-
-/* Knowledge inline */
-.chip-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-.chip-label { font-size: 13px; color: var(--color-text-secondary); font-weight: 600; margin-right: 4px; }
-.chip { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: var(--color-primary-light); color: var(--color-primary); border-radius: 6px; font-size: 12px; font-weight: 500; }
-.chip-remove { background: none; border: none; cursor: pointer; padding: 0; font-size: 12px; color: var(--color-primary); opacity: 0.6; }
-.chip-remove:hover { opacity: 1; }
-.entity-select-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; }
-.entity-select-row select { flex: 1; }
-.inline-buttons { display: flex; gap: 8px; margin-top: 8px; }
-.input-full { width: 100%; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 14px; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); resize: vertical; }
 </style>

@@ -42,13 +42,19 @@ class ProductDocumentSerializer(BaseModelSerializer):
 
 
 def _is_product_complete(product):
-    """判断产品是否完整（3 条件）。
+    """判断产品是否完整（5 条件）。
 
     1. Name 不为空 + catalog_no 不为空
-    2. category_l1 不为空
-    3. 至少 1 个 SKU 且 is_default=True
+    2. CAS 不为空
+    3. SMILES 不为空
+    4. category_l1 不为空
+    5. 至少 1 个 SKU 且 is_default=True
     """
     if not (product.name and product.catalog_no):
+        return False
+    if not product.cas:
+        return False
+    if not product.smiles:
         return False
     if not product.category_l1:
         return False
@@ -61,11 +67,15 @@ def _incomplete_items(product):
     """返回不完整条件的名称列表，用于发布弹窗展示。"""
     items = []
     if not (product.name and product.catalog_no):
-        items.append('基本信息')
+        items.append('基本信息 (Name + Catalog No)')
+    if not product.cas:
+        items.append('CAS')
+    if not product.smiles:
+        items.append('SMILES')
     if not product.category_l1:
-        items.append('分类')
+        items.append('分类 (category_l1)')
     if not product.skus.filter(is_default=True).exists():
-        items.append('SKU (需设置默认 SKU)')
+        items.append('默认 SKU')
     return items
 
 
@@ -143,6 +153,25 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         for mid in to_add:
             ProductMethod.objects.create(product=product, method_id=mid)
 
+    def _resolve_method_ids_from_goals_or_apps(self, research_goal_ids, application_ids):
+        """从 ResearchGoal 或 Application 级联解析出 Method ID 集合。
+        用于 research_goal_ids / application_ids 的快捷关联。"""
+        from django.db import models as db_models
+        q = db_models.Q()
+        if research_goal_ids:
+            q |= db_models.Q(application__research_goal_id__in=research_goal_ids)
+        if application_ids:
+            q |= db_models.Q(application_id__in=application_ids)
+        if not q:
+            return set()
+        return set(Method.objects.filter(q).values_list('id', flat=True))
+
+    def _merge_method_ids(self, method_ids, research_goal_ids, application_ids):
+        """合并前端传来的 method_ids 和从 goal/app 级联解析出的 method_ids。"""
+        direct = set(method_ids) if method_ids else set()
+        cascaded = self._resolve_method_ids_from_goals_or_apps(research_goal_ids, application_ids)
+        return direct | cascaded
+
     def _sync_protocol_bridges(self, product, protocol_ids):
         """Sync MethodProtocol bridges via product's methods."""
         from apps.bridges.models import MethodProtocol
@@ -188,7 +217,9 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         for sku_data in skus_data:
             SKU.objects.create(product=product, **sku_data)
 
-        self._sync_method_bridges(product, method_ids)
+        # Merge direct method_ids with cascaded from research_goal_ids/application_ids
+        merged_method_ids = self._merge_method_ids(method_ids, research_goal_ids, application_ids)
+        self._sync_method_bridges(product, list(merged_method_ids) if merged_method_ids else None)
         self._sync_protocol_bridges(product, protocol_ids)
 
         # Auto-generate SEO on publish (draft→active)
@@ -214,7 +245,9 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             for sku_data in skus_data:
                 SKU.objects.create(product=instance, **sku_data)
 
-        self._sync_method_bridges(instance, method_ids)
+        # Merge direct method_ids with cascaded from research_goal_ids/application_ids
+        merged_method_ids = self._merge_method_ids(method_ids, research_goal_ids, application_ids)
+        self._sync_method_bridges(instance, list(merged_method_ids) if merged_method_ids else None)
         self._sync_protocol_bridges(instance, protocol_ids)
 
         # Auto-generate SEO when transitioning from draft to active

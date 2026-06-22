@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def serialize_validation_report(report, product):
     """Convert ValidationReport dataclass + Product info to JSON-safe dict."""
-    return {
+    result = {
         "status": report.status,
         "product": {
             "id": product.id,
@@ -48,6 +48,15 @@ def serialize_validation_report(report, product):
         "overall_match": report.overall_match,
         "timestamp": report.timestamp,
     }
+    # ── PubChemEnhancer 新增字段 ──
+    if hasattr(report, 'molecular_properties') and report.molecular_properties:
+        result['pubchem']['molecular_properties'] = report.molecular_properties
+    if hasattr(report, 'lipinski') and report.lipinski:
+        result['pubchem']['lipinski'] = report.lipinski
+    if hasattr(report, 'similar_compounds') and report.similar_compounds:
+        result['pubchem']['similar_compounds'] = report.similar_compounds
+
+    return result
 
 
 # ── Single-Product Views ──────────────────────────────────────────────
@@ -153,3 +162,64 @@ class BatchRecommendLiteratureView(EnvelopeMixin, APIView):
             })
         logger.info(f"Batch literature: {len(results)} products processed")
         return self.success_response(results)
+
+
+# ── PubChem Enrich ────────────────────────────────────────────────────
+
+class PubChemEnrichView(EnvelopeMixin, APIView):
+    """POST /api/v1/products/enrich-from-pubchem/
+
+    从 PubChem 自动解析产品的化学属性（CAS/SMILES/Formula/MW 等）。
+    用于产品编辑页的"自动补全"功能和产品列表页的"批量补全"。
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        from apps.commerce.services.validators.pubchem_enhancer import PubChemEnhancer
+
+        enhancer = PubChemEnhancer()
+        product_ids = request.data.get("product_ids", []) if request.data else None
+        product_name = request.data.get("product_name", "") if request.data else ""
+        cas = request.data.get("cas", "") if request.data else ""
+
+        # ── 批量模式 ──
+        if product_ids:
+            products = Product.objects.filter(pk__in=product_ids)
+            results = []
+            for product in products:
+                name = product.name
+                product_cas = product.cas or ""
+                enriched = enhancer.resolve_to_properties(name)
+                resolved_cas = enriched.get('cas_resolved') or product_cas
+                props = enriched.get('properties') or {}
+                results.append({
+                    "product_id": product.id,
+                    "product_name": name,
+                    "enriched": {
+                        "found": enriched.get('found', False),
+                        "cid": enriched.get('cid'),
+                        "cas": resolved_cas,
+                        "smiles": props.get('canonical_smiles', ''),
+                        "formula": props.get('molecular_formula', ''),
+                        "molecular_weight": props.get('molecular_weight', 0),
+                        "xlogp": props.get('xlogp'),
+                        "tpsa": props.get('tpsa'),
+                    },
+                })
+            return self.success_response(results)
+
+        # ── 单产品模式 ──
+        if cas and cas.strip():
+            identifier = cas.strip()
+        elif product_name and product_name.strip():
+            identifier = product_name.strip()
+        else:
+            return self.error_response('product_name or cas is required')
+
+        enriched = enhancer.resolve_to_properties(identifier)
+
+        # 如果按 CAS 查出了属性但没有 CAS 号（测试场景），补充一程用产品名
+        if cas and cas.strip() and not enriched.get('found'):
+            enriched = enhancer.resolve_to_properties(product_name.strip())
+
+        return self.success_response(enriched)
