@@ -143,6 +143,7 @@ function toggle() {
   padding: 28px 0 12px;
 }
 .knowledge-card {
+  position: relative;
   background: var(--color-surface);
   border: 1.5px solid var(--color-border);
   border-radius: 10px;
@@ -155,10 +156,27 @@ function toggle() {
   font-family: var(--font-sans);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
 }
+.knowledge-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 24px;
+  right: 24px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
+  opacity: 0.1;
+  transition: opacity 0.3s ease;
+}
 .knowledge-card:hover {
   border-color: var(--color-border-hover);
   transform: translateY(-3px);
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.10);
+}
+.knowledge-card:hover::before {
+  opacity: 0.45;
+}
+.knowledge-card:hover .k-icon {
+  box-shadow: 0 0 18px rgba(94, 234, 212, 0.45);
 }
 .k-icon {
   width: 40px;

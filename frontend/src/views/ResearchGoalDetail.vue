@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import PageBridge from '@/components/common/PageBridge.vue'
 import { useResearchGoalsStore } from '@/stores/researchGoals'
 import { formatDate, getStatusType } from '@/utils/helpers'
 
@@ -19,6 +20,7 @@ onUnmounted(() => {
 
 <template>
   <div class="research-goal-detail">
+    <PageBridge />
     <div v-if="store.loading" class="loading-container">
       <el-skeleton :rows="6" animated />
     </div>

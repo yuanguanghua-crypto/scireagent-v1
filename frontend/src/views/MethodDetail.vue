@@ -8,6 +8,7 @@ import ContextCards from '@/components/navigation/ContextCards.vue'
 import ResearchPathCard from '@/components/navigation/ResearchPathCard.vue'
 import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 import ResearchBreadcrumb from '@/components/navigation/ResearchBreadcrumb.vue'
+import PageBridge from '@/components/common/PageBridge.vue'
 import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
 import { useResearchPathStore } from '@/stores/researchPath'
 
@@ -60,6 +61,7 @@ onUnmounted(() => { store.clearCurrent() })
 
 <template>
   <div class="detail-page" v-if="method">
+    <PageBridge />
     <ResearchBreadcrumb :items="researchPath.slice(0, -1)" :current-name="method.name" />
     <ResearchPathChips :path="researchPath" current-type="method" />
 

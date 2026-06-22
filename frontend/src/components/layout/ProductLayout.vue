@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getCategories } from '@/api/products'
+import PageBridge from '@/components/common/PageBridge.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -147,6 +148,8 @@ defineExpose({ setFilter, clearFilter, selectedL1, selectedL2, selectedL3 })
 
 <template>
   <div class="product-layout">
+    <PageBridge />
+    <div class="product-container">
     <!-- Top: Category pills bar (horizontal) -->
     <div class="category-pills-bar" v-if="l1List.length">
       <button
@@ -228,11 +231,20 @@ defineExpose({ setFilter, clearFilter, selectedL1, selectedL2, selectedL3 })
       <!-- Slot for page content -->
       <slot />
     </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.product-layout { max-width: 1280px; margin: 0 auto; padding: 0 32px; }
+.product-layout { width: 100%; margin: 0; padding: 0; position: relative; }
+
+/* P1: 深色桥梁由 <PageBridge /> 组件提供 */
+.product-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 32px;
+  position: relative;
+}
 
 /* Category pills bar (horizontal, top) */
 .category-pills-bar {

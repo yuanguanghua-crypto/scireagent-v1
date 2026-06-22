@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import ParticleField from '@/components/hero/ParticleField.vue'
 
 const props = defineProps({
   title: { type: String, default: 'SciReagent' },
@@ -29,6 +30,7 @@ const tags = props.suggestedSearches.length ? props.suggestedSearches : hotTags
 
 <template>
   <section class="hero" aria-label="Platform introduction">
+    <ParticleField class="hero-bg-canvas" />
     <div class="hero-container">
       <div class="hero-text">
         <div class="hero-badge">
@@ -110,6 +112,11 @@ const tags = props.suggestedSearches.length ? props.suggestedSearches : hotTags
   padding: 0 32px;
   position: relative;
   z-index: 2;
+}
+.hero-bg-canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
 }
 .hero-text {
   max-width: 640px;

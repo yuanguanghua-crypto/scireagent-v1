@@ -9,6 +9,7 @@ import PublicNav from '@/components/layout/PublicNav.vue'
 import HeroSearch from '@/components/home/HeroSearch.vue'
 import CategoryPills from '@/components/home/CategoryPills.vue'
 import FeaturedProducts from '@/components/home/FeaturedProducts.vue'
+import MeridianDivider from '@/components/common/MeridianDivider.vue'
 
 /* Lazy-loaded components (below fold) */
 const StatsBar = defineAsyncComponent(() => import('@/components/home/StatsBar.vue'))
@@ -61,8 +62,12 @@ onMounted(async () => {
         <!-- 2. Category Pills -->
         <CategoryPills :categories="homeData.categories" />
 
+        <MeridianDivider />
+
         <!-- 3. Featured Products Grid -->
         <FeaturedProducts :products="homeData.featured_products" />
+
+        <MeridianDivider flip />
 
         <!-- 4. Stats Bar -->
         <Suspense>
@@ -71,6 +76,8 @@ onMounted(async () => {
             <div class="loading-skeleton" style="height: 120px; margin: 32px 0;"></div>
           </template>
         </Suspense>
+
+        <MeridianDivider />
 
         <!-- 5. Knowledge Section (collapsible) -->
         <Suspense>

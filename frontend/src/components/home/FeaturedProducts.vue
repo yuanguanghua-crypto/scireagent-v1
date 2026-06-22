@@ -144,13 +144,20 @@ function viewAllLink() {
   content: '';
   position: absolute;
   top: -1.5px;
-  left: 15%;
-  right: 15%;
+  left: 0;
+  right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-primary), #38BDF8);
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--color-primary) 42%,
+    #A7FFFF 50%,
+    #38BDF8 58%,
+    transparent 100%);
+  background-size: 300% 100%;
+  background-position: 100% 0;
   border-radius: 0 0 3px 3px;
   opacity: 0;
-  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: opacity 0.25s;
 }
 .product-card:hover {
   border-color: var(--color-teal-100);
@@ -159,8 +166,14 @@ function viewAllLink() {
 }
 .product-card:hover::before {
   opacity: 1;
-  left: 10%;
-  right: 10%;
+  animation: firefly-sweep 1.4s ease-in-out;
+}
+@keyframes firefly-sweep {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-card:hover::before { animation: none; background-position: 50% 0; }
 }
 
 .domain-tag {

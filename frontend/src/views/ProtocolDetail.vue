@@ -7,6 +7,7 @@ import ContextCards from '@/components/navigation/ContextCards.vue'
 import ResearchPathCard from '@/components/navigation/ResearchPathCard.vue'
 import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 import ResearchBreadcrumb from '@/components/navigation/ResearchBreadcrumb.vue'
+import PageBridge from '@/components/common/PageBridge.vue'
 import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
 import { useResearchPathStore } from '@/stores/researchPath'
 
@@ -68,6 +69,7 @@ function formatDuration(seconds) {
 
 <template>
   <div class="protocol-detail">
+    <PageBridge />
     <div v-if="store.loading" class="loading-container">
       <el-skeleton :rows="10" animated />
     </div>

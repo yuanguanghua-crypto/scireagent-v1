@@ -30,10 +30,21 @@ onUnmounted(() => {
       <!-- Logo -->
       <router-link to="/" class="nav-brand">
         <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
-          <circle cx="14" cy="14" r="12" stroke="currentColor" stroke-width="2" opacity="0.8"/>
-          <circle cx="10" cy="10" r="3" fill="var(--color-teal-600)"/>
-          <circle cx="18" cy="10" r="3" fill="#38BDF8"/>
-          <circle cx="14" cy="19" r="3" fill="#FBBF24"/>
+          <defs>
+            <filter id="nav-logo-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="1.4" result="b"/>
+              <feMerge>
+                <feMergeNode in="b"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <circle cx="14" cy="14" r="12" stroke="currentColor" stroke-width="1.5" opacity="0.5"/>
+          <g filter="url(#nav-logo-glow)">
+            <circle cx="10" cy="10" r="3" fill="#5EEAD4"/>
+            <circle cx="18" cy="10" r="3" fill="#38BDF8"/>
+            <circle cx="14" cy="19" r="3" fill="#FBBF24"/>
+          </g>
         </svg>
         Sci<span class="brand-accent">Reagent</span>
       </router-link>

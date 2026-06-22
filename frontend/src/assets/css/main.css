@@ -35,6 +35,15 @@
   --color-teal-900: #134E4A;
   --color-teal-950: #042F2E;
 
+  /* ── Life Constellation 荧光色（深海生命星图，Phase 2 跨页面复用）── */
+  --color-glow-cyan: #A7FFFF;
+  --color-glow-blue: #8FE8FF;
+  --color-glow-soft: #A6D7FF;
+  --color-glow-violet: #B2B0FF;
+  --color-abyss-deep: #020B1B;
+  --color-abyss-mid: #05152E;
+  --color-abyss-outer: #082248;
+
   --color-amber-50: #FFFBEB;
   --color-amber-100: #FEF3C7;
   --color-amber-200: #FDE68A;
