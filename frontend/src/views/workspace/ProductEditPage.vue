@@ -336,17 +336,68 @@ async function handleLinkApp(appData) {
   }
 }
 
-// ── PubChem Auto-fill ────────────────────────────
-import { enrichFromPubchem } from '@/api/aiTools'
+// ── One-stop Enrich (PubChem + ChEMBL + Literature + Protocols) ──
+import { enrichProduct, importProtocol } from '@/api/aiTools'
 const pubchemEnriching = ref(false)
 const pubchemEnrichResult = ref(null)
+const protocolExpanded = ref({})
+const protocolImported = ref({})
+const protocolImportingId = ref(null)
+
+function toggleProtocolExpand(i) {
+  protocolExpanded.value[i] = !protocolExpanded.value[i]
+}
+
+async function importSingleProtocol(idx) {
+  const p = enrichProtocols.value[idx]
+  if (!p) return
+  protocolImportingId.value = idx
+  try {
+    const resp = await importProtocol({
+      method_name: p.method_hint || p.title || '',
+      protocol_title: p.title || '',
+      protocol_url: p.url || '',
+      objective: p.abstract || '',
+      reagents: p.reagents || '',
+      equipment: p.equipment || '',
+      materials: p.materials || '',
+      steps: p.steps || [],
+      method_ids: methodIds.value,  // link to current product
+    })
+    if (resp.success) {
+      protocolImported.value[idx] = true
+      // Add new method_id to current product
+      const newMethodId = resp.data.method_id
+      if (newMethodId && !methodIds.value.includes(newMethodId)) {
+        methodIds.value.push(newMethodId)
+      }
+      await loadKnowledge()
+      setFeedback('success', 'Protocol imported to knowledge base')
+    }
+  } catch (e) {
+    setFeedback('error', 'Import failed: ' + (e?.response?.data?.meta?.error?.message || e.message))
+  } finally {
+    protocolImportingId.value = null
+  }
+}
+
+// Computed: extract sections from new enrich format { chemical, literature, protocols }
+const enrichChemical = computed(() => pubchemEnrichResult.value?.chemical || pubchemEnrichResult.value)
+const enrichLiterature = computed(() => pubchemEnrichResult.value?.literature || null)
+const enrichProtocols = computed(() => pubchemEnrichResult.value?.protocols || null)
 
 async function runPubchemEnrich() {
-  if (!form.name || !form.name.trim()) return
+  const ids = {
+    name: (form.name || '').trim(),
+    cas: (form.cas || '').trim(),
+    smiles: (form.smiles || '').trim(),
+    inchi: (form.inchi || '').trim(),
+  }
+  if (!ids.name && !ids.cas && !ids.smiles && !ids.inchi) return
   pubchemEnriching.value = true
   pubchemEnrichResult.value = null
   try {
-    const resp = await enrichFromPubchem(form.name, form.cas || null)
+    const resp = await enrichProduct(ids)
     pubchemEnrichResult.value = resp.data
   } catch (e) {
     pubchemEnrichResult.value = { error: e?.response?.data?.meta?.error?.message || 'Enrich failed' }
@@ -357,14 +408,17 @@ async function runPubchemEnrich() {
 
 function applyPubchemProperties() {
   const data = pubchemEnrichResult.value
-  if (!data || !data.properties) return
-  const p = data.properties
-  if (p.canonical_smiles) form.smiles = p.canonical_smiles
-  if (p.molecular_formula) form.formula = p.molecular_formula
+  // New enrich format: { chemical: {...}, literature: {...}, protocols: [...] }
+  const chem = data?.chemical || data
+  if (!chem || !chem.properties) return
+  const p = chem.properties
+  if (p.canonical_smiles && !form.smiles) form.smiles = p.canonical_smiles
+  if (p.inchi && !form.inchi) form.inchi = p.inchi
+  if (p.molecular_formula && !form.formula) form.formula = p.molecular_formula
   if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
-  if (data.cas_resolved && !form.cas) form.cas = data.cas_resolved
+  if (chem.cas_resolved && !form.cas) form.cas = chem.cas_resolved
   pubchemEnrichResult.value = { ...data, applied: true }
-  setFeedback('success', 'PubChem properties applied to form')
+  setFeedback('success', 'Chemical properties applied to form')
 }
 
 async function adoptProtocol(protocolData) {
@@ -528,14 +582,14 @@ onMounted(() => {
     </section>
 
     <!-- PubChem Auto-fill Panel -->
-    <section v-if="form.name" class="form-section pubchem-enrich-section">
+    <section v-if="form.name || form.cas || form.smiles || form.inchi" class="form-section pubchem-enrich-section">
       <h3>🔍 Auto-fill from PubChem</h3>
       <div class="word-import-row">
-        <button type="button" class="file-upload-btn" @click="runPubchemEnrich" :disabled="pubchemEnriching || !form.name">
-          {{ pubchemEnriching ? 'Searching PubChem…' : `Look up "${form.name}" in PubChem` }}
+        <button type="button" class="file-upload-btn" @click="runPubchemEnrich" :disabled="pubchemEnriching || (!form.name && !form.cas && !form.smiles && !form.inchi)">
+          {{ pubchemEnriching ? 'Searching PubChem…' : `Look up "${form.name || form.cas || form.smiles || form.inchi}" in PubChem` }}
         </button>
-        <span v-if="pubchemEnrichResult && !pubchemEnrichResult.error && !pubchemEnrichResult.applied" class="word-status word-ok">
-          ✓ Found: CID {{ pubchemEnrichResult.cid }}
+        <span v-if="pubchemEnrichResult && enrichChemical?.found && !pubchemEnrichResult.applied" class="word-status word-ok">
+          ✓ Found: {{ enrichChemical.source === 'chembl' ? 'ChEMBL' : 'PubChem' }} CID {{ enrichChemical.cid }} <template v-if="enrichChemical.fallback_used">(via fragment search)</template>
         </span>
         <span v-else-if="pubchemEnrichResult && pubchemEnrichResult.applied" class="word-status word-ok">
           ✓ Properties applied to form
@@ -543,22 +597,76 @@ onMounted(() => {
         <span v-else-if="pubchemEnrichResult && pubchemEnrichResult.error" class="word-status word-err">
           {{ pubchemEnrichResult.error }}
         </span>
+        <span v-else-if="pubchemEnrichResult && !enrichChemical?.found && !pubchemEnrichResult.error" class="word-status word-warn">
+          ✗ Not found in PubChem or ChEMBL
+        </span>
       </div>
       <!-- Preview -->
-      <div v-if="pubchemEnrichResult && pubchemEnrichResult.properties && !pubchemEnrichResult.applied" class="pubchem-preview">
+      <!-- New enrich format: { chemical: {...}, literature: {...}, protocols: [...] } -->
+      <div v-if="enrichChemical && enrichChemical.found && !pubchemEnrichResult.applied" class="pubchem-preview">
+        <template v-if="enrichChemical.source">
+          <p class="source-badge" :class="'source-' + enrichChemical.source">
+            {{ enrichChemical.source === 'chembl' ? 'ChEMBL' : 'PubChem' }}
+            <template v-if="enrichChemical.search_note"> — {{ enrichChemical.search_note }}</template>
+          </p>
+        </template>
         <table>
-          <tr><td>Resolved Name:</td><td>{{ pubchemEnrichResult.resolved_name || '—' }}</td></tr>
-          <tr><td>CID:</td><td>{{ pubchemEnrichResult.cid }}</td></tr>
-          <tr v-if="pubchemEnrichResult.cas_resolved"><td>CAS:</td><td class="prop-highlight">{{ pubchemEnrichResult.cas_resolved }}</td></tr>
-          <tr v-if="pubchemEnrichResult.properties.canonical_smiles"><td>SMILES:</td><td class="prop-highlight">{{ pubchemEnrichResult.properties.canonical_smiles }}</td></tr>
-          <tr v-if="pubchemEnrichResult.properties.molecular_formula"><td>Formula:</td><td class="prop-highlight">{{ pubchemEnrichResult.properties.molecular_formula }}</td></tr>
-          <tr v-if="pubchemEnrichResult.properties.molecular_weight"><td>MW:</td><td class="prop-highlight">{{ pubchemEnrichResult.properties.molecular_weight }} Da</td></tr>
-          <tr v-if="pubchemEnrichResult.properties.xlogp != null"><td>LogP:</td><td>{{ pubchemEnrichResult.properties.xlogp }}</td></tr>
-          <tr v-if="pubchemEnrichResult.properties.tpsa != null"><td>TPSA:</td><td>{{ pubchemEnrichResult.properties.tpsa }} Å²</td></tr>
+          <tr><td>Resolved Name:</td><td>{{ enrichChemical.resolved_name || '—' }}</td></tr>
+          <tr><td>CID:</td><td>{{ enrichChemical.cid }}</td></tr>
+          <tr v-if="enrichChemical.cas_resolved"><td>CAS:</td><td class="prop-highlight">{{ enrichChemical.cas_resolved }}</td></tr>
+          <tr v-else><td>CAS:</td><td class="prop-missing">— (not indexed)</td></tr>
+          <tr v-if="enrichChemical.properties.canonical_smiles"><td>SMILES:</td><td class="prop-highlight mono-wrap">{{ enrichChemical.properties.canonical_smiles }}</td></tr>
+          <tr v-if="enrichChemical.properties.molecular_formula"><td>Formula:</td><td class="prop-highlight">{{ enrichChemical.properties.molecular_formula }}</td></tr>
+          <tr v-if="enrichChemical.properties.molecular_weight"><td>MW:</td><td class="prop-highlight">{{ enrichChemical.properties.molecular_weight }} Da</td></tr>
+          <tr v-if="enrichChemical.properties.inchi"><td>InChI:</td><td class="mono-wrap">{{ enrichChemical.properties.inchi }}</td></tr>
+          <tr v-if="enrichChemical.properties.inchikey"><td>InChIKey:</td><td class="mono-wrap">{{ enrichChemical.properties.inchikey }}</td></tr>
+          <tr v-if="enrichChemical.properties.iupac_name"><td>IUPAC:</td><td>{{ enrichChemical.properties.iupac_name }}</td></tr>
+          <tr v-if="enrichChemical.properties.xlogp != null"><td>LogP:</td><td>{{ enrichChemical.properties.xlogp }}</td></tr>
+          <tr v-if="enrichChemical.properties.tpsa != null"><td>TPSA:</td><td>{{ enrichChemical.properties.tpsa }} Å²</td></tr>
+          <tr v-if="enrichChemical.properties.exact_mass != null"><td>Exact Mass:</td><td>{{ enrichChemical.properties.exact_mass }}</td></tr>
+          <tr v-if="enrichChemical.properties.h_bond_donor_count != null"><td>HBD:</td><td>{{ enrichChemical.properties.h_bond_donor_count }}</td></tr>
+          <tr v-if="enrichChemical.properties.h_bond_acceptor_count != null"><td>HBA:</td><td>{{ enrichChemical.properties.h_bond_acceptor_count }}</td></tr>
+          <tr v-if="enrichChemical.properties.rotatable_bond_count != null"><td>RotB:</td><td>{{ enrichChemical.properties.rotatable_bond_count }}</td></tr>
         </table>
         <button type="button" class="btn btn-primary btn-sm" style="margin-top:8px" @click="applyPubchemProperties">
           Apply All to Form
         </button>
+      </div>
+      <!-- Literature & Protocols from enrich -->
+      <div v-if="enrichLiterature && enrichLiterature.references?.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
+        <h4 style="margin:0 0 4px 0;font-size:13px">📚 Literature ({{ enrichLiterature.references.length }} references)</h4>
+        <div v-for="(ref, i) in enrichLiterature.references.slice(0, 3)" :key="i" style="font-size:11px;margin-bottom:4px;color:var(--color-text-secondary)">
+          {{ ref.citation?.substring(0, 120) }}{{ ref.citation?.length > 120 ? '...' : '' }}
+        </div>
+      </div>
+      <div v-if="enrichProtocols && enrichProtocols.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
+        <h4 style="margin:0 0 8px 0;font-size:13px">🧪 Protocols ({{ enrichProtocols.length }} found)</h4>
+        <div v-for="(p, i) in enrichProtocols.slice(0, 5)" :key="i" class="protocol-card">
+          <div class="protocol-card-header" @click="toggleProtocolExpand(i)">
+            <span style="font-weight:600;font-size:12px">{{ p.title || 'Untitled' }}</span>
+            <span style="font-size:11px;color:var(--color-text-secondary)">[{{ p.source }}]</span>
+            <span v-if="p.steps?.length" style="font-size:11px;color:var(--color-text-secondary)">{{ p.steps.length }} steps</span>
+            <span style="margin-left:auto;font-size:11px">{{ protocolExpanded[i] ? '▲' : '▼' }}</span>
+          </div>
+          <div v-if="protocolExpanded[i]" class="protocol-card-body">
+            <div v-if="p.abstract" style="font-size:11px;margin-bottom:4px;color:var(--color-text-secondary)">{{ p.abstract.substring(0, 200) }}</div>
+            <div v-if="p.reagents" style="font-size:11px;margin-bottom:4px"><strong>Reagents:</strong><pre style="white-space:pre-wrap;font-size:10px;margin:2px 0">{{ p.reagents.substring(0, 300) }}</pre></div>
+            <div v-if="p.equipment" style="font-size:11px;margin-bottom:4px"><strong>Equipment:</strong><pre style="white-space:pre-wrap;font-size:10px;margin:2px 0">{{ p.equipment.substring(0, 200) }}</pre></div>
+            <div v-if="p.steps?.length" style="font-size:11px;margin-bottom:4px">
+              <strong>Steps:</strong>
+              <div v-for="s in p.steps.slice(0, 10)" :key="s.step_no" style="margin-left:8px;font-size:10px;color:var(--color-text-secondary)">{{ s.step_no }} — {{ s.body.substring(0, 80) }}</div>
+              <div v-if="p.steps.length > 10" style="font-size:10px;color:var(--color-text-secondary)">... and {{ p.steps.length - 10 }} more steps</div>
+            </div>
+            <button
+              type="button"
+              class="btn btn-ghost btn-sm"
+              style="margin-top:4px;font-size:11px"
+              :disabled="protocolImportingId === i"
+              @click="importSingleProtocol(i)"
+            >{{ protocolImportingId === i ? 'Importing...' : '🔽 Import to Knowledge Base' }}</button>
+            <span v-if="protocolImported[i]" style="font-size:11px;color:#059669;margin-left:8px">✓ Imported</span>
+          </div>
+        </div>
       </div>
       <!-- Ambiguous candidates -->
       <div v-if="pubchemEnrichResult && pubchemEnrichResult.candidates?.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview">
@@ -569,7 +677,11 @@ onMounted(() => {
           <span v-if="c.cas">, CAS: {{ c.cas }}</span>
         </div>
       </div>
-      <p class="form-hint">Search PubChem by product name to auto-fill CAS, SMILES, Formula, and Molecular Weight.</p>
+      <!-- Not found guidance -->
+      <div v-if="pubchemEnrichResult && !pubchemEnrichResult.found && !pubchemEnrichResult.error && !pubchemEnriching" class="pubchem-notfound">
+        <p class="form-hint">{{ pubchemEnrichResult.search_hint || 'Not found in PubChem. Try using a CAS number or entering SMILES/FW manually.' }}</p>
+      </div>
+      <p class="form-hint">One-click search across PubChem + ChEMBL + PubMed + BioProCorpus.</p>
     </section>
 
     <form @submit.prevent="saveDraft" class="edit-form">
@@ -624,7 +736,7 @@ onMounted(() => {
             </button>
           </div>
           <div class="chem-preview">
-            <StructureViewer :smiles="form.smiles" />
+            <StructureViewer :smiles="form.smiles" :pubchem-cid="pubchemEnrichResult?.found ? pubchemEnrichResult.cid : null" />
           </div>
         </div>
         <!-- AI Tools Panel -->
@@ -904,6 +1016,7 @@ onMounted(() => {
 .word-status { font-size: 13px; }
 .word-ok { color: #176b3a; font-weight: 500; }
 .word-err { color: #dc3545; }
+.word-warn { color: #856404; font-weight: 500; }
 
 /* PubChem Enrich */
 .pubchem-enrich-section { background: var(--color-bg); border-style: dashed; }
@@ -912,8 +1025,23 @@ onMounted(() => {
 .pubchem-preview td { padding: 4px 8px; border-bottom: 1px solid #dcfce7; font-size: 12px; }
 .pubchem-preview td:first-child { color: var(--color-text-secondary); width: 120px; }
 .prop-highlight { color: #059669; font-weight: 600; font-family: var(--font-mono); }
+.prop-missing { color: var(--color-text-secondary); font-style: italic; }
+.mono-wrap { font-family: var(--font-mono); font-size: 11px; word-break: break-all; }
 .candidate-item { padding: 6px 8px; margin: 4px 0; background: #fff; border: 1px solid var(--color-border); border-radius: 6px; }
 .candidate-item span { font-size: 11px; color: var(--color-text-secondary); margin-left: 8px; }
+.source-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-bottom: 6px; }
+.source-pubchem { background: #dbeafe; color: #1e40af; }
+.source-chembl { background: #fef3c7; color: #92400e; }
+.pubchem-notfound { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
+.pubchem-notfound .form-hint { margin-top: 0; color: #92400e; }
+
+/* Protocol cards */
+.protocol-card { border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 6px; overflow: hidden; }
+.protocol-card-header { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: #f8fafc; cursor: pointer; user-select: none; }
+.protocol-card-header:hover { background: #f1f5f9; }
+.protocol-card-body { padding: 8px 10px; font-size: 11px; max-height: 400px; overflow-y: auto; }
+.protocol-card-body pre { font-family: var(--font-mono); background: #f8fafc; padding: 4px 8px; border-radius: 4px; }
+
 
 /* SKU table */
 .sku-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }

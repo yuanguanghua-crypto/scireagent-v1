@@ -402,3 +402,175 @@ class UnsavedProductAIViewsTest(TestCase):
             {"name": "X"}, format="json"
         )
         self.assertEqual(resp.status_code, 403)
+
+
+class ProductEnrichAPITest(TestCase):
+    """一站式 enrich 端点测试 — POST /api/v1/products/enrich/"""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_superuser(
+            username="admin_enrich", password="pass123", email="ae@test.com"
+        )
+        self.client.force_authenticate(user=self.admin)
+
+    @patch("apps.commerce.services.validators.pubchem_enhancer.PubChemEnhancer.resolve_to_properties")
+    @patch("apps.knowledge.services.literature_recommender.LiteratureRecommender.recommend")
+    @patch("apps.knowledge.services.protocol_recommender.ProtocolRecommender.recommend")
+    def test_enrich_returns_all_sections(self, mock_proto, mock_lit, mock_chem):
+        """一站式 enrich 返回 chemical + literature + protocols"""
+        mock_chem.return_value = {
+            "source": "pubchem", "found": True, "cid": 2244,
+            "properties": {
+                "canonical_smiles": "CC(=O)OC1=CC=CC=C1C(=O)O",
+                "molecular_formula": "C9H8O4",
+                "molecular_weight": 180.16,
+            },
+            "cas_resolved": "50-78-2",
+            "candidates": [],
+        }
+        mock_lit.return_value = {
+            "applications": ["imaging"], "methods": ["pcr"],
+            "references": [], "protocols": [],
+            "matched_apps": [], "matched_methods": [],
+            "unmatched_app_keywords": [], "unmatched_method_keywords": [],
+        }
+        mock_proto.return_value = [
+            {"protocol": {"title": "Aspirin synthesis", "source": "Bio-protocol"}},
+        ]
+
+        resp = self.client.post(
+            "/api/v1/products/enrich/",
+            {"product_name": "Aspirin"}, format="json"
+        )
+        data = resp.json()
+        self.assertTrue(data["success"])
+        result = data["data"]
+
+        # Chemical
+        self.assertIn("chemical", result)
+        self.assertTrue(result["chemical"]["found"])
+        self.assertEqual(result["chemical"]["cid"], 2244)
+
+        # Literature
+        self.assertIn("literature", result)
+        self.assertIn("applications", result["literature"])
+
+        # Protocols
+        self.assertIn("protocols", result)
+        self.assertEqual(len(result["protocols"]), 1)
+
+    def test_enrich_empty_name_returns_graceful(self):
+        """空 product_name 不报错，返回空结果"""
+        resp = self.client.post(
+            "/api/v1/products/enrich/",
+            {"product_name": ""}, format="json"
+        )
+        data = resp.json()
+        self.assertTrue(data["success"])
+        result = data["data"]
+        self.assertFalse(result["chemical"].get("found", False))
+        self.assertEqual(result["literature"]["references"], [])
+        self.assertEqual(result["protocols"], [])
+
+    def test_enrich_requires_auth(self):
+        """enrich 端点需要认证"""
+        self.client.force_authenticate(user=None)  # remove auth
+        resp = self.client.post(
+            "/api/v1/products/enrich/",
+            {"product_name": "Aspirin"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 401)
+
+    @patch("apps.commerce.services.validators.pubchem_enhancer.PubChemEnhancer.resolve_to_properties")
+    @patch("apps.knowledge.services.literature_recommender.LiteratureRecommender.recommend")
+    @patch("apps.knowledge.services.protocol_recommender.ProtocolRecommender.recommend")
+    def test_enrich_cas_searching(self, mock_proto, mock_lit, mock_chem):
+        """传 CAS 时用 CAS 搜索（更精确）"""
+        mock_chem.return_value = {
+            "source": "pubchem", "found": True, "cid": 2244,
+            "properties": {"molecular_formula": "C9H8O4", "molecular_weight": 180.16},
+            "cas_resolved": "50-78-2", "candidates": [],
+        }
+        mock_lit.return_value = {
+            "applications": [], "methods": [], "references": [], "protocols": [],
+            "matched_apps": [], "matched_methods": [],
+            "unmatched_app_keywords": [], "unmatched_method_keywords": [],
+        }
+        mock_proto.return_value = []
+
+        resp = self.client.post(
+            "/api/v1/products/enrich/",
+            {"product_name": "Aspirin", "cas": "50-78-2"}, format="json"
+        )
+        data = resp.json()
+        self.assertTrue(data["success"])
+
+        # CAS 应作为 primary identifier 传给 resolve_to_properties
+        call_args = mock_chem.call_args
+        self.assertEqual(call_args[0][0], "50-78-2")
+
+
+class ProductImportProtocolAPITest(TestCase):
+    """POST /api/v1/products/import-protocol/ 测试"""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.admin = User.objects.create_superuser(
+            username="admin_import_p", password="pass123", email="aip@test.com"
+        )
+        self.client.force_authenticate(user=self.admin)
+
+    def test_import_protocol_creates_method_and_protocol(self):
+        """导入协议 → 创建 Method + Protocol + Steps"""
+        payload = {
+            "method_name": "CuAAC Click Chemistry",
+            "protocol_title": "CuAAC RNA Fluorescent Labeling Protocol",
+            "protocol_url": "https://doi.org/10.21769/BioProtoc.9999",
+            "objective": "Label RNA with fluorescent dyes using CuAAC click chemistry.",
+            "reagents": "1. CuSO4 (Sigma, C8027)\n2. Ascorbic acid (Sigma, A5960)",
+            "equipment": "1. Thermocycler\n2. Fluorescence Microscope",
+            "steps": [
+                {"step_no": "1.1", "title": "Preparation", "body": "Prepare reaction mix."},
+                {"step_no": "1.2", "title": "Incubation", "body": "Incubate at 37C for 30 min."},
+            ],
+        }
+        resp = self.client.post(
+            "/api/v1/products/import-protocol/",
+            payload, format="json"
+        )
+        data = resp.json()
+        self.assertTrue(data["success"], f"Import failed: {data}")
+        result = data["data"]
+        self.assertIsNotNone(result["method_id"])
+        self.assertIsNotNone(result["protocol_id"])
+        self.assertEqual(result["step_count"], 2)
+
+    def test_import_protocol_idempotent(self):
+        """同一 DOI 导入两次 → 不重复创建 Protocol"""
+        payload = {
+            "protocol_title": "Idempotent Test Protocol",
+            "protocol_url": "https://doi.org/10.21769/Test.unique123",
+            "steps": [{"step_no": "1", "title": "Step 1", "body": "Do something."}],
+        }
+        resp1 = self.client.post("/api/v1/products/import-protocol/", payload, format="json")
+        resp2 = self.client.post("/api/v1/products/import-protocol/", payload, format="json")
+        self.assertEqual(resp1.json()["data"]["protocol_id"], resp2.json()["data"]["protocol_id"])
+
+    def test_import_protocol_requires_auth(self):
+        """import-protocol 需要认证"""
+        self.client.force_authenticate(user=None)
+        resp = self.client.post(
+            "/api/v1/products/import-protocol/",
+            {"protocol_title": "Test"}, format="json"
+        )
+        self.assertEqual(resp.status_code, 401)
+
+    def test_import_protocol_no_title_returns_error(self):
+        """缺 protocol_title → error"""
+        resp = self.client.post(
+            "/api/v1/products/import-protocol/",
+            {"steps": []}, format="json"
+        )
+        data = resp.json()
+        self.assertFalse(data["success"])

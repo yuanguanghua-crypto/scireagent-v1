@@ -12,6 +12,7 @@ from apps.commerce.api.v1.ai_views import (
     ProductRecommendLiteratureView, BatchValidateView,
     BatchRecommendLiteratureView, PubChemEnrichView,
     ValidateUnsavedView, RecommendProtocolsUnsavedView, RecommendLiteratureUnsavedView,
+    ProductEnrichView, ProductRenderStructureView, ProductImportProtocolView,
 )
 from apps.commerce.api.v1.word_views import WordParseView
 
@@ -40,5 +41,8 @@ urlpatterns = [
     # Word import / AI tool endpoints
     path('products/parse-word/', WordParseView.as_view(), name='product-parse-word'),
     path('products/enrich-from-pubchem/', PubChemEnrichView.as_view(), name='product-enrich-pubchem'),
+    path('products/enrich/', ProductEnrichView.as_view(), name='product-enrich'),
+    path('products/render-structure/', ProductRenderStructureView.as_view(), name='product-render-structure'),
+    path('products/import-protocol/', ProductImportProtocolView.as_view(), name='product-import-protocol'),
     path('', include(router.urls)),
 ]

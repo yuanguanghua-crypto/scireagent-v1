@@ -174,6 +174,9 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
 
     从 PubChem 自动解析产品的化学属性（CAS/SMILES/Formula/MW 等）。
     用于产品编辑页的"自动补全"功能和产品列表页的"批量补全"。
+
+    identifier 优先级: CAS > name > SMILES > InChI > InChIKey > Formula
+    有任一可用标识符即尝试查询。
     """
     permission_classes = [IsAdminUser]
 
@@ -184,6 +187,8 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
         product_ids = request.data.get("product_ids", []) if request.data else None
         product_name = request.data.get("product_name", "") if request.data else ""
         cas = request.data.get("cas", "") if request.data else ""
+        smiles = request.data.get("smiles", "") if request.data else ""
+        inchi = request.data.get("inchi", "") if request.data else ""
 
         # ── 批量模式 ──
         if product_ids:
@@ -211,21 +216,326 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
                 })
             return self.success_response(results)
 
-        # ── 单产品模式 ──
+        # ── 单产品模式 — 优先级: CAS > name > SMILES > InChI ──
+        identifier = None
+        namespace = 'name'
+
         if cas and cas.strip():
             identifier = cas.strip()
+            namespace = 'name'  # CAS 作为 name 搜索
         elif product_name and product_name.strip():
             identifier = product_name.strip()
-        else:
-            return self.error_response('product_name or cas is required')
+            namespace = 'name'
+        elif smiles and smiles.strip():
+            identifier = smiles.strip()
+            namespace = 'smiles'
+        elif inchi and inchi.strip():
+            identifier = inchi.strip()
+            namespace = 'inchi'
 
-        enriched = enhancer.resolve_to_properties(identifier)
+        if not identifier:
+            return self.error_response(
+                'At least one identifier is required: product_name, cas, smiles, or inchi'
+            )
 
-        # 如果按 CAS 查出了属性但没有 CAS 号（测试场景），补充一程用产品名
-        if cas and cas.strip() and not enriched.get('found'):
-            enriched = enhancer.resolve_to_properties(product_name.strip())
+        enriched = enhancer.resolve_to_properties(identifier, namespace=namespace)
+
+        # 降级策略：当前 identifier 搜不到时，依次尝试其他可用字段
+        fallbacks = []
+        if not enriched.get('found'):
+            if namespace != 'name' and product_name and product_name.strip():
+                fallbacks.append(('name', product_name.strip()))
+            if cas and cas.strip() and namespace != 'name':
+                fallbacks.append(('name', cas.strip()))
+            if smiles and smiles.strip() and namespace != 'smiles':
+                fallbacks.append(('smiles', smiles.strip()))
+            if inchi and inchi.strip() and namespace != 'inchi':
+                fallbacks.append(('inchi', inchi.strip()))
+            if namespace != 'name' and product_name and not product_name.strip() and cas and cas.strip():
+                pass  # CAS already handled
+
+            for fb_ns, fb_id in fallbacks:
+                enriched = enhancer.resolve_to_properties(fb_id, namespace=fb_ns)
+                if enriched.get('found'):
+                    break
 
         return self.success_response(enriched)
+
+
+# ── One-stop Enrich View ─────────────────────────────────────────────────
+
+class ProductEnrichView(EnvelopeMixin, APIView):
+    """POST /api/v1/products/enrich/
+
+    一站式 enrich：一次调用返回化学属性 + 文献推荐 + 协议推荐。
+    用于产品编辑页的"一键补全"按钮，研究员无需分三次调用。
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        from apps.commerce.services.validators.pubchem_enhancer import PubChemEnhancer
+
+        enhancer = PubChemEnhancer()
+        product_name = (request.data.get("product_name") or "").strip()
+        cas = (request.data.get("cas") or "").strip()
+        smiles = (request.data.get("smiles") or "").strip()
+        inchi = (request.data.get("inchi") or "").strip()
+
+        # ── 化学属性（复用已有 enrich 逻辑）──
+        chemical = {"found": False, "properties": {}, "source": ""}
+
+        # 优先级: CAS > name > SMILES > InChI
+        identifier = None
+        namespace = "name"
+        if cas:
+            identifier = cas
+        elif product_name:
+            identifier = product_name
+        elif smiles:
+            identifier = smiles
+            namespace = "smiles"
+        elif inchi:
+            identifier = inchi
+            namespace = "inchi"
+
+        if identifier:
+            chemical = enhancer.resolve_to_properties(identifier, namespace=namespace)
+
+            # CAS 搜不到时用 name 降级
+            if not chemical.get("found") and cas and product_name:
+                chemical = enhancer.resolve_to_properties(product_name, "name")
+
+        # ── 文献推荐 ──
+        literature = {"applications": [], "methods": [], "references": [], "protocols": [],
+                      "matched_apps": [], "matched_methods": [], "unmatched_app_keywords": [],
+                      "unmatched_method_keywords": []}
+        try:
+            from apps.knowledge.services.literature_recommender import LiteratureRecommender
+            lit_recommender = LiteratureRecommender()
+            lit_name = product_name or identifier or ""
+            if lit_name:
+                literature = lit_recommender.recommend(lit_name, top_k=5) or literature
+        except Exception as e:
+            logger.warning(f"Literature recommender failed: {e}")
+
+        # ── 协议推荐 ──
+        protocols = []
+        try:
+            from apps.knowledge.services.protocol_recommender import ProtocolRecommender
+            proto_recommender = ProtocolRecommender()
+            search_name = product_name or identifier or ""
+            if search_name:
+                results = proto_recommender.retriever.search(search_name, top_k=5, include_content=True)
+                for r in results:
+                    protocols.append({
+                        "id": r["id"],
+                        "source": r["source"],
+                        "title": r["title"],
+                        "abstract": r.get("abstract", ""),
+                        "url": r.get("url", ""),
+                        "score": r["score"],
+                        "reagents": r.get("reagents", ""),
+                        "equipment": r.get("equipment", ""),
+                        "materials": r.get("materials", ""),
+                        "steps": r.get("steps", []),
+                        "method_hint": r.get("method_hint", ""),
+                    })
+        except Exception as e:
+            logger.warning(f"Protocol recommender failed: {e}")
+
+        return self.success_response({
+            "chemical": chemical,
+            "literature": literature,
+            "protocols": protocols,
+        })
+
+
+# ── Protocol Import ──────────────────────────────────────────────────────────
+
+class ProductImportProtocolView(EnvelopeMixin, APIView):
+    """POST /api/v1/products/import-protocol/
+
+    从 BioProCorpus 富协议内容创建 DB Protocol + ProtocolStep 并关联到产品。
+    幂等：同一 DOI (slug) 不重复创建。
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        from apps.knowledge.models import Method, Protocol, ProtocolStep
+        from apps.bridges.models import ProductMethod
+        from apps.commerce.models import Product
+        from django.utils.text import slugify
+
+        method_name = (request.data.get("method_name") or "").strip()
+        protocol_title = (request.data.get("protocol_title") or "").strip()
+        protocol_url = (request.data.get("protocol_url") or "").strip()
+        objective = (request.data.get("objective") or "").strip()
+        reagents = (request.data.get("reagents") or "").strip()
+        equipment = (request.data.get("equipment") or "").strip()
+        materials = (request.data.get("materials") or "").strip()
+        steps = request.data.get("steps") or []
+        method_ids = request.data.get("method_ids") or []
+
+        if not protocol_title:
+            return self.error_response("protocol_title is required")
+
+        # 1. Find or create Method (fuzzy matching)
+        method = None
+        from django.db import models as db_models
+
+        if method_name:
+            # Try exact match first
+            method = Method.objects.filter(name__iexact=method_name.strip()).first()
+        if not method:
+            # Fuzzy: match by title keywords against existing Methods
+            title_lower = (method_name or protocol_title).lower()
+            keywords = set(title_lower.split())
+            # Filter stop words
+            stop = {'of', 'in', 'for', 'and', 'the', 'a', 'an', 'with', 'using', 'by', 'to', 'via'}
+            keywords = {k for k in keywords if len(k) > 2 and k not in stop}
+
+            existing_methods = list(Method.objects.all().values('id', 'name', 'slug'))
+            best_match = None
+            best_count = 0
+            for m in existing_methods:
+                m_lower = m['name'].lower()
+                count = sum(1 for kw in keywords if kw in m_lower)
+                if count > best_count:
+                    best_count = count
+                    best_match = m
+
+            if best_match and best_count >= 2:
+                method = Method.objects.get(pk=best_match['id'])
+
+        if not method:
+            # Create a new Method — use method_name if provided, else first 50 chars of title
+            new_method_name = method_name or protocol_title[:50].strip()
+            # Ensure uniqueness
+            base_slug = slugify(new_method_name)
+            slug_orig = base_slug
+            counter = 1
+            while Method.objects.filter(slug=base_slug).exists():
+                base_slug = f"{slug_orig}-{counter}"
+                counter += 1
+            # Attach to first available Application
+            from apps.knowledge.models import Application, ResearchGoal
+            app = Application.objects.first()
+            if not app:
+                # Auto-create default ResearchGoal + Application
+                rg, _ = ResearchGoal.objects.get_or_create(
+                    name="Research Applications",
+                    defaults={"summary": "Auto-created for protocol import", "status": "active"}
+                )
+                app = Application.objects.create(
+                    name="Research Application",
+                    slug="research-application",
+                    summary="Auto-created for protocol import",
+                    status='active',
+                    research_goal=rg,
+                )
+            method = Method.objects.create(
+                name=new_method_name,
+                slug=base_slug,
+                application=app,
+                summary=objective[:500] if objective else protocol_title,
+                status='active',
+            )
+
+        # 2. Create Protocol (idempotent by slug = DOI or title)
+        protocol_slug = protocol_url.split("/")[-1] if protocol_url else slugify(protocol_title)
+        # Reuse existing if same slug & method
+        existing = Protocol.objects.filter(slug=protocol_slug, method=method).first()
+        if existing:
+            protocol = existing
+            # update content
+            if objective:
+                protocol.objective = objective
+            if reagents:
+                protocol.reagents = reagents
+            if equipment:
+                protocol.equipment = equipment
+            if materials:
+                protocol.materials = materials
+            protocol.save()
+        else:
+            protocol = Protocol.objects.create(
+                method=method,
+                name=protocol_title,
+                slug=protocol_slug,
+                objective=objective,
+                reagents=reagents,
+                equipment=equipment,
+                materials=materials,
+                references=protocol_url,  # store DOI/URL as reference
+                status='published',
+            )
+
+        # 3. Create ProtocolStep (bulk, clear old steps first)
+        if steps:
+            ProtocolStep.objects.filter(protocol=protocol).delete()
+            step_objs = []
+            for i, s in enumerate(steps):
+                step_objs.append(ProtocolStep(
+                    protocol=protocol,
+                    step_no=i + 1,
+                    title=s.get("title", "")[:255],
+                    body=s.get("body", ""),
+                    required_materials=s.get("body", "")[:500],
+                ))
+            ProtocolStep.objects.bulk_create(step_objs)
+
+        # 4. Link Method to product if method_ids provided
+        if method_ids:
+            for pid in method_ids:
+                try:
+                    product = Product.objects.get(pk=pid)
+                    ProductMethod.objects.get_or_create(
+                        product=product,
+                        method=method,
+                    )
+                except Product.DoesNotExist:
+                    pass
+
+        return self.success_response({
+            "method_id": method.id,
+            "method_name": method.name,
+            "protocol_id": protocol.id,
+            "protocol_slug": protocol.slug,
+            "step_count": len(steps),
+        })
+
+
+# ── RDKit Structure Render ─────────────────────────────────────────────────
+
+class ProductRenderStructureView(EnvelopeMixin, APIView):
+    """POST /api/v1/products/render-structure/
+
+    用 RDKit 将 SMILES 渲染为出版级 SVG 结构图。
+    """
+    permission_classes = [IsAdminUser]
+
+    def post(self, request):
+        from apps.commerce.services.validators.rdkit_renderer import RDKitRenderer
+
+        smiles = (request.data.get("smiles") or "").strip()
+        if not smiles:
+            return self.error_response("smiles is required")
+
+        renderer = RDKitRenderer()
+        svg = renderer.render_svg(
+            smiles,
+            width=int(request.data.get("width", 500)),
+            height=int(request.data.get("height", 400)),
+        )
+
+        if not svg:
+            return self.error_response("Failed to render structure — invalid SMILES")
+
+        # Also return canonical SMILES for the front-end
+        validated = RDKitRenderer.validate_smiles(smiles)
+        canonical = validated.get("canonical", "") if validated.get("valid") else ""
+
+        return self.success_response({"svg": svg, "format": "svg", "canonical_smiles": canonical})
 
 
 # ── Unsaved-product Views (新建页无 productId 时使用) ────────────────

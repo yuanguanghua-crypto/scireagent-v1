@@ -46,15 +46,71 @@ export function batchRecommendLiterature(productIds) {
   return http.post('/products/batch-recommend-literature/', { product_ids: productIds })
 }
 
-/** Enrich product chemical properties from PubChem by name/CAS. */
-export function enrichFromPubchem(productName, cas = null) {
+/** Enrich product chemical properties from PubChem.
+
+ * Passes all available identifiers — backend picks the best one.
+ * Priority: CAS > name > SMILES > InChI
+ */
+export function enrichFromPubchem({ name, cas, smiles, inchi } = {}) {
   return http.post('/products/enrich-from-pubchem/', {
-    product_name: productName,
-    cas: cas,
+    product_name: name || '',
+    cas: cas || '',
+    smiles: smiles || '',
+    inchi: inchi || '',
   })
 }
 
 /** Batch enrich multiple products from PubChem. */
 export function batchEnrichFromPubchem(productIds) {
   return http.post('/products/enrich-from-pubchem/', { product_ids: productIds })
+}
+
+/** One-stop enrich: chemical + literature + protocols in one call.
+
+ * POST /api/v1/products/enrich/
+ * Returns { chemical, literature, protocols }
+ */
+export function enrichProduct({ name, cas, smiles, inchi } = {}) {
+  return http.post('/products/enrich/', {
+    product_name: name || '',
+    cas: cas || '',
+    smiles: smiles || '',
+    inchi: inchi || '',
+  })
+}
+
+/** Import a BioProCorpus protocol into knowledge base.
+
+ * POST /api/v1/products/import-protocol/
+ * Returns { method_id, protocol_id, step_count }
+ */
+export function importProtocol({
+  method_name, protocol_title, protocol_url,
+  objective, reagents, equipment, materials,
+  steps, method_ids,
+} = {}) {
+  return http.post('/products/import-protocol/', {
+    method_name: method_name || '',
+    protocol_title: protocol_title || '',
+    protocol_url: protocol_url || '',
+    objective: objective || '',
+    reagents: reagents || '',
+    equipment: equipment || '',
+    materials: materials || '',
+    steps: steps || [],
+    method_ids: method_ids || [],
+  })
+}
+
+/** Render SMILES to publication-quality SVG via RDKit backend.
+
+ * POST /api/v1/products/render-structure/
+ * Returns { svg, format, canonical_smiles }
+ */
+export function renderStructure(smiles, width = 500, height = 400) {
+  return http.post('/products/render-structure/', {
+    smiles: smiles || '',
+    width,
+    height,
+  })
 }

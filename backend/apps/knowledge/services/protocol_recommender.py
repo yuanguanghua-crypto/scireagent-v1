@@ -43,6 +43,10 @@ class BioProCorpusIndexer:
                             "source": source_name,
                             "text": item.get("input", ""),
                             "keywords": item.get("keywords", ""),
+                            "abstract": item.get("abstract", ""),
+                            "url": item.get("url", ""),
+                            "hierarchical_protocol": item.get("hierarchical_protocol", {}),
+                            "method": item.get("method", ""),
                         })
             except Exception as e:
                 logger.warning(f"Failed to index {fpath}: {e}")
@@ -80,8 +84,12 @@ class ProtocolRetriever:
             except Exception as e:
                 logger.warning(f"Auto-build index failed: {e}")
 
-    def search(self, query: str, top_k: int = 5) -> list:
-        """按关键词检索匹配的协议，按相关度降序"""
+    def search(self, query: str, top_k: int = 5, include_content: bool = False) -> list:
+        """按关键词检索匹配的协议，按相关度降序。
+
+        Args:
+            include_content: 是否返回试剂/设备/步骤等富内容
+        """
         if not query or self.indexer.size() == 0:
             return []
 
@@ -92,16 +100,98 @@ class ProtocolRetriever:
         for entry in self.indexer.get_entries():
             score = self._compute_relevance(entry, query_lower, terms)
             if score > 0:
-                scored.append({
+                result = {
                     "id": entry["id"],
                     "title": entry["title"],
                     "source": entry["source"],
                     "score": score,
                     "text_snippet": entry["text"][:200] if entry["text"] else "",
-                })
+                }
+                if include_content:
+                    result["abstract"] = entry.get("abstract", "")
+                    result["url"] = entry.get("url", "")
+                    # 扩展章节匹配: 试剂/溶液/配方/材料 的各种命名模式
+                    result["reagents"] = self._extract_section(entry.get("text", ""), "Reagents")
+                    result["equipment"] = self._extract_section(entry.get("text", ""), "Equipment")
+                    result["materials"] = self._extract_section(entry.get("text", ""), "Biological materials")
+                    # 额外提取 solutions/recipes（很多 Bio-protocol 协议试剂列在这些章节下）
+                    if not result["reagents"]:
+                        result["reagents"] = self._extract_section(entry.get("text", ""), "Solutions")
+                    if not result["reagents"]:
+                        result["reagents"] = self._extract_section(entry.get("text", ""), "Recipes")
+                    if not result["materials"]:
+                        result["materials"] = self._extract_section(entry.get("text", ""), "Materials")
+                    if not result["materials"]:
+                        result["materials"] = self._extract_section(entry.get("text", ""), "Laboratory supplies")
+                    result["steps"] = self._extract_steps(entry.get("hierarchical_protocol", {}))
+                    result["method_hint"] = entry.get("method", "")
+                scored.append(result)
 
         scored.sort(key=lambda x: x["score"], reverse=True)
         return scored[:top_k]
+
+    @staticmethod
+    def _extract_section(input_text: str, section_name: str) -> str:
+        """从 BioProCorpus 的 input Markdown 文本中按章节标题提取内容。
+
+        支持 # Reagents、# Equipment、# Biological materials 等章节。
+        """
+        if not input_text:
+            return ""
+        import re as regex
+        # Match both "# Reagent" and "# Reagents" (Bio-protocol uses # Reagents plural only)
+        # Multiple patterns for different section naming conventions
+        patterns = [
+            rf'#\s*{regex.escape(section_name)}s?\s*\n(.*?)(?=\n#\s|\Z)',  # "Reagents" or "Reagent"
+            rf'#\s*{regex.escape(section_name)}.*?\n(.*?)(?=\n#\s|\Z)',   # looser match
+        ]
+        for pattern in patterns:
+            match = regex.search(pattern, input_text, regex.DOTALL)
+            if match:
+                content = match.group(1).strip()
+                # 清理 LaTeX 残留和换行标记
+                content = regex.sub(r'\\begin\{array.*?\\end\{array\}', '', content, flags=regex.DOTALL)
+                content = regex.sub(r'eginarrayr?\{[^}]*\}', '', content)
+                content = regex.sub(r'endarray', '', content)
+                return content
+        return ""
+
+    @staticmethod
+    def _extract_steps(hierarchical: dict) -> list:
+        """从 hierarchical_protocol 提取层级步骤列表。
+
+        Input:
+            {"1": {"title": "..."}, "1.1": "step body", "1.2": "step body", "2": {"title": "..."}, ...}
+
+        Returns:
+            [{"step_no": "1.1", "title": "...", "body": "step body"}, ...]
+        """
+        if not hierarchical:
+            return []
+
+        steps = []
+        # 先收集 section titles
+        section_titles = {}
+        for key, val in hierarchical.items():
+            if isinstance(val, dict) and "title" in val:
+                section_titles[key] = val["title"]
+
+        for key, val in hierarchical.items():
+            if "." not in key:
+                continue  # skip section headers, keep only leaf steps
+            title = ""
+            # 找最近的父级标题
+            parts = key.rsplit(".", 1)
+            if parts[0] in section_titles:
+                title = section_titles[parts[0]]
+            if isinstance(val, str):
+                steps.append({
+                    "step_no": key,
+                    "title": title,
+                    "body": val.strip(),
+                })
+
+        return steps
 
     def _compute_relevance(self, entry: dict, query_lower: str, terms: set) -> float:
         """计算协议与查询的相关度分数"""

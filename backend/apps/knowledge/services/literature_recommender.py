@@ -20,13 +20,28 @@ class LiteratureRecommender:
         self.pubmed = pubmed_client or PubMedClient()
 
     def recommend(self, product, top_k: int = 5) -> dict:
-        """为产品推荐文献驱动的知识链"""
-        if not product.name:
-            return {"applications": [], "methods": [], "references": [], "protocols": []}
+        """为产品推荐文献驱动的知识链。
+        product 可以是一个 Django Product 实例，也可以是一个字符串（产品名）。
+        """
+        if isinstance(product, str):
+            name = product
+            cas = None
+        elif product is None:
+            name = ""
+            cas = None
+        else:
+            name = getattr(product, 'name', '')
+            cas = getattr(product, 'cas', None)
+        if not name:
+            return {
+                "applications": [], "methods": [], "references": [], "protocols": [],
+                "matched_apps": [], "matched_methods": [],
+                "unmatched_app_keywords": [], "unmatched_method_keywords": [],
+            }
 
         literature = self.pubmed.search_by_product(
-            product_name=product.name,
-            cas=product.cas if product.cas else None,
+            product_name=name,
+            cas=cas,
             max_results=top_k,
         )
 
