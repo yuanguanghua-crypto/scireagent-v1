@@ -3,7 +3,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/http'
-import AiToolsPanel from '@/views/admin/components/AiToolsPanel.vue'
+
 import StructureViewer from './components/StructureViewer.vue'
 
 const route = useRoute()
@@ -25,7 +25,7 @@ const publishedButIncomplete = ref(false)  // 2.11 — 已发布但不够完整
 const wordImporting = ref(false)
 const wordFile = ref(null)
 const wordResult = ref(null)
-const showAiPanel = ref(false)
+
 
 // ── Knowledge inline editor ─────────────────
 const showInlineEditor = ref(false)
@@ -385,6 +385,16 @@ async function importSingleProtocol(idx) {
 const enrichChemical = computed(() => pubchemEnrichResult.value?.chemical || pubchemEnrichResult.value)
 const enrichLiterature = computed(() => pubchemEnrichResult.value?.literature || null)
 const enrichProtocols = computed(() => pubchemEnrichResult.value?.protocols || null)
+// Knowledge chain match computed (from literature data)
+const enrichMatchedMethods = computed(() => enrichLiterature.value?.matched_methods || [])
+const enrichMatchedApps = computed(() => enrichLiterature.value?.matched_apps || [])
+const enrichUnmatchedKeywords = computed(() => [
+  ...(enrichLiterature.value?.unmatched_method_keywords || []),
+  ...(enrichLiterature.value?.unmatched_app_keywords || []),
+])
+const hasKnowledgeMatches = computed(() =>
+  enrichMatchedMethods.value.length > 0 || enrichMatchedApps.value.length > 0 || enrichUnmatchedKeywords.value.length > 0
+)
 
 async function runPubchemEnrich() {
   const ids = {
@@ -404,6 +414,96 @@ async function runPubchemEnrich() {
   } finally {
     pubchemEnriching.value = false
   }
+}
+
+// Link all methods under an Application (cascade from knowledge chain)
+async function linkAppMethods(appData) {
+  const aId = appData.id
+  if (!aId) return
+  try {
+    const resp = await http.get(`/applications/${aId}/`)
+    const methods = resp.data?.methods || []
+    let added = 0
+    for (const m of methods) {
+      if (!methodIds.value.includes(m.id)) {
+        methodIds.value.push(m.id)
+        added++
+      }
+    }
+    setFeedback('success', `Linked Application: ${appData.name} (+${added} methods)`)
+  } catch {
+    setFeedback('error', 'Failed to link application')
+  }
+}
+
+// Lipinski badge class helper
+function lipinskiClass(val) {
+  if (val === true) return 'lipinski-ok'
+  if (val === false) return 'lipinski-ng'
+  return 'lipinski-unknown'
+}
+
+// Apply All: chemical properties + knowledge links + protocols
+function applyAllEnrichResults() {
+  const data = pubchemEnrichResult.value
+  if (!data) return
+  const chem = data?.chemical || data
+
+  // 1. Chemical properties
+  if (chem?.properties) {
+    const p = chem.properties
+    if (p.canonical_smiles && !form.smiles) form.smiles = p.canonical_smiles
+    if (p.inchi && !form.inchi) form.inchi = p.inchi
+    if (p.molecular_formula && !form.formula) form.formula = p.molecular_formula
+    if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
+    if (chem.cas_resolved && !form.cas) form.cas = chem.cas_resolved
+  }
+
+  // 2. Knowledge chain — matched methods
+  const matchedMethods = enrichMatchedMethods.value
+  let methodCount = 0
+  for (const mm of matchedMethods) {
+    for (const m of mm.matches) {
+      if (!methodIds.value.includes(m.id)) {
+        methodIds.value.push(m.id)
+        methodCount++
+      }
+    }
+  }
+
+  // 3. Knowledge chain — matched apps (cascade to their methods)
+  const matchedApps = enrichMatchedApps.value
+  let appCount = 0
+  for (const ma of matchedApps) {
+    for (const a of ma.matches) {
+      appCount++
+      // Synchronously add app's methods via knowledgeList
+      const appMethods = knowledgeList.value.methods.filter(m => m.application_id === a.id)
+      for (const m of appMethods) {
+        if (!methodIds.value.includes(m.id)) {
+          methodIds.value.push(m.id)
+          methodCount++
+        }
+      }
+    }
+  }
+
+  // 4. Protocols — only link protocols with numeric DB IDs (not BioProCorpus search results)
+  let protoCount = 0
+  const protos = enrichProtocols.value || []
+  for (const p of protos) {
+    if (Number.isInteger(p.id) && !protocolIds.value.includes(p.id)) {
+      protocolIds.value.push(p.id)
+      protoCount++
+    }
+  }
+
+  pubchemEnrichResult.value = { ...data, applied: true }
+  const parts = []
+  if (chem?.found) parts.push('properties')
+  if (methodCount) parts.push(`${methodCount} methods`)
+  if (protoCount) parts.push(`${protoCount} protocols`)
+  setFeedback('success', `Applied: ${parts.join(', ')}`)
 }
 
 function applyPubchemProperties() {
@@ -581,18 +681,21 @@ onMounted(() => {
       <p class="form-hint">Upload a .docx product specification to pre-fill the form. All pre-filled values must be reviewed before publishing.</p>
     </section>
 
-    <!-- PubChem Auto-fill Panel -->
+    <!-- AI AUTO MATCH Panel -->
     <section v-if="form.name || form.cas || form.smiles || form.inchi" class="form-section pubchem-enrich-section">
-      <h3>🔍 Auto-fill from PubChem</h3>
+      <h3>🤖 AI AUTO MATCH</h3>
       <div class="word-import-row">
         <button type="button" class="file-upload-btn" @click="runPubchemEnrich" :disabled="pubchemEnriching || (!form.name && !form.cas && !form.smiles && !form.inchi)">
-          {{ pubchemEnriching ? 'Searching PubChem…' : `Look up "${form.name || form.cas || form.smiles || form.inchi}" in PubChem` }}
+          {{ pubchemEnriching ? 'Searching & matching…' : `AI AUTO MATCH "${form.name || form.cas || form.smiles || form.inchi}"` }}
         </button>
-        <span v-if="pubchemEnrichResult && enrichChemical?.found && !pubchemEnrichResult.applied" class="word-status word-ok">
+        <span v-if="pubchemEnrichResult && enrichChemical?.found && !pubchemEnrichResult.applied && !enrichChemical.candidates?.length" class="word-status word-ok">
           ✓ Found: {{ enrichChemical.source === 'chembl' ? 'ChEMBL' : 'PubChem' }} CID {{ enrichChemical.cid }} <template v-if="enrichChemical.fallback_used">(via fragment search)</template>
         </span>
+        <span v-else-if="pubchemEnrichResult && enrichChemical?.candidates?.length && !pubchemEnrichResult.applied" class="word-status word-warn">
+          ⚠ Multiple candidates ({{ enrichChemical.candidates.length }}) — select correct one
+        </span>
         <span v-else-if="pubchemEnrichResult && pubchemEnrichResult.applied" class="word-status word-ok">
-          ✓ Properties applied to form
+          ✓ All results applied to form
         </span>
         <span v-else-if="pubchemEnrichResult && pubchemEnrichResult.error" class="word-status word-err">
           {{ pubchemEnrichResult.error }}
@@ -602,8 +705,12 @@ onMounted(() => {
         </span>
       </div>
       <!-- Preview -->
-      <!-- New enrich format: { chemical: {...}, literature: {...}, protocols: [...] } -->
-      <div v-if="enrichChemical && enrichChemical.found && !pubchemEnrichResult.applied" class="pubchem-preview">
+      <!-- Enrich format: { chemical: {...}, literature: {...}, protocols: [...] } -->
+      <div v-if="enrichChemical && enrichChemical.found && !pubchemEnrichResult.applied && !enrichChemical.candidates?.length" class="pubchem-preview">
+        <!-- Fallback warning (Bug 1 fix) -->
+        <div v-if="enrichChemical.fallback_used" class="fallback-warning">
+          ⚠️ Matched via partial name search — please verify this is the correct compound.
+        </div>
         <template v-if="enrichChemical.source">
           <p class="source-badge" :class="'source-' + enrichChemical.source">
             {{ enrichChemical.source === 'chembl' ? 'ChEMBL' : 'PubChem' }}
@@ -615,22 +722,69 @@ onMounted(() => {
           <tr><td>CID:</td><td>{{ enrichChemical.cid }}</td></tr>
           <tr v-if="enrichChemical.cas_resolved"><td>CAS:</td><td class="prop-highlight">{{ enrichChemical.cas_resolved }}</td></tr>
           <tr v-else><td>CAS:</td><td class="prop-missing">— (not indexed)</td></tr>
-          <tr v-if="enrichChemical.properties.canonical_smiles"><td>SMILES:</td><td class="prop-highlight mono-wrap">{{ enrichChemical.properties.canonical_smiles }}</td></tr>
-          <tr v-if="enrichChemical.properties.molecular_formula"><td>Formula:</td><td class="prop-highlight">{{ enrichChemical.properties.molecular_formula }}</td></tr>
-          <tr v-if="enrichChemical.properties.molecular_weight"><td>MW:</td><td class="prop-highlight">{{ enrichChemical.properties.molecular_weight }} Da</td></tr>
-          <tr v-if="enrichChemical.properties.inchi"><td>InChI:</td><td class="mono-wrap">{{ enrichChemical.properties.inchi }}</td></tr>
-          <tr v-if="enrichChemical.properties.inchikey"><td>InChIKey:</td><td class="mono-wrap">{{ enrichChemical.properties.inchikey }}</td></tr>
-          <tr v-if="enrichChemical.properties.iupac_name"><td>IUPAC:</td><td>{{ enrichChemical.properties.iupac_name }}</td></tr>
-          <tr v-if="enrichChemical.properties.xlogp != null"><td>LogP:</td><td>{{ enrichChemical.properties.xlogp }}</td></tr>
-          <tr v-if="enrichChemical.properties.tpsa != null"><td>TPSA:</td><td>{{ enrichChemical.properties.tpsa }} Å²</td></tr>
-          <tr v-if="enrichChemical.properties.exact_mass != null"><td>Exact Mass:</td><td>{{ enrichChemical.properties.exact_mass }}</td></tr>
-          <tr v-if="enrichChemical.properties.h_bond_donor_count != null"><td>HBD:</td><td>{{ enrichChemical.properties.h_bond_donor_count }}</td></tr>
-          <tr v-if="enrichChemical.properties.h_bond_acceptor_count != null"><td>HBA:</td><td>{{ enrichChemical.properties.h_bond_acceptor_count }}</td></tr>
-          <tr v-if="enrichChemical.properties.rotatable_bond_count != null"><td>RotB:</td><td>{{ enrichChemical.properties.rotatable_bond_count }}</td></tr>
+          <tr v-if="enrichChemical.properties?.canonical_smiles"><td>SMILES:</td><td class="prop-highlight mono-wrap">{{ enrichChemical.properties.canonical_smiles }}</td></tr>
+          <tr v-if="enrichChemical.properties?.molecular_formula"><td>Formula:</td><td class="prop-highlight">{{ enrichChemical.properties.molecular_formula }}</td></tr>
+          <tr v-if="enrichChemical.properties?.molecular_weight"><td>MW:</td><td class="prop-highlight">{{ enrichChemical.properties.molecular_weight }} Da</td></tr>
+          <tr v-if="enrichChemical.properties?.inchi"><td>InChI:</td><td class="mono-wrap">{{ enrichChemical.properties.inchi }}</td></tr>
+          <tr v-if="enrichChemical.properties?.inchikey"><td>InChIKey:</td><td class="mono-wrap">{{ enrichChemical.properties.inchikey }}</td></tr>
+          <tr v-if="enrichChemical.properties?.iupac_name"><td>IUPAC:</td><td>{{ enrichChemical.properties.iupac_name }}</td></tr>
+          <tr v-if="enrichChemical.properties?.xlogp != null"><td>LogP:</td><td>{{ enrichChemical.properties.xlogp }}</td></tr>
+          <tr v-if="enrichChemical.properties?.tpsa != null"><td>TPSA:</td><td>{{ enrichChemical.properties.tpsa }} Å²</td></tr>
+          <tr v-if="enrichChemical.properties?.exact_mass != null"><td>Exact Mass:</td><td>{{ enrichChemical.properties.exact_mass }}</td></tr>
+          <tr v-if="enrichChemical.properties?.h_bond_donor_count != null"><td>HBD:</td><td>{{ enrichChemical.properties.h_bond_donor_count }}</td></tr>
+          <tr v-if="enrichChemical.properties?.h_bond_acceptor_count != null"><td>HBA:</td><td>{{ enrichChemical.properties.h_bond_acceptor_count }}</td></tr>
+          <tr v-if="enrichChemical.properties?.rotatable_bond_count != null"><td>RotB:</td><td>{{ enrichChemical.properties.rotatable_bond_count }}</td></tr>
         </table>
-        <button type="button" class="btn btn-primary btn-sm" style="margin-top:8px" @click="applyPubchemProperties">
-          Apply All to Form
-        </button>
+      </div>
+      <!-- Lipinski rules (from Validate integration) -->
+      <div v-if="enrichChemical?.lipinski && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
+        <h4 style="margin:0 0 6px 0;font-size:13px">💊 Lipinski Rule of Five</h4>
+        <span :class="enrichChemical.lipinski.passed ? 'lipinski-pass' : 'lipinski-fail'" style="font-size:12px;font-weight:600">
+          {{ enrichChemical.lipinski.passed ? '✓ PASS' : '✗ FAIL' }}
+        </span>
+        <div v-if="enrichChemical.lipinski.violations?.length" style="font-size:11px;color:#dc2626;margin-top:4px">
+          {{ enrichChemical.lipinski.violations.join('; ') }}
+        </div>
+        <div class="lipinski-grid">
+          <span :class="lipinskiClass(enrichChemical.lipinski.details?.mw_ok)">MW ≤ 500</span>
+          <span :class="lipinskiClass(enrichChemical.lipinski.details?.logp_ok)">LogP ≤ 5</span>
+          <span :class="lipinskiClass(enrichChemical.lipinski.details?.hbd_ok)">HBD ≤ 5</span>
+          <span :class="lipinskiClass(enrichChemical.lipinski.details?.hba_ok)">HBA ≤ 10</span>
+          <span :class="lipinskiClass(enrichChemical.lipinski.details?.rot_ok)">RotB ≤ 10</span>
+        </div>
+      </div>
+
+
+      <!-- Knowledge chain matches from literature -->
+      <div v-if="hasKnowledgeMatches && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
+        <h4 style="margin:0 0 8px 0;font-size:13px">🧬 Knowledge Chain Matches</h4>
+        <!-- Matched Methods -->
+        <div v-if="enrichMatchedMethods.length > 0" class="knowledge-match-group">
+          <div class="km-section-title">🔬 Methods ({{ enrichMatchedMethods.length }})</div>
+          <div v-for="mm in enrichMatchedMethods" :key="mm.keyword" class="km-keyword-group">
+            <span class="km-keyword">"{{ mm.keyword }}" →</span>
+            <span v-for="m in mm.matches" :key="m.id" class="km-match-item">
+              <a :href="`/methods/${m.id}`" target="_blank" class="km-link">{{ m.name }}</a>
+              <button type="button" class="km-link-btn" @click="toggleMethodId(m.id)" :title="methodIds.includes(m.id) ? 'Unlink' : 'Link'">{{ methodIds.includes(m.id) ? '✕' : '✓' }}</button>
+            </span>
+          </div>
+        </div>
+        <!-- Matched Applications (cascade to Methods) -->
+        <div v-if="enrichMatchedApps.length > 0" class="knowledge-match-group">
+          <div class="km-section-title">🎯 Applications ({{ enrichMatchedApps.length }})</div>
+          <div v-for="ma in enrichMatchedApps" :key="ma.keyword" class="km-keyword-group">
+            <span class="km-keyword">"{{ ma.keyword }}" →</span>
+            <span v-for="a in ma.matches" :key="a.id" class="km-match-item">
+              <a :href="`/applications/${a.id}`" target="_blank" class="km-link">{{ a.name }}</a>
+              <button type="button" class="km-link-btn" @click="linkAppMethods(a)" :title="'Link app & cascade methods'">🔗 Link</button>
+            </span>
+          </div>
+        </div>
+        <!-- Unmatched keywords -->
+        <div v-if="enrichUnmatchedKeywords.length > 0" class="km-unmatched">
+          <span class="km-section-title dim">💡 Unmatched keywords — may need new entities</span>
+          <span v-for="kw in enrichUnmatchedKeywords" :key="kw" class="km-chip">{{ kw }}</span>
+        </div>
       </div>
       <!-- Literature & Protocols from enrich -->
       <div v-if="enrichLiterature && enrichLiterature.references?.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
@@ -668,20 +822,27 @@ onMounted(() => {
           </div>
         </div>
       </div>
+      <!-- Apply All button -->
+      <div v-if="enrichChemical?.found && !pubchemEnrichResult.applied && !enrichChemical.candidates?.length" style="margin-top:8px">
+        <button type="button" class="btn btn-primary btn-sm" @click="applyAllEnrichResults">
+          Apply All to Form
+        </button>
+        <span class="form-hint" style="margin-left:8px">Chemical properties + knowledge links + protocols</span>
+      </div>
       <!-- Ambiguous candidates -->
-      <div v-if="pubchemEnrichResult && pubchemEnrichResult.candidates?.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview">
+      <div v-if="enrichChemical?.candidates?.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview">
         <p class="form-hint">Multiple candidates found. Select the correct one or try with a CAS number.</p>
-        <div v-for="c in pubchemEnrichResult.candidates" :key="c.cid" class="candidate-item">
+        <div v-for="c in enrichChemical.candidates" :key="c.cid" class="candidate-item">
           <strong>{{ c.iupac_name || '—' }}</strong>
           <span>CID: {{ c.cid }}, MW: {{ c.molecular_weight }}</span>
           <span v-if="c.cas">, CAS: {{ c.cas }}</span>
         </div>
       </div>
-      <!-- Not found guidance -->
-      <div v-if="pubchemEnrichResult && !pubchemEnrichResult.found && !pubchemEnrichResult.error && !pubchemEnriching" class="pubchem-notfound">
+      <!-- Not found guidance (Bug 2 fix: check enrichChemical instead of top-level) -->
+      <div v-if="pubchemEnrichResult && !enrichChemical?.found && !pubchemEnrichResult.error && !pubchemEnriching" class="pubchem-notfound">
         <p class="form-hint">{{ pubchemEnrichResult.search_hint || 'Not found in PubChem. Try using a CAS number or entering SMILES/FW manually.' }}</p>
       </div>
-      <p class="form-hint">One-click search across PubChem + ChEMBL + PubMed + BioProCorpus.</p>
+      <p class="form-hint">One-click search across PubChem + ChEMBL + PubMed + BioProCorpus, with knowledge chain matching.</p>
     </section>
 
     <form @submit.prevent="saveDraft" class="edit-form">
@@ -731,28 +892,10 @@ onMounted(() => {
               <input v-model.number="form.molecular_weight" type="number" step="0.01" placeholder="e.g. 522.2" />
               <span v-if="validateField('molecular_weight')" class="field-error">{{ validateField('molecular_weight') }}</span>
             </label>
-            <button type="button" class="btn btn-ghost btn-sm" @click="showAiPanel = !showAiPanel">
-              {{ showAiPanel ? 'Hide AI Tools' : 'AI Tools' }}
-            </button>
           </div>
           <div class="chem-preview">
             <StructureViewer :smiles="form.smiles" :pubchem-cid="pubchemEnrichResult?.found ? pubchemEnrichResult.cid : null" />
           </div>
-        </div>
-        <!-- AI Tools Panel -->
-        <div v-if="showAiPanel" class="ai-panel-wrapper">
-          <AiToolsPanel
-            :product-id="productId"
-            :product-name="form.name"
-            :product-cas="form.cas"
-            :product-smiles="form.smiles"
-            @adopt-smiles="(s) => form.smiles = s"
-            @adopt-formula-weight="({ formula, weight }) => { if (formula) form.formula = formula; if (weight) form.molecular_weight = weight }"
-            @adopt-protocol="adoptProtocol"
-            @adopt-reference="adoptReference"
-            @link-method="handleLinkMethod"
-            @link-app="handleLinkApp"
-          />
         </div>
       </section>
 
@@ -1034,6 +1177,33 @@ onMounted(() => {
 .source-chembl { background: #fef3c7; color: #92400e; }
 .pubchem-notfound { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
 .pubchem-notfound .form-hint { margin-top: 0; color: #92400e; }
+
+/* Fallback warning */
+.fallback-warning { background: #fffbeb; border: 1px solid #fbbf24; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; font-size: 12px; color: #92400e; }
+
+/* Knowledge chain match styles */
+.knowledge-match-group { margin-bottom: 8px; }
+.km-section-title { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 4px; }
+.km-keyword-group { margin: 4px 0; padding-left: 8px; }
+.km-keyword { font-size: 11px; color: #6b7280; font-style: italic; }
+.km-match-item { display: inline-flex; align-items: center; gap: 4px; margin: 2px 6px 2px 0; }
+.km-link { font-size: 12px; color: #2563eb; text-decoration: none; }
+.km-link:hover { text-decoration: underline; }
+.km-link-btn { font-size: 11px; background: none; border: 1px solid var(--color-border); border-radius: 4px; padding: 1px 6px; cursor: pointer; color: #059669; }
+.km-link-btn:hover { background: #f0fdf4; }
+.km-unmatched { margin-top: 6px; }
+.km-unmatched .dim { font-size: 11px; color: #9ca3af; }
+.km-chip { display: inline-block; font-size: 11px; background: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 12px; padding: 2px 10px; margin: 2px 4px; }
+
+/* Lipinski rules */
+.lipinski-pass { color: #059669; }
+.lipinski-fail { color: #dc2626; }
+.lipinski-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.lipinski-ok { font-size: 11px; background: #dcfce7; color: #166534; border: 1px solid #86efac; border-radius: 4px; padding: 2px 8px; }
+.lipinski-ng { font-size: 11px; background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; border-radius: 4px; padding: 2px 8px; }
+.lipinski-unknown { font-size: 11px; background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; border-radius: 4px; padding: 2px 8px; }
+
+
 
 /* Protocol cards */
 .protocol-card { border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 6px; overflow: hidden; }

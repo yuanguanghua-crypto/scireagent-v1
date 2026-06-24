@@ -305,6 +305,14 @@ class ProductEnrichView(EnvelopeMixin, APIView):
             if not chemical.get("found") and cas and product_name:
                 chemical = enhancer.resolve_to_properties(product_name, "name")
 
+            # ── Lipinski（本地计算，集成 Validate 能力）──
+            if chemical.get("found") and chemical.get("properties"):
+                try:
+                    chemical["lipinski"] = enhancer.check_lipinski(chemical["properties"])
+                except Exception as e:
+                    logger.warning(f"Lipinski check failed: {e}")
+                    chemical["lipinski"] = None
+
         # ── 文献推荐 ──
         literature = {"applications": [], "methods": [], "references": [], "protocols": [],
                       "matched_apps": [], "matched_methods": [], "unmatched_app_keywords": [],

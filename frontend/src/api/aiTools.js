@@ -76,7 +76,7 @@ export function enrichProduct({ name, cas, smiles, inchi } = {}) {
     cas: cas || '',
     smiles: smiles || '',
     inchi: inchi || '',
-  })
+  }, { timeout: 90000 })
 }
 
 /** Import a BioProCorpus protocol into knowledge base.
