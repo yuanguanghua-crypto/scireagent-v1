@@ -15,6 +15,7 @@ whitenoise==6.7.0
 # Image/PDF Processing
 Pillow==11.1.0
 PyMuPDF==1.25.4
+reportlab==5.0.0
 
 # Utilities
 python-dotenv==1.0.1

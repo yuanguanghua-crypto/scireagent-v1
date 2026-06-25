@@ -183,6 +183,14 @@ class Product(StatusMixin, TimeStampedModel):
     display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级',
         help_text='数字越大越靠前，0 为默认排序')
 
+    # SDS 当前版本 → 消除 isCurrent 竞态
+    current_sds = models.ForeignKey(
+        'documents.SdsRevision', null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='current_for_product',
+        verbose_name='当前 SDS 版本'
+    )
+
     # PostgreSQL FTS field — only added when running on PostgreSQL
     if _USE_POSTGRES:
         search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')

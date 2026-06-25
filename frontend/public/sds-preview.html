@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDS Template Preview — Complete 16 Sections</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    background: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 0;
+  }
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    background: white;
+    padding: 20mm 18mm 16mm 18mm;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+    font-size: 10px;
+    color: #1e293b;
+    line-height: 1.5;
+  }
+  .page + .page { margin-top: 20px; }
+
+  .header-bar {
+    background: #0f172a;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .header-bar .logo-area { display: flex; align-items: center; gap: 10px; }
+  .header-bar img { height: 32px; filter: brightness(10); }
+  .header-bar .title { font-size: 16px; font-weight: 700; letter-spacing: 1.5px; }
+  .header-bar .subtitle { font-size: 8.5px; color: #94a3b8; }
+
+  .section { margin-bottom: 12px; page-break-inside: avoid; }
+  .section-header {
+    background: #0ea5e9;
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 3px;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .section-content {
+    padding: 0 6px;
+    font-size: 9.5px;
+    color: #334155;
+    line-height: 1.55;
+  }
+
+  .signal-word-box {
+    border: 3px solid #dc2626;
+    border-radius: 6px;
+    padding: 12px 18px;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  .signal-word-box .word { font-size: 22px; font-weight: 800; color: #dc2626; letter-spacing: 4px; }
+  .signal-word-box .pictograms { display: flex; gap: 10px; justify-content: center; margin-top: 8px; }
+  .pictogram {
+    width: 52px; height: 52px;
+    border: 2px solid #dc2626; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: #dc2626; font-weight: 700;
+  }
+
+  .sds-table { width: 100%; border-collapse: collapse; font-size: 9px; margin: 5px 0; }
+  .sds-table th {
+    background: #f1f5f9; font-weight: 600; padding: 4px 8px;
+    text-align: left; border-bottom: 1.5px solid #cbd5e1;
+    font-size: 8.5px; color: #475569; text-transform: uppercase;
+  }
+  .sds-table td { padding: 4px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+
+  .hazards-list { margin: 3px 0 3px 16px; font-size: 9.5px; }
+  .hazards-list li { margin-bottom: 2px; }
+  .hazards-list .code { font-weight: 700; color: #0ea5e9; min-width: 52px; display: inline-block; }
+
+  .sub-label { font-weight: 600; color: #1e293b; margin: 5px 0 2px 0; font-size: 9.5px; }
+
+  .page-footer {
+    display: flex; justify-content: space-between;
+    border-top: 1px solid #e2e8f0; padding-top: 6px; margin-top: 12px;
+    font-size: 8px; color: #94a3b8;
+  }
+
+  .page-header {
+    display: flex; justify-content: space-between;
+    font-size: 9px; color: #64748b;
+    border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 10px;
+  }
+
+  .print-hint {
+    text-align: center; font-size: 12px; color: #64748b;
+    margin-bottom: 20px; font-family: sans-serif;
+  }
+  .print-note {
+    text-align: center; font-size: 11px; color: #94a3b8;
+    margin: 10px 0; font-family: sans-serif;
+  }
+
+  .disclaimer-box {
+    border: 1px solid #e2e8f0; border-radius: 4px;
+    padding: 8px 12px; margin-top: 8px;
+    font-size: 8.5px; color: #64748b; line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+
+<div>
+  <p class="print-hint">SDS 完整模板 — 16 节全覆盖，共 7 页</p>
+
+  <!-- ==================== PAGE 1: Section 1-3 ==================== -->
+  <div class="page">
+    <div class="header-bar">
+      <div class="logo-area">
+        <img src="logo.svg" alt="SciReagent">
+        <div>
+          <div class="title">SAFETY DATA SHEET</div>
+          <div class="subtitle">According to OSHA HCS 2012 (29 CFR 1910.1200) &amp; GHS Rev. 9</div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:12px; font-weight:700;">2'-O-Methyladenosine</div>
+        <div style="font-size:9px; color:#94a3b8;">CAS: 2140-79-6 | SD-SC8001-v1.0</div>
+      </div>
+    </div>
+
+    <!-- Section 1 -->
+    <div class="section">
+      <div class="section-header">Section 1: Identification</div>
+      <div class="section-content">
+        <table class="sds-table">
+          <tr><td style="width:35%; font-weight:600;">Product Name</td><td>2'-O-Methyladenosine</td></tr>
+          <tr><td style="font-weight:600;">Catalog Number</td><td>SC8001</td></tr>
+          <tr><td style="font-weight:600;">Synonyms</td><td>2'-OMe-A; 2'-O-Methyl-D-adenosine</td></tr>
+          <tr><td style="font-weight:600;">CAS Number</td><td>2140-79-6</td></tr>
+          <tr><td style="font-weight:600;">Recommended Use</td><td>Laboratory research reagent</td></tr>
+          <tr><td style="font-weight:600;">Restrictions on Use</td><td>Not for human or veterinary use. Not for diagnostic or therapeutic use.</td></tr>
+        </table>
+        <p class="sub-label">Supplier</p>
+        <table class="sds-table">
+          <tr><td style="width:35%; font-weight:600;">Company</td><td>SciReagent</td></tr>
+          <tr><td style="font-weight:600;">Address</td><td>123 Science Blvd, San Diego, CA 92121, USA</td></tr>
+          <tr><td style="font-weight:600;">Telephone</td><td>+1 (858) 555-0199</td></tr>
+          <tr><td style="font-weight:600;">Email</td><td>safety@scireagent.com</td></tr>
+          <tr><td style="font-weight:600;">Emergency Phone (24h)</td><td>+1 (800) 424-9300 (CHEMTREC)</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Section 2 -->
+    <div class="section">
+      <div class="section-header">Section 2: Hazards Identification</div>
+      <div class="section-content">
+        <div class="signal-word-box">
+          <div class="word">⚠ WARNING</div>
+          <div class="pictograms">
+            <div class="pictogram">GHS07</div>
+          </div>
+        </div>
+
+        <p class="sub-label">GHS Classification</p>
+        <table class="sds-table">
+          <tr><th>Hazard Class</th><th>Category</th><th>H-Code</th></tr>
+          <tr><td>Acute Toxicity, Oral</td><td>Category 4</td><td style="font-weight:700; color:#0ea5e9;">H302</td></tr>
+          <tr><td>Skin Irritation</td><td>Category 2</td><td style="font-weight:700; color:#0ea5e9;">H315</td></tr>
+          <tr><td>Eye Irritation</td><td>Category 2A</td><td style="font-weight:700; color:#0ea5e9;">H319</td></tr>
+          <tr><td>STOT SE</td><td>Category 3</td><td style="font-weight:700; color:#0ea5e9;">H335</td></tr>
+        </table>
+
+        <p class="sub-label">Hazard Statements (H-Codes)</p>
+        <ul class="hazards-list">
+          <li><span class="code">H302</span> Harmful if swallowed.</li>
+          <li><span class="code">H315</span> Causes skin irritation.</li>
+          <li><span class="code">H319</span> Causes serious eye irritation.</li>
+          <li><span class="code">H335</span> May cause respiratory irritation.</li>
+        </ul>
+
+        <p class="sub-label">Precautionary Statements — Prevention</p>
+        <ul class="hazards-list">
+          <li><span class="code">P261</span> Avoid breathing dust/fume/gas/mist/vapors/spray.</li>
+          <li><span class="code">P264</span> Wash hands thoroughly after handling.</li>
+          <li><span class="code">P270</span> Do not eat, drink or smoke when using this product.</li>
+          <li><span class="code">P271</span> Use only outdoors or in a well-ventilated area.</li>
+          <li><span class="code">P280</span> Wear protective gloves/protective clothing/eye protection/face protection.</li>
+        </ul>
+
+        <p class="sub-label">Precautionary Statements — Response</p>
+        <ul class="hazards-list">
+          <li><span class="code">P301+P312</span> IF SWALLOWED: Call a POISON CENTER/doctor if you feel unwell.</li>
+          <li><span class="code">P302+P352</span> IF ON SKIN: Wash with plenty of soap and water.</li>
+          <li><span class="code">P304+P340</span> IF INHALED: Remove person to fresh air and keep comfortable for breathing.</li>
+          <li><span class="code">P305+P351+P338</span> IF IN EYES: Rinse cautiously with water for several minutes. Remove contact lenses if present and easy to do. Continue rinsing.</li>
+          <li><span class="code">P332+P313</span> If skin irritation occurs: Get medical advice/attention.</li>
+          <li><span class="code">P337+P313</span> If eye irritation persists: Get medical advice/attention.</li>
+        </ul>
+
+        <p class="sub-label">Precautionary Statements — Storage</p>
+        <ul class="hazards-list">
+          <li><span class="code">P403+P233</span> Store in a well-ventilated place. Keep container tightly closed.</li>
+          <li><span class="code">P405</span> Store locked up.</li>
+        </ul>
+
+        <p class="sub-label">Precautionary Statements — Disposal</p>
+        <ul class="hazards-list">
+          <li><span class="code">P501</span> Dispose of contents/container in accordance with local/regional/national/international regulations.</li>
+        </ul>
+
+        <p class="sub-label">Other Hazards</p>
+        <p>This material does not meet the criteria for PBT or vPvB (persistent, bioaccumulative and toxic / very persistent and very bioaccumulative).</p>
+      </div>
+    </div>
+
+    <!-- Section 3 -->
+    <div class="section">
+      <div class="section-header">Section 3: Composition / Information on Ingredients</div>
+      <div class="section-content">
+        <table class="sds-table">
+          <tr><th>Chemical Name</th><th>CAS No.</th><th>Concentration</th><th>GHS Classification</th></tr>
+          <tr>
+            <td>2'-O-Methyladenosine</td>
+            <td>2140-79-6</td>
+            <td>≥ 98.0%</td>
+            <td>Acute Tox. 4 (H302)<br>Skin Irrit. 2 (H315)<br>Eye Irrit. 2A (H319)<br>STOT SE 3 (H335)</td>
+          </tr>
+        </table>
+        <p style="font-size:8.5px; color:#64748b; margin-top:4px;">Impurities are not hazardous per GHS criteria.</p>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <div>SciReagent — Safety Data Sheet</div>
+      <div>Doc ID: SD-SC8001-v1.0 | Page 1 of 7</div>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 2: Section 4-7 ==================== -->
+  <div class="page">
+    <div class="page-header">
+      <span>SAFETY DATA SHEET — 2'-O-Methyladenosine (CAS 2140-79-6)</span>
+      <span>SD-SC8001-v1.0 | Page 2 of 7</span>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 4: First-Aid Measures</div>
+      <div class="section-content">
+        <p class="sub-label">Inhalation</p>
+        <p>Remove victim to fresh air. If breathing is difficult, give oxygen. If not breathing, give artificial respiration. Get medical attention if symptoms persist.</p>
+
+        <p class="sub-label">Skin Contact</p>
+        <p>Remove contaminated clothing. Wash affected area with soap and plenty of water for at least 15 minutes. Get medical attention if irritation develops or persists.</p>
+
+        <p class="sub-label">Eye Contact</p>
+        <p>Rinse cautiously with water for at least 15 minutes, lifting upper and lower eyelids. Remove contact lenses if present and easy to do. Continue rinsing. Get medical attention if irritation persists.</p>
+
+        <p class="sub-label">Ingestion</p>
+        <p>Rinse mouth with water. Do NOT induce vomiting unless directed by medical personnel. Never give anything by mouth to an unconscious person. Call a poison center or doctor if you feel unwell.</p>
+
+        <p class="sub-label">Most Important Symptoms</p>
+        <p>Irritation of skin, eyes, and respiratory tract. Nausea, gastrointestinal discomfort.</p>
+
+        <p class="sub-label">Notes to Physician</p>
+        <p>Treat symptomatically. No specific antidote.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 5: Fire-Fighting Measures</div>
+      <div class="section-content">
+        <table class="sds-table">
+          <tr><td style="width:40%; font-weight:600;">Suitable Extinguishing Media</td><td>Water spray, dry chemical, CO₂, alcohol-resistant foam.</td></tr>
+          <tr><td style="font-weight:600;">Unsuitable Extinguishing Media</td><td>High-pressure water jet.</td></tr>
+          <tr><td style="font-weight:600;">Specific Hazards from Combustion</td><td>Under fire conditions, may release toxic fumes including carbon monoxide (CO), carbon dioxide (CO₂), and nitrogen oxides (NOx).</td></tr>
+          <tr><td style="font-weight:600;">Special Protective Equipment for Firefighters</td><td>Wear self-contained breathing apparatus (SCBA) and full protective gear. Use water spray to cool fire-exposed containers and disperse vapors.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 6: Accidental Release Measures</div>
+      <div class="section-content">
+        <p class="sub-label">Personal Precautions</p>
+        <p>Wear appropriate PPE (see Section 8). Avoid dust generation. Ensure adequate ventilation. Evacuate personnel to safe areas.</p>
+        <p class="sub-label">Environmental Precautions</p>
+        <p>Prevent entry into drains, sewers, waterways, or soil. Notify relevant authorities if significant release occurs.</p>
+        <p class="sub-label">Methods for Containment &amp; Cleaning Up</p>
+        <p>Collect spilled material mechanically. Avoid dust formation. Place in suitable, labeled container for disposal. Clean contaminated surface thoroughly with water.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 7: Handling and Storage</div>
+      <div class="section-content">
+        <p class="sub-label">Handling</p>
+        <p>Handle under a chemical fume hood. Avoid breathing dust. Avoid contact with skin, eyes, and clothing. Wash hands and exposed skin thoroughly after handling. Use only in areas with adequate ventilation.</p>
+        <p class="sub-label">Storage</p>
+        <p>Store at -20°C in a tightly sealed container. Keep in a cool, dry, well-ventilated area. Protect from moisture and direct light. Keep away from incompatible materials (see Section 10). Store locked up.</p>
+        <p class="sub-label">Specific Use</p>
+        <p>Laboratory research reagent only.</p>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <div>SciReagent — Safety Data Sheet</div>
+      <div>SD-SC8001-v1.0 | Page 2 of 7</div>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 3: Section 8-9 ==================== -->
+  <div class="page">
+    <div class="page-header">
+      <span>SAFETY DATA SHEET — 2'-O-Methyladenosine (CAS 2140-79-6)</span>
+      <span>SD-SC8001-v1.0 | Page 3 of 7</span>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 8: Exposure Controls / Personal Protection</div>
+      <div class="section-content">
+        <p class="sub-label">Exposure Limits</p>
+        <p>No occupational exposure limits (OELs) have been established for this substance.</p>
+        <p class="sub-label">Engineering Controls</p>
+        <p>Use local exhaust ventilation. Safety shower and eye wash station should be readily available.</p>
+        <p class="sub-label">Personal Protective Equipment (PPE)</p>
+        <table class="sds-table">
+          <tr><td style="width:25%; font-weight:600;">Eye/Face</td><td>Safety glasses with side shields or chemical splash goggles.</td></tr>
+          <tr><td style="font-weight:600;">Skin</td><td>Lab coat or disposable protective clothing.</td></tr>
+          <tr><td style="font-weight:600;">Hands</td><td>Nitrile or neoprene gloves. Inspect gloves before use. Replace if damaged or contaminated.</td></tr>
+          <tr><td style="font-weight:600;">Respiratory</td><td>When ventilation is inadequate, wear NIOSH-approved particulate respirator (N95/P2 or higher). In emergency scenarios, use SCBA.</td></tr>
+        </table>
+        <p class="sub-label">Hygiene Measures</p>
+        <p>Handle in accordance with good laboratory hygiene and safety practices. Do not eat, drink, or smoke in work areas. Remove contaminated clothing and wash before reuse.</p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 9: Physical and Chemical Properties</div>
+      <div class="section-content">
+        <table class="sds-table">
+          <tr><td style="width:40%; font-weight:600;">Appearance</td><td>White to off-white crystalline powder</td></tr>
+          <tr><td style="font-weight:600;">Odor</td><td>Odorless</td></tr>
+          <tr><td style="font-weight:600;">Odor Threshold</td><td>Not available</td></tr>
+          <tr><td style="font-weight:600;">pH</td><td>Not applicable</td></tr>
+          <tr><td style="font-weight:600;">Melting Point</td><td>200–204°C</td></tr>
+          <tr><td style="font-weight:600;">Boiling Point</td><td>Not available (decomposes)</td></tr>
+          <tr><td style="font-weight:600;">Flash Point</td><td>Not applicable</td></tr>
+          <tr><td style="font-weight:600;">Evaporation Rate</td><td>Not available</td></tr>
+          <tr><td style="font-weight:600;">Flammability</td><td>Not flammable</td></tr>
+          <tr><td style="font-weight:600;">Vapor Pressure</td><td>Negligible</td></tr>
+          <tr><td style="font-weight:600;">Vapor Density</td><td>Not available</td></tr>
+          <tr><td style="font-weight:600;">Relative Density</td><td>Not available</td></tr>
+          <tr><td style="font-weight:600;">Solubility in Water</td><td>Slightly soluble (~5 mg/mL, 25°C)</td></tr>
+          <tr><td style="font-weight:600;">Solubility (DMSO)</td><td>≥ 20 mg/mL</td></tr>
+          <tr><td style="font-weight:600;">Partition Coefficient</td><td>log P = -0.85 (estimated)</td></tr>
+          <tr><td style="font-weight:600;">Auto-ignition Temperature</td><td>Not available</td></tr>
+          <tr><td style="font-weight:600;">Decomposition Temperature</td><td>&gt; 250°C</td></tr>
+          <tr><td style="font-weight:600;">Viscosity</td><td>Not applicable</td></tr>
+          <tr><td style="font-weight:600;">Explosive Properties</td><td>Not explosive</td></tr>
+          <tr><td style="font-weight:600;">Oxidizing Properties</td><td>Not oxidizing</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <div>SciReagent — Safety Data Sheet</div>
+      <div>SD-SC8001-v1.0 | Page 3 of 7</div>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 4: Section 10-11 ==================== -->
+  <div class="page">
+    <div class="page-header">
+      <span>SAFETY DATA SHEET — 2'-O-Methyladenosine (CAS 2140-79-6)</span>
+      <span>SD-SC8001-v1.0 | Page 4 of 7</span>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 10: Stability and Reactivity</div>
+      <div class="section-content">
+        <table class="sds-table">
+          <tr><td style="width:40%; font-weight:600;">Reactivity</td><td>Stable under recommended storage conditions.</td></tr>
+          <tr><td style="font-weight:600;">Chemical Stability</td><td>Stable at -20°C for at least 24 months.</td></tr>
+          <tr><td style="font-weight:600;">Possibility of Hazardous Reactions</td><td>No hazardous polymerization.</td></tr>
+          <tr><td style="font-weight:600;">Conditions to Avoid</td><td>Excessive heat, moisture, direct sunlight.</td></tr>
+          <tr><td style="font-weight:600;">Incompatible Materials</td><td>Strong oxidizing agents, strong acids, strong bases.</td></tr>
+          <tr><td style="font-weight:600;">Hazardous Decomposition Products</td><td>Carbon monoxide (CO), carbon dioxide (CO₂), nitrogen oxides (NOx), ammonia (NH₃).</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 11: Toxicological Information</div>
+      <div class="section-content">
+        <p class="sub-label">Acute Toxicity</p>
+        <table class="sds-table">
+          <tr><td style="width:40%; font-weight:600;">Oral LD50 (Rat)</td><td>~1,600 mg/kg (estimated)</td></tr>
+          <tr><td style="font-weight:600;">Dermal LD50 (Rabbit)</td><td>&gt; 2,000 mg/kg (estimated)</td></tr>
+          <tr><td style="font-weight:600;">Inhalation LC50 (Rat)</td><td>Not available</td></tr>
+        </table>
+
+        <p class="sub-label">Skin Corrosion/Irritation</p>
+        <p>Causes skin irritation (Category 2).</p>
+
+        <p class="sub-label">Eye Damage/Irritation</p>
+        <p>Causes serious eye irritation (Category 2A).</p>
+
+        <p class="sub-label">Respiratory / Skin Sensitization</p>
+        <p>Not classified as a sensitizer.</p>
+
+        <p class="sub-label">Germ Cell Mutagenicity</p>
+        <p>Not classified. No data available.</p>
+
+        <p class="sub-label">Carcinogenicity</p>
+        <p>Not listed by IARC, NTP, or OSHA.</p>
+
+        <p class="sub-label">Reproductive Toxicity</p>
+        <p>No data available.</p>
+
+        <p class="sub-label">STOT — Single Exposure</p>
+        <p>May cause respiratory irritation (Category 3).</p>
+
+        <p class="sub-label">STOT — Repeated Exposure</p>
+        <p>No data available.</p>
+
+        <p class="sub-label">Aspiration Hazard</p>
+        <p>Not classified.</p>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <div>SciReagent — Safety Data Sheet</div>
+      <div>SD-SC8001-v1.0 | Page 4 of 7</div>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 5: Section 12-13 ==================== -->
+  <div class="page">
+    <div class="page-header">
+      <span>SAFETY DATA SHEET — 2'-O-Methyladenosine (CAS 2140-79-6)</span>
+      <span>SD-SC8001-v1.0 | Page 5 of 7</span>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 12: Ecological Information</div>
+      <div class="section-content">
+        <table class="sds-table">
+          <tr><td style="width:40%; font-weight:600;">Ecotoxicity</td><td>No data available for aquatic toxicity.</td></tr>
+          <tr><td style="font-weight:600;">Persistence and Degradability</td><td>No data available.</td></tr>
+          <tr><td style="font-weight:600;">Bioaccumulative Potential</td><td>Log P = -0.85 → Low bioaccumulation potential.</td></tr>
+          <tr><td style="font-weight:600;">Mobility in Soil</td><td>No data available.</td></tr>
+          <tr><td style="font-weight:600;">Other Adverse Effects</td><td>No data available. Avoid release to the environment.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 13: Disposal Considerations</div>
+      <div class="section-content">
+        <p class="sub-label">Waste Disposal</p>
+        <p>Dispose of in accordance with federal, state, and local regulations. Disposal via a licensed chemical waste contractor is recommended. DO NOT flush to sewer or dispose of in regular trash.</p>
+
+        <p class="sub-label">Contaminated Packaging</p>
+        <p>Dispose of as unused product. Empty containers may retain product residues. Handle with the same precautions.</p>
+
+        <p class="sub-label">RCRA Status</p>
+        <p>Not listed as a hazardous waste under RCRA (40 CFR 261).</p>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <div>SciReagent — Safety Data Sheet</div>
+      <div>SD-SC8001-v1.0 | Page 5 of 7</div>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 6: Section 14-15 ==================== -->
+  <div class="page">
+    <div class="page-header">
+      <span>SAFETY DATA SHEET — 2'-O-Methyladenosine (CAS 2140-79-6)</span>
+      <span>SD-SC8001-v1.0 | Page 6 of 7</span>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 14: Transport Information</div>
+      <div class="section-content">
+        <table class="sds-table">
+          <tr><td style="width:40%; font-weight:600;">DOT (USA)</td><td>Not regulated as dangerous goods.</td></tr>
+          <tr><td style="font-weight:600;">IMDG (Sea)</td><td>Not regulated as dangerous goods.</td></tr>
+          <tr><td style="font-weight:600;">IATA (Air)</td><td>Not regulated as dangerous goods.</td></tr>
+          <tr><td style="font-weight:600;">UN Number</td><td>None</td></tr>
+          <tr><td style="font-weight:600;">UN Proper Shipping Name</td><td>Not applicable</td></tr>
+          <tr><td style="font-weight:600;">Transport Hazard Class</td><td>None</td></tr>
+          <tr><td style="font-weight:600;">Packing Group</td><td>None</td></tr>
+          <tr><td style="font-weight:600;">Special Precautions</td><td>Ship at ambient temperature or with cold packs. Protect from moisture.</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 15: Regulatory Information</div>
+      <div class="section-content">
+        <table class="sds-table">
+          <tr><td style="width:35%; font-weight:600;">USA TSCA</td><td>Not listed on the TSCA Inventory. This product is sold for research and development purposes only under TSCA exemption 40 CFR 720.36 (R&D Exemption).</td></tr>
+          <tr><td style="font-weight:600;">SARA 302 / 304 / 311 / 312 / 313</td><td>Not listed.</td></tr>
+          <tr><td style="font-weight:600;">California Proposition 65</td><td>This product does not contain chemicals known to the State of California to cause cancer, birth defects, or other reproductive harm.</td></tr>
+          <tr><td style="font-weight:600;">EU REACH</td><td>Not registered. Supplied for R&amp;D purposes under Article 3(23) exemption (PPORD).</td></tr>
+        </table>
+
+        <p class="sub-label">International Inventories</p>
+        <table class="sds-table">
+          <tr><td style="width:35%; font-weight:600;">China IECSC</td><td>Not listed</td></tr>
+          <tr><td style="font-weight:600;">Japan ENCS</td><td>Not listed</td></tr>
+          <tr><td style="font-weight:600;">Korea KECL</td><td>Not listed</td></tr>
+          <tr><td style="font-weight:600;">Australia AICS</td><td>Not listed</td></tr>
+          <tr><td style="font-weight:600;">Canada DSL/NDSL</td><td>Not listed</td></tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <div>SciReagent — Safety Data Sheet</div>
+      <div>SD-SC8001-v1.0 | Page 6 of 7</div>
+    </div>
+  </div>
+
+  <!-- ==================== PAGE 7: Section 16 ==================== -->
+  <div class="page">
+    <div class="page-header">
+      <span>SAFETY DATA SHEET — 2'-O-Methyladenosine (CAS 2140-79-6)</span>
+      <span>SD-SC8001-v1.0 | Page 7 of 7</span>
+    </div>
+
+    <div class="section">
+      <div class="section-header">Section 16: Other Information</div>
+      <div class="section-content">
+        <table class="sds-table">
+          <tr><td style="width:35%; font-weight:600;">Revision Date</td><td>2026-06-25</td></tr>
+          <tr><td style="font-weight:600;">Revision Number</td><td>1.0</td></tr>
+          <tr><td style="font-weight:600;">Supersedes</td><td>New document</td></tr>
+        </table>
+
+        <p class="sub-label">SDS Prepared By</p>
+        <p>Safety &amp; Compliance Department<br>SciReagent<br>safety@scireagent.com</p>
+
+        <p class="sub-label">References</p>
+        <ul class="hazards-list" style="margin-left:8px;">
+          <li style="list-style: disc;">OSHA Hazard Communication Standard (29 CFR 1910.1200)</li>
+          <li style="list-style: disc;">UN Globally Harmonized System (GHS), Rev. 9</li>
+          <li style="list-style: disc;">PubChem Compound Database, CID 102211</li>
+          <li style="list-style: disc;">ECHA C&amp;L Inventory</li>
+        </ul>
+
+        <p class="sub-label">Abbreviations</p>
+        <table class="sds-table">
+          <tr><td style="width:20%; font-weight:600;">GHS</td><td>Globally Harmonized System</td></tr>
+          <tr><td style="font-weight:600;">CAS</td><td>Chemical Abstracts Service</td></tr>
+          <tr><td style="font-weight:600;">OSHA</td><td>Occupational Safety and Health Administration</td></tr>
+          <tr><td style="font-weight:600;">PBT</td><td>Persistent, Bioaccumulative, and Toxic</td></tr>
+          <tr><td style="font-weight:600;">vPvB</td><td>Very Persistent and Very Bioaccumulative</td></tr>
+          <tr><td style="font-weight:600;">STOT</td><td>Specific Target Organ Toxicity</td></tr>
+          <tr><td style="font-weight:600;">TSCA</td><td>Toxic Substances Control Act</td></tr>
+          <tr><td style="font-weight:600;">SARA</td><td>Superfund Amendments and Reauthorization Act</td></tr>
+          <tr><td style="font-weight:600;">RCRA</td><td>Resource Conservation and Recovery Act</td></tr>
+          <tr><td style="font-weight:600;">PPE</td><td>Personal Protective Equipment</td></tr>
+          <tr><td style="font-weight:600;">SCBA</td><td>Self-Contained Breathing Apparatus</td></tr>
+        </table>
+
+        <div class="disclaimer-box" style="margin-top: 12px;">
+          <strong>Disclaimer:</strong> The information provided in this SDS is based on the current state of our knowledge and is intended to describe the product for health, safety, and environmental requirements only. It does not constitute a guarantee of any specific property of the product. Users should conduct their own investigations to determine the suitability of the information for their particular purposes.
+        </div>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      <div>SciReagent — Safety Data Sheet</div>
+      <div>END OF SAFETY DATA SHEET | SD-SC8001-v1.0 | Page 7 of 7</div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
