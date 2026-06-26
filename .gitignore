@@ -22,6 +22,9 @@ static_collected/
 .env
 local_settings.py
 
+# BioProCorpus 协议语料库（大文件，可重新下载：scripts/download_bioprocorpus.py）
+backend/data/bioprocorpus/
+
 # Node
 node_modules/
 npm-debug.log*
