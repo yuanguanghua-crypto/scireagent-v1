@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from core.models import TimeStampedModel
 
 
 class Organization(models.Model):
@@ -97,3 +98,44 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+
+
+class Address(TimeStampedModel):
+    """机构地址 — 一对多挂在 Organization，billing/shipping 用途标记。"""
+
+    class Type(models.TextChoices):
+        BILLING = 'billing', 'Billing'
+        SHIPPING = 'shipping', 'Shipping'
+        OTHER = 'other', 'Other'
+
+    organization = models.ForeignKey(
+        Organization, on_delete=models.CASCADE,
+        related_name='addresses', verbose_name='机构'
+    )
+    type = models.CharField(
+        max_length=20, choices=Type.choices, default=Type.SHIPPING
+    )
+    is_default = models.BooleanField(default=False, verbose_name='默认地址')
+    attention = models.CharField(max_length=200, blank=True, default='', verbose_name='收件人/部门')
+    line1 = models.CharField(max_length=200, blank=True, default='', verbose_name='地址行1')
+    line2 = models.CharField(max_length=200, blank=True, default='', verbose_name='地址行2')
+    city = models.CharField(max_length=100, blank=True, default='', verbose_name='城市')
+    state = models.CharField(max_length=100, blank=True, default='', verbose_name='州/省')
+    postal_code = models.CharField(max_length=20, blank=True, default='', verbose_name='邮编')
+    country = models.CharField(max_length=100, default='US', verbose_name='国家')
+    phone = models.CharField(max_length=30, blank=True, default='', verbose_name='电话')
+
+    class Meta:
+        db_table = 'address'
+        verbose_name = '地址'
+        verbose_name_plural = verbose_name
+        constraints = [
+            models.UniqueConstraint(
+                fields=['organization', 'type'],
+                condition=models.Q(is_default=True),
+                name='unique_default_address_per_type',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.get_type_display()} @ {self.organization_id}: {self.line1}'

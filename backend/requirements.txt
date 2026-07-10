@@ -17,6 +17,9 @@ Pillow==11.1.0
 PyMuPDF==1.25.4
 reportlab==5.0.0
 
+# Email (Outbox + cron send via django-anymail; secrets via env, not committed)
+django-anymail==10.3
+
 # Utilities
 python-dotenv==1.0.1
 sqlparse==0.5.2

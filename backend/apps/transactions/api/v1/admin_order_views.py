@@ -11,6 +11,7 @@ from apps.transactions.models import (
     Order, OrderItem, Invoice, PaymentRecord, ShippingRecord,
     InvalidTransitionError,
 )
+from apps.transactions.services import InvoiceService
 from apps.transactions.api.v1.serializers import (
     OrderListSerializer, OrderDetailSerializer, InvoiceSerializer,
     AdminShipSerializer, AdminQuoteSerializer, AdminVerifyPaymentSerializer,
@@ -84,79 +85,32 @@ class AdminInvoiceOrderView(APIView):
         except Order.DoesNotExist:
             return Response({'success': False, 'meta': {'error': {'code': 'NOT_FOUND'}}}, status=404)
 
-        if order.status != 'confirmed':
+        # New P0 state machine: invoicing requires DELIVERED (confirmed→invoiced
+        # is illegal). Delegated to the unified InvoiceService.issue flow.
+        if order.status != Order.Status.DELIVERED:
             return Response(
-                {'success': False, 'meta': {'error': {'code': 'INVALID_STATUS', 'message': 'Order must be confirmed'}}},
+                {'success': False, 'meta': {'error': {
+                    'code': 'INVALID_STATUS',
+                    'message': 'Order must be delivered before invoicing',
+                }}},
                 status=400,
             )
 
-        # Calculate due date
-        terms_map = {'NET30': 30, 'NET60': 60, 'NET90': 90}
-        days = terms_map.get(order.payment_terms, 30)
-        due_date = date.today() + timedelta(days=days)
-
-        # Generate invoice number
-        seq = Invoice.objects.filter(created_at__date=date.today()).count() + 1
-        invoice_no = f'INV-{date.today().strftime("%Y%m%d")}-{seq:03d}'
-
-        invoice = Invoice.objects.create(
-            order=order,
-            invoice_no=invoice_no,
-            status='issued',
-            issued_at=timezone.now(),
-            due_date=due_date,
-            subtotal=order.subtotal,
-            tax_total=order.tax_total,
-            grand_total=order.grand_total,
-            currency=order.currency,
-        )
-
-        order.payment_due_date = due_date
-        order.transition_to('invoiced')
-        order.save()
+        try:
+            invoice = InvoiceService.issue(order, actor=request.user)
+        except InvalidTransitionError as e:
+            return Response({'success': False, 'meta': {'error': {'code': 'INVALID_TRANSITION', 'message': str(e)}}}, status=400)
+        except ValueError as e:
+            return Response({'success': False, 'meta': {'error': {'code': 'INVALID_STATE', 'message': str(e)}}}, status=400)
 
         return Response({'success': True, 'data': InvoiceSerializer(invoice).data})
 
 
-class AdminShipOrderView(APIView):
-    """POST /api/v1/admin/orders/{id}/ship — mark order as shipped."""
-    permission_classes = [IsAdminUser]
-
-    def post(self, request, pk):
-        try:
-            order = Order.objects.get(pk=pk)
-        except Order.DoesNotExist:
-            return Response({'success': False, 'meta': {'error': {'code': 'NOT_FOUND'}}}, status=404)
-
-        serializer = AdminShipSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-
-        if order.status not in ('paid', 'processing'):
-            return Response(
-                {'success': False, 'meta': {'error': {'code': 'INVALID_STATUS', 'message': 'Order must be paid or processing'}}},
-                status=400,
-            )
-
-        # Transition to processing if paid
-        if order.status == 'paid':
-            order.transition_to('processing')
-
-        # Create or update shipping record
-        shipping, _ = ShippingRecord.objects.update_or_create(
-            order=order,
-            defaults={
-                'status': 'shipped',
-                'carrier': data['carrier'],
-                'tracking_number': data['tracking_number'],
-                'tracking_url': data.get('tracking_url', ''),
-                'shipped_at': timezone.now(),
-                'notes': data.get('notes', ''),
-            },
-        )
-
-        order.transition_to('shipped')
-        return Response({'success': True, 'data': ShippingRecordSerializer(shipping).data})
+# NOTE: AdminShipOrderView removed — it depended on the deprecated `processing`
+# state, which is no longer in VALID_TRANSITIONS and would 500 under the new P0
+# state machine. Shipping is now handled by the new PO flow
+# (MarkShippedView / MarkDeliveredView in po_views.py). See decision ①A.
+# deprecated: replaced by new PO flow
 
 
 class AdminCompleteOrderView(APIView):

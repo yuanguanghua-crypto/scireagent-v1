@@ -3,7 +3,8 @@ from django.contrib import admin
 
 from .models import (
     Order, OrderItem, Invoice, PaymentRecord,
-    ShippingRecord, Quote, QuoteItem, Basket, Wishlist,
+    ShippingRecord, ShippingRecordItem, PoAttachment, StatusLog, InvoiceSequence,
+    Quote, QuoteItem, Basket, Wishlist,
 )
 
 
@@ -178,3 +179,27 @@ class WishlistAdmin(ModelAdmin):
     search_fields = ('name', 'user__username')
     autocomplete_fields = ('user',)
     filter_horizontal = ('products',)
+
+
+# ── PO Portal P0 models ──────────────────────────────
+
+@admin.register(ShippingRecordItem)
+class ShippingRecordItemAdmin(ModelAdmin):
+    list_display = ('id', 'shipping_record', 'order_item', 'quantity')
+
+
+@admin.register(PoAttachment)
+class PoAttachmentAdmin(ModelAdmin):
+    list_display = ('id', 'order', 'original_filename', 'mime_type', 'file_size')
+
+
+@admin.register(StatusLog)
+class StatusLogAdmin(ModelAdmin):
+    list_display = ('id', 'order', 'actor', 'action_type', 'from_status', 'to_status', 'created_at')
+    list_filter = ('action_type',)
+    search_fields = ('order__order_no', 'note')
+
+
+@admin.register(InvoiceSequence)
+class InvoiceSequenceAdmin(ModelAdmin):
+    list_display = ('year', 'last_number')

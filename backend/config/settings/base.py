@@ -44,6 +44,8 @@ INSTALLED_APPS = [
     'apps.quotes',
     'apps.assets',
     'apps.documents',
+    'apps.inventory',
+    'apps.notifications',
 ]
 
 MIDDLEWARE = [
@@ -88,6 +90,11 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
+
+# SQLite dev/test: raise busy timeout so concurrent writers serialize instead
+# of raising "database table is locked" (select_for_update is a no-op on sqlite).
+if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
+    DATABASES['default'].setdefault('OPTIONS', {})['timeout'] = 30
 
 # ── Cache：数据源结果缓存（cache-aside）──────────────────────────────────────
 # 有 REDIS_URL 走 Redis（跨进程、生产推荐）；无则 fallback LocMem（开发/测试）
@@ -313,6 +320,13 @@ LOGGING = {
         },
     },
 }
+
+# ── Email / Outbox (django-anymail) ──
+# Secrets (ANYMAIL_API_KEY etc.) are supplied via .env; never committed.
+ANYMAIL = {
+    'MAILGUN_API_KEY': os.getenv('ANYMAIL_MAILGUN_API_KEY', ''),
+}
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@scireagent.com')
 
 # ── 数据源健壮性：全局 socket 超时兜底 ──────────────────────────────────────
 # pubchempy 内部 urlopen 未传 timeout，慢响应时 enrich 接口会挂死占满 worker。

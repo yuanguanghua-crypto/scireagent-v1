@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
-from apps.accounts.models import Organization
+from apps.accounts.models import Organization, Address
 
 User = get_user_model()
 
@@ -190,3 +190,16 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
     def get_member_count(self, obj):
         return obj.members.count()
+
+
+class AddressSerializer(serializers.ModelSerializer):
+    """机构地址（billing/shipping）序列化器 — 字段显式声明。"""
+
+    class Meta:
+        model = Address
+        fields = [
+            'id', 'organization_id', 'type', 'is_default',
+            'attention', 'line1', 'line2', 'city', 'state',
+            'postal_code', 'country', 'phone',
+            'created_at', 'updated_at',
+        ]

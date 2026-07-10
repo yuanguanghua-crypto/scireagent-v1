@@ -12,14 +12,19 @@ class Order(TimeStampedModel):
     """订单 — B2B life science order with PO/invoice/payment terms"""
 
     class Status(models.TextChoices):
-        DRAFT = 'draft', 'Draft'
+        # ── New P0 procurement flow ──
+        PO_RECEIVED = 'po_received', 'PO Received'
         CONFIRMED = 'confirmed', 'Confirmed'
+        IN_PRODUCTION = 'in_production', 'In Production'
+        SHIPPED = 'shipped', 'Shipped'
+        DELIVERED = 'delivered', 'Delivered'
         INVOICED = 'invoiced', 'Invoiced'
         PAID = 'paid', 'Paid'
-        PROCESSING = 'processing', 'Processing'
-        SHIPPED = 'shipped', 'Shipped'
         COMPLETED = 'completed', 'Completed'
         CANCELLED = 'cancelled', 'Cancelled'
+        # ── Deprecated (legacy data only, new flow does not write) ──
+        DRAFT = 'draft', 'Draft'
+        PROCESSING = 'processing', 'Processing'
         QUOTE_PENDING = 'quote_pending', 'Quote Pending'
         QUOTED = 'quoted', 'Quoted'
         QUOTE_ACCEPTED = 'quote_accepted', 'Quote Accepted'
@@ -31,19 +36,36 @@ class Order(TimeStampedModel):
         WIRE_TRANSFER = 'wire_transfer', 'Wire Transfer'
         QUOTE = 'quote', 'Quote'
 
+    class PaymentTerms(models.TextChoices):
+        NET30 = 'NET30', 'Net 30'
+        NET45 = 'NET45', 'Net 45'
+        NET60 = 'NET60', 'Net 60'
+
+    class ShippingMethod(models.TextChoices):
+        AMBIENT = 'ambient', 'Ambient'
+        COLD_PACK = 'cold_pack', 'Cold Pack'
+        DRY_ICE = 'dry_ice', 'Dry Ice'
+        BLUE_ICE = 'blue_ice', 'Blue Ice'
+
+    # Canonical state machine (single source of truth). Deprecated entries kept
+    # only for backward-compatible replay of legacy data.
     VALID_TRANSITIONS = {
-        'draft':           ['confirmed', 'quote_pending', 'cancelled'],
-        'confirmed':       ['invoiced', 'paid'],
-        'invoiced':        ['paid'],
-        'paid':            ['processing'],
-        'processing':      ['shipped'],
-        'shipped':         ['completed'],
-        'completed':       [],
-        'cancelled':       [],
-        'quote_pending':   ['quoted', 'cancelled'],
-        'quoted':          ['quote_accepted', 'quote_rejected'],
-        'quote_accepted':  ['confirmed'],
-        'quote_rejected':  [],
+        'po_received':    ['confirmed', 'cancelled'],
+        'confirmed':      ['in_production', 'shipped', 'cancelled'],
+        'in_production':  ['shipped', 'cancelled'],
+        'shipped':        ['delivered', 'cancelled'],
+        'delivered':      ['invoiced', 'cancelled'],
+        'invoiced':       ['paid', 'cancelled'],
+        'paid':           ['completed'],
+        'completed':      [],
+        'cancelled':      [],
+        # deprecated
+        'draft':          ['confirmed', 'quote_pending', 'cancelled'],
+        'quote_pending':  ['quoted', 'cancelled'],
+        'quoted':         ['quote_accepted', 'quote_rejected'],
+        'quote_accepted': ['confirmed'],
+        'quote_rejected': [],
+        'processing':     ['shipped'],
     }
 
     # Core fields
@@ -66,10 +88,40 @@ class Order(TimeStampedModel):
         max_length=20, choices=PaymentMethod.choices,
         default=PaymentMethod.PO, verbose_name='付款方式'
     )
-    po_number = models.CharField(max_length=100, blank=True, default='', verbose_name='PO 号')
+    po_number = models.CharField(max_length=100, blank=True, default='', unique=True, verbose_name='PO 号')
     po_contact = models.CharField(max_length=200, blank=True, default='', verbose_name='PO 联系人')
-    payment_terms = models.CharField(max_length=20, default='NET30', verbose_name='账期')
+    payment_terms = models.CharField(
+        max_length=20, choices=PaymentTerms.choices,
+        default=PaymentTerms.NET30, verbose_name='账期'
+    )
     payment_due_date = models.DateField(null=True, blank=True, verbose_name='付款到期日')
+
+    # ── PO Portal extensions (P0) ──
+    assigned_rep = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='assigned_orders',
+        limit_choices_to={'role__in': ['procurement', 'admin']},
+        verbose_name='负责销售'
+    )
+    grant_code = models.CharField(max_length=100, blank=True, default='', verbose_name='基金/赞助号')
+    shipping_method = models.CharField(
+        max_length=20, choices=ShippingMethod.choices,
+        blank=True, default='', verbose_name='运输方式'
+    )
+    requested_delivery_date = models.DateField(null=True, blank=True, verbose_name='期望到货日')
+    etd = models.DateField(null=True, blank=True, verbose_name='预计发货')
+    quote = models.ForeignKey(
+        'Quote', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='orders', verbose_name='关联询价单'
+    )
+    shipping_address_ref = models.ForeignKey(
+        'accounts.Address', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='shipping_orders', verbose_name='收货地址溯源'
+    )
+    billing_address_ref = models.ForeignKey(
+        'accounts.Address', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='billing_orders', verbose_name='账单地址溯源'
+    )
 
     # Totals
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='小计')
@@ -163,6 +215,10 @@ class Invoice(TimeStampedModel):
         max_length=20, choices=Status.choices,
         default=Status.DRAFT, verbose_name='状态'
     )
+    payment_terms = models.CharField(
+        max_length=20, choices=Order.PaymentTerms.choices,
+        default=Order.PaymentTerms.NET30, verbose_name='账期'
+    )
     issued_at = models.DateTimeField(null=True, blank=True, verbose_name='开具时间')
     due_date = models.DateField(verbose_name='到期日')
     paid_at = models.DateTimeField(null=True, blank=True, verbose_name='付款时间')
@@ -241,7 +297,7 @@ class PaymentRecord(TimeStampedModel):
 
 
 class ShippingRecord(TimeStampedModel):
-    """发货记录"""
+    """发货记录 — OneToMany per Order (supports partial/batch shipping)."""
 
     class Status(models.TextChoices):
         PREPARING = 'preparing', 'Preparing'
@@ -249,8 +305,8 @@ class ShippingRecord(TimeStampedModel):
         IN_TRANSIT = 'in_transit', 'In Transit'
         DELIVERED = 'delivered', 'Delivered'
 
-    order = models.OneToOneField(
-        Order, on_delete=models.CASCADE, related_name='shipping', verbose_name='订单'
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name='shipments', verbose_name='订单'
     )
     status = models.CharField(
         max_length=20, choices=Status.choices,
@@ -262,6 +318,7 @@ class ShippingRecord(TimeStampedModel):
     shipped_at = models.DateTimeField(null=True, blank=True, verbose_name='发货时间')
     estimated_delivery = models.DateField(null=True, blank=True, verbose_name='预计送达')
     delivered_at = models.DateTimeField(null=True, blank=True, verbose_name='送达时间')
+    received_by = models.CharField(max_length=200, blank=True, default='', verbose_name='签收人')
     notes = models.TextField(blank=True, default='', verbose_name='备注')
 
     class Meta:
@@ -270,7 +327,102 @@ class ShippingRecord(TimeStampedModel):
         verbose_name_plural = verbose_name
 
     def __str__(self):
-        return f'Shipping for {self.order.order_no}'
+        return f'Shipping #{self.id} for {self.order.order_no}'
+
+
+class ShippingRecordItem(TimeStampedModel):
+    """发货明细 — how many of which OrderItem were shipped in a ShippingRecord."""
+
+    shipping_record = models.ForeignKey(
+        ShippingRecord, on_delete=models.CASCADE, related_name='items', verbose_name='发货记录'
+    )
+    order_item = models.ForeignKey(
+        OrderItem, on_delete=models.CASCADE, related_name='shipment_items', verbose_name='订单明细'
+    )
+    quantity = models.IntegerField(default=1, verbose_name='数量')
+
+    class Meta:
+        db_table = 'shipping_record_item'
+        verbose_name = '发货明细'
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return f'{self.shipping_record_id} → {self.order_item_id} x{self.quantity}'
+
+
+class PoAttachment(TimeStampedModel):
+    """PO 附件 — self-contained FileField store (not reusing assets.PdfFile)."""
+
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name='attachments', verbose_name='订单'
+    )
+    file = models.FileField(upload_to='po_attachments/%Y%m/', verbose_name='文件')
+    original_filename = models.CharField(max_length=255, blank=True, default='', verbose_name='原始文件名')
+    mime_type = models.CharField(max_length=100, blank=True, default='', verbose_name='MIME 类型')
+    file_size = models.IntegerField(default=0, verbose_name='文件大小')
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, verbose_name='上传人'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='上传时间')
+
+    class Meta:
+        db_table = 'po_attachment'
+        verbose_name = 'PO 附件'
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return f'{self.original_filename} ({self.order.order_no})'
+
+
+class StatusLog(TimeStampedModel):
+    """统一状态/操作时间线 — 状态变更与内部操作共用此表（按 action_type 区分）。"""
+
+    class ActionType(models.TextChoices):
+        STATUS_CHANGE = 'status_change', 'Status Change'
+        REP_ASSIGNED = 'rep_assigned', 'Rep Assigned'
+        REJECTED = 'rejected', 'Rejected'
+        NOTED = 'noted', 'Noted'
+        SHIPMENT = 'shipment', 'Shipment'
+        INVOICE = 'invoice', 'Invoice'
+
+    order = models.ForeignKey(
+        Order, on_delete=models.CASCADE, related_name='status_logs', verbose_name='订单'
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='status_logs', verbose_name='操作人'
+    )
+    action_type = models.CharField(
+        max_length=20, choices=ActionType.choices, default=ActionType.STATUS_CHANGE
+    )
+    from_status = models.CharField(max_length=20, blank=True, default='')
+    to_status = models.CharField(max_length=20, blank=True, default='')
+    note = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='时间')
+
+    class Meta:
+        db_table = 'status_log'
+        verbose_name = '状态日志'
+        verbose_name_plural = verbose_name
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'[{self.action_type}] {self.order.order_no}: {self.from_status}→{self.to_status}'
+
+
+class InvoiceSequence(models.Model):
+    """独立发票计数器表 — 并发安全取号（year, last_number）。"""
+
+    year = models.IntegerField(unique=True)
+    last_number = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = 'invoice_sequence'
+        verbose_name = '发票序号'
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return f'{self.year}: {self.last_number}'
 
 
 class Quote(TimeStampedModel):

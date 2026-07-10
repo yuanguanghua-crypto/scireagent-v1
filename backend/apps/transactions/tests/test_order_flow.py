@@ -87,8 +87,8 @@ class TestOrderStatusTransitions:
         assert order.status == 'quote_rejected'
 
     def test_tc_ord_08_generate_invoice(self):
-        """confirmed → invoiced"""
-        order = OrderFactory(status='confirmed')
+        """delivered → invoiced (new PO flow: invoice only after delivery)"""
+        order = OrderFactory(status='delivered')
         order.transition_to('invoiced')
         assert order.status == 'invoiced'
 
@@ -104,17 +104,9 @@ class TestOrderStatusTransitions:
         order.transition_to('paid')
         assert order.status == 'paid'
 
-    def test_tc_ord_11_mark_shipped(self):
-        """paid → processing → shipped"""
-        order = OrderFactory(status='paid')
-        order.transition_to('processing')
-        assert order.status == 'processing'
-        order.transition_to('shipped')
-        assert order.status == 'shipped'
-
     def test_tc_ord_12_complete(self):
-        """shipped → completed"""
-        order = OrderFactory(status='shipped')
+        """paid → completed (new PO flow: completion only after payment)"""
+        order = OrderFactory(status='paid')
         order.transition_to('completed')
         assert order.status == 'completed'
 
@@ -124,11 +116,11 @@ class TestOrderStatusTransitions:
         order.transition_to('cancelled')
         assert order.status == 'cancelled'
 
-    def test_tc_ord_14_cannot_cancel_after_confirmed(self):
-        """Cannot cancel after confirmed"""
+    def test_tc_ord_14_can_cancel_after_confirmed(self):
+        """Can cancel after confirmed (new machine allows confirmed→cancelled)"""
         order = OrderFactory(status='confirmed')
-        with pytest.raises(InvalidTransitionError):
-            order.transition_to('cancelled')
+        order.transition_to('cancelled')
+        assert order.status == 'cancelled'
 
     def test_tc_ord_15_invalid_transition_paid_to_draft(self):
         """Invalid: paid → draft"""
@@ -493,19 +485,18 @@ class TestShipping:
         assert shipping.status == 'delivered'
         assert shipping.delivered_at is not None
 
-    def test_tc_shp_05_auto_complete_on_delivery(self):
-        """Order auto-completes on delivery"""
+    def test_tc_shp_05_delivery_advances_order(self):
+        """shipped → delivered (new PO flow: delivery advances order, not completion)"""
         order = OrderFactory(status='shipped')
         shipping = ShippingRecordFactory(order=order, status='delivered')
-        order.transition_to('completed')
-        assert order.status == 'completed'
+        order.transition_to('delivered')
+        assert order.status == 'delivered'
 
-    def test_tc_shp_06_cannot_ship_unpaid(self):
-        """Cannot ship unpaid order"""
+    def test_tc_shp_06_can_ship_confirmed(self):
+        """Can ship a confirmed order (confirmed→shipped legal in new machine)"""
         order = OrderFactory(status='confirmed')
-        # Business rule: must be paid before shipping
-        with pytest.raises(InvalidTransitionError):
-            order.transition_to('shipped')
+        order.transition_to('shipped')
+        assert order.status == 'shipped'
 
     def test_tc_shp_07_tracking_url(self):
         """Tracking URL generated"""
@@ -670,8 +661,8 @@ class TestPermissions:
         assert resp.status_code in (403, 404)
 
     def test_tc_perm_07_admin_generates_invoice(self):
-        """Admin can generate invoice"""
-        order = OrderFactory(status='confirmed')
+        """Admin can generate invoice for a delivered order (new PO flow)"""
+        order = OrderFactory(status='delivered')
         self.client.force_authenticate(self.admin)
         resp = self.client.post(f'/api/v1/admin/orders/{order.id}/invoice/')
         assert resp.status_code == 200
@@ -688,25 +679,11 @@ class TestPermissions:
         }, format='json')
         assert resp.status_code == 200
 
-    def test_tc_perm_09_admin_ships_order(self):
-        """Admin can ship order"""
-        order = OrderFactory(status='paid')
-        self.client.force_authenticate(self.admin)
-        resp = self.client.post(f'/api/v1/admin/orders/{order.id}/ship/', {
-            'carrier': 'FedEx',
-            'tracking_number': 'TRACK-001',
-        }, format='json')
-        assert resp.status_code == 200
-
-    def test_tc_perm_10_researcher_cannot_ship(self):
-        """Researcher cannot ship order"""
-        order = OrderFactory(status='paid')
-        self.client.force_authenticate(self.researcher)
-        resp = self.client.post(f'/api/v1/admin/orders/{order.id}/ship/', {
-            'carrier': 'FedEx',
-            'tracking_number': 'TRACK-001',
-        }, format='json')
-        assert resp.status_code in (403, 404)
+    # NOTE: test_tc_perm_09 / test_tc_perm_10 (old admin ship endpoint) removed.
+    # The /admin/orders/<pk>/ship/ endpoint depended on the deprecated
+    # `processing` state and was removed (decision ①A); shipping now goes
+    # through the new PO flow (MarkShippedView / MarkDeliveredView).
+    # deprecated: replaced by new PO flow
 
 
 # ============================================================================

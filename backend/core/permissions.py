@@ -39,3 +39,23 @@ class LoginRateThrottle(AnonRateThrottle):
         if getattr(settings, 'DISABLE_THROTTLE', False):
             return True
         return super().allow_request(request, view)
+
+
+class IsProcurementOrAdmin(BasePermission):
+    """采购/内部写操作：procurement 或 admin 角色（is_staff 视为内部人员）。"""
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        return user.is_staff or user.role in ('procurement', 'admin')
+
+
+class IsAdmin(BasePermission):
+    """管理员专属操作：admin 角色（is_staff 视为管理员）。"""
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        return user.is_staff or user.role == 'admin'

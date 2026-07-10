@@ -2,7 +2,7 @@ from unfold.admin import ModelAdmin
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
-from .models import Organization, User
+from .models import Organization, User, Address
 
 
 @admin.register(Organization)
@@ -61,3 +61,10 @@ class CustomUserAdmin(BaseUserAdmin, ModelAdmin):
             'fields': ('role', 'organization'),
         }),
     )
+
+
+@admin.register(Address)
+class AddressAdmin(ModelAdmin):
+    list_display = ('id', 'organization', 'type', 'is_default', 'line1', 'city', 'country')
+    list_filter = ('type', 'country')
+    search_fields = ('organization__name', 'line1', 'city')

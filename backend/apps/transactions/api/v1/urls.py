@@ -8,8 +8,13 @@ from apps.transactions.api.v1.checkout_views import CheckoutView
 from apps.transactions.api.v1.admin_order_views import (
     AdminOrderListView, AdminOrderDetailView,
     AdminConfirmOrderView, AdminInvoiceOrderView,
-    AdminShipOrderView, AdminCompleteOrderView,
+    AdminCompleteOrderView,
     AdminQuoteOrderView, AdminVerifyPaymentView,
+)
+from apps.transactions.api.v1.po_views import (
+    POSubmitView, ApproveOrderView, RejectOrderView, AssignRepView,
+    ShipmentCreateView, MarkShippedView, MarkDeliveredView,
+    InvoiceIssueView, PaymentCreateView, ArAgingView,
 )
 
 router = DefaultRouter()
@@ -28,12 +33,23 @@ urlpatterns = [
     # Checkout
     path('checkout/', CheckoutView.as_view(), name='checkout'),
 
+    # ── PO Portal P0 endpoints ──
+    path('orders/po/', POSubmitView.as_view(), name='po-submit'),
+    path('orders/<int:pk>/approve/', ApproveOrderView.as_view(), name='order-approve'),
+    path('orders/<int:pk>/reject/', RejectOrderView.as_view(), name='order-reject'),
+    path('orders/<int:pk>/assign-rep/', AssignRepView.as_view(), name='order-assign-rep'),
+    path('orders/<int:pk>/shipments/', ShipmentCreateView.as_view(), name='order-shipments'),
+    path('orders/<int:pk>/invoice/', InvoiceIssueView.as_view(), name='order-invoice'),
+    path('shipments/<int:pk>/mark-shipped/', MarkShippedView.as_view(), name='shipment-mark-shipped'),
+    path('shipments/<int:pk>/mark-delivered/', MarkDeliveredView.as_view(), name='shipment-mark-delivered'),
+    path('invoices/<int:pk>/pay/', PaymentCreateView.as_view(), name='invoice-pay'),
+    path('ar/aging/', ArAgingView.as_view(), name='ar-aging'),
+
     # Admin order management
     path('admin/orders/', AdminOrderListView.as_view(), name='admin-order-list'),
     path('admin/orders/<int:pk>/', AdminOrderDetailView.as_view(), name='admin-order-detail'),
     path('admin/orders/<int:pk>/confirm/', AdminConfirmOrderView.as_view(), name='admin-order-confirm'),
     path('admin/orders/<int:pk>/invoice/', AdminInvoiceOrderView.as_view(), name='admin-order-invoice'),
-    path('admin/orders/<int:pk>/ship/', AdminShipOrderView.as_view(), name='admin-order-ship'),
     path('admin/orders/<int:pk>/complete/', AdminCompleteOrderView.as_view(), name='admin-order-complete'),
     path('admin/orders/<int:pk>/quote/', AdminQuoteOrderView.as_view(), name='admin-order-quote'),
     path('admin/invoices/<int:pk>/verify-payment/', AdminVerifyPaymentView.as_view(), name='admin-verify-payment'),
