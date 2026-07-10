@@ -193,7 +193,11 @@ class OrganizationSerializer(serializers.ModelSerializer):
 
 
 class AddressSerializer(serializers.ModelSerializer):
-    """机构地址（billing/shipping）序列化器 — 字段显式声明。"""
+    """机构地址（billing/shipping）序列化器 — 字段显式声明（禁 __all__）。
+
+    organization_id 为只读：归属由 View 依据 request.user.organization 推入，
+    前端地址簿不传 organization，避免越权写入其他机构。
+    """
 
     class Meta:
         model = Address
@@ -203,3 +207,4 @@ class AddressSerializer(serializers.ModelSerializer):
             'postal_code', 'country', 'phone',
             'created_at', 'updated_at',
         ]
+        read_only_fields = ['id', 'organization_id', 'created_at', 'updated_at']

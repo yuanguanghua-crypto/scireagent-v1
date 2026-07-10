@@ -1,5 +1,9 @@
 """PO 门户 P0 端点 — 提交/审核/发货/开票/收款/AR（信封统一，跨模型写入走 Service）。"""
+import os
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -9,6 +13,7 @@ from core.permissions import IsProcurementOrAdmin, IsAdmin
 
 from apps.transactions.models import (
     Order, Invoice, ShippingRecord, StatusLog, InvalidTransitionError,
+    PoAttachment,
 )
 from apps.transactions.api.v1.serializers import (
     OrderDetailSerializer, InvoiceSerializer, ShippingRecordSerializer,
@@ -205,3 +210,65 @@ class ArAgingView(EnvelopeMixin, APIView):
 
     def get(self, request):
         return self.success_response(PaymentArService.ar_aging())
+
+
+def _is_order_viewer(user, order) -> bool:
+    """订单可见性：订单归属人本人 / 本机构成员 / 采购或管理员。"""
+    if not (user and user.is_authenticated):
+        return False
+    if order.user_id == user.id:
+        return True
+    if order.organization_id and order.organization_id == getattr(user, 'organization_id', None):
+        return True
+    return IsProcurementOrAdmin().has_permission(None, None) and user.is_authenticated
+
+
+class InvoicePdfDownloadView(EnvelopeMixin, APIView):
+    """GET /api/v1/invoices/<pk>/pdf/ — 下载发票 PDF（FileResponse）。
+
+    发票 PDF 由 InvoiceService.generate_invoice_pdf 落盘于
+    MEDIA_ROOT/invoices/<invoice_no>.pdf（Invoice 模型暂无 FileField，按
+    invoice_no 反查文件，避免改动既有 P0 模型/服务）。
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        invoice = get_object_or_404(Invoice, pk=pk)
+        if not _is_order_viewer(request.user, invoice.order):
+            return self.error_response(
+                'Not allowed to view this invoice', code='FORBIDDEN', status_code=403
+            )
+        pdf_path = os.path.join(
+            settings.MEDIA_ROOT, 'invoices', f'{invoice.invoice_no}.pdf'
+        )
+        if not os.path.exists(pdf_path):
+            return self.error_response(
+                'Invoice PDF not found', code='NOT_FOUND', status_code=404
+            )
+        response = FileResponse(open(pdf_path, 'rb'), content_type='application/pdf')
+        response['Content-Disposition'] = (
+            f'inline; filename="{invoice.invoice_no}.pdf"'
+        )
+        return response
+
+
+class PoAttachmentDownloadView(EnvelopeMixin, APIView):
+    """GET /api/v1/orders/attachments/<pk>/download/ — 下载 PO 附件（FileResponse）。"""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        attachment = get_object_or_404(PoAttachment, pk=pk)
+        if not _is_order_viewer(request.user, attachment.order):
+            return self.error_response(
+                'Not allowed to view this attachment', code='FORBIDDEN', status_code=403
+            )
+        if not attachment.file or not attachment.file.storage.exists(attachment.file.name):
+            return self.error_response(
+                'Attachment file not found', code='NOT_FOUND', status_code=404
+            )
+        content_type = attachment.mime_type or 'application/octet-stream'
+        file_obj = attachment.file.open('rb')
+        response = FileResponse(file_obj, content_type=content_type)
+        fname = attachment.original_filename or os.path.basename(attachment.file.name)
+        response['Content-Disposition'] = f'inline; filename="{fname}"'
+        return response

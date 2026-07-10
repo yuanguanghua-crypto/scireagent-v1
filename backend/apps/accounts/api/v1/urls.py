@@ -14,4 +14,10 @@ urlpatterns = [
         views.OrganizationCreateView.as_view(),
         name='org-create',
     ),
+    # ── Address CRUD (PO Portal 节点4) ──
+    path('addresses/', views.AddressViewSet.as_view(
+        {'get': 'list', 'post': 'create'}), name='address-list'),
+    path('addresses/<int:pk>/', views.AddressViewSet.as_view(
+        {'get': 'retrieve', 'put': 'update',
+         'patch': 'partial_update', 'delete': 'destroy'}), name='address-detail'),
 ]

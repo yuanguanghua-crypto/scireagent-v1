@@ -15,6 +15,7 @@ from apps.transactions.api.v1.po_views import (
     POSubmitView, ApproveOrderView, RejectOrderView, AssignRepView,
     ShipmentCreateView, MarkShippedView, MarkDeliveredView,
     InvoiceIssueView, PaymentCreateView, ArAgingView,
+    InvoicePdfDownloadView, PoAttachmentDownloadView,
 )
 
 router = DefaultRouter()
@@ -43,6 +44,8 @@ urlpatterns = [
     path('shipments/<int:pk>/mark-shipped/', MarkShippedView.as_view(), name='shipment-mark-shipped'),
     path('shipments/<int:pk>/mark-delivered/', MarkDeliveredView.as_view(), name='shipment-mark-delivered'),
     path('invoices/<int:pk>/pay/', PaymentCreateView.as_view(), name='invoice-pay'),
+    path('invoices/<int:pk>/pdf/', InvoicePdfDownloadView.as_view(), name='invoice-pdf'),
+    path('orders/attachments/<int:pk>/download/', PoAttachmentDownloadView.as_view(), name='po-attachment-download'),
     path('ar/aging/', ArAgingView.as_view(), name='ar-aging'),
 
     # Admin order management
