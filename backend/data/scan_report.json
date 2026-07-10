@@ -1,0 +1,3307 @@
+{
+  "stats": {
+    "total": 110,
+    "has_cas": 63,
+    "has_smiles": 68,
+    "has_both": 61,
+    "pubchem_found": 56,
+    "pubchem_match": 5,
+    "pubchem_mismatch": 51,
+    "has_literature": 64,
+    "has_protocol": 12,
+    "total_literature_refs": 242,
+    "total_protocols": 29,
+    "by_category": {
+      "nucleotides_nucleosides": 109,
+      "uncategorized": 1
+    },
+    "by_literature_count": {
+      "2": 5,
+      "1": 13,
+      "3": 3,
+      "4": 5,
+      "5": 38
+    },
+    "by_protocol_count": {
+      "3": 7,
+      "2": 3,
+      "1": 2
+    },
+    "mismatch_details": [
+      {
+        "id": 21,
+        "name": "5‑Propargylamino‑CTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 22,
+        "name": "5‑Propargylamino‑dCTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 30,
+        "name": "Pseudo-UTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 31,
+        "name": "N1-Methylpseudo-UTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 34,
+        "name": "Biotin-16-UTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 35,
+        "name": "Biotin-11-dUTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 40,
+        "name": "5‑Propargylamino‑dUTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 42,
+        "name": "5-Iodo-dUTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 46,
+        "name": "4-Thio-UTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 53,
+        "name": "5-Ethynyl-dUTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 54,
+        "name": "2'-Fluoro-dUTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 55,
+        "name": "2'-Fluoro-dATP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 56,
+        "name": "2'-Fluoro-dCTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 57,
+        "name": "2'-Fluoro-dGTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 66,
+        "name": "2'-Azido-dATP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 67,
+        "name": "5-Bromo-2'-dCTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 68,
+        "name": "5-Bromo-2'-dUTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 69,
+        "name": "7-Deaza-dATP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 70,
+        "name": "7-Deaza-dGTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 71,
+        "name": "dITP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 72,
+        "name": "5-Propynyl-dCTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 73,
+        "name": "5-Iodo-dCTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 75,
+        "name": "5-Methyl-dCTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 76,
+        "name": "5-Methyl-CTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 78,
+        "name": "O6-Methyl-GTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 79,
+        "name": "N6-Methyl-dATP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 80,
+        "name": "N6-Methyl-ATP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 82,
+        "name": "8-Oxo-dATP(1)",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 83,
+        "name": "8-Oxo-dGTP(1)",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 84,
+        "name": "8-Oxo-GTP(1)",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 85,
+        "name": "8-Oxo-dGMP(1)",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 91,
+        "name": "6-thio-dGTP(1)",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 92,
+        "name": "6-thio-GTP(1)",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 93,
+        "name": "6-thio-GMP(1)",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 101,
+        "name": "5-AA-UTP(1)",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 103,
+        "name": "5-Hydroxy-dCTP(1)",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 104,
+        "name": "5-Hydroxymethyl-dCTP(1)",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 106,
+        "name": "5-Hydroxymethyl-UTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 107,
+        "name": "5-Hydroxymethyl-dUTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 114,
+        "name": "7-Deaza-dADP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 118,
+        "name": "7-Deaza-7-iodo-dATP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 119,
+        "name": "7-Deaza-7-iodo-dGTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 120,
+        "name": "7-Deaza-7-Propargylamino-dATP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 121,
+        "name": "7-Deaza-7-Propargylamino-dGTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 122,
+        "name": "7-Deaza-7-Propargylamino-ddATP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 123,
+        "name": "7-Deaza-7-Propargylamino-ddGTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 125,
+        "name": "3’-Azido-ddGTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 126,
+        "name": "3’-Azido-ddCTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 127,
+        "name": "3’-Azido-ddUTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 128,
+        "name": "3’-Azido-ddTTP",
+        "fields": [
+          "smiles"
+        ]
+      },
+      {
+        "id": 129,
+        "name": "3’-Amino-ddATP",
+        "fields": [
+          "smiles"
+        ]
+      }
+    ],
+    "top_applications": {
+      "research_application": 56,
+      "microbial_detection": 3,
+      "therapy": 3,
+      "protein_analysis": 13,
+      "in_situ_hybridization": 2,
+      "gene_expression": 8,
+      "imaging": 1,
+      "viral_detection": 6,
+      "sequencing": 2,
+      "diagnostics": 1,
+      "drug_discovery": 4
+    },
+    "top_methods": {
+      "detection": 7,
+      "hybridization": 1,
+      "labeling": 11,
+      "amplification": 4,
+      "microarray": 4,
+      "mass_spectrometry": 1,
+      "sequencing": 2,
+      "xray_crystallography": 1
+    }
+  },
+  "results": [
+    {
+      "id": 21,
+      "name": "5‑Propargylamino‑CTP",
+      "cas": "150718-26-6",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 121487800,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 3,
+      "protocols": [
+        {
+          "title": "In vitro Transcription (IVT) and tRNA Binding Assay",
+          "score": 2.0
+        },
+        {
+          "title": "Generation of Zebrafish Maternal Mutants via Oocyte-Specific",
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "name": "5‑Propargylamino‑dCTP",
+      "cas": "115899-39-3",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 11283796,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 3,
+      "protocols": [
+        {
+          "title": "CRISPR/Cas9 Gene Editing of HeLa Cells to Tag Proteins with ",
+          "score": 1.0
+        },
+        {
+          "title": "Construction of Viral Vectors for Cell Type-specific CRISPR ",
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "name": "5‑Propargylamino‑CTP-Cy3",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 24,
+      "name": "5‑Propargylamino‑dCTP-Cy3",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 25,
+      "name": "5‑Propargylamino‑CTP-Cy5",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 26,
+      "name": "5‑Propargylamino‑dCTP-Cy5",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 27,
+      "name": "Fluorescein-12-UTP",
+      "cas": "134367-01-4",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 311,
+      "pubchem_match": true,
+      "mismatches": [],
+      "literature_count": 2,
+      "applications": [
+        "research_application",
+        "microbial_detection"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "17883279",
+          "title": "Free-solution oligonucleotide separation in nanoscale channe"
+        },
+        {
+          "pmid": "16349377",
+          "title": "Identification of Whole Fixed Bacterial Cells with Nonradioa"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 28,
+      "name": "5-Formyl-UTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 1,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "909423",
+          "title": "5-Formyl-UTP for DNA-dependent RNA polymerase."
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 29,
+      "name": "Desthiobiotin-11-UTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 30,
+      "name": "Pseudo-UTP",
+      "cas": "1175-34-4",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 20762852,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 3,
+      "applications": [
+        "research_application",
+        "therapy",
+        "protein_analysis"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "27911496",
+          "title": "Gram-Scale Chemical Synthesis of Base-Modified Ribonucleosid"
+        },
+        {
+          "pmid": "35228902",
+          "title": "Towards SINEUP-based therapeutics: Design of an in vitro syn"
+        },
+        {
+          "pmid": "24210219",
+          "title": "Biochemical and structural studies of conserved Maf proteins"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 31,
+      "name": "N1-Methylpseudo-UTP",
+      "cas": "1428903-59-6",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 90456815,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 32,
+      "name": "5-Methoxy-UTP",
+      "cas": "847649-65-4",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 56664717,
+      "pubchem_match": true,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 33,
+      "name": "Biotin-11-UTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 4,
+      "applications": [
+        "research_application",
+        "in_situ_hybridization"
+      ],
+      "methods": [
+        "detection",
+        "hybridization"
+      ],
+      "refs": [
+        {
+          "pmid": "21424653",
+          "title": "Detection of DNA sequences using biotinylated probes."
+        },
+        {
+          "pmid": "2723019",
+          "title": "Biotinylated RNA probes for the detection of potato spindle "
+        },
+        {
+          "pmid": "3208617",
+          "title": "Flow cytometric detection of ribosomal RNA in suspended cell"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 34,
+      "name": "Biotin-16-UTP",
+      "cas": "86303-26-6",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 131801119,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 1,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [
+        "labeling"
+      ],
+      "refs": [
+        {
+          "pmid": "11084863",
+          "title": "Nuclear run-on assay using biotin labeling, magnetic bead ca"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 35,
+      "name": "Biotin-11-dUTP",
+      "cas": "86303-25-5",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 6436394,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "gene_expression"
+      ],
+      "methods": [
+        "amplification",
+        "detection",
+        "labeling"
+      ],
+      "refs": [
+        {
+          "pmid": "8097433",
+          "title": "Visualization of replication factories attached to nucleoske"
+        },
+        {
+          "pmid": "18819132",
+          "title": "A polydiacetylene microchip based on a biotin-streptavidin i"
+        },
+        {
+          "pmid": "2837921",
+          "title": "Nonradioactive labeling of synthetic oligonucleotide probes "
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 36,
+      "name": "Biotin-16-dUTP",
+      "cas": "136632-31-0",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [
+        "cas"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "gene_expression",
+        "in_situ_hybridization"
+      ],
+      "methods": [
+        "amplification"
+      ],
+      "refs": [
+        {
+          "pmid": "26530676",
+          "title": "Tracking Mitochondrial DNA In Situ."
+        },
+        {
+          "pmid": "35367814",
+          "title": "STAT4 regulates cardiomyocyte apoptosis in rat models of dia"
+        },
+        {
+          "pmid": "11468799",
+          "title": "Retrospective biological dosimetry of absorbed radiation."
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 37,
+      "name": "Cy3-dUTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [
+        "labeling",
+        "microarray"
+      ],
+      "refs": [
+        {
+          "pmid": "36066717",
+          "title": "Visualizing Active Replication Regions in S-Phase Chromosome"
+        },
+        {
+          "pmid": "8065939",
+          "title": "Cyanine dye dUTP analogs for enzymatic labeling of DNA probe"
+        },
+        {
+          "pmid": "24609382",
+          "title": "Engineering nicking enzymes that preferentially nick 5-methy"
+        }
+      ],
+      "protocol_count": 2,
+      "protocols": [
+        {
+          "title": "DNA in situ Hybridizations for VEGFA Gene Locus (6p12) in Hu",
+          "score": 1.0
+        },
+        {
+          "title": "Fluorescence in situ Hybridization to the Polytene Chromosom",
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "name": "Cy5-dUTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "gene_expression"
+      ],
+      "methods": [
+        "amplification",
+        "detection",
+        "labeling",
+        "microarray"
+      ],
+      "refs": [
+        {
+          "pmid": "34635776",
+          "title": "Using Cy5-dUTP labelling of RPA-amplicons with downstream mi"
+        },
+        {
+          "pmid": "8065939",
+          "title": "Cyanine dye dUTP analogs for enzymatic labeling of DNA probe"
+        },
+        {
+          "pmid": "37735542",
+          "title": "An experimental comparison between primer and nucleotide lab"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 39,
+      "name": "Sulfo-Cy5 dUTP",
+      "cas": "",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 3,
+      "protocols": [
+        {
+          "title": "Fluorescence in situ Localization of PrimiRNAs in Isolated A",
+          "score": 3.0
+        },
+        {
+          "title": "DNA in situ Hybridizations for VEGFA Gene Locus (6p12) in Hu",
+          "score": 2.0
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "name": "5‑Propargylamino‑dUTP",
+      "cas": "179101-49-6",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 18664765,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 3,
+      "protocols": [
+        {
+          "title": "Fluorescence in situ Localization of PrimiRNAs in Isolated A",
+          "score": 3.0
+        },
+        {
+          "title": "DNA in situ Hybridizations for VEGFA Gene Locus (6p12) in Hu",
+          "score": 2.0
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "name": "5-Propynyl-dUTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 42,
+      "name": "5-Iodo-dUTP",
+      "cas": "3731-55-3",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 65129,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "17896337",
+          "title": "Ferrocenylethynyl derivatives of nucleoside triphosphates: s"
+        },
+        {
+          "pmid": "7295897",
+          "title": "Preferential utilization of bromodeoxyuridine and iododeoxyu"
+        },
+        {
+          "pmid": "6397478",
+          "title": "High-performance liquid chromatographic purification of deox"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 43,
+      "name": "5-Formyl-dUTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 2,
+      "applications": [
+        "research_application",
+        "protein_analysis"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "9753724",
+          "title": "The mutations induced by oxidatively damaged nucleotides, 5-"
+        },
+        {
+          "pmid": "10373420",
+          "title": "The oxidized forms of dATP are substrates for the human MutT"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 44,
+      "name": "Cy3-UTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 2,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [
+        "labeling",
+        "microarray"
+      ],
+      "refs": [
+        {
+          "pmid": "36794904",
+          "title": "Enzymatic Synthesis of High-Density RNA Microarrays."
+        },
+        {
+          "pmid": "16869513",
+          "title": "Analysis of oligonucleotide microarrays by 3' end labeling u"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 45,
+      "name": "Cy5-UTP",
+      "cas": "",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 1,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [
+        "labeling",
+        "microarray"
+      ],
+      "refs": [
+        {
+          "pmid": "16869513",
+          "title": "Analysis of oligonucleotide microarrays by 3' end labeling u"
+        }
+      ],
+      "protocol_count": 1,
+      "protocols": [
+        {
+          "title": "RNA-protein UV-crosslinking Assay",
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "id": 46,
+      "name": "4-Thio-UTP",
+      "cas": "31556-28-2",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 3033941,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [
+        "labeling"
+      ],
+      "refs": [
+        {
+          "pmid": "2429953",
+          "title": "RNA contacts subunits IIo and IIc in HeLa RNA polymerase II "
+        },
+        {
+          "pmid": "7514294",
+          "title": "Stem-loop IV of 5S rRNA lies close to the peptidyltransferas"
+        },
+        {
+          "pmid": "1692025",
+          "title": "Active site labeling of Escherichia coli transcription elong"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 47,
+      "name": "5-Carboxy-UTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 48,
+      "name": "5-Hydroxy-UTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 49,
+      "name": "5-Carboxy-dUTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 50,
+      "name": "5-Indolyl-AA-dUTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 1,
+      "applications": [
+        "gene_expression"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "32490558",
+          "title": "Analysis of Modified Nucleotide Aptamer Library Generated by"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 51,
+      "name": "5-Methyl-3'-dUTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 3,
+      "protocols": [
+        {
+          "title": "Fluorescence in situ Localization of PrimiRNAs in Isolated A",
+          "score": 3.0
+        },
+        {
+          "title": "An Optimized Protocol for Detecting Guard Cell–specific Gene",
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "name": "5-Methyl-3'-UTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 2,
+      "protocols": [
+        {
+          "title": "RNA-protein UV-crosslinking Assay",
+          "score": 1.0
+        },
+        {
+          "title": "Analysis of RNA-protein Interactions Using Electrophoretic M",
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "id": 53,
+      "name": "5-Ethynyl-dUTP",
+      "cas": "111289-87-3",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 13871125,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "imaging"
+      ],
+      "methods": [
+        "detection",
+        "labeling"
+      ],
+      "refs": [
+        {
+          "pmid": "31953472",
+          "title": "Quantitation of deoxynucleoside triphosphates by click react"
+        },
+        {
+          "pmid": "42191302",
+          "title": "A highly sensitive detection platform for scrub typhus using"
+        },
+        {
+          "pmid": "41474743",
+          "title": "Combinatorial treatment of glioblastoma with temozolomide (T"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 54,
+      "name": "2'-Fluoro-dUTP",
+      "cas": "66840-02-6",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 191821,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 4,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "13129394",
+          "title": "Aminomodified nucleobases: functionalized nucleoside triphos"
+        },
+        {
+          "pmid": "34302317",
+          "title": "Programmable Site-Specific Functionalization of DNA Origami "
+        },
+        {
+          "pmid": "22727781",
+          "title": "The effect on quadruplex stability of North-nucleoside deriv"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 55,
+      "name": "2'-Fluoro-dATP",
+      "cas": "73449-07-7",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 126365,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [
+        "mass_spectrometry"
+      ],
+      "refs": [
+        {
+          "pmid": "2538224",
+          "title": "Interaction of several nucleoside triphosphate analogues and"
+        },
+        {
+          "pmid": "6156150",
+          "title": "2'-Deoxy-2'-azidoadenosine triphosphate and 2'-deoxy-2'-fluo"
+        },
+        {
+          "pmid": "9358169",
+          "title": "2'-Fluoro modified nucleic acids: polymerase-directed synthe"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 56,
+      "name": "2'-Fluoro-dCTP",
+      "cas": "66840-03-7",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 508468,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 57,
+      "name": "2'-Fluoro-dGTP",
+      "cas": "202186-97-8",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 137150674,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 1,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "39377743",
+          "title": "Engineering Phi29-DNAP Variants for Customized DNA Hydrogel "
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 58,
+      "name": "2'-Amino-dUTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 59,
+      "name": "2'-Amino-dGTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 60,
+      "name": "2'-Amino-dCTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 1,
+      "applications": [
+        "viral_detection"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "19426741",
+          "title": "Binding of 2'-amino-2'-deoxycytidine-5'-triphosphate to noro"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 61,
+      "name": "2'-Amino-dATP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "protein_analysis"
+      ],
+      "methods": [
+        "detection"
+      ],
+      "refs": [
+        {
+          "pmid": "38697668",
+          "title": "Enhanced ac4C detection in RNA via chemical reduction and cD"
+        },
+        {
+          "pmid": "10362073",
+          "title": "The effects of various GTP analogues on microtubule assembly"
+        },
+        {
+          "pmid": "15095864",
+          "title": "Probing the substrate recognition mechanism of the human MTH"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 62,
+      "name": "2'-Amino-ATP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "15216887",
+          "title": "Effects of purinenucleotide analogues on microtubule assembl"
+        },
+        {
+          "pmid": "15265873",
+          "title": "Chain termination and inhibition of Saccharomyces cerevisiae"
+        },
+        {
+          "pmid": "10362073",
+          "title": "The effects of various GTP analogues on microtubule assembly"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 63,
+      "name": "2'-Azido-dUTP",
+      "cas": "106448-30-0",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 386489,
+      "pubchem_match": true,
+      "mismatches": [],
+      "literature_count": 1,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "26819406",
+          "title": "Efficient enzymatic synthesis and dual-colour fluorescent la"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 64,
+      "name": "2'-Azido-dGTP",
+      "cas": "",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 65,
+      "name": "2'-Azido-dCTP",
+      "cas": "",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 66,
+      "name": "2'-Azido-dATP",
+      "cas": "73449-06-6",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 189791,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [
+        "labeling"
+      ],
+      "refs": [
+        {
+          "pmid": "2713338",
+          "title": "Photoaffinity labeling of terminal deoxynucleotidyl transfer"
+        },
+        {
+          "pmid": "2180951",
+          "title": "Photoaffinity labeling of the Klenow fragment with 8-azido-d"
+        },
+        {
+          "pmid": "2713339",
+          "title": "Photoaffinity labeling of terminal deoxynucleotidyl transfer"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 67,
+      "name": "5-Bromo-2'-dCTP",
+      "cas": "30419-11-5",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 57376979,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 2,
+      "protocols": [
+        {
+          "title": "SisterC: A novel 3C-technique to detect chromatin interactio",
+          "score": 2.0
+        },
+        {
+          "title": "Labeling and Isolation of Fluorouracil Tagged RNA by Cytosin",
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "id": 68,
+      "name": "5-Bromo-2'-dUTP",
+      "cas": "102212-99-7",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 65267,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 3,
+      "protocols": [
+        {
+          "title": "Fluorescence in situ Localization of PrimiRNAs in Isolated A",
+          "score": 3.0
+        },
+        {
+          "title": "An Optimized Protocol for Detecting Guard Cell–specific Gene",
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "id": 69,
+      "name": "7-Deaza-dATP",
+      "cas": "587848-72-4",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 101377226,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "sequencing",
+        "protein_analysis"
+      ],
+      "methods": [
+        "labeling",
+        "sequencing"
+      ],
+      "refs": [
+        {
+          "pmid": "27709938",
+          "title": "Additions of Thiols to 7-Vinyl-7-deazaadenine Nucleosides an"
+        },
+        {
+          "pmid": "8961922",
+          "title": "Human telomerase inhibition by 7-deaza-2'-deoxypurine nucleo"
+        },
+        {
+          "pmid": "27498304",
+          "title": "6-Aryl-4-amino-pyrimido[4,5-b]indole 2'-deoxyribonucleoside "
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 70,
+      "name": "7-Deaza-dGTP",
+      "cas": "101515-08-6",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 135544179,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "sequencing",
+        "diagnostics",
+        "gene_expression"
+      ],
+      "methods": [
+        "amplification",
+        "sequencing"
+      ],
+      "refs": [
+        {
+          "pmid": "32948245",
+          "title": "A novel target enrichment strategy in next-generation sequen"
+        },
+        {
+          "pmid": "17065422",
+          "title": "Betaine, dimethyl sulfoxide, and 7-deaza-dGTP, a powerful mi"
+        },
+        {
+          "pmid": "33525366",
+          "title": "Development of MTH1-Binding Nucleotide Analogs Based on 7,8-"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 71,
+      "name": "dITP",
+      "cas": "95648-77-4",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 135991270,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "microbial_detection",
+        "drug_discovery"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "32668640",
+          "title": "Pathophysiology and Diagnosis of Drug-Induced Immune Thrombo"
+        },
+        {
+          "pmid": "35642486",
+          "title": "Treatment of drug-induced immune thrombocytopenias."
+        },
+        {
+          "pmid": "30504360",
+          "title": "Drug-associated thrombocytopenia."
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 72,
+      "name": "5-Propynyl-dCTP",
+      "cas": "327174-86-7",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 10207015,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 73,
+      "name": "5-Iodo-dCTP",
+      "cas": "31747-59-8",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 65386,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "viral_detection"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "166201",
+          "title": "Iodination of herpesvirus nucleic acids."
+        },
+        {
+          "pmid": "26899597",
+          "title": "Flexible double-headed cytosine-linked 2'-deoxycytidine nucl"
+        },
+        {
+          "pmid": "7041118",
+          "title": "Effects of DNA base analogs on transcription termination at "
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 74,
+      "name": "5-Iodo-CTP",
+      "cas": "59259-76-6",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 155889616,
+      "pubchem_match": true,
+      "mismatches": [],
+      "literature_count": 1,
+      "applications": [
+        "viral_detection"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "166201",
+          "title": "Iodination of herpesvirus nucleic acids."
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 75,
+      "name": "5-Methyl-dCTP",
+      "cas": "22003-12-9",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 161376,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "7086962",
+          "title": "5-methyl-dCTP deaminase induced by bacteriophage XP-12."
+        },
+        {
+          "pmid": "38136671",
+          "title": "Using Selective Enzymes to Measure Noncanonical DNA Building"
+        },
+        {
+          "pmid": "1850509",
+          "title": "PCR with 5-methyl-dCTP replacing dCTP."
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 76,
+      "name": "5-Methyl-CTP",
+      "cas": "327174-86-7",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 10207015,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 3,
+      "applications": [
+        "research_application",
+        "protein_analysis"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "9321677",
+          "title": "A novel method for producing partial restriction digestion o"
+        },
+        {
+          "pmid": "19300826",
+          "title": "Efficient enzymatic synthesis of LNA-modified DNA duplexes u"
+        },
+        {
+          "pmid": "24210219",
+          "title": "Biochemical and structural studies of conserved Maf proteins"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 77,
+      "name": "O6-Methyl-dGTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "30304478",
+          "title": "MutT homologue 1 (MTH1) catalyzes the hydrolysis of mutageni"
+        },
+        {
+          "pmid": "37984506",
+          "title": "A modified nucleoside O6-methyl-2'-deoxyguanosine-5'-triphos"
+        },
+        {
+          "pmid": "3525535",
+          "title": "O6-methylguanine mutation and repair is nonuniform. Selectio"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 78,
+      "name": "O6-Methyl-GTP",
+      "cas": "99404-63-4",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 175837,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 79,
+      "name": "N6-Methyl-dATP",
+      "cas": "5085-65-4",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 3081392,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "32144205",
+          "title": "MutT homologue 1 (MTH1) removes N6-methyl-dATP from the dNTP"
+        },
+        {
+          "pmid": "14510368",
+          "title": "Simultaneous incorporation of three different modified nucle"
+        },
+        {
+          "pmid": "17983244",
+          "title": "Enhancing the \"A-rule\" of translesion DNA synthesis: promuta"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 80,
+      "name": "N6-Methyl-ATP",
+      "cas": "3130-39-0",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 23279502,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 4,
+      "applications": [
+        "research_application",
+        "therapy"
+      ],
+      "methods": [
+        "detection"
+      ],
+      "refs": [
+        {
+          "pmid": "32144205",
+          "title": "MutT homologue 1 (MTH1) removes N6-methyl-dATP from the dNTP"
+        },
+        {
+          "pmid": "31577817",
+          "title": "Development and validation of monoclonal antibodies against "
+        },
+        {
+          "pmid": "35228902",
+          "title": "Towards SINEUP-based therapeutics: Design of an in vitro syn"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 81,
+      "name": "N2-Methyl-dGTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 82,
+      "name": "8-Oxo-dATP(1)",
+      "cas": "3056945-23-1",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 177823099,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "41898401",
+          "title": "A Comparative Study for the Incorporation of 8-oxo-dATP in D"
+        },
+        {
+          "pmid": "21178309",
+          "title": "CiMutT, an asidian MutT homologue, has a 7, 8-dihydro-8-oxo-"
+        },
+        {
+          "pmid": "27778111",
+          "title": "Alr2954 of Anabaena sp. PCC 7120 with ADP-ribose pyrophospha"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 83,
+      "name": "8-Oxo-dGTP(1)",
+      "cas": "139307-94-1",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 135398565,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [
+        "xray_crystallography"
+      ],
+      "refs": [
+        {
+          "pmid": "20544882",
+          "title": "DNA repair in mammalian mitochondria: Much more than we thou"
+        },
+        {
+          "pmid": "9140059",
+          "title": "MutT-related error avoidance mechanism for DNA synthesis."
+        },
+        {
+          "pmid": "26730155",
+          "title": "Hypoxia-inducible factor-1 modulates upregulation of mutT ho"
+        }
+      ],
+      "protocol_count": 1,
+      "protocols": [
+        {
+          "title": "In vitro Assay to Measure DNA Polymerase  Nucleotide Inserti",
+          "score": 1.0
+        }
+      ]
+    },
+    {
+      "id": 84,
+      "name": "8-Oxo-GTP(1)",
+      "cas": "21238-36-8",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 135509073,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "protein_analysis"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "38776712",
+          "title": "An exchange of single amino acid between the phosphohydrolas"
+        },
+        {
+          "pmid": "21704046",
+          "title": "Mutagenicity of secondary oxidation products of 8-oxo-7,8-di"
+        },
+        {
+          "pmid": "10090747",
+          "title": "Metabolic fate of oxidized guanine ribonucleotides in mammal"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 85,
+      "name": "8-Oxo-dGMP(1)",
+      "cas": "127027-50-3",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 135488904,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [
+        "detection",
+        "labeling"
+      ],
+      "refs": [
+        {
+          "pmid": "12527759",
+          "title": "Mutagenic potentials of damaged nucleic acids produced by re"
+        },
+        {
+          "pmid": "12802803",
+          "title": "Analysis of 8-hydroxydeoxyguanosine 5'-monophosphate (8-OH-d"
+        },
+        {
+          "pmid": "2157405",
+          "title": "Detection and quantitation of 8-hydroxydeoxyguanosine 5'-mon"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 86,
+      "name": "8-Oxo-dGDP(1)",
+      "cas": "",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "gene_expression",
+        "protein_analysis"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "21873335",
+          "title": "NDX-1 protein hydrolyzes 8-oxo-7, 8-dihydrodeoxyguanosine-5'"
+        },
+        {
+          "pmid": "16472828",
+          "title": "Exogenous 8-oxo-dG is not utilized for nucleotide synthesis "
+        },
+        {
+          "pmid": "7819228",
+          "title": "Generation and elimination of 8-oxo-7,8-dihydro-2'-deoxyguan"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 87,
+      "name": "2-thio-dTTP(1)",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 88,
+      "name": "2-thio-dCTP(1)",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 89,
+      "name": "2-thio-CTP(1)",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "26243014",
+          "title": "Effectiveness of High-Intensity Interval Training (HIT) and "
+        },
+        {
+          "pmid": "30000679",
+          "title": "Etidronate."
+        },
+        {
+          "pmid": "28925261",
+          "title": "[24]Pentaphyrin(2.1.1.1.1): A Strongly Antiaromatic Pentaphy"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 90,
+      "name": "2-thio-UTP(1)",
+      "cas": "35763-29-2",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "33061823",
+          "title": "P2Y(2) Receptor Induces L. amazonensis Infection Control in "
+        },
+        {
+          "pmid": "35850244",
+          "title": "The blockage of downstream P2Y(2) receptor signaling inhibit"
+        },
+        {
+          "pmid": "21600693",
+          "title": "Nucleotides control the excitability of sensory neurons via "
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 91,
+      "name": "6-thio-dGTP(1)",
+      "cas": "17660-38-7",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 3000543,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "drug_discovery"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "9278101",
+          "title": "Mutagenic consequences of the incorporation of 6-thioguanine"
+        },
+        {
+          "pmid": "11532970",
+          "title": "Deoxythioguanosine triphosphate impairs HIV replication: a n"
+        },
+        {
+          "pmid": "2994008",
+          "title": "On the fidelity of DNA polymerase alpha: the influence of al"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 92,
+      "name": "6-thio-GTP(1)",
+      "cas": "17670-19-8",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 10143562,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "microbial_detection"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "16175140",
+          "title": "Thiopurine therapies: problems, complexities, and progress w"
+        },
+        {
+          "pmid": "30289487",
+          "title": "The NTP binding site of the polymerase ribozyme."
+        },
+        {
+          "pmid": "17584603",
+          "title": "Enhanced cardiac allograft survival by Vav1-Rac signaling bl"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 93,
+      "name": "6-thio-GMP(1)",
+      "cas": "15867-02-4",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 3034646,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "therapy",
+        "drug_discovery"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "39162583",
+          "title": "Optimizing thiopurine therapy in autoimmune hepatitis: A mul"
+        },
+        {
+          "pmid": "19952870",
+          "title": "Thiopurine pathway."
+        },
+        {
+          "pmid": "32363674",
+          "title": "Review article: opportunities to improve and expand thiopuri"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 94,
+      "name": "6-Aza-dUTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 95,
+      "name": "6-Aza-UTP(1)",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 1,
+      "applications": [
+        "drug_discovery"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "40273705",
+          "title": "Drug repurposing of 6-AZA-UTP and itraconazole reveals novel"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 96,
+      "name": "6-Aza-CTP(1)",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "26243014",
+          "title": "Effectiveness of High-Intensity Interval Training (HIT) and "
+        },
+        {
+          "pmid": "30000679",
+          "title": "Etidronate."
+        },
+        {
+          "pmid": "39256817",
+          "title": "Air pollution and risk of 32 health conditions: outcome-wide"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 97,
+      "name": "6-Aza-dCTP(1)",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "26243014",
+          "title": "Effectiveness of High-Intensity Interval Training (HIT) and "
+        },
+        {
+          "pmid": "30000679",
+          "title": "Etidronate."
+        },
+        {
+          "pmid": "39256817",
+          "title": "Air pollution and risk of 32 health conditions: outcome-wide"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 98,
+      "name": "5-AA-dCTP(1)",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "26243014",
+          "title": "Effectiveness of High-Intensity Interval Training (HIT) and "
+        },
+        {
+          "pmid": "30000679",
+          "title": "Etidronate."
+        },
+        {
+          "pmid": "39256817",
+          "title": "Air pollution and risk of 32 health conditions: outcome-wide"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 99,
+      "name": "5-AA-CTP(1)",
+      "cas": "182700-18-0",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [
+        "cas"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "26243014",
+          "title": "Effectiveness of High-Intensity Interval Training (HIT) and "
+        },
+        {
+          "pmid": "30000679",
+          "title": "Etidronate."
+        },
+        {
+          "pmid": "39256817",
+          "title": "Air pollution and risk of 32 health conditions: outcome-wide"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 100,
+      "name": "5-AA-dUTP(1)",
+      "cas": "936327-10-5",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "26243014",
+          "title": "Effectiveness of High-Intensity Interval Training (HIT) and "
+        },
+        {
+          "pmid": "30000679",
+          "title": "Etidronate."
+        },
+        {
+          "pmid": "39256817",
+          "title": "Air pollution and risk of 32 health conditions: outcome-wide"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 101,
+      "name": "5-AA-UTP(1)",
+      "cas": "112131-73-4",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 154724813,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "26243014",
+          "title": "Effectiveness of High-Intensity Interval Training (HIT) and "
+        },
+        {
+          "pmid": "30000679",
+          "title": "Etidronate."
+        },
+        {
+          "pmid": "39256817",
+          "title": "Air pollution and risk of 32 health conditions: outcome-wide"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 102,
+      "name": "5-Hydroxy-CTP(1)",
+      "cas": "",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 2,
+      "applications": [
+        "protein_analysis"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "12509230",
+          "title": "The oxidized pyrimidine ribonucleotide, 5-hydroxy-CTP, is hy"
+        },
+        {
+          "pmid": "21553121",
+          "title": "¹H, ¹³C and ¹⁵N NMR assignments of the Escherichia coli Orf1"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 103,
+      "name": "5-Hydroxy-dCTP(1)",
+      "cas": "154121-10-5",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 477415,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 1,
+      "applications": [
+        "protein_analysis"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "12509230",
+          "title": "The oxidized pyrimidine ribonucleotide, 5-hydroxy-CTP, is hy"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 104,
+      "name": "5-Hydroxymethyl-dCTP(1)",
+      "cas": "7226-77-9",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 169016,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "gene_expression",
+        "protein_analysis"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "33833118",
+          "title": "Targeting the nucleotide salvage factor DNPH1 sensitizes BRC"
+        },
+        {
+          "pmid": "2034218",
+          "title": "Analysis of mutagenesis induced by a thermolabile T4 phage d"
+        },
+        {
+          "pmid": "4525160",
+          "title": "Direct participation of dCMP hydroxymethylase in synthesis o"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 105,
+      "name": "5-Hydroxymethyl-CTP(1)",
+      "cas": "39749-90-1",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [
+        "cas"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "26243014",
+          "title": "Effectiveness of High-Intensity Interval Training (HIT) and "
+        },
+        {
+          "pmid": "30000679",
+          "title": "Etidronate."
+        },
+        {
+          "pmid": "39256817",
+          "title": "Air pollution and risk of 32 health conditions: outcome-wide"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 106,
+      "name": "5-Hydroxymethyl-UTP",
+      "cas": "2415101-56-1",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 122456279,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 107,
+      "name": "5-Hydroxymethyl-dUTP",
+      "cas": "14167-70-5",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 159726,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 4,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "17027294",
+          "title": "Reliability of serum assays of iron status in postmenopausal"
+        },
+        {
+          "pmid": "7373713",
+          "title": "Bacteriophage phi W-14-infected Pseudomonas acidovorans synt"
+        },
+        {
+          "pmid": "21227920",
+          "title": "Improved nucleotide selectivity and termination of 3'-OH unb"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 108,
+      "name": "5-Carboxy-CTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 109,
+      "name": "5-Carboxy-dCTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 110,
+      "name": "5-Formyl-CTP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 111,
+      "name": "5-Formyl-dCTP",
+      "cas": "1428903-58-5",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [
+        "cas"
+      ],
+      "literature_count": 1,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "24467396",
+          "title": "The NTP pyrophosphatase DCTPP1 contributes to the homoeostas"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 112,
+      "name": "7-Deaza-GTP",
+      "cas": "",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "gene_expression",
+        "protein_analysis"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "36902262",
+          "title": "G-Quadruplexes Regulate miRNA Biogenesis in Live Zebrafish E"
+        },
+        {
+          "pmid": "31444754",
+          "title": "Characterization of Co-transcriptional Formation of G-Quadru"
+        },
+        {
+          "pmid": "36477752",
+          "title": "Slippage at the initiation of RNA synthesis by Qβ replicase "
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 113,
+      "name": "7-Deaza-ATP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 2,
+      "applications": [
+        "viral_detection",
+        "protein_analysis"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "36533569",
+          "title": "Chloroacetamide-Modified Nucleotide and RNA for Bioconjugati"
+        },
+        {
+          "pmid": "16300408",
+          "title": "Herpes simplex virus 1 primase employs watson-crick hydrogen"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 114,
+      "name": "7-Deaza-dADP",
+      "cas": "187478-96-2",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 44755089,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 115,
+      "name": "7-Deaza-dAMP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 1,
+      "applications": [
+        "protein_analysis"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "18652488",
+          "title": "Formation of noncanonical DNA structures mediated by human O"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 116,
+      "name": "7-Deaza-dGDP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 117,
+      "name": "7-Deaza-dGMP",
+      "cas": "",
+      "smiles": false,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 118,
+      "name": "7-Deaza-7-iodo-dATP",
+      "cas": "214833-26-8",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 101089267,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 119,
+      "name": "7-Deaza-7-iodo-dGTP",
+      "cas": "214833-26-8",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 101089267,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 120,
+      "name": "7-Deaza-7-Propargylamino-dATP",
+      "cas": "587848-72-4",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 101377226,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 121,
+      "name": "7-Deaza-7-Propargylamino-dGTP",
+      "cas": "587848-73-5",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 162640848,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 122,
+      "name": "7-Deaza-7-Propargylamino-ddATP",
+      "cas": "114748-69-5",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 11249496,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 123,
+      "name": "7-Deaza-7-Propargylamino-ddGTP",
+      "cas": "114748-61-7",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 135577908,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 124,
+      "name": "3’-Azido-ddATP",
+      "cas": "92562-94-2",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 76389538,
+      "pubchem_match": true,
+      "mismatches": [],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 125,
+      "name": "3’-Azido-ddGTP",
+      "cas": "94059-38-8",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 135524764,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 3,
+      "applications": [
+        "research_application",
+        "viral_detection"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "24211331",
+          "title": "Molecular mechanism of HIV-1 resistance to 3'-azido-2',3'-di"
+        },
+        {
+          "pmid": "19596885",
+          "title": "Anti-human immunodeficiency virus activity, cross-resistance"
+        },
+        {
+          "pmid": "21914723",
+          "title": "Substrate mimicry: HIV-1 reverse transcriptase recognizes 6-"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 126,
+      "name": "3’-Azido-ddCTP",
+      "cas": "92562-77-1",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 5279593,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 127,
+      "name": "3’-Azido-ddUTP",
+      "cas": "119388-79-3",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 451665,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 1,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "19761402",
+          "title": "Differential inhibition of homotrimeric dUTPases by the 3'-a"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 128,
+      "name": "3’-Azido-ddTTP",
+      "cas": "92586-35-1",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 72187,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 5,
+      "applications": [
+        "research_application",
+        "viral_detection"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "30853213",
+          "title": "LINE1 Derepression in Aged Wild-Type and SIRT6-Deficient Mic"
+        },
+        {
+          "pmid": "17184158",
+          "title": "Polymeric nanogel formulations of nucleoside analogs."
+        },
+        {
+          "pmid": "1285301",
+          "title": "Inhibitors of HIV-1 reverse transcriptase and fidelity of in"
+        }
+      ],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 129,
+      "name": "3’-Amino-ddATP",
+      "cas": "90053-18-2",
+      "smiles": true,
+      "category": "nucleotides_nucleosides",
+      "pubchem_cid": 451598,
+      "pubchem_match": false,
+      "mismatches": [
+        "smiles"
+      ],
+      "literature_count": 0,
+      "applications": [],
+      "methods": [],
+      "refs": [],
+      "protocol_count": 0,
+      "protocols": []
+    },
+    {
+      "id": 130,
+      "name": "Product 0",
+      "cas": "00000-00-0",
+      "smiles": true,
+      "category": "",
+      "pubchem_cid": null,
+      "pubchem_match": false,
+      "mismatches": [
+        "cas"
+      ],
+      "literature_count": 4,
+      "applications": [
+        "research_application"
+      ],
+      "methods": [],
+      "refs": [
+        {
+          "pmid": "3996527",
+          "title": "Taenia taeniaeformis: inhibition of rat testosterone product"
+        },
+        {
+          "pmid": "40354675",
+          "title": "Platycodonis radix polysaccharides suppress progression of h"
+        },
+        {
+          "pmid": "40544735",
+          "title": "Jiegeng Gancao Decoction Ameliorates Ulcerative Colitis: An "
+        }
+      ],
+      "protocol_count": 3,
+      "protocols": [
+        {
+          "title": "Production, Purification and Crystallization of a Prokaryoti",
+          "score": 7.0
+        },
+        {
+          "title": "Targeted Delivery of Chemogenetic Adeno-Associated Viral Vec",
+          "score": 6.0
+        }
+      ]
+    }
+  ]
+}

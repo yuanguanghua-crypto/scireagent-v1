@@ -1,0 +1,103 @@
+classDiagram
+    %% ── AppButton ──
+    class AppButton {
+        <<Vue Component>>
+        +String variant
+        +String size
+        +Boolean loading
+        +Boolean disabled
+        +Boolean icon
+        +String nativeType
+        +String href
+        +String|Object to
+        +--- computed ---
+        +String[] classes
+        +Boolean isLink
+        +Boolean isRouterLink
+        +--- internal ---
+        +handleClick(event)
+    }
+    note for AppButton "variant: 'primary'|'secondary'|'outline'|'ghost'|'danger'|'accent'|'link'\nsize: 'sm'|'md'|'lg'|'icon'|'icon-sm'"
+
+    class AppButtonSlots {
+        <<Slots>>
+        +default 按钮文字/内容
+        +icon 图标内容
+    }
+
+    AppButton --> AppButtonSlots : has
+
+    %% ── AppDialog ──
+    class AppDialog {
+        <<Vue Component>>
+        +Boolean visible (v-model)
+        +String title
+        +String width
+        +String variant
+        +Boolean closeOnClickOverlay
+        +String confirmText
+        +String cancelText
+        +Boolean showConfirm
+        +Boolean showCancel
+        +Boolean confirmLoading
+        +String titleId
+        +--- internal ---
+        +onConfirm()
+        +onCancel()
+        +onOverlayClick()
+        +useDialogA11y(openRef, overlayRef, opts)
+        +--- refs ---
+        +Ref overlayRef
+    }
+    note for AppDialog "variant: 'default'|'danger'\nwidth CSS value, default '480px'"
+
+    class AppDialogEvents {
+        <<Events>>
+        +update:visible(boolean)
+        +confirm()
+        +cancel()
+    }
+
+    class AppDialogSlots {
+        <<Slots>>
+        +default 弹窗主体内容
+        +footer 自定义底部操作区
+    }
+
+    AppDialog --> AppDialogEvents : emits
+    AppDialog --> AppDialogSlots : has
+    AppDialog --> AppButton : uses (confirm/cancel btn)
+
+    %% ── AppToast ──
+    class AppToast {
+        <<Module (函数式)>>
+        +success(msg: string, duration?: number)
+        +error(msg: string, duration?: number)
+        +warning(msg: string, duration?: number)
+        +info(msg: string, duration?: number)
+    }
+    note for AppToast "内部封装 ElMessage\n默认 duration: 3000ms"
+
+    AppToast --> ElMessage : wraps
+
+    %% ── useDialogA11y composable ──
+    class useDialogA11y {
+        <<Composable>>
+        +useDialogA11y(openRef: Ref~boolean~, overlayRef: Ref~HTMLElement~, opts: {titleId?, close})
+        +returns { role, aria-modal, aria-labelledby, tabindex }
+    }
+
+    AppDialog --> useDialogA11y : integrates
+
+    %% ── index.js ──
+    class CommonIndex {
+        <<Export>>
+        +export { default as AppButton } from './AppButton.vue'
+        +export { default as AppDialog } from './AppDialog.vue'
+        +export { default as AppToast, toast } from './AppToast.js'
+        +export { default as DataPagination } from './DataPagination.vue'
+        +export { default as EmptyState } from './EmptyState.vue'
+        +export { default as ErrorState } from './ErrorState.vue'
+        +export { default as LoadingSpinner } from './LoadingSpinner.vue'
+        +...
+    }

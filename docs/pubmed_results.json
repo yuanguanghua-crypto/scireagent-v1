@@ -1,0 +1,2806 @@
+{
+  "SC8001": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8002": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8003": {
+    "pmids": [
+      "36047982",
+      "10521282",
+      "10101187"
+    ],
+    "papers": [
+      {
+        "pmid": "36047982",
+        "title": "Synthesis of new 1,2,3-triazolo-nucleoside analogues with 2-propargylamino pyrimidines ",
+        "abstract": "In this study, it was reported that twelve nucleoside analogues were synthesized by click reactions. The reactions were carried out between the azide derivatives of D-glucopyranose, D-galactopyranose, D-ribofuranose and ",
+        "journal": "Nucleosides, nucleotides & nucleic acids",
+        "year": "2023",
+        "doi": "10.1080/15257770.2022.2118317"
+      },
+      {
+        "pmid": "10521282",
+        "title": "DNA triple helix formation at target sites containing several pyrimidine interruptions: stabilization by protonated cytosine or 5-(1-propargylamino)dU.",
+        "abstract": "DNase I footprinting has been used to study the formation of parallel triplexes at oligopurine target sequences which are interrupted by pyrimidines at regular intervals. TA interruptions are targeted with third strand oligonucleotides containing guanine, generating G x TA triplets, while CG base pairs are targeted with thymine, forming T x CG triplets. We have attempted to optimize the stability of these complexes by varying the base composition and sequence arrangement of the target sites, and",
+        "journal": "Biochemistry",
+        "year": "1999",
+        "doi": "10.1021/bi9911637"
+      },
+      {
+        "pmid": "10101187",
+        "title": "5-(1-propargylamino)-2'-deoxyuridine (UP): a novel thymidine analogue for generating DNA triplexes with increased stability.",
+        "abstract": "We have used quantitative DNase I footprinting and UV-melting studies to examine the formation of DNA triplexes in which the third strand thymines have been replaced by 5-propargylamino-dU (UP). The intra-molecular triplex A6-L-T6-L-(UP)5T (L = two octanediol residues) shows a single UV-melting transition which is >20 degrees higher than that of the parent triplex A6-L-T6-L-T6at pH 5.5. Although a single transition is observed at all pHs, the melting temperature (Tm) of the modified oligonucleot",
+        "journal": "Nucleic acids research",
+        "year": "1999",
+        "doi": "10.1093/nar/27.8.1802"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8004": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8005": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8006": {
+    "pmids": [
+      "36047982",
+      "10521282",
+      "10101187"
+    ],
+    "papers": [
+      {
+        "pmid": "36047982",
+        "title": "Synthesis of new 1,2,3-triazolo-nucleoside analogues with 2-propargylamino pyrimidines ",
+        "abstract": "In this study, it was reported that twelve nucleoside analogues were synthesized by click reactions. The reactions were carried out between the azide derivatives of D-glucopyranose, D-galactopyranose, D-ribofuranose and ",
+        "journal": "Nucleosides, nucleotides & nucleic acids",
+        "year": "2023",
+        "doi": "10.1080/15257770.2022.2118317"
+      },
+      {
+        "pmid": "10521282",
+        "title": "DNA triple helix formation at target sites containing several pyrimidine interruptions: stabilization by protonated cytosine or 5-(1-propargylamino)dU.",
+        "abstract": "DNase I footprinting has been used to study the formation of parallel triplexes at oligopurine target sequences which are interrupted by pyrimidines at regular intervals. TA interruptions are targeted with third strand oligonucleotides containing guanine, generating G x TA triplets, while CG base pairs are targeted with thymine, forming T x CG triplets. We have attempted to optimize the stability of these complexes by varying the base composition and sequence arrangement of the target sites, and",
+        "journal": "Biochemistry",
+        "year": "1999",
+        "doi": "10.1021/bi9911637"
+      },
+      {
+        "pmid": "10101187",
+        "title": "5-(1-propargylamino)-2'-deoxyuridine (UP): a novel thymidine analogue for generating DNA triplexes with increased stability.",
+        "abstract": "We have used quantitative DNase I footprinting and UV-melting studies to examine the formation of DNA triplexes in which the third strand thymines have been replaced by 5-propargylamino-dU (UP). The intra-molecular triplex A6-L-T6-L-(UP)5T (L = two octanediol residues) shows a single UV-melting transition which is >20 degrees higher than that of the parent triplex A6-L-T6-L-T6at pH 5.5. Although a single transition is observed at all pHs, the melting temperature (Tm) of the modified oligonucleot",
+        "journal": "Nucleic acids research",
+        "year": "1999",
+        "doi": "10.1093/nar/27.8.1802"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8007": {
+    "pmids": [
+      "16349377",
+      "17883279"
+    ],
+    "papers": [
+      {
+        "pmid": "16349377",
+        "title": "Identification of Whole Fixed Bacterial Cells with Nonradioactive 23S rRNA-Targeted Polynucleotide Probes.",
+        "abstract": "Polyribonucleotide probes (ca. 200 to 300 nucleotides in length) carrying multiple reporter molecules were produced by in vitro transcription with labeled UTP derivatives (fluorescein-12-UTP, 7-amino-4-methyl-coumarin-3-acetyl-6-UTP, tetramethylrhodamine-6-UTP, or digoxigenin-11-UTP). Despite their length, these molecules penetrated into whole fixed gram-negative cells and hybridized specifically to their target sites on the 23S rRNA. Fluorescence intensities were quantified for target and nonta",
+        "journal": "Applied and environmental microbiology",
+        "year": "1994",
+        "doi": "10.1128/aem.60.9.3228-3235.1994"
+      },
+      {
+        "pmid": "17883279",
+        "title": "Free-solution oligonucleotide separation in nanoscale channels.",
+        "abstract": "In this paper, we report an experimental study of electrokinetic transport and separation of double-stranded deoxyribonucleic acid (dsDNA) oligonucleotides in custom-fabricated fused-silica nanochannels filled with a gel-free sodium borate aqueous buffer. Mixtures of fluorescently labeled dsDNA molecules in the range of 10-100 base pair (bp), fluorescein, and fluorescein-12-UTP (UTP) were separated in less than 120 s in channels of depth ranging from 40 to 1560 nm. We varied the channel depth an",
+        "journal": "Analytical chemistry",
+        "year": "2007",
+        "doi": "10.1021/ac0710580"
+      }
+    ],
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  "SC8008": {
+    "pmids": [
+      "909423"
+    ],
+    "papers": [
+      {
+        "pmid": "909423",
+        "title": "5-Formyl-UTP for DNA-dependent RNA polymerase.",
+        "abstract": "",
+        "journal": "Methods in enzymology",
+        "year": "1977",
+        "doi": "10.1016/s0076-6879(77)46040-3"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8010": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8011": {
+    "pmids": [
+      "27911496",
+      "24210219",
+      "35228902"
+    ],
+    "papers": [
+      {
+        "pmid": "27911496",
+        "title": "Gram-Scale Chemical Synthesis of Base-Modified Ribonucleoside-5'-O-Triphosphates.",
+        "abstract": "This unit delineates a simple, reliable, straight-forward, general, and efficient chemical method for the synthesis of modified nucleoside-5'-O-triphosphates such as 5-methylcytidine-5'-O-triphosphate (5-Me-CTP), pseudouridine-5'-O-triphosphate (pseudo-UTP), and N",
+        "journal": "Current protocols in nucleic acid chemistry",
+        "year": "2016",
+        "doi": "10.1002/cpnc.20"
+      },
+      {
+        "pmid": "24210219",
+        "title": "Biochemical and structural studies of conserved Maf proteins revealed nucleotide pyrophosphatases with a preference for modified nucleotides.",
+        "abstract": "Maf (for multicopy associated filamentation) proteins represent a large family of conserved proteins implicated in cell division arrest but whose biochemical activity remains unknown. Here, we show that the prokaryotic and eukaryotic Maf proteins exhibit nucleotide pyrophosphatase activity against 5-methyl-UTP, pseudo-UTP, 5-methyl-CTP, and 7-methyl-GTP, which represent the most abundant modified bases in all organisms, as well as against canonical nucleotides dTTP, UTP, and CTP. Overexpression ",
+        "journal": "Chemistry & biology",
+        "year": "2013",
+        "doi": "10.1016/j.chembiol.2013.09.011"
+      },
+      {
+        "pmid": "35228902",
+        "title": "Towards SINEUP-based therapeutics: Design of an ",
+        "abstract": "SINEUPs are a novel class of natural and synthetic non-coding antisense RNA molecules able to increase the translation of a target mRNA. They present a modular organization comprising an unstructured antisense target-specific domain, which sets the specificity of each individual SINEUP, and a structured effector domain, which is responsible for the translation enhancement. In order to design a fully functional ",
+        "journal": "Molecular therapy. Nucleic acids",
+        "year": "2022",
+        "doi": "10.1016/j.omtn.2022.01.021"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8012": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8013": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8014": {
+    "pmids": [
+      "2723019",
+      "21424653",
+      "3208617"
+    ],
+    "papers": [
+      {
+        "pmid": "2723019",
+        "title": "Biotinylated RNA probes for the detection of potato spindle tuber viroid (PSTV) in plants.",
+        "abstract": "Diseases caused by potato spindle tuber viroid (PSTV) are of significant agronomic importance, and early detection is vital. The objective of this paper was to synthesize biotinylated RNA probes in order to develop a specific, sensitive, and reliable assay system for detection of PSTV in infected plants. RNA probes were prepared by in vitro transcription of cloned PSTV, and were labelled with either biotin-11-UTP or [32P]UTP. Partially purified total RNAs from healthy and from PSTV-infected plan",
+        "journal": "Journal of virological methods",
+        "year": "1989",
+        "doi": "10.1016/0166-0934(89)90128-6"
+      },
+      {
+        "pmid": "21424653",
+        "title": "Detection of DNA sequences using biotinylated probes.",
+        "abstract": "It was found (1) that biotinylated analogs of dUTP, which contain a biotin molecule covalently bound to the C-5 position of the pyrimidine via an allylamine linker arm, can be used as substrates for DNA polymerase. Figure 1 shows the structure of biotin-11-dUTP, a commonly used substrate for biotinylation by the method of nick translation (2). The substituted DNA molecule will have similar hybridization properties to the un-substituted DNA. After hybridization to the test DNA, the biotin probe c",
+        "journal": "Methods in molecular biology (Clifton, N.J.)",
+        "year": "1988",
+        "doi": "10.1385/0-89603-127-6:425"
+      },
+      {
+        "pmid": "3208617",
+        "title": "Flow cytometric detection of ribosomal RNA in suspended cells by fluorescent in situ hybridization.",
+        "abstract": "A method using flow cytometry and fluorescent in situ hybridization (ISH) to detect RNA in cells is described. L1210 murine leukemia cells were fixed with 1% formaldehyde in HEPES buffered Hank's balanced salt solution (HH) followed by 70% ethanol. Endogenous RNAses were blocked by diethylpyrocarbonate treatment. Single-stranded sense and antisense RNA probes, labeled with biotin-11-UTP, were transcribed from a 2.1 kb 28S ribosomal RNA (rRNA) gene fragment subcloned into the pGEM2 plasmid. For g",
+        "journal": "Cytometry",
+        "year": "1988",
+        "doi": "10.1002/cyto.990090602"
+      }
+    ],
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": [
+      "RNA Biotin Labeling"
+    ]
+  },
+  "SC8015": {
+    "pmids": [
+      "11084863"
+    ],
+    "papers": [
+      {
+        "pmid": "11084863",
+        "title": "Nuclear run-on assay using biotin labeling, magnetic bead capture and analysis by fluorescence-based RT-PCR.",
+        "abstract": "In this report, we present a fluorescence-based approach to the assessment of cellular gene expression and transcription rates. Nuclear run-on was performed by supplying biotin-16-UTP to nuclei, and labeled transcripts were bound to streptavidin-coated magnetic beads. Total cDNA was then synthesized by means of random hexamer primed reverse transcription of captured molecules. To monitor transcript abundance in cDNA, both from nuclear run-on and total RNA, we propose a semiquantitative PCR appro",
+        "journal": "BioTechniques",
+        "year": "2000",
+        "doi": "10.2144/00295st02"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8016": {
+    "pmids": [
+      "3754808",
+      "18819132",
+      "8097433",
+      "2307053",
+      "2632579"
+    ],
+    "papers": [
+      {
+        "pmid": "3754808",
+        "title": "An improved method for in situ nick translation of human chromosomes with biotin 11-labelled dUTP detected by biotinylated alkaline phosphatase.",
+        "abstract": "Nick translation of the DNA of conventionally prepared human metaphase chromosomes using DNase I and biotin dUTP combined with streptavidin-phosphatase-detection assay produced a banding-like appearance. This pattern seems to be due to differences in DNase I sensitivity along the chromosomes. The Y chromosome could be clearly distinguished from the other chromosomes because of its intensely dark labelled heterochromatic region. In addition to DNase I concentration, hypotonic treatment seems to b",
+        "journal": "Cytobios",
+        "year": "1986",
+        "doi": ""
+      },
+      {
+        "pmid": "18819132",
+        "title": "A polydiacetylene microchip based on a biotin-streptavidin interaction for the diagnosis of pathogen infections.",
+        "abstract": "A micropatterned polydiacetylene (PDA) chip, utilizing the unique fluorogenic property of PDA and a specific biotin-streptavidin (STA) interaction, is constructed to detect pathogen infections. To construct the PDA chip, biotin-modified diacetylene liposomes are immobilized on aldehyde glass and conjugated with STA, followed by UV irradiation to polymerize the STA-functionalized diacetylene liposomes. Genomic DNA of a model pathogen, Chlamydia trachomatis, is isolated from human samples and biot",
+        "journal": "Small (Weinheim an der Bergstrasse, Germany)",
+        "year": "2008",
+        "doi": "10.1002/smll.200800947"
+      },
+      {
+        "pmid": "8097433",
+        "title": "Visualization of replication factories attached to nucleoskeleton.",
+        "abstract": "HeLa cells in early S phase were encapsulated in agarose microbeads, permeabilized, and incubated with biotin-11-dUTP in a \"physiological\" buffer. Sites of DNA synthesis were then immunolabeled. As others have found, approximately 150 focal sites of synthesis were visible in each nucleus by light microscopy; they also contained DNA polymerase alpha and proliferating cell nuclear antigen. Electron microscopy of thick resinless sections from which approximately 90% of the chromatin had been remove",
+        "journal": "Cell",
+        "year": "1993",
+        "doi": "10.1016/0092-8674(93)90235-i"
+      },
+      {
+        "pmid": "2307053",
+        "title": "Multiple fluorescence in situ hybridization.",
+        "abstract": "A method for multiple fluorescence in situ hybridization is described allowing the simultaneous detection of more than three target sequences with only three fluorescent dyes (FITC, TRITC, AMCA), respectively emitting in the green, red, and blue. This procedure is based on the labeling of (DNA) probes with more than one hapten and visualisation in multiple colors. The possibility to detect multiple targets simultaneously is important for prenatal diagnosis and the detection of numerical and/or s",
+        "journal": "Cytometry",
+        "year": "1990",
+        "doi": "10.1002/cyto.990110115"
+      },
+      {
+        "pmid": "2632579",
+        "title": "Replication occurs at discrete foci spaced throughout nuclei replicating in vitro.",
+        "abstract": "Demembranated Xenopus sperm nuclei were induced to replicate synchronously in a low-speed supernatant (LSS) of Xenopus eggs by preincubation in a high-speed supernatant (HSS). DNA replication was observed by incorporation of [alpha-32P]dATP, BrdUTP or biotin-dUTP. Biotin-dUTP incorporation, visualised with fluorescent streptavidin, reveals a striking pattern of replication foci throughout replicating nuclei. We show that this represents a precursor to the bright uniform fluorescence seen later. ",
+        "journal": "Journal of cell science",
+        "year": "1989",
+        "doi": "10.1242/jcs.94.3.471"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8017": {
+    "pmids": [
+      "10421378",
+      "12202627",
+      "15162056"
+    ],
+    "papers": [
+      {
+        "pmid": "10421378",
+        "title": "Sister chromatid differentiation with biotin-dUTP.",
+        "abstract": "The method of choice to differentiate sister chromatids is to incorporate BrdU in replicating DNA. The disadvantage of BrdU is that its spontaneous or induced radicalization may itself lead to sister chromatid exchanges. Biotin-labelled dUTP is a widely used thymidine analogon for labelling isolated DNA. Its chemical structure suggests that, in contrast to BrdU, it does not give rise to radical formation. We electroporated proliferating Chinese hamster ovary (CHO) cells in the presence of biotin",
+        "journal": "Chromosome research : an international journal on the molecular, supramolecular and evolutionary aspects of chromosome biology",
+        "year": "1999",
+        "doi": "10.1023/a:1009295131877"
+      },
+      {
+        "pmid": "12202627",
+        "title": "SCE formation after exposure of CHO cells prelabelled with BrdU or biotin-dUTP to various DNA-damaging agents.",
+        "abstract": "Formation of sister chromatid exchanges (SCE) is a mechanism of repair or bypass of DNA damage during S phase. Although SCE have been studied for a long time, the types of DNA lesions involved and the role of 5-bromodeoxyuridine (BrdU) in SCE formation are a matter of debate. We have developed a novel method of differential labelling of sister chromatids with biotin-16-2'-deoxyuridine-5'-triphosphate (biotin-dUTP) and could show that a substantial proportion of radiation-induced SCE arise via da",
+        "journal": "Mutagenesis",
+        "year": "2002",
+        "doi": "10.1093/mutage/17.5.399"
+      },
+      {
+        "pmid": "15162056",
+        "title": "Insights into the mechanisms of sister chromatid exchange formation.",
+        "abstract": "The DNA lesions responsible for the formation of sister chromatid exchanges (SCEs) have been the object of research for a long time. SCEs can be visualized by growing cells for either two rounds of replication in the presence of 5-bromo-2'-deoxyuridine (BrdU) or for one round with BrdU and the next without. If BrdU is added after cells were treated with a DNA-damaging agent, the effect on SCEs can only be analyzed in the second post-treatment mitosis. If one wishes to analyze the first post-trea",
+        "journal": "Cytogenetic and genome research",
+        "year": "2004",
+        "doi": "10.1159/000077507"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8018": {
+    "pmids": [
+      "36066717",
+      "8065939",
+      "24609382"
+    ],
+    "papers": [
+      {
+        "pmid": "36066717",
+        "title": "Visualizing Active Replication Regions in S-Phase Chromosomes.",
+        "abstract": "A basic question of cell biology is how DNA folds to chromosome. A number of recently accumulated evidences have suggested that folding of chromosome proceeds tightly coupled with DNA replication progresses. Drug-induced PCC is a useful tool for visualization of the interphase nuclei, in particular, S-phase, as S-phase prematurely condensed chromosomes (S-phase PCC). Active replicating DNA is labeled directly with Cy3-dUTP by bead loading method, and then S-phase nuclei is immediately condensed ",
+        "journal": "Methods in molecular biology (Clifton, N.J.)",
+        "year": "2023",
+        "doi": "10.1007/978-1-0716-2433-3_14"
+      },
+      {
+        "pmid": "8065939",
+        "title": "Cyanine dye dUTP analogs for enzymatic labeling of DNA probes.",
+        "abstract": "Fluorescence in situ hybridization (FISH) has become and indispensable tool in a variety of areas of research and clinical diagnostics. Many applications demand an approach for simultaneous detection of multiple target sequences that is rapid and simple, yet sensitive. In this work, we describe the synthesis of two new cyanine dye-labeled dUTP analogs, Cy3-dUTP and Cy5-dUTP. They are efficient substrates for DNA polymerases and can be incorporated into DNA probes by standard nick translation, ra",
+        "journal": "Nucleic acids research",
+        "year": "1994",
+        "doi": "10.1093/nar/22.15.3226"
+      },
+      {
+        "pmid": "24609382",
+        "title": "Engineering nicking enzymes that preferentially nick 5-methylcytosine-modified DNA.",
+        "abstract": "N.ϕGamma is a strand-specific and site-specific DNA nicking enzyme (YCG↓GT or AC↑CGR). Here we describe the isolation of single and double mutants of N.ϕGamma with attenuated activity. The nicking domains (NDs) of E59A and 11 double mutants were fused to the 5mCG-binding domain of MBD2 and generated fusion enzymes that preferentially nick 5mCG-modified DNA. The CG dinucleotide can be modified by C5 methyltransferases (MTases) such as M.SssI, M.HhaI or M.HpaII to create composite sites AC↑YGG N(8",
+        "journal": "Nucleic acids research",
+        "year": "2014",
+        "doi": "10.1093/nar/gku192"
+      }
+    ],
+    "methods": [
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  "SC8019": {
+    "pmids": [
+      "29648660",
+      "8065939",
+      "34635776"
+    ],
+    "papers": [
+      {
+        "pmid": "29648660",
+        "title": "dUTPs conjugated with zwitterionic Cy3 or Cy5 fluorophore analogues are effective substrates for DNA amplification and labelling by Taq polymerase.",
+        "abstract": "To develop structural modifications of dNTPs that are compatible with Taq DNA polymerase activity, we synthesized eight dUTP derivatives conjugated with Cy3 or Cy5 dye analogues that differed in charge and charge distribution throughout the fluorophore. These dUTP derivatives and commercial Cy3- and Cy5-dUTP were studied in Taq polymerase-dependent polymerase chain reactions (PCRs) and in primer extension reactions using model templates containing one, two and three adjacent adenine nucleotides.",
+        "journal": "Nucleic acids research",
+        "year": "2018",
+        "doi": "10.1093/nar/gky247"
+      },
+      {
+        "pmid": "8065939",
+        "title": "Cyanine dye dUTP analogs for enzymatic labeling of DNA probes.",
+        "abstract": "Fluorescence in situ hybridization (FISH) has become and indispensable tool in a variety of areas of research and clinical diagnostics. Many applications demand an approach for simultaneous detection of multiple target sequences that is rapid and simple, yet sensitive. In this work, we describe the synthesis of two new cyanine dye-labeled dUTP analogs, Cy3-dUTP and Cy5-dUTP. They are efficient substrates for DNA polymerases and can be incorporated into DNA probes by standard nick translation, ra",
+        "journal": "Nucleic acids research",
+        "year": "1994",
+        "doi": "10.1093/nar/22.15.3226"
+      },
+      {
+        "pmid": "34635776",
+        "title": "Using Cy5-dUTP labelling of RPA-amplicons with downstream microarray analysis for the detection of antibiotic resistance genes.",
+        "abstract": "In this report we describe Cy5-dUTP labelling of recombinase-polymerase-amplification (RPA) products directly during the amplification process for the first time. Nucleic acid amplification techniques, especially polymerase-chain-reaction as well as various isothermal amplification methods such as RPA, becomes a promising tool in the detection of pathogens and target specific genes. Actually, RPA even provides more advantages. This isothermal method got popular in point of care diagnostics becau",
+        "journal": "Scientific reports",
+        "year": "2021",
+        "doi": "10.1038/s41598-021-99774-z"
+      }
+    ],
+    "methods": [
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  "SC8020": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8021": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8022": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8023": {
+    "pmids": [
+      "17896337",
+      "6397478",
+      "7295897",
+      "6580500"
+    ],
+    "papers": [
+      {
+        "pmid": "17896337",
+        "title": "Ferrocenylethynyl derivatives of nucleoside triphosphates: synthesis, incorporation, electrochemistry, and bioanalytical applications.",
+        "abstract": "Modified dATP (2'-deoxyadenosine-5'-triphosphate) and dUTP (2'-deoxyuridine-5'-triphosphate) bearing ferrocene (Fc) labels linked via a conjugate acetylene spacer were prepared by single-step aqueous-phase cross-coupling reactions of 7-iodo-7-deaza-dATP or 5-iodo-dUTP with ethynylferrocene. The Fc-labeled dNTPs were good substrates for DNA polymerases and were efficiently incorporated to DNA by primer extension (PEX). Electrochemical analysis of the 2'-deoxyribonucleoside triphosphates (dNTPs) a",
+        "journal": "Chemistry (Weinheim an der Bergstrasse, Germany)",
+        "year": "2007",
+        "doi": "10.1002/chem.200701249"
+      },
+      {
+        "pmid": "6397478",
+        "title": "High-performance liquid chromatographic purification of deoxynucleoside 5'-triphosphates and their use in a sensitive electrophoretic assay of misincorporation during DNA synthesis.",
+        "abstract": "This paper describes techniques and strategies for semi-preparative high-performance liquid chromatographic (HPLC) purification of 2'-deoxynucleoside 5'-triphosphates (dNTPs). The procedure yields dNTPs that are sufficiently pure for use in a sensitive electrophoretic assay of misincorporation during DNA synthesis. Anion-exchange HPLC was used to purify the four normal dNTPs (dATP, dGTP, dCTP and dTTP), plus the chemically modified analogues, 5-BrdUTP, 5-IodUTP and 1,N6-etheno-dATP (epsilon dATP",
+        "journal": "Journal of chromatography",
+        "year": "1984",
+        "doi": "10.1016/s0021-9673(01)91667-x"
+      },
+      {
+        "pmid": "7295897",
+        "title": "Preferential utilization of bromodeoxyuridine and iododeoxyuridine triphosphates by DNA polymerase gamma in vitro.",
+        "abstract": "Thymidine triphosphate (TTP) and its halogenated analog bromodeoxyuridine triphosphate (BrdUTP) were compared in vitro as substrates for several prokaryotic and eukaryotic DNA polymerases to determine a possible enzymatic preference which might account for the reported finding of nonrandom patterns of incorporation of the analog in eukaryotic cellular DNA as well as help clarify the mechanism for drug-induced activation of latent retroviruses from animal cells. Following nucleotide competition r",
+        "journal": "Bioscience reports",
+        "year": "1981",
+        "doi": "10.1007/BF01116188"
+      },
+      {
+        "pmid": "6580500",
+        "title": "Predisposition of [125I]5-iodo-2'-deoxyuridine-labeled normal and neoplastic mouse fibroblasts to lysis by normal macrophages.",
+        "abstract": "During an investigation into the apparent natural cytotoxicity of normal peritoneal macrophages toward the murine MCA/76-9, MCA/76-45, and MCA/76-64 sarcoma cells in vitro, it was found that the peritoneal macrophages from nine different inbred strains of mice, as well as spleen and tumor-associated macrophages, preferentially lysed [125I]5-iodo-2'-deoxyuridine [( 125I]dUrd)-labeled target cells. However, unlabeled target cells were actively proliferating under the same conditions. Proliferation",
+        "journal": "Journal of the National Cancer Institute",
+        "year": "1983",
+        "doi": ""
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8024": {
+    "pmids": [
+      "9753724",
+      "10373420"
+    ],
+    "papers": [
+      {
+        "pmid": "9753724",
+        "title": "The mutations induced by oxidatively damaged nucleotides, 5-formyl-dUTP and 5-hydroxy-dCTP,in Escherichia coli.",
+        "abstract": "The mutational properties of 5-formyl-2'-deoxyuridine 5'-triphosphate (5-CHO-dUTP) and 5-hydroxy-2'-deoxycytidine 5'-triphosphate (5-OH-dCTP), the major oxidatively damaged pyrimidine nucleotides derived from dTTP and dCTP, respectively, were analyzed by an in vivo assay. 5-CHO-dUTP and 5-OH-dCTP were directly incorporated into Escherichia coli , and their mutagenicities were evaluated by the chromosomal lacI forward mutation assay. The mutation frequencies increased, depending on the dose of th",
+        "journal": "Nucleic acids research",
+        "year": "1998",
+        "doi": "10.1093/nar/26.20.4582"
+      },
+      {
+        "pmid": "10373420",
+        "title": "The oxidized forms of dATP are substrates for the human MutT homologue, the hMTH1 protein.",
+        "abstract": "The possibility that Escherichia coli MutT and human MTH1 (hMTH1) hydrolyze oxidized DNA precursors other than 8-hydroxy-dGTP (8-OH-dGTP) was investigated. We report here that hMTH1 hydrolyzed 2-hydroxy-dATP (2-OH-dATP) and 8-hydroxy-dATP (8-OH-dATP), oxidized forms of dATP, but not (R)-8,5'-cyclo-dATP, 5-hydroxy-dCTP, and 5-formyl-dUTP. The kinetic parameters indicated that 2-OH-dATP was hydrolyzed more efficiently and with higher affinity than 8-OH-dGTP. 8-OH-dATP was hydrolyzed as efficiently",
+        "journal": "The Journal of biological chemistry",
+        "year": "1999",
+        "doi": "10.1074/jbc.274.26.18201"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8025": {
+    "pmids": [
+      "36794904",
+      "16869513"
+    ],
+    "papers": [
+      {
+        "pmid": "36794904",
+        "title": "Enzymatic Synthesis of High-Density RNA Microarrays.",
+        "abstract": "Oligonucleotide microarrays are used to investigate the interactome of nucleic acids. DNA microarrays are commercially available, whereas equivalent RNA microarrays are not. This protocol describes a method to convert DNA microarrays of any density and complexity into RNA microarrays using only readily available materials and reagents. This simple conversion protocol will facilitate the accessibility of RNA microarrays to a wide range of researchers. In addition to general considerations for the",
+        "journal": "Current protocols",
+        "year": "2023",
+        "doi": "10.1002/cpz1.667"
+      },
+      {
+        "pmid": "16869513",
+        "title": "Analysis of oligonucleotide microarrays by 3' end labeling using fluorescent nucleotides and terminal transferase.",
+        "abstract": "A simple enzymatic labeling procedure is described to determine spot quality in oligonucleotide microarrays. By using fluorescently labeled dideoxynucleotides or ribonucleotides as substrate for terminal deoxynucleotidyl transferase (TdT), a single fluorophore can be covalently attached at the 3' end of each oligonucleotide probe molecule in the spot. Fluorescein-12-ddUTP CyTM3-ddUTP Cy5-UTP, and Cy3-UTP were compared as TdT substrates for 3' end labeling an array of 1273 hexamer probes. Cy5-UTP",
+        "journal": "BioTechniques",
+        "year": "2006",
+        "doi": "10.2144/000112182"
+      }
+    ],
+    "methods": [
+      "BigDye Terminator Sequencing",
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  "SC8026": {
+    "pmids": [
+      "16869513"
+    ],
+    "papers": [
+      {
+        "pmid": "16869513",
+        "title": "Analysis of oligonucleotide microarrays by 3' end labeling using fluorescent nucleotides and terminal transferase.",
+        "abstract": "A simple enzymatic labeling procedure is described to determine spot quality in oligonucleotide microarrays. By using fluorescently labeled dideoxynucleotides or ribonucleotides as substrate for terminal deoxynucleotidyl transferase (TdT), a single fluorophore can be covalently attached at the 3' end of each oligonucleotide probe molecule in the spot. Fluorescein-12-ddUTP CyTM3-ddUTP Cy5-UTP, and Cy3-UTP were compared as TdT substrates for 3' end labeling an array of 1273 hexamer probes. Cy5-UTP",
+        "journal": "BioTechniques",
+        "year": "2006",
+        "doi": "10.2144/000112182"
+      }
+    ],
+    "methods": [
+      "BigDye Terminator Sequencing",
+      "Cy3/Cy5 Protein Labeling"
+    ],
+    "applications": []
+  },
+  "SC8027": {
+    "pmids": [
+      "2429953",
+      "1692025",
+      "28456961",
+      "17044717",
+      "7514294"
+    ],
+    "papers": [
+      {
+        "pmid": "2429953",
+        "title": "RNA contacts subunits IIo and IIc in HeLa RNA polymerase II transcription complexes.",
+        "abstract": "Subunits of RNA polymerase II that come into contact with nascent RNA transcripts have been determined by photoaffinity labeling. Transcription was carried out in a cell-free extract in the presence of 4-thio-UTP, and utilized the major late promoter of adenovirus-2 DNA. The transcript length was limited by inclusion of the chain terminator 3'-O-methyl-GTP. Transcription complexes were irradiated with near-UV light (lambda greater than 300 nm) to specifically photoactivate 4-thio-uridine. After ",
+        "journal": "The Journal of biological chemistry",
+        "year": "1986",
+        "doi": ""
+      },
+      {
+        "pmid": "1692025",
+        "title": "Active site labeling of Escherichia coli transcription elongation complexes with 5-[4-azidophenacyl)thio)uridine 5'-triphosphate.",
+        "abstract": "Escherichia coli RNA polymerase transcription elongation complexes have been prepared that contain a photo-cross-linking uridine analog at only the 3' end, or one or two nucleotides removed from the 3' end, in the nascent RNA chain. Additionally, complexes have been isolated in which the analog has been substituted for every UMP residue, at positions ranging from 20 to 140 nucleotides from the 3' end. The RNA has been photochemically cross-linked to the RNA polymerase to identify the subunits th",
+        "journal": "The Journal of biological chemistry",
+        "year": "1990",
+        "doi": ""
+      },
+      {
+        "pmid": "28456961",
+        "title": "Purification of Zygotically Transcribed RNA through Metabolic Labeling of Early Zebrafish Embryos.",
+        "abstract": "Early embryonic development in all known metazoans is characterized by a transcriptionally silent phase, during which development is under control of maternally loaded protein and RNA. The zygotic genome becomes transcriptionally active after a series of rapid reductive cleavage divisions. In this chapter, we present a method to metabolically label, purify, and analyze newly transcribed RNAs in early zebrafish embryos. We previously used this method, which is adaptable to other embryos and syste",
+        "journal": "Methods in molecular biology (Clifton, N.J.)",
+        "year": "2017",
+        "doi": "10.1007/978-1-4939-6988-3_8"
+      },
+      {
+        "pmid": "17044717",
+        "title": "A general RNA-capping ribozyme retains stereochemistry during cap exchange.",
+        "abstract": "Numerous natural and artificial ribozymes have been shown to facilitate reactions that invert stereochemistry. Here, we demonstrate that an RNA-capping ribozyme retains stereochemistry at a phosphorus reaction center. The ribozyme synthesizes a broad range of 5'-5' RNA caps by exchanging phosphate groups around the alpha-phosphate found at the 5' terminus of the ribozyme. A ribozyme prepared with an Rp adenosine(5')alpha-thiotetraphosphate cap was found to exchange this cap for an Rp 4-thiouridi",
+        "journal": "Journal of the American Chemical Society",
+        "year": "2006",
+        "doi": "10.1021/ja0639822"
+      },
+      {
+        "pmid": "7514294",
+        "title": "Stem-loop IV of 5S rRNA lies close to the peptidyltransferase center.",
+        "abstract": "A DNA fragment containing the Escherichia coli 5S rDNA sequence linked to a T7 promoter was prepared by PCR from an M13 clone carrying the 5S-complementary sequence. The DNA was transcribed with T7 polymerase using a mixture of [alpha-32P]UTP and 4-thio-UTP, yielding a transcript in which approximately 18% of the uridine residues were randomly replaced by thiouridine. This modified 5S RNA could be reconstituted efficiently into 50S ribosomal subunits or 70S functional complexes. The reconstitute",
+        "journal": "Proceedings of the National Academy of Sciences of the United States of America",
+        "year": "1994",
+        "doi": "10.1073/pnas.91.10.4125"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8028": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8029": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8030": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8031": {
+    "pmids": [
+      "32490558"
+    ],
+    "papers": [
+      {
+        "pmid": "32490558",
+        "title": "Analysis of Modified Nucleotide Aptamer Library Generated by Thermophilic DNA Polymerases.",
+        "abstract": "One of the pivotal steps in aptamer selection is the amplification of target-specific oligonucleotides by thermophilic DNA polymerases; it can be a challenging task if nucleic acids possessing modified nucleotides are to be amplified. Hence, the identification of compatible DNA polymerase and modified nucleotide pairs is necessary for effective selection of aptamers with unnatural nucleotides. We present an in-depth study of using 5-indolyl-AA-dUTP (TAdUTP) to generate oligonucleotide libraries ",
+        "journal": "Chembiochem : a European journal of chemical biology",
+        "year": "2020",
+        "doi": "10.1002/cbic.202000236"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8032": {
+    "pmids": [
+      "25795598",
+      "30195603",
+      "22526441"
+    ],
+    "papers": [
+      {
+        "pmid": "25795598",
+        "title": "Cannabinoid receptor agonist WIN55,212-2 and fatty acid amide hydrolase inhibitor URB597 suppress chronic cerebral hypoperfusion-induced neuronal apoptosis by inhibiting c-Jun N-terminal kinase signaling.",
+        "abstract": "The endocannabinoid system (ECS) has therapeutic potential for treating chronic cerebral hypoperfusion (CCH)-induced cerebral diseases. This study investigated the protective effects of two ECS compounds, cannabinoid receptor agonist WIN55,212-2 (WIN) and fatty acid amide hydrolase inhibitor URB597 (URB) on CCH-induced neuronal apoptosis in vivo. CCH was induced in male Sprague-Dawley rats by bilateral common carotid artery occlusion (BCCAo); the rats were then treated with WIN or URB for 12week",
+        "journal": "Neuroscience",
+        "year": "2015",
+        "doi": "10.1016/j.neuroscience.2015.03.021"
+      },
+      {
+        "pmid": "30195603",
+        "title": "Inhibiting a spinal cord signaling pathway protects against ischemia injury in rats.",
+        "abstract": "The aim of the study was to examine whether the cannabinoid agonist WIN55212-2 could attenuate ischemic spinal cord injury (SCI) in rats through inhibition of GAPDH/Siah1 signaling.",
+        "journal": "The Journal of thoracic and cardiovascular surgery",
+        "year": "2019",
+        "doi": "10.1016/j.jtcvs.2018.07.045"
+      },
+      {
+        "pmid": "22526441",
+        "title": "Expression of AMPA receptor subunits in hippocampus after status convulsion.",
+        "abstract": "The expression of 2-amino-3-(5-methyl-3-oxo-1, 2-oxazol-4-yl) propanoic acid receptor (AMPAR) subunits in the hippocampus of naive immature and adult rats (IRs, ARs) was investigated after status convulsion (SC).",
+        "journal": "Child's nervous system : ChNS : official journal of the International Society for Pediatric Neurosurgery",
+        "year": "2012",
+        "doi": "10.1007/s00381-012-1747-3"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8033": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8034": {
+    "pmids": [
+      "42191302",
+      "31953472"
+    ],
+    "papers": [
+      {
+        "pmid": "42191302",
+        "title": "A highly sensitive detection platform for scrub typhus using multi-fluorescence nucleic acid probes and STORM imaging.",
+        "abstract": "Nucleic acid testing (NAT) is essential for pathogen identification, disease diagnosis, and biomedical research. Traditional amplification-based methods, while widely used, often face challenges such as long processing times and susceptibility to false positives. Additionally, single-molecule detection approaches are limited by weak signal intensities and rapid photobleaching. To address these limitations, we present an amplification-free biosensing platform for the highly sensitive and specific",
+        "journal": "Analytica chimica acta",
+        "year": "2026",
+        "doi": "10.1016/j.aca.2026.345597"
+      },
+      {
+        "pmid": "31953472",
+        "title": "Quantitation of deoxynucleoside triphosphates by click reactions.",
+        "abstract": "The levels of the four deoxynucleoside triphosphates (dNTPs) are under strict control in the cell, as improper or imbalanced dNTP pools may lead to growth defects and oncogenesis. Upon treatment of cancer cells with therapeutic agents, changes in the canonical dNTPs levels may provide critical information for evaluating drug response and mode of action. The radioisotope-labeling enzymatic assay has been commonly used for quantitation of cellular dNTP levels. However, the disadvantage of this met",
+        "journal": "Scientific reports",
+        "year": "2020",
+        "doi": "10.1038/s41598-020-57463-3"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8035": {
+    "pmids": [
+      "375193",
+      "13129394",
+      "34302317",
+      "22727781"
+    ],
+    "papers": [
+      {
+        "pmid": "375193",
+        "title": "2'-Deoxy-2'-fluorouridine-5'-triphosphates: a possible substrate for E. coli RNA polymerase.",
+        "abstract": "dUflTP was tested as substrate in the E. coli RNA polymerase system using poly(dAT) as template. dUflTP could replace UTP when Mn++ was utilized as divalent cation instead of Mg++. The level of transcription with the fluoro analog was then 55% of that with UTP.",
+        "journal": "Nucleic acids research",
+        "year": "1979",
+        "doi": "10.1093/nar/6.3.1041"
+      },
+      {
+        "pmid": "13129394",
+        "title": "Aminomodified nucleobases: functionalized nucleoside triphosphates applicable for SELEX.",
+        "abstract": "5-Aminoallyl-2'-fluoro-dUTP, 5-aminoallyl-UTP, and N(6)-([6-aminohexyl]carbamoylmethyl)-ATP were systematically tested for their suitability for the systematic evolution of ligands by exponential enrichment (SELEX) process with the aim of introducing additional functionalities to RNA libraries. All three aminomodified nucleoside triphosphates proved to be compatible with the enzymatic steps required for SELEX and maintained strict Watson-Crick basepairing. Complementary RNA molecules modified wi",
+        "journal": "Bioconjugate chemistry",
+        "year": "2003",
+        "doi": "10.1021/bc0256547"
+      },
+      {
+        "pmid": "34302317",
+        "title": "Programmable Site-Specific Functionalization of DNA Origami with Polynucleotide Brushes.",
+        "abstract": "Combining surface-initiated, TdT (terminal deoxynucleotidyl transferase) catalyzed enzymatic polymerization (SI-TcEP) with precisely engineered DNA origami nanostructures (DONs) presents an innovative pathway for the generation of stable, polynucleotide brush-functionalized DNA nanostructures. We demonstrate that SI-TcEP can site-specifically pattern DONs with brushes containing both natural and non-natural nucleotides. The brush functionalization can be precisely controlled in terms of the loca",
+        "journal": "Angewandte Chemie (International ed. in English)",
+        "year": "2021",
+        "doi": "10.1002/anie.202107829"
+      },
+      {
+        "pmid": "22727781",
+        "title": "The effect on quadruplex stability of North-nucleoside derivatives in the loops of the thrombin-binding aptamer.",
+        "abstract": "Modified thrombin-binding aptamers (TBAs) carrying uridine (U), 2'-deoxy-2'-fluorouridine (FU) and North-methanocarbathymidine (NT) residues in the loop regions were synthesized and analyzed by UV thermal denaturation experiments and CD spectroscopy. The replacement of thymidines in the TGT loop by U and FU results in an increased stability of the antiparallel quadruplex structure described for the TBA while the presence of NT residues in the same positions destabilizes the antiparallel structur",
+        "journal": "Bioorganic & medicinal chemistry",
+        "year": "2012",
+        "doi": "10.1016/j.bmc.2012.06.005"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8036": {
+    "pmids": [
+      "2538224",
+      "3050447",
+      "6156150",
+      "9358169"
+    ],
+    "papers": [
+      {
+        "pmid": "2538224",
+        "title": "Interaction of several nucleoside triphosphate analogues and 10-hydroxycamptothecin with human DNA topoisomerases.",
+        "abstract": "DNA topoisomerase I (Topo I) can exist in several different molecular weight forms in human leukemic cells. The Mr 98,000 form of Topo I was inhibited by several nucleoside triphosphates and their analogues at a 500 microM concentration in the order: dideoxy-GTP greater than 2-bromo-dATP greater than dideoxy-ATP greater than dideoxy-CTP greater than 2-fluoro-dATP greater than 2-chloro-dATP. The same concentration of these nucleoside triphosphates also inhibited the Mr 32,000 and the Mr 35,000 To",
+        "journal": "Cancer research",
+        "year": "1989",
+        "doi": ""
+      },
+      {
+        "pmid": "3050447",
+        "title": "Interaction of 2-halogenated dATP analogs (F, Cl, and Br) with human DNA polymerases, DNA primase, and ribonucleotide reductase.",
+        "abstract": "Recently, 2-halogenated deoxyadenosine analogs (F, Cl, and Br) have been shown to have antitumor activity. These analogs are phosphorylated by cells and are believed to exert their cytotoxic action at the nucleoside triphosphate level. In this work the interaction of these nucleoside triphosphate analogs with potential targets, such as DNA polymerase alpha, beta, and gamma, DNA primase, and ribonucleotide reductase was examined in detail. All of these compounds competitively inhibited the incorp",
+        "journal": "Molecular pharmacology",
+        "year": "1988",
+        "doi": ""
+      },
+      {
+        "pmid": "6156150",
+        "title": "2'-Deoxy-2'-azidoadenosine triphosphate and 2'-deoxy-2'-fluoroadenosine triphosphate as substrates and inhibitors for Escherichia coli DNA-dependent RNA polymerase.",
+        "abstract": "The effects of 2'-substitutions of ATP on the substrate and inhibitor properties for RNA synthesis were studied in the poly(dAT)-dependent reaction of Escherichia coli RNA polymerase. In the presence of UTP, 2'-deoxy-2'-azidoadenosine 5'-triphosphate (AZTP) was incorporated into an acid-insoluble fraction at one-tenth of the rate of ATP incorporation; it thus acts as a competitive inhibitor for poly(AU) synthesis. On the other hand, another ATP analog, 2'-deoxy-2'-fluoroadenosine 5'-triphosphate",
+        "journal": "Journal of biochemistry",
+        "year": "1980",
+        "doi": "10.1093/oxfordjournals.jbchem.a132812"
+      },
+      {
+        "pmid": "9358169",
+        "title": "2'-Fluoro modified nucleic acids: polymerase-directed synthesis, properties and stability to analysis by matrix-assisted laser desorption/ionization mass spectrometry.",
+        "abstract": "Fragmentation is a major factor limiting mass range and resolution in the analysis of DNA by matrix-assisted laser desorption/ionization mass spectrometry (MALDI-MS). Protonation of the nucleobase leads to base loss and backbone cleavage by a mechanism similar to the depurination reactions employed in the chemical degradation method of DNA sequencing. In a previous study [Tang,W., Zhu,L. and Smith,L.M. (1997) Anal. Chem ., 69, 302-312], the stabilizing effect of substituting the 24 hydrogen with",
+        "journal": "Nucleic acids research",
+        "year": "1997",
+        "doi": "10.1093/nar/25.22.4581"
+      }
+    ],
+    "methods": [
+      "BigDye Terminator Sequencing"
+    ],
+    "applications": [
+      "Sanger Sequencing"
+    ]
+  },
+  "SC8037": {
+    "pmids": [
+      "38953682",
+      "35861163",
+      "38591749"
+    ],
+    "papers": [
+      {
+        "pmid": "38953682",
+        "title": "Molecular Flexibility in Solvated Crystals of the Dimer, Au",
+        "abstract": "We report the ability to trap the dimer Au",
+        "journal": "Inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1021/acs.inorgchem.4c00783"
+      },
+      {
+        "pmid": "35861163",
+        "title": "Spontaneous N",
+        "abstract": "The 1,3-bromoboration of [W(N",
+        "journal": "Dalton transactions (Cambridge, England : 2003)",
+        "year": "2022",
+        "doi": "10.1039/d2dt02135h"
+      },
+      {
+        "pmid": "38591749",
+        "title": "Synthesis and Structure of [η",
+        "abstract": "Halide exchange of (Cp",
+        "journal": "Inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1021/acs.inorgchem.4c00635"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8038": {
+    "pmids": [
+      "39377743"
+    ],
+    "papers": [
+      {
+        "pmid": "39377743",
+        "title": "Engineering Phi29-DNAP Variants for Customized DNA Hydrogel Materials.",
+        "abstract": "DNA hydrogels, which hold potential for use in medicine, biosensors, and tissue engineering, can be produced through enzymatic rolling circle amplification (RCA) using phi29 DNA polymerase (DNAP). This paper introduces new DNAP variants designed for RCA-based DNA hydrogel production, featuring enzymes with modified DNA binding, enhanced thermostability, reduced exonuclease activity, and protein tags for fluorescence detection or specific immobilization. We evaluated these enzymes by quantifying ",
+        "journal": "Chemistry (Weinheim an der Bergstrasse, Germany)",
+        "year": "2024",
+        "doi": "10.1002/chem.202403047"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8039": {
+    "pmids": [
+      "38953682",
+      "35861163",
+      "38591749"
+    ],
+    "papers": [
+      {
+        "pmid": "38953682",
+        "title": "Molecular Flexibility in Solvated Crystals of the Dimer, Au",
+        "abstract": "We report the ability to trap the dimer Au",
+        "journal": "Inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1021/acs.inorgchem.4c00783"
+      },
+      {
+        "pmid": "35861163",
+        "title": "Spontaneous N",
+        "abstract": "The 1,3-bromoboration of [W(N",
+        "journal": "Dalton transactions (Cambridge, England : 2003)",
+        "year": "2022",
+        "doi": "10.1039/d2dt02135h"
+      },
+      {
+        "pmid": "38591749",
+        "title": "Synthesis and Structure of [η",
+        "abstract": "Halide exchange of (Cp",
+        "journal": "Inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1021/acs.inorgchem.4c00635"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8040": {
+    "pmids": [
+      "38953682",
+      "35861163",
+      "38591749"
+    ],
+    "papers": [
+      {
+        "pmid": "38953682",
+        "title": "Molecular Flexibility in Solvated Crystals of the Dimer, Au",
+        "abstract": "We report the ability to trap the dimer Au",
+        "journal": "Inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1021/acs.inorgchem.4c00783"
+      },
+      {
+        "pmid": "35861163",
+        "title": "Spontaneous N",
+        "abstract": "The 1,3-bromoboration of [W(N",
+        "journal": "Dalton transactions (Cambridge, England : 2003)",
+        "year": "2022",
+        "doi": "10.1039/d2dt02135h"
+      },
+      {
+        "pmid": "38591749",
+        "title": "Synthesis and Structure of [η",
+        "abstract": "Halide exchange of (Cp",
+        "journal": "Inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1021/acs.inorgchem.4c00635"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8041": {
+    "pmids": [
+      "19426741"
+    ],
+    "papers": [
+      {
+        "pmid": "19426741",
+        "title": "Binding of 2'-amino-2'-deoxycytidine-5'-triphosphate to norovirus polymerase induces rearrangement of the active site.",
+        "abstract": "Crystal structures of a genogroup II.4 human norovirus polymerase bound to an RNA primer-template duplex and the substrate analogue 2'-amino-2'-deoxycytidine-5'-triphosphate have been determined to 1.8 A resolution. The alteration of the substrate-binding site that is required to accommodate the 2'-amino group leads to a rearrangement of the polymerase active site and a disruption of the coordination shells of the active-site metal ions. The mode of binding seen for 2'-amino-2'-deoxycytidine-5'-",
+        "journal": "Journal of molecular biology",
+        "year": "2009",
+        "doi": "10.1016/j.jmb.2009.04.069"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8042": {
+    "pmids": [
+      "38697668",
+      "10362073",
+      "15095864"
+    ],
+    "papers": [
+      {
+        "pmid": "38697668",
+        "title": "Enhanced ac4C detection in RNA via chemical reduction and cDNA synthesis with modified dNTPs.",
+        "abstract": "The functional analysis of epitranscriptomic modifications in RNA is constrained by a lack of methods that accurately capture their locations and levels. We previously demonstrated that the RNA modification N4-acetylcytidine (ac4C) can be mapped at base resolution through sodium borohydride reduction to tetrahydroacetylcytidine (tetrahydro-ac4C), followed by cDNA synthesis to misincorporate adenosine opposite reduced ac4C sites, culminating in C:T mismatches at acetylated cytidines (RedaC:T). Ho",
+        "journal": "RNA (New York, N.Y.)",
+        "year": "2024",
+        "doi": "10.1261/rna.079863.123"
+      },
+      {
+        "pmid": "10362073",
+        "title": "The effects of various GTP analogues on microtubule assembly.",
+        "abstract": "We synthesized 27 GTP analogues with modification or substitution at positions C2, C6, C8 and ribose moiety to investigate their effect on microtubule (Mt) assembly. It was found that C2 and C6 are both functional for the analogues supporting Mt assembly. It was surprising to find that 2-amino- ATP (n2ATP) substantially supports assembly, and that the appearance of the assembled Mts was indistinguishable from those assembled in the standard GTP assembly buffer solution. Furthermore, 2-amino dATP",
+        "journal": "Cell structure and function",
+        "year": "1999",
+        "doi": "10.1247/csf.24.101"
+      },
+      {
+        "pmid": "15095864",
+        "title": "Probing the substrate recognition mechanism of the human MTH1 protein by nucleotide analogs.",
+        "abstract": "To examine the substrate recognition mechanism of the human MTH1 protein, which hydrolyzes 2-hydroxy-dATP, 8-hydroxy-dATP, and 8-hydroxy-dGTP, ten nucleotide analogs (8-bromo-dATP, 8-bromo-dGTP, deoxyisoinosine triphosphate, 8-hydroxy-dITP, 2-aminopurine-deoxyriboside triphosphate, 2-amino-dATP, deoxyxanthosine triphosphate, deoxyoxanosine triphosphate, dITP, and dUTP) were incubated with the MTH1 protein. Of these, the former five nucleotides were hydrolyzed with various efficiencies. The fact ",
+        "journal": "Journal of molecular biology",
+        "year": "2004",
+        "doi": "10.1016/j.jmb.2003.12.060"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8043": {
+    "pmids": [
+      "15265873",
+      "10362073",
+      "15216887"
+    ],
+    "papers": [
+      {
+        "pmid": "15265873",
+        "title": "Chain termination and inhibition of Saccharomyces cerevisiae poly(A) polymerase by C-8-modified ATP analogs.",
+        "abstract": "The nucleotide substrate specificity of yeast poly(A) polymerase (yPAP) toward various C-2- and C-8-modified ATP analogs was examined. 32P-Radiolabeled RNA oligonucleotide primers were incubated with yPAP in the absence of ATP to assay polyadenylation using unnatural ATP substrates. The C-2-modified ATP analogs 2-amino-ATP and 2-chloro (Cl)-ATP were excellent substrates for yPAP. 8-Amino-ATP, 8-azido-ATP, and 8-aza-ATP all produced chain termination of polyadenylation, and no primer extension wa",
+        "journal": "The Journal of biological chemistry",
+        "year": "2004",
+        "doi": "10.1074/jbc.M401752200"
+      },
+      {
+        "pmid": "10362073",
+        "title": "The effects of various GTP analogues on microtubule assembly.",
+        "abstract": "We synthesized 27 GTP analogues with modification or substitution at positions C2, C6, C8 and ribose moiety to investigate their effect on microtubule (Mt) assembly. It was found that C2 and C6 are both functional for the analogues supporting Mt assembly. It was surprising to find that 2-amino- ATP (n2ATP) substantially supports assembly, and that the appearance of the assembled Mts was indistinguishable from those assembled in the standard GTP assembly buffer solution. Furthermore, 2-amino dATP",
+        "journal": "Cell structure and function",
+        "year": "1999",
+        "doi": "10.1247/csf.24.101"
+      },
+      {
+        "pmid": "15216887",
+        "title": "Effects of purinenucleotide analogues on microtubule assembly.",
+        "abstract": "This minireview summarizes the syntheses of various purinenucleotide analogues and their effects on microtubule (Mt) assembly. 27 analogues were so far synthesized and, together with 3 analogues commercially available (ITP, XTP and dGTP), their effects on Microtubule assembly were investigated. The positions C2, C6, C8, and ribose moiety of purine nucleotides were modified or substituted. It was found that the microenvironments of the purine base and ribose moiety are important for the nucleotid",
+        "journal": "Cell structure and function",
+        "year": "1999",
+        "doi": "10.1247/csf.24.305"
+      }
+    ],
+    "methods": [
+      "BigDye Terminator Sequencing"
+    ],
+    "applications": []
+  },
+  "SC8044": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8045": {
+    "pmids": [
+      "38953682",
+      "35861163",
+      "38591749"
+    ],
+    "papers": [
+      {
+        "pmid": "38953682",
+        "title": "Molecular Flexibility in Solvated Crystals of the Dimer, Au",
+        "abstract": "We report the ability to trap the dimer Au",
+        "journal": "Inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1021/acs.inorgchem.4c00783"
+      },
+      {
+        "pmid": "35861163",
+        "title": "Spontaneous N",
+        "abstract": "The 1,3-bromoboration of [W(N",
+        "journal": "Dalton transactions (Cambridge, England : 2003)",
+        "year": "2022",
+        "doi": "10.1039/d2dt02135h"
+      },
+      {
+        "pmid": "38591749",
+        "title": "Synthesis and Structure of [η",
+        "abstract": "Halide exchange of (Cp",
+        "journal": "Inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1021/acs.inorgchem.4c00635"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8046": {
+    "pmids": [
+      "38953682",
+      "35861163",
+      "38591749"
+    ],
+    "papers": [
+      {
+        "pmid": "38953682",
+        "title": "Molecular Flexibility in Solvated Crystals of the Dimer, Au",
+        "abstract": "We report the ability to trap the dimer Au",
+        "journal": "Inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1021/acs.inorgchem.4c00783"
+      },
+      {
+        "pmid": "35861163",
+        "title": "Spontaneous N",
+        "abstract": "The 1,3-bromoboration of [W(N",
+        "journal": "Dalton transactions (Cambridge, England : 2003)",
+        "year": "2022",
+        "doi": "10.1039/d2dt02135h"
+      },
+      {
+        "pmid": "38591749",
+        "title": "Synthesis and Structure of [η",
+        "abstract": "Halide exchange of (Cp",
+        "journal": "Inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1021/acs.inorgchem.4c00635"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8047": {
+    "pmids": [
+      "6978713",
+      "2713339",
+      "2713338",
+      "6156150"
+    ],
+    "papers": [
+      {
+        "pmid": "6978713",
+        "title": "Inhibition of a novel subspecies of DNA polymerase alpha by 2'-deoxy-2'-azidoadenosine 5'-triphosphate.",
+        "abstract": "",
+        "journal": "Biochemical and biophysical research communications",
+        "year": "1982",
+        "doi": "10.1016/0006-291x(82)91376-6"
+      },
+      {
+        "pmid": "2713339",
+        "title": "Photoaffinity labeling of terminal deoxynucleotidyl transferase. 2. Identification of peptides in the nucleotide binding domain.",
+        "abstract": "Terminal deoxynucleotidyl transferase (terminal transferase) was specifically modified in the nucleotide binding site by the substrate photoaffinity analogue [gamma-32P]-8-azido-dATP. The alpha and beta polypeptides of photolabeled terminal transferase were resolved by high-performance liquid chromatography. The beta polypeptide was digested with trypsin and fractionated by reverse-phase chromatography. Two 32P-containing fractions were isolated and subjected to amino acid sequence analysis. Pep",
+        "journal": "Biochemistry",
+        "year": "1989",
+        "doi": "10.1021/bi00428a045"
+      },
+      {
+        "pmid": "2713338",
+        "title": "Photoaffinity labeling of terminal deoxynucleotidyl transferase. 1. Active site directed interactions with 8-azido-2'-deoxyadenosine 5'-triphosphate.",
+        "abstract": "A photoaffinity analogue of dATP, 8-azido-2'-deoxyadenosine 5'-triphosphate (8-azido-dATP), was used to probe the nucleotide binding site of the non-template-directed DNA polymerase terminal deoxynucleotidyl transferase (EC 2.7.7.31). The Mg2+ form of 8-azido-dATP was shown to be an efficient enzyme substrate with a Km of 53 microM. Loss of enzyme activity occurred during UV photolysis only in the presence of 8-azido-dATP. At saturation (120 microM 8-azido-dATP), 54% of the protein molecules wer",
+        "journal": "Biochemistry",
+        "year": "1989",
+        "doi": "10.1021/bi00428a044"
+      },
+      {
+        "pmid": "6156150",
+        "title": "2'-Deoxy-2'-azidoadenosine triphosphate and 2'-deoxy-2'-fluoroadenosine triphosphate as substrates and inhibitors for Escherichia coli DNA-dependent RNA polymerase.",
+        "abstract": "The effects of 2'-substitutions of ATP on the substrate and inhibitor properties for RNA synthesis were studied in the poly(dAT)-dependent reaction of Escherichia coli RNA polymerase. In the presence of UTP, 2'-deoxy-2'-azidoadenosine 5'-triphosphate (AZTP) was incorporated into an acid-insoluble fraction at one-tenth of the rate of ATP incorporation; it thus acts as a competitive inhibitor for poly(AU) synthesis. On the other hand, another ATP analog, 2'-deoxy-2'-fluoroadenosine 5'-triphosphate",
+        "journal": "Journal of biochemistry",
+        "year": "1980",
+        "doi": "10.1093/oxfordjournals.jbchem.a132812"
+      }
+    ],
+    "methods": [],
+    "applications": [
+      "Sanger Sequencing"
+    ]
+  },
+  "SC8048": {
+    "pmids": [
+      "1567479",
+      "3416651",
+      "3178734"
+    ],
+    "papers": [
+      {
+        "pmid": "1567479",
+        "title": "Decrease in TTP pools mediated by 5-bromo-2'-deoxyuridine exposure in a human glioblastoma cell line.",
+        "abstract": "The antitumor and radiosensitizing properties of 5-bromo-2'-deoxyuridine (BUdR) appear to be due, in part, to its incorporation into cellular DNA. To optimize conditions for incorporation of 5-bromo-2'-deoxyuridine-5'-monophosphate (BrdUMP) into DNA, we investigated the metabolism of BUdR to its DNA precursor form, the 5'-triphosphate BrdUTP, in the U251 human glioblastoma cell line. The results demonstrated that BrdUTP accumulated rapidly in this cell line, achieving steady-state values within ",
+        "journal": "Biochemical pharmacology",
+        "year": "1992",
+        "doi": "10.1016/0006-2952(92)90217-7"
+      },
+      {
+        "pmid": "3416651",
+        "title": "Fragile X expression in thymidine-prototrophic and auxotrophic human-mouse somatic cell hybrids under low and high thymidylate stress conditions.",
+        "abstract": "Expression of the fragile X site fra(X)(q27.3) was studied in thymidine-prototrophic and auxotrophic human-mouse somatic cell hybrids. In these cells, low thymidylate stress, achieved by 5-fluoro-2'-deoxyuridine (FdU) treatment and by limiting the exogenous supply of thymidine (dT), induced fragile X expression. High thymidylate stress, produced by supplying excess amounts of dT, was also effective in inducing fragile X expression, even in a hybrid clone that retained a fragile X chromosome as t",
+        "journal": "Cytogenetics and cell genetics",
+        "year": "1988",
+        "doi": "10.1159/000132543"
+      },
+      {
+        "pmid": "3178734",
+        "title": "Pairing properties of bromouracil and repair of bromouracil-containing DNA. Possible utilization of bromodeoxyuridine triphosphate for site-directed mutagenesis.",
+        "abstract": "5-Bromo-2'-deoxyuridine triphosphate (Br-dUTP) and dTTP are used interchangeably for DNA synthesis in vitro by the Klenow fragment of Escherichia coli DNA polymerase I. When DNA containing Br-dUMP instead of dTMP at a few preselected sites is transfected into competent bacteria, no mutation occurs, indicating that in vivo E. coli DNA polymerase always places a dAMP residue in front of any unrepaired Br-dUMP residue. On the other hand, in vitro Br-dUTP can also replace dCTP, but only with difficu",
+        "journal": "The Biochemical journal",
+        "year": "1988",
+        "doi": "10.1042/bj2530637"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8049": {
+    "pmids": [
+      "31234698",
+      "12633986",
+      "32785933"
+    ],
+    "papers": [
+      {
+        "pmid": "31234698",
+        "title": "Autophagic death of neural stem cells mediates chronic stress-induced decline of adult hippocampal neurogenesis and cognitive deficits.",
+        "abstract": "Macroautophagy/autophagy is generally regarded as a cytoprotective mechanism, and it remains a matter of controversy whether autophagy can cause cell death in mammals. Here, we show that chronic restraint stress suppresses adult hippocampal neurogenesis in mice by inducing autophagic cell death (ACD) of hippocampal neural stem cells (NSCs). We generated NSC-specific, inducible ",
+        "journal": "Autophagy",
+        "year": "2020",
+        "doi": "10.1080/15548627.2019.1630222"
+      },
+      {
+        "pmid": "12633986",
+        "title": "Application of the biotin-dUTP chromosome labelling technique to study the role of 5-bromo-2'-deoxyuridine in the formation of UV-induced sister chromatid exchanges in CHO cells.",
+        "abstract": "The role of 5-bromo-2'-deoxyuridine (BrdU) in the formation of sister chromatid exchanges (SCEs) in cells exposed to UV radiation was studied. Cells were unifilarily labelled (labelling of one strand of chromosomal DNA) with BrdU or biotin-16-2'-deoxyuridine (biotin-dU) and irradiated in G(1) phase of the cell cycle either with 254 nm, which is absorbed by all nucleobases including bromouracil (BrU) or with 313 nm radiation, which is predominantly absorbed by the BrU moiety. Elevated SCE frequen",
+        "journal": "Journal of photochemistry and photobiology. B, Biology",
+        "year": "2003",
+        "doi": "10.1016/s1011-1344(02)00415-3"
+      },
+      {
+        "pmid": "32785933",
+        "title": "Administration of 5-bromo-2'-deoxyuridine interferes with neuroblast proliferation and promotes apoptotic cell death in the rat cerebellar neuroepithelium.",
+        "abstract": "The current study was conducted to assess whether a single administration of 5-bromo-2'-deoxyuridine (BrdU) interferes with cell proliferation and leads to the activation of apoptotic cellular events in the prenatal cerebellum. BrdU effects across a wide range of doses (25-300 μg/g b.w.) were analyzed using immunohistochemical and ultrastructural procedures. The pregnant rats were injected with BrdU at embryonic day 13, and their fetuses were sacrificed from 5 to 35 hr after exposure. The quanti",
+        "journal": "The Journal of comparative neurology",
+        "year": "2021",
+        "doi": "10.1002/cne.25005"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8050": {
+    "pmids": [
+      "27709938",
+      "27498304",
+      "8961922"
+    ],
+    "papers": [
+      {
+        "pmid": "27709938",
+        "title": "Additions of Thiols to 7-Vinyl-7-deazaadenine Nucleosides and Nucleotides. Synthesis of Hydrophobic Derivatives of 2'-Deoxyadenosine, dATP and DNA.",
+        "abstract": "Additions of alkyl- or arylthiols to 7-vinyl-7-deaza-2'-deoxyadenosine gave a series of 7-[2-(alkyl- or arylsulfanyl)ethyl]-7-deaza-2'-deoxyadenosines in 45-85% yields. The nucleosides were converted to 5'-O-mono-(dA",
+        "journal": "The Journal of organic chemistry",
+        "year": "2016",
+        "doi": "10.1021/acs.joc.6b02098"
+      },
+      {
+        "pmid": "27498304",
+        "title": "6-Aryl-4-amino-pyrimido[4,5-b]indole 2'-deoxyribonucleoside triphosphates (benzo-fused 7-deaza-dATP analogues): Synthesis, fluorescent properties, enzymatic incorporation into DNA and DNA-protein binding study.",
+        "abstract": "Four 6-substituted 4-amino-pyrimido[4,5-b]indole 2'-deoxyribonucleoside triphosphates (dA(BX)TPs) were prepared by glycosylation of 4,6-dichloropyrimidoindole followed by ammonolysis, cross-coupling and triphosphorylation. They were found to be moderate to good substrates for DNA polymerases in primer extension. They also exerted fluorescence with emission maxima 335-378nm. When incorporated to oligonucleotide probes, they did not show significant mismatch discrimination but the 6-benzofuryl 4-a",
+        "journal": "Bioorganic & medicinal chemistry",
+        "year": "2016",
+        "doi": "10.1016/j.bmc.2016.07.054"
+      },
+      {
+        "pmid": "8961922",
+        "title": "Human telomerase inhibition by 7-deaza-2'-deoxypurine nucleoside triphosphates.",
+        "abstract": "Telomeres play an important role in chromosome organization and stability. Human telomerase is a terminal transferase that adds TTAGGG units onto the telomere end. In general, telomerase activity is not detected in normal somatic cells but is present in immortalized cells. Consequently, telomerase might be a selective target for cancer chemotherapy. Using cell-free biochemical telomerase assay, we have found that 7-deaza-2'-deoxyguanosine-5'-triphosphate (7-deaza-dGTP) and 7-deaza-2'-deoxyadenos",
+        "journal": "Biochemistry",
+        "year": "1996",
+        "doi": "10.1021/bi961228v"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8051": {
+    "pmids": [
+      "32948245",
+      "27159019",
+      "33525366",
+      "33766956",
+      "17065422"
+    ],
+    "papers": [
+      {
+        "pmid": "32948245",
+        "title": "A novel target enrichment strategy in next-generation sequencing through 7-deaza-dGTP-resistant enzymatic digestion.",
+        "abstract": "Owing to the overwhelming dominance of human and commensal microbe sequences, low efficiency is a major concern in clinical viral sequencing using next-generation sequencing. DNA composed of 7-deaza-2'-deoxyguanosine 5'-triphosphate (c",
+        "journal": "BMC research notes",
+        "year": "2020",
+        "doi": "10.1186/s13104-020-05292-y"
+      },
+      {
+        "pmid": "27159019",
+        "title": "Chemical Morphing of DNA Containing Four Noncanonical Bases.",
+        "abstract": "The ability of alternative nucleic acids, in which all four nucleobases are substituted, to replicate in vitro and to serve as genetic templates in vivo was evaluated. A nucleotide triphosphate set of 5-chloro-2'-deoxyuridine, 7-deaza-2'-deoxyadenosine, 5-fluoro-2'-deoxycytidine, and 7-deaza-2'deoxyguanosine successfully underwent polymerase chain reaction (PCR) amplification using templates of different lengths (57 or 525mer) and Taq or Vent (exo-) DNA polymerases as catalysts. Furthermore, a f",
+        "journal": "Angewandte Chemie (International ed. in English)",
+        "year": "2016",
+        "doi": "10.1002/anie.201601529"
+      },
+      {
+        "pmid": "33525366",
+        "title": "Development of MTH1-Binding Nucleotide Analogs Based on 7,8-Dihalogenated 7-Deaza-dG Derivatives.",
+        "abstract": "MTH1 is an enzyme that hydrolyzes 8-oxo-dGTP, which is an oxidatively damaged nucleobase, into 8-oxo-dGMP in nucleotide pools to prevent its mis-incorporation into genomic DNA. Selective and potent MTH1-binding molecules have potential as biological tools and drug candidates. We recently developed 8-halogenated 7-deaza-dGTP as an 8-oxo-dGTP mimic and found that it was not hydrolyzed, but inhibited enzyme activity. To further increase MTH1 binding, we herein designed and synthesized 7,8-dihalogen",
+        "journal": "International journal of molecular sciences",
+        "year": "2021",
+        "doi": "10.3390/ijms22031274"
+      },
+      {
+        "pmid": "33766956",
+        "title": "Diagnostic utility of droplet digital PCR to detect TERT promoter mutations among glioblastoma samples using 7-deaza-dGTP.",
+        "abstract": "",
+        "journal": "Journal of clinical pathology",
+        "year": "2022",
+        "doi": "10.1136/jclinpath-2021-207402"
+      },
+      {
+        "pmid": "17065422",
+        "title": "Betaine, dimethyl sulfoxide, and 7-deaza-dGTP, a powerful mixture for amplification of GC-rich DNA sequences.",
+        "abstract": "Currently, polymerase chain reaction is the most used technique in many laboratories for either diagnostic or molecular biology purposes. Despite the large number of DNA sequences that can be easily analyzed, some GC-rich sequences are refractory to amplification due to the formation of secondary intramolecular structures. To overcome this problem, several molecules have been described to improve polymerization. Here we show that a combination of three additives--betaine, dimethyl sulfoxide, and",
+        "journal": "The Journal of molecular diagnostics : JMD",
+        "year": "2006",
+        "doi": "10.2353/jmoldx.2006.060058"
+      }
+    ],
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  "SC8052": {
+    "pmids": [
+      "35642486",
+      "30504360",
+      "32668640",
+      "8850020",
+      "8415021"
+    ],
+    "papers": [
+      {
+        "pmid": "35642486",
+        "title": "Treatment of drug-induced immune thrombocytopenias.",
+        "abstract": "Several therapeutic agents can cause thrombocytopenia by either immune-mediated or non-immune-mediated mechanisms. Non-immune-mediated thrombocytopenia is due to direct toxicity of drug molecules to platelets or megakaryocytes. Immune-mediated thrombocytopenia, on the other hand, involves the formation of antibodies that react to platelet-specific glycoprotein complexes, as in classic drug-induced immune thrombocytopenia (DITP), or to platelet factor 4, as in heparin-induced thrombocytopenia (HI",
+        "journal": "Haematologica",
+        "year": "2022",
+        "doi": "10.3324/haematol.2021.279484"
+      },
+      {
+        "pmid": "30504360",
+        "title": "Drug-associated thrombocytopenia.",
+        "abstract": "Many drugs have been implicated in drug-induced immune thrombocytopenia (DITP). Patients with DITP develop a drop in platelet count 5 to 10 days after drug administration with an increased risk of hemorrhage. The diagnosis of DITP is often challenging, because most hospitalized patients are taking multiple medications and have comorbidities that can also cause thrombocytopenia. Specialized laboratory diagnostic tests have been developed and are helpful to confirm the diagnosis. Treatment of DITP",
+        "journal": "Hematology. American Society of Hematology. Education Program",
+        "year": "2018",
+        "doi": "10.1182/asheducation-2018.1.576"
+      },
+      {
+        "pmid": "32668640",
+        "title": "Pathophysiology and Diagnosis of Drug-Induced Immune Thrombocytopenia.",
+        "abstract": "Drug-induced immune thrombocytopenia (DITP) is a life-threatening clinical syndrome that is under-recognized and difficult to diagnose. Many drugs can cause immune-mediated thrombocytopenia, but the most commonly implicated are abciximab, carbamazepine, ceftriaxone, eptifibatide, heparin, ibuprofen, mirtazapine, oxaliplatin, penicillin, quinine, quinidine, rifampicin, suramin, tirofiban, trimethoprim-sulfamethoxazole, and vancomycin. Several different mechanisms have been identified in typical D",
+        "journal": "Journal of clinical medicine",
+        "year": "2020",
+        "doi": "10.3390/jcm9072212"
+      },
+      {
+        "pmid": "8850020",
+        "title": "Random mutagenesis by using mixtures of dNTP and dITP in PCR.",
+        "abstract": "",
+        "journal": "Methods in molecular biology (Clifton, N.J.)",
+        "year": "1996",
+        "doi": "10.1385/0-89603-332-5:351"
+      },
+      {
+        "pmid": "8415021",
+        "title": "Incorporation of dITP or 7-deaza dGTP during PCR improves sequencing of the product.",
+        "abstract": "",
+        "journal": "Nucleic acids research",
+        "year": "1993",
+        "doi": "10.1093/nar/21.18.4427"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8053": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8054": {
+    "pmids": [
+      "10682608",
+      "26899597",
+      "166201",
+      "7800489",
+      "7041118"
+    ],
+    "papers": [
+      {
+        "pmid": "10682608",
+        "title": "[Study on the relationship between deoxyribonucleoside triphosphate (dNTP) pools and cell transformation].",
+        "abstract": "Deoxyribonucleoside triphosphate (dNTP) pools were measured in normal BALB/c3T3 cells, transformation-treated cells and transformed cells with reverse-phase HPLC. The fluctuation of dNTP pools was similar after cells were treated with alkylating mutagens glycidyl methacrylate (GMA) and N-methyl-N'-nitro-N-nitrosoguanidine (MNNG). The gap between (dGTP + dATP) pools and (dTTP + dCTP) pools was greatly intensified. The measurements also indicated that the dNTP pools in transformed cells were quite",
+        "journal": "Wei sheng yan jiu = Journal of hygiene research",
+        "year": "1998",
+        "doi": ""
+      },
+      {
+        "pmid": "26899597",
+        "title": "Flexible double-headed cytosine-linked 2'-deoxycytidine nucleotides. Synthesis, polymerase incorporation to DNA and interaction with DNA methyltransferases.",
+        "abstract": "New types of double-headed 2'-deoxycytidine 5'-O-triphosphates (dC(XC)TPs) bearing another cytosine or 5-fluorocytosine linked through a flexible propargyl, homopropargyl or pent-1-ynyl linker to position 5 were prepared by the aqueous Sonogashira cross-coupling reactions of 5-iodo-dCTP with the corresponding (fluoro)cytosine-alkynes. The modified dC(XC)TPs were good substrates for DNA polymerases and were used for enzymatic synthesis of cytosine-functionalized DNA by primer extension or PCR. Th",
+        "journal": "Bioorganic & medicinal chemistry",
+        "year": "2016",
+        "doi": "10.1016/j.bmc.2016.01.057"
+      },
+      {
+        "pmid": "166201",
+        "title": "Iodination of herpesvirus nucleic acids.",
+        "abstract": "A simple method is described for the iodination of herpes simplex virus (HSV) DNA. The procedure involved synthesis of 125-I-labeled 5-iodo-dCTP which was subsequently used as a precursor for the in vitro repair synthesis of HSV DNA. Synthesis of 5-iodo-dCTP and purification from oxidation and reduction reagents, buffer salts, unreacted dCTP and Na125-I was accomplished in a single chromatographic step. It was possible to prepare 125-I-labeled HSV DNA in vitro with specific activities exceeding ",
+        "journal": "Journal of virology",
+        "year": "1975",
+        "doi": "10.1128/JVI.16.1.132-140.1975"
+      },
+      {
+        "pmid": "7800489",
+        "title": "Sequence-specific DNA double-strand breaks induced by triplex forming 125I labeled oligonucleotides.",
+        "abstract": "A triplex-forming oligonucleotide (TFO) complementary to the polypurine-polypyrimidine region of the nef gene of the Human Immunodeficiency Virus (HIV) was labeled with 125I at the C5 position of a single deoxycytosine residue. Labeled TFO was incubated with a plasmid containing a fragment of the nef gene. Decay of 125I was found to cause double-strand breaks (DSB) within the nef gene upon triplex formation in a sequence specific manner. No DSB were detected after incubation at ionic conditions ",
+        "journal": "Nucleic acids research",
+        "year": "1994",
+        "doi": "10.1093/nar/22.23.4979"
+      },
+      {
+        "pmid": "7041118",
+        "title": "Effects of DNA base analogs on transcription termination at the tryptophan operon attenuator of EScherichia coli.",
+        "abstract": "We have devised a method to specifically incorporate deoxyribonucleotide base analogs in vitro into either strand of the tryptophan (trp) operon attenuator region, using primed synthesis on bacteriophage M13 derivatives carrying cloned trp attenuator DNA. We have employed these techniques to extend previous studies implicating both RNA-RNA and RNA-DNA interactions in transcription termination in an attempt to determine the nature of the contribution from the template DNA molecule in termination ",
+        "journal": "Proceedings of the National Academy of Sciences of the United States of America",
+        "year": "1982",
+        "doi": "10.1073/pnas.79.4.998"
+      }
+    ],
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  "SC8055": {
+    "pmids": [
+      "166201"
+    ],
+    "papers": [
+      {
+        "pmid": "166201",
+        "title": "Iodination of herpesvirus nucleic acids.",
+        "abstract": "A simple method is described for the iodination of herpes simplex virus (HSV) DNA. The procedure involved synthesis of 125-I-labeled 5-iodo-dCTP which was subsequently used as a precursor for the in vitro repair synthesis of HSV DNA. Synthesis of 5-iodo-dCTP and purification from oxidation and reduction reagents, buffer salts, unreacted dCTP and Na125-I was accomplished in a single chromatographic step. It was possible to prepare 125-I-labeled HSV DNA in vitro with specific activities exceeding ",
+        "journal": "Journal of virology",
+        "year": "1975",
+        "doi": "10.1128/JVI.16.1.132-140.1975"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8056": {
+    "pmids": [
+      "7086962",
+      "12095278",
+      "11053429",
+      "38136671"
+    ],
+    "papers": [
+      {
+        "pmid": "7086962",
+        "title": "5-methyl-dCTP deaminase induced by bacteriophage XP-12.",
+        "abstract": "Bacteriophage XP-12, whose DNA contains 34 mol% 5-methylcytosine, induces the synthesis of a unique enzyme, 5-methyl-dCTP deaminase. The substrate for this enzyme, 5-methyl-dCTP, is produced by reactions catalyzed in part by other phage-induced enzymes, and the product of the reaction is dTTP. The deaminase therefore provides a novel pathway for biosynthesis of thymine residues for phage XP-12 DNA. Evidence is presented that this pathway is used for dTTP synthesis in XP-12-infected Xanthomonas o",
+        "journal": "Journal of virology",
+        "year": "1982",
+        "doi": "10.1128/JVI.42.1.42-48.1982"
+      },
+      {
+        "pmid": "12095278",
+        "title": "DNA methylation and epigenetic inheritance.",
+        "abstract": "Mammalian cell lines silence genes at low frequency by the methylation of promoter sequences. These silent genes can be reactivated at high frequency by the demethylating agent 5-azacytidine (5-aza-CR). The inactive and active epigenetic states of such genes are stably inherited. A method for silencing genes is now available. It involves treatment of permeabilized cells with 5-methyl deoxycytidine triphosphate (5-methyl dCTP) which is incorporated into DNA. The methylation of promoter sequences ",
+        "journal": "Methods (San Diego, Calif.)",
+        "year": "2002",
+        "doi": "10.1016/s1046-2023(02)00072-5"
+      },
+      {
+        "pmid": "11053429",
+        "title": "Orf135 from Escherichia coli Is a Nudix hydrolase specific for CTP, dCTP, and 5-methyl-dCTP.",
+        "abstract": "Orf135 from Escherichia coli is a new member of the Nudix (nucleoside diphosphate linked to some other moiety, x) hydrolase family of enzymes with substrate specificity for CTP, dCTP, and 5-methyl-dCTP. The gene has been cloned for overexpression, and the protein has been overproduced, purified, and characterized. Orf135 is most active on 5-methyl-dCTP (k(cat)/K(m) = 301,000 M(-1) s(-1)), followed by CTP (k(cat)/K(m) = 47,000 M(-1) s(-1)) and dCTP (k(cat)/K(m) = 18,000 M(-1) s(-1)). Unlike other",
+        "journal": "The Journal of biological chemistry",
+        "year": "2001",
+        "doi": "10.1074/jbc.M004100200"
+      },
+      {
+        "pmid": "38136671",
+        "title": "Using Selective Enzymes to Measure Noncanonical DNA Building Blocks: dUTP, 5-Methyl-dCTP, and 5-Hydroxymethyl-dCTP.",
+        "abstract": "Cells maintain a fine-tuned balance of deoxyribonucleoside 5'-triphosphates (dNTPs), a crucial factor in preserving genomic integrity. Any alterations in the nucleotide pool's composition or chemical modifications to nucleotides before their incorporation into DNA can lead to increased mutation frequency and DNA damage. In addition to the chemical modification of canonical dNTPs, the cellular de novo dNTP metabolism pathways also produce noncanonical dNTPs. To keep their levels low and prevent t",
+        "journal": "Biomolecules",
+        "year": "2023",
+        "doi": "10.3390/biom13121801"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8057": {
+    "pmids": [
+      "9321677",
+      "24210219",
+      "19300826"
+    ],
+    "papers": [
+      {
+        "pmid": "9321677",
+        "title": "A novel method for producing partial restriction digestion of DNA fragments by PCR with 5-methyl-CTP.",
+        "abstract": "Partial digestion of DNA fragments is a standard procedure for subcloning analysis and for generating restriction maps. We have developed a novel method to generate a partial digestion for any DNA fragment that can be amplified by PCR. The method involves the incorporation of 5-methyl-dCTP into the PCR product to protect most of the restriction sites. As a result, complete digestion of the modified PCR products with a 5-methyl-dCTP-sensitive enzyme will produce an array of restriction fragments ",
+        "journal": "Nucleic acids research",
+        "year": "1997",
+        "doi": "10.1093/nar/25.20.4169"
+      },
+      {
+        "pmid": "24210219",
+        "title": "Biochemical and structural studies of conserved Maf proteins revealed nucleotide pyrophosphatases with a preference for modified nucleotides.",
+        "abstract": "Maf (for multicopy associated filamentation) proteins represent a large family of conserved proteins implicated in cell division arrest but whose biochemical activity remains unknown. Here, we show that the prokaryotic and eukaryotic Maf proteins exhibit nucleotide pyrophosphatase activity against 5-methyl-UTP, pseudo-UTP, 5-methyl-CTP, and 7-methyl-GTP, which represent the most abundant modified bases in all organisms, as well as against canonical nucleotides dTTP, UTP, and CTP. Overexpression ",
+        "journal": "Chemistry & biology",
+        "year": "2013",
+        "doi": "10.1016/j.chembiol.2013.09.011"
+      },
+      {
+        "pmid": "19300826",
+        "title": "Efficient enzymatic synthesis of LNA-modified DNA duplexes using KOD DNA polymerase.",
+        "abstract": "Three different LNA-nucleoside triphosphates, LNA-TTP, LNA-ATP and LNA-5-methyl-CTP, were investigated as substrates for KOD DNA polymerase. The results reveal that KOD DNA polymerase is an efficient catalyst for template directed synthesis of DNA oligonucleotide duplexes containing a large number of LNA nucleotides by primer extension reactions. Furthermore, KOD DNA polymerase is shown to be suitable for the PCR amplification of an LNA-modified DNA duplex.",
+        "journal": "Organic & biomolecular chemistry",
+        "year": "2009",
+        "doi": "10.1039/b819946a"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8058": {
+    "pmids": [
+      "37984506",
+      "3525535",
+      "30304478"
+    ],
+    "papers": [
+      {
+        "pmid": "37984506",
+        "title": "A modified nucleoside O6-methyl-2'-deoxyguanosine-5'-triphosphate exhibits anti-glioblastoma activity in a caspase-independent manner.",
+        "abstract": "Resistance to temozolomide (TMZ), the frontline chemotherapeutic agent for glioblastoma (GBM), has emerged as a formidable obstacle, underscoring the imperative to identify alternative therapeutic strategies to improve patient outcomes. In this study, we comprehensively evaluated a novel agent, O6-methyl-2'-deoxyguanosine-5'-triphosphate (O6-methyl-dGTP) for its anti-GBM activity both in vitro and in vivo. Notably, O6-methyl-dGTP exhibited pronounced cytotoxicity against GBM cells, including tho",
+        "journal": "Pharmacological research",
+        "year": "2024",
+        "doi": "10.1016/j.phrs.2023.106990"
+      },
+      {
+        "pmid": "3525535",
+        "title": "O6-methylguanine mutation and repair is nonuniform. Selection for DNA most interactive with O6-methylguanine.",
+        "abstract": "Mutations were induced in the ampicillinase gene of a bacteriophage f1/pBR322 chimera both by incorporation of O6-methyl-dGTP opposite T during DNA replication in vitro and by site-directed mutagenesis using O6-methylguanine-containing oligonucleotides. After passage of the DNA through Escherichia coli, analysis of 151 O6-methyl-dGTP-induced mutations indicated a significantly greater number of unmutated mutation sites than expected, whereas the mutated sites generally fit a Poisson distribution",
+        "journal": "The Journal of biological chemistry",
+        "year": "1986",
+        "doi": ""
+      },
+      {
+        "pmid": "30304478",
+        "title": "MutT homologue 1 (MTH1) catalyzes the hydrolysis of mutagenic O6-methyl-dGTP.",
+        "abstract": "Nucleotides in the free pool are more susceptible to nonenzymatic methylation than those protected in the DNA double helix. Methylated nucleotides like O6-methyl-dGTP can be mutagenic and toxic if incorporated into DNA. Removal of methylated nucleotides from the nucleotide pool may therefore be important to maintain genome integrity. We show that MutT homologue 1 (MTH1) efficiently catalyzes the hydrolysis of O6-methyl-dGTP with a catalytic efficiency similar to that for 8-oxo-dGTP. O6-methyl-dG",
+        "journal": "Nucleic acids research",
+        "year": "2018",
+        "doi": "10.1093/nar/gky896"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8059": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8060": {
+    "pmids": [
+      "6706972",
+      "10683256",
+      "32144205",
+      "14510368",
+      "17983244"
+    ],
+    "papers": [
+      {
+        "pmid": "6706972",
+        "title": "N6-methyldeoxyadenosine 5'-triphosphate as a probe of the fidelity mechanisms of bacteriophage T4 DNA polymerase.",
+        "abstract": "The incorporation of m6dATP by T4 DNA polymerase has been investigated. Unlike Escherichia coli DNA polymerase I (Engel, J.D., and von Hippel, P.H. (1978) J. Biol. Chem, 253, 935-939), the T4 enzyme discriminates at the insertion step against the methylated triphosphate as compared to the normal substrate (dATP). The apparent Km values measured in two ways agree with the overall 7-fold discrimination measured in double label experiments. The apparent Vmax values measured for net DNA synthesis ar",
+        "journal": "The Journal of biological chemistry",
+        "year": "1984",
+        "doi": ""
+      },
+      {
+        "pmid": "10683256",
+        "title": "Double-base lesions are produced in DNA by free radicals.",
+        "abstract": "Evidence has been accumulating at the oligomer level that free radical-initiated DNA damage includes lesions in which two adjacent bases are both modified. Prominent examples are lesions in which a pyrimidine base is degraded to a formamido remnant and an adjacent guanine base is oxidized. An assay has been devised to detect double-base lesions based on the fact that the phosphoester bond 3' to a nuclesoside bearing the formamido lesion is resistant to hydrolysis by nuclease P1. The residual mod",
+        "journal": "Archives of biochemistry and biophysics",
+        "year": "2000",
+        "doi": "10.1006/abbi.1999.1640"
+      },
+      {
+        "pmid": "32144205",
+        "title": "MutT homologue 1 (MTH1) removes N6-methyl-dATP from the dNTP pool.",
+        "abstract": "MutT homologue 1 (MTH1) removes oxidized nucleotides from the nucleotide pool and thereby prevents their incorporation into the genome and thereby reduces genotoxicity. We previously reported that MTH1 is an efficient catalyst of O6-methyl-dGTP hydrolysis suggesting that MTH1 may also sanitize the nucleotide pool from other methylated nucleotides. We here show that MTH1 efficiently catalyzes the hydrolysis of N6-methyl-dATP to N6-methyl-dAMP and further report that N6-methylation of dATP drastic",
+        "journal": "The Journal of biological chemistry",
+        "year": "2020",
+        "doi": "10.1074/jbc.RA120.012636"
+      },
+      {
+        "pmid": "14510368",
+        "title": "Simultaneous incorporation of three different modified nucleotides during PCR.",
+        "abstract": "Modified analogs of 2'-deoxycytidine triphosphates bearing (6-aminohexyl)carbamoylmethyl or 7-amino-2,5-dioxaheptyl linker at a C5 position were designed and synthesized. Both analogs were found to be good substrates for Vent(exo-) DNA polymerase during PCR, resulting in the corresponding full-length modified DNAs, respectively. Moreover, we have demonstrated simultaneous incorporation of three different modified nucleotides into a DNA strand by PCR using triphosphates of 5-(3-aminopropynyl)dUTP",
+        "journal": "Nucleic acids research. Supplement (2001)",
+        "year": "2003",
+        "doi": "10.1093/nass/3.1.37"
+      },
+      {
+        "pmid": "17983244",
+        "title": "Enhancing the \"A-rule\" of translesion DNA synthesis: promutagenic DNA synthesis using modified nucleoside triphosphates.",
+        "abstract": "Abasic sites are mutagenic DNA lesions formed as a consequence of inappropriate modifications to the functional groups present on purines and pyrimidines. In this paper we quantify the ability of the high-fidelity bacteriophage T4 DNA polymerase to incorporate various promutagenic alkylated nucleotides opposite and beyond this class of non-instructional DNA lesions. Kinetic analyses reveal that modified nucleotides such as N6-methyl-dATP and O6-methyl-dGTP are incorporated opposite an abasic sit",
+        "journal": "Biochemistry",
+        "year": "2007",
+        "doi": "10.1021/bi701328h"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8061": {
+    "pmids": [
+      "31577817",
+      "35228902",
+      "32144205"
+    ],
+    "papers": [
+      {
+        "pmid": "31577817",
+        "title": "Development and validation of monoclonal antibodies against N6-methyladenosine for the detection of RNA modifications.",
+        "abstract": "RNA contains various chemical modifications, among which N6-methyladenosine (m6A) is the most prevalent modified nucleotide in eukaryotic mRNA. Emerging evidence suggests that m6A plays an important role in regulating a variety of cellular functions by controlling mRNA processing, translation and degradation. Because m6A is not detectable by standard chemical modification-based approaches, immunological methods, such as ELISA, immunoblotting, immunohistochemistry, m6A RNA immunoprecipitation seq",
+        "journal": "PloS one",
+        "year": "2019",
+        "doi": "10.1371/journal.pone.0223197"
+      },
+      {
+        "pmid": "35228902",
+        "title": "Towards SINEUP-based therapeutics: Design of an ",
+        "abstract": "SINEUPs are a novel class of natural and synthetic non-coding antisense RNA molecules able to increase the translation of a target mRNA. They present a modular organization comprising an unstructured antisense target-specific domain, which sets the specificity of each individual SINEUP, and a structured effector domain, which is responsible for the translation enhancement. In order to design a fully functional ",
+        "journal": "Molecular therapy. Nucleic acids",
+        "year": "2022",
+        "doi": "10.1016/j.omtn.2022.01.021"
+      },
+      {
+        "pmid": "32144205",
+        "title": "MutT homologue 1 (MTH1) removes N6-methyl-dATP from the dNTP pool.",
+        "abstract": "MutT homologue 1 (MTH1) removes oxidized nucleotides from the nucleotide pool and thereby prevents their incorporation into the genome and thereby reduces genotoxicity. We previously reported that MTH1 is an efficient catalyst of O6-methyl-dGTP hydrolysis suggesting that MTH1 may also sanitize the nucleotide pool from other methylated nucleotides. We here show that MTH1 efficiently catalyzes the hydrolysis of N6-methyl-dATP to N6-methyl-dAMP and further report that N6-methylation of dATP drastic",
+        "journal": "The Journal of biological chemistry",
+        "year": "2020",
+        "doi": "10.1074/jbc.RA120.012636"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8062": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8063": {
+    "pmids": [
+      "27778111",
+      "21178309",
+      "41898401"
+    ],
+    "papers": [
+      {
+        "pmid": "27778111",
+        "title": "Alr2954 of Anabaena sp. PCC 7120 with ADP-ribose pyrophosphatase activity bestows abiotic stress tolerance in Escherichia coli.",
+        "abstract": "In silico derived properties on experimental validation revealed that hypothetical protein Alr2954 of Anabaena sp. PCC7120 is ADP-ribose pyrophosphatase, which belongs to nudix hydrolase superfamily. Presence of ADP-ribose binding site was attested by ADP-ribose pyrophosphatase activity (K ",
+        "journal": "Functional & integrative genomics",
+        "year": "2017",
+        "doi": "10.1007/s10142-016-0531-y"
+      },
+      {
+        "pmid": "21178309",
+        "title": "CiMutT, an asidian MutT homologue, has a 7, 8-dihydro-8-oxo-dGTP pyrophosphohydrolase activity responsible for sanitization of oxidized nucleotides in Ciona intestinalis.",
+        "abstract": "The oxidized nucleotide precursors 7, 8-dihydro-8-oxo-dGTP (8-oxo-dGTP) and 1, 2-dihydro-2-oxo-dATP (2-oxo-dATP) are readily incorporated into nascent DNA strands during replication, which would cause base substitution mutations. E. coli MutT and human homologue hMTH1 hydrolyze 8-oxo-dGTP, thereby preventing mutations. In this study, we searched for hMTH1 homologues in the ascidian Ciona intestinalis using the NCBI-BLAST database. Among several candidates, we focused on one open reading frame, d",
+        "journal": "Genes & genetic systems",
+        "year": "2010",
+        "doi": "10.1266/ggs.85.287"
+      },
+      {
+        "pmid": "41898401",
+        "title": "A Comparative Study for the Incorporation of 8-oxo-dATP in DNA by Human DNA Polymerases.",
+        "abstract": "In this work, we analyzed the ability to incorporate 8-oxo-dATP by several human DNA polymerases: replicative Pol ε (exo-) from Family B; base excision repair (BER) enzymes Pol β and Pol λ from Family X; and translesion Pol η, Pol ι, and Pol κ from Family Y. We demonstrated that human DNA polymerases differ in their abilities to discriminate against 8-oxo-dATP. Among the tested DNA polymerases, Pol λ exhibited the worst ability to discriminate against 8-oxo-dATP opposite template T on DNA substr",
+        "journal": "International journal of molecular sciences",
+        "year": "2026",
+        "doi": "10.3390/ijms27062537"
+      }
+    ],
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  "SC8064": {
+    "pmids": [
+      "20544882",
+      "26730155",
+      "9140059",
+      "18276636",
+      "31292314"
+    ],
+    "papers": [
+      {
+        "pmid": "20544882",
+        "title": "DNA repair in mammalian mitochondria: Much more than we thought?",
+        "abstract": "For many years, the repair of most damage in mitochondrial DNA (mtDNA) was thought limited to short-patch base excision repair (SP-BER), which replaces a single nucleotide by the sequential action of DNA glycosylases, an apurinic/apyrimidinic (AP) endonuclease, the mitochondrial DNA polymerase gamma, an abasic lyase activity, and mitochondrial DNA ligase. However, the likely array of lesions inflicted on mtDNA by oxygen radicals and the possibility of replication errors and disruptions indicated",
+        "journal": "Environmental and molecular mutagenesis",
+        "year": "2010",
+        "doi": "10.1002/em.20576"
+      },
+      {
+        "pmid": "26730155",
+        "title": "Hypoxia-inducible factor-1 modulates upregulation of mutT homolog-1 in colorectal cancer.",
+        "abstract": "To investigate the roles and interactions of mutT homolog (MTH)-1 and hypoxia-inducible factor (HIF)-1α in human colorectal cancer (CRC).",
+        "journal": "World journal of gastroenterology",
+        "year": "2015",
+        "doi": "10.3748/wjg.v21.i48.13447"
+      },
+      {
+        "pmid": "9140059",
+        "title": "MutT-related error avoidance mechanism for DNA synthesis.",
+        "abstract": "Mutator mutants that show an increased frequency of spontaneous mutation have led to the elucidation of the multiple pathways of spontaneous mutagenesis. 8-Oxo-dGTP (8-oxo-7,8-dihydrodeoxyguanosine triphosphate) is formed in the nucleotide pool of a cell during normal cellular metabolism, and when it is incorporated into DNA causes mutation. MutT protein of Escherichia coli and related mammalian enzymes specifically degrade 8-oxo-dGTP to 8-oxo-dGMP, thereby preventing occurrence of transversion ",
+        "journal": "Genes to cells : devoted to molecular & cellular mechanisms",
+        "year": "1996",
+        "doi": "10.1046/j.1365-2443.1996.d01-232.x"
+      },
+      {
+        "pmid": "18276636",
+        "title": "Trace amounts of 8-oxo-dGTP in mitochondrial dNTP pools reduce DNA polymerase gamma replication fidelity.",
+        "abstract": "Replication of the mitochondrial genome by DNA polymerase gamma requires dNTP precursors that are subject to oxidation by reactive oxygen species generated by the mitochondrial respiratory chain. One such oxidation product is 8-oxo-dGTP, which can compete with dTTP for incorporation opposite template adenine to yield A-T to C-G transversions. Recent reports indicate that the ratio of undamaged dGTP to dTTP in mitochondrial dNTP pools from rodent tissues varies from approximately 1:1 to >100:1. W",
+        "journal": "Nucleic acids research",
+        "year": "2008",
+        "doi": "10.1093/nar/gkn062"
+      },
+      {
+        "pmid": "31292314",
+        "title": "Enzymatic characteristics of Nudix hydrolase 2 (Nud2), an 8-oxo-dGTP hydrolase from Myxococcus xanthus.",
+        "abstract": "Myxococcus xanthus Nudix hydrolase 2 (Nud2) hydrolyzed oxidized deoxynucleotides, such as 8-oxo-dGTP, 8-oxo-dGDP, 8-OH-dTP, and 2-OH-dATP, and showed the highest specific activity toward 8-oxo-dGTP. Mn",
+        "journal": "The Journal of general and applied microbiology",
+        "year": "2020",
+        "doi": "10.2323/jgam.2019.04.002"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8065": {
+    "pmids": [
+      "17804481",
+      "38776712",
+      "16169877",
+      "21704046",
+      "10090747"
+    ],
+    "papers": [
+      {
+        "pmid": "17804481",
+        "title": "AtNUDX1, an 8-oxo-7,8-dihydro-2'-deoxyguanosine 5'-triphosphate pyrophosphohydrolase, is responsible for eliminating oxidized nucleotides in Arabidopsis.",
+        "abstract": "Cellular DNA, RNA and their precursor nucleotides are at high risk of being oxidized by reactive oxygen species. An oxidized base, 8-oxo-7,8-dihydro-2'-(deoxy)guanosine, can pair with both adenine and cytosine, and thus would cause both replicational and translational errors. Previously, we have reported that an Arabidopsis Nudix hydrolase, AtNUDX1, acts to hydrolyze an oxidized deoxyribonucleotide, 8-oxo-7,8-dihydro-2'-deoxyguanosine 5'-triphosphate (8-oxo-dGTP). Here we showed that 8-oxo-dGTP ",
+        "journal": "Plant & cell physiology",
+        "year": "2007",
+        "doi": "10.1093/pcp/pcm112"
+      },
+      {
+        "pmid": "38776712",
+        "title": "An exchange of single amino acid between the phosphohydrolase modules of Escherichia coli MutT and Mycobacterium smegmatis MutT1 switches their cleavage specificities.",
+        "abstract": "MutT proteins belong to the Nudix hydrolase superfamily that includes a diverse group of Mg",
+        "journal": "DNA repair",
+        "year": "2024",
+        "doi": "10.1016/j.dnarep.2024.103693"
+      },
+      {
+        "pmid": "16169877",
+        "title": "Novel reaction mechanism of GTP cyclohydrolase I. High-resolution X-ray crystallography of Thermus thermophilus HB8 enzyme complexed with a transition state analogue, the 8-oxoguanine derivative.",
+        "abstract": "GTP cyclohydrolase I (GTPCH1) catalyzes the conversion of GTP to dihydroneopterin 3'-triphosphate. We found that an 8-oxoguanine derivative of GTP (8-oxo-GTP) strongly bound to GTPCH1 from Thermus thermophilus HB8 (tGTPCH1) as a competitive inhibitor. The affinity of 8-oxo-GTP was three orders of magnitude greater than that of GTP. These results suggest that 8-oxo-GTP is a transition state analogue of GTPCH1. We have solved the X-ray crystal structures of tGTPCH1 complexed with 8-oxo-GTP and 8-o",
+        "journal": "Journal of biochemistry",
+        "year": "2005",
+        "doi": "10.1093/jb/mvi120"
+      },
+      {
+        "pmid": "21704046",
+        "title": "Mutagenicity of secondary oxidation products of 8-oxo-7,8-dihydro-2'-deoxyguanosine 5'-triphosphate (8-hydroxy-2'- deoxyguanosine 5'-triphosphate).",
+        "abstract": "8-Oxo-7,8-dihydroguanine (8-hydroxyguanine) is oxidized more easily than normal nucleobases, which can produce spiroiminodihydantoin (Sp) and guanidinohydantoin (Gh). These secondary oxidation products of 8-oxo-7,8-dihydroguanine are highly mutagenic when formed within DNA. To evaluate the mutagenicity of the corresponding oxidation products of 8-oxo-7,8-dihydro-2'-deoxyguanosine 5'-triphosphate (8-hydroxy-2'- deoxyguanosine 5'-triphosphate) in the nucleotide pool, Escherichia coli cells deficie",
+        "journal": "Mutation research",
+        "year": "2011",
+        "doi": "10.1016/j.mrfmmm.2011.05.015"
+      },
+      {
+        "pmid": "10090747",
+        "title": "Metabolic fate of oxidized guanine ribonucleotides in mammalian cells.",
+        "abstract": "8-Oxo-7,8-dihydroguanine- (8-oxoguanine-) containing nucleotides are generated in the cellular nucleotide pool by the action of oxygen radicals produced during normal cellular metabolism. We examined the interconversion and metabolic fate of 8-oxoguanine-containing ribonucleotides in mammalian cells. (1) 8-OxoGTP can be generated not only by direct oxidation of GTP but also by phosphorylation of 8-oxoGDP by nucleotide diphosphate kinase, and the 8-oxoGTP thus formed can serve as a substrate for ",
+        "journal": "Biochemistry",
+        "year": "1999",
+        "doi": "10.1021/bi982361l"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8066": {
+    "pmids": [
+      "24929814",
+      "12527759",
+      "12501185",
+      "2157405",
+      "12802803"
+    ],
+    "papers": [
+      {
+        "pmid": "24929814",
+        "title": "Molecular dynamics study on conformational differences between dGMP and 8-oxo-dGMP: Effects of metal ions.",
+        "abstract": "The modified nucleotide base 7,8-dihydro-8-oxo-guanine (8-oxo-G) is one of the major sources of spontaneous mutagenesis. Nucleotide-sanitizing enzymes, such as the MutT homolog-1 (MTH1) and nudix-type motif 5 (NUDT5), selectively remove 8-oxo-G from the cellular pool of nucleotides. Previous studies showed that, although the syn conformation generally predominates in purine nucleotides with a bulky substituent at the 8-position, 8-oxo-dGMP binds to both MTH1 and NUDT5 in the anti conformation. T",
+        "journal": "Journal of molecular graphics & modelling",
+        "year": "2014",
+        "doi": "10.1016/j.jmgm.2014.05.007"
+      },
+      {
+        "pmid": "12527759",
+        "title": "Mutagenic potentials of damaged nucleic acids produced by reactive oxygen/nitrogen species: approaches using synthetic oligonucleotides and nucleotides: survey and summary.",
+        "abstract": "DNA and DNA precursors (deoxyribonucleotides) suffer damage by reactive oxygen/nitrogen species. They are important mutagens for organisms, due to their endogenous formation. Damaged DNA and nucleotides cause alterations of the genetic information by the mispairing properties of the damaged bases, such as 8-hydroxyguanine (7,8-dihydro-8-oxoguanine) and 2-hydroxyadenine. Here, the author reviews the mutagenic potentials of damaged bases in DNA and of damaged DNA precursors formed by reactive oxyg",
+        "journal": "Nucleic acids research",
+        "year": "2003",
+        "doi": "10.1093/nar/gkg137"
+      },
+      {
+        "pmid": "12501185",
+        "title": "Interactions of the products, 8-oxo-dGMP, dGMP, and pyrophosphate with the MutT nucleoside triphosphate pyrophosphohydrolase.",
+        "abstract": "The MutT enzyme from E. coli, in the presence of a divalent cation, catalyzes the hydrolysis of nucleoside- and deoxynucleoside-triphosphate (NTP) substrates by nucleophilic substitution at Pbeta, to yield a nucleotide (NMP) and PPi. The best substrate of MutT is believed to be the mutagenic nucleotide 8-oxo-dGTP, on the basis of its 10(3.4)-fold lower K(m) than that of dGTP (Maki, H., and Sekiguchi, M. (1992) Nature 355, 273-275). To determine the true affinity of MutT for an 8-oxo-nucleotide a",
+        "journal": "Biochemistry",
+        "year": "2002",
+        "doi": "10.1021/bi020552p"
+      },
+      {
+        "pmid": "2157405",
+        "title": "Detection and quantitation of 8-hydroxydeoxyguanosine 5'-monophosphate in X-irradiated calf-thymus DNA by fluorescence postlabeling.",
+        "abstract": "8-Hydroxydeoxyguanosine 5'-monophosphate (8-OH dGmp) was synthesized from deoxyguanosine 5'-monophosphate (dGmp) by ascorbic acid in the presence of hydrogen peroxide and labeled with dansyl chloride through a phosphoramidate linkage with ethylenediamine (EDA). A DNA model 8-OHd(TACG), isolated intact by high pressure liquid chromatography (HPLC) from x-irradiated d(TACG) and characterized by nmr, was digested enzymatically to 5'-mononucleotides. The modified nucleotide was enriched by HPLC and ",
+        "journal": "Biochemical and biophysical research communications",
+        "year": "1990",
+        "doi": "10.1016/0006-291x(90)92039-3"
+      },
+      {
+        "pmid": "12802803",
+        "title": "Analysis of 8-hydroxydeoxyguanosine 5'-monophosphate (8-OH-dGMP) as a reliable marker of cellular oxidative DNA damage after gamma-irradiation.",
+        "abstract": "In order to improve 8-hydroxyguanine (8-OH-Gua) detection in DNA, we digested isolated DNA with nuclease P1 and analyzed for 8-hydroxydeoxyguanosine 5'-monophosphate (8-OH-dGMP) using a high-performance liquid chromatography system equipped with an electrochemical detector (HPLC-ECD). The amount of 8-OH-Gua in the DNA was expressed as the ratio of 8-OH-dGMP to deoxycytidine monophosphate (dCMP). Using this analysis, the background level of 8-OH-Gua in DNA from human lung carcinoma cells (A549) w",
+        "journal": "Environmental and molecular mutagenesis",
+        "year": "2003",
+        "doi": "10.1002/em.10165"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8067": {
+    "pmids": [
+      "21873335",
+      "16472828",
+      "7819228"
+    ],
+    "papers": [
+      {
+        "pmid": "21873335",
+        "title": "NDX-1 protein hydrolyzes 8-oxo-7, 8-dihydrodeoxyguanosine-5'-diphosphate to sanitize oxidized nucleotides and prevent oxidative stress in Caenorhabditis elegans.",
+        "abstract": "8-oxo-dGTP is generated in the nucleotide pool by direct oxidation of dGTP or phosphorylation of 8-oxo-dGDP. It can be incorporated into DNA during replication, which would result in mutagenic consequences. The frequency of spontaneous mutations remains low in cells owing to the action of enzymes degrading such mutagenic substrates. Escherichia coli MutT and human MTH1 hydrolyze 8-oxo-dGTP to 8-oxo-dGMP. Human NUDT5 as well as human MTH1 hydrolyze 8-oxo-dGDP to 8-oxo-dGMP. These enzymes prevent ",
+        "journal": "Journal of biochemistry",
+        "year": "2011",
+        "doi": "10.1093/jb/mvr107"
+      },
+      {
+        "pmid": "16472828",
+        "title": "Exogenous 8-oxo-dG is not utilized for nucleotide synthesis but enhances the accumulation of 8-oxo-Gua in DNA through error-prone DNA synthesis.",
+        "abstract": "7,8-Dihydro-8-oxoguanine (8-oxo-Gua) and its nucleoside in cytosol are derived from the repair of oxidative DNA and the cleanup of oxidatively damaged DNA precursors, respectively. While the harmful effects of 8-oxo-Gua present in DNA have been studied extensively, few have reported its effects on cytosolic function. Our previous study showed that the addition of 8-oxo-dG to culture media caused an accumulation of 8-oxo-Gua in nuclear DNA in several leukemic cells including KG-1, which lack 8-ox",
+        "journal": "Mutation research",
+        "year": "2006",
+        "doi": "10.1016/j.mrfmmm.2005.12.004"
+      },
+      {
+        "pmid": "7819228",
+        "title": "Generation and elimination of 8-oxo-7,8-dihydro-2'-deoxyguanosine 5'-triphosphate, a mutagenic substrate for DNA synthesis, in human cells.",
+        "abstract": "8-Oxo-7,8-dihydro-2'-deoxyguanosine 5'-triphosphate (8-oxo-dGTP) is a potent mutagenic substrate for DNA synthesis. The present study deals with generation and degradation of 8-oxo-dGTP in the nucleotide pool of human cells. (1) 8-Oxo-dGTP can be generated not only by direct oxidation of dGTP but also by phosphorylation of 8-oxo-dGDP by nucleoside diphosphate kinase. (2) 8-Oxo-dGTP is rapidly degraded to 8-oxo-dGMP by cellular 8-oxo-dGTPase activity. 8-Oxo-dGMP thus produced cannot be rephosphor",
+        "journal": "Biochemistry",
+        "year": "1995",
+        "doi": "10.1021/bi00001a011"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8068": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8069": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8070": {
+    "pmids": [
+      "28925261",
+      "26243014"
+    ],
+    "papers": [
+      {
+        "pmid": "28925261",
+        "title": "[24]Pentaphyrin(2.1.1.1.1): A Strongly Antiaromatic Pentaphyrin.",
+        "abstract": "[24]Pentaphyrin(2.1.1.1.1) 1 was synthesized by dehydrogenation of dihydropentaphyrin(2.1.1.1.1) 2 as the first example of vinylogous pentaphyrin. Pentaphyrin 1 takes a roughly planar structure and shows strong antiaromatic character, reflecting a 24π-conjugated circuit. In spite of the antiaromatic character and the relatively small circuit, 1 is stable under ambient conditions.",
+        "journal": "The Journal of organic chemistry",
+        "year": "2017",
+        "doi": "10.1021/acs.joc.7b01998"
+      },
+      {
+        "pmid": "26243014",
+        "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+        "abstract": "Enhancing cardiovascular fitness can lead to substantial health benefits. High-intensity interval training (HIT) is an efficient way to develop cardiovascular fitness, yet comparisons between this type of training and traditional endurance training are equivocal.",
+        "journal": "Sports medicine (Auckland, N.Z.)",
+        "year": "2015",
+        "doi": "10.1007/s40279-015-0365-0"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8071": {
+    "pmids": [
+      "33061823",
+      "35850244",
+      "21600693"
+    ],
+    "papers": [
+      {
+        "pmid": "33061823",
+        "title": "P2Y",
+        "abstract": "Leishmaniasis is a neglected tropical disease caused by an intracellular parasite of the genus ",
+        "journal": "Mediators of inflammation",
+        "year": "2020",
+        "doi": "10.1155/2020/2545682"
+      },
+      {
+        "pmid": "35850244",
+        "title": "The blockage of downstream P2Y",
+        "abstract": "Prostate cancer is the second most frequently malignancy in men worldwide. Most deaths are caused by metastasis, and tumor cell dissemination involves the interaction with endothelial cells. However, the endothelial cell signaling involved in such interaction is not entirely understood. The tumor microenvironment contains extracellular ATP, an endogenous agonist of the purinergic P2Y",
+        "journal": "Life sciences",
+        "year": "2022",
+        "doi": "10.1016/j.lfs.2022.120793"
+      },
+      {
+        "pmid": "21600693",
+        "title": "Nucleotides control the excitability of sensory neurons via two P2Y receptors and a bifurcated signaling cascade.",
+        "abstract": "Nucleotides contribute to the sensation of acute and chronic pain, but it remained enigmatic which G protein-coupled nucleotide (P2Y) receptors and associated signaling cascades are involved. To resolve this issue, nucleotides were applied to dorsal root ganglion neurons under current- and voltage-clamp. Adenosine triphosphate (ATP), adenosine diphosphate (ADP), and uridine triphosphate (UTP), but not uridine diphosphate (UDP), depolarized the neurons and enhanced action potential firing in resp",
+        "journal": "Pain",
+        "year": "2011",
+        "doi": "10.1016/j.pain.2011.04.016"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8072": {
+    "pmids": [
+      "33082336",
+      "11532970",
+      "9278101",
+      "2994008",
+      "41354720"
+    ],
+    "papers": [
+      {
+        "pmid": "33082336",
+        "title": "Mechanisms of telomerase inhibition by oxidized and therapeutic dNTPs.",
+        "abstract": "Telomerase is a specialized reverse transcriptase that adds GGTTAG repeats to chromosome ends and is upregulated in most human cancers to enable limitless proliferation. Here, we uncover two distinct mechanisms by which naturally occurring oxidized dNTPs and therapeutic dNTPs inhibit telomerase-mediated telomere elongation. We conduct a series of direct telomerase extension assays in the presence of modified dNTPs on various telomeric substrates. We provide direct evidence that telomerase can ad",
+        "journal": "Nature communications",
+        "year": "2020",
+        "doi": "10.1038/s41467-020-19115-y"
+      },
+      {
+        "pmid": "11532970",
+        "title": "Deoxythioguanosine triphosphate impairs HIV replication: a new mechanism for an old drug.",
+        "abstract": "Inhibition of HIV-1 reverse transcriptase (RT) and HIV protease are effective mechanisms for anti-retroviral agents, and the combined use of mechanistically different medications has markedly improved the treatment of HIV infected patients. The active metabolite of mercaptopurine and thioguanine (TG), deoxythioguanosine triphosphate, was shown to be incorporated into DNA by the polymerase function of HIV-1 RT and then to abrogate RNA cleavage by HIV-1 RNaseH. Treatment of human lymphocyte cultur",
+        "journal": "FASEB journal : official publication of the Federation of American Societies for Experimental Biology",
+        "year": "2001",
+        "doi": "10.1096/fj.01-0124com"
+      },
+      {
+        "pmid": "9278101",
+        "title": "Mutagenic consequences of the incorporation of 6-thioguanine into DNA.",
+        "abstract": "6-Thioguanine (S6G) has been used in the treatment of acute leukemias because of its cytotoxic effect on proliferating leukemic cells. The cytotoxicity of S6G is thought to derive from its incorporation into DNA in place of guanine. The deoxyribonucleoside triphosphate of S6G, SdGTP, is a good substrate for bacterial and human DNA polymerases (Ling et al., Mol Pharmacol 40: 508-514, 1991). Since SdGTP was observed to misincorporate in place of adenine at a greater frequency than did dGTP, it app",
+        "journal": "Biochemical pharmacology",
+        "year": "1997",
+        "doi": "10.1016/s0006-2952(97)00200-1"
+      },
+      {
+        "pmid": "2994008",
+        "title": "On the fidelity of DNA polymerase alpha: the influence of alpha-thio dNTPs, Mn2+ and mismatch repair.",
+        "abstract": "The phi X174am16 revertant system has been used to investigate the influence of alpha-thio-dNTPs and of Mn2+ on the fidelity of the 9S DNA polymerase alpha from calf thymus. Upon substituting dGTP by alpha-thio-dGTP during the in vitro replication, a nearly tenfold decrease in the frequency of G:G and G:T mispairs is observed. The formation of all other mispairs is not changed in the presence of the corresponding alpha-thio-dNTP. Mn2+ at concentrations of 0.5 mM does not influence the frequencie",
+        "journal": "Nucleic acids research",
+        "year": "1985",
+        "doi": "10.1093/nar/13.15.5685"
+      },
+      {
+        "pmid": "41354720",
+        "title": "Therapeutic 6-thio-deoxyguanosine inhibits telomere elongation in cancer cells by inducing a non-productive stalled telomerase complex.",
+        "abstract": "Most cancers upregulate the telomere lengthening enzyme telomerase to achieve unlimited cell division. How chemotherapeutic nucleoside 6-thio-2'-deoxyguanosine (6-thio-dG) targets telomerase to inhibit telomere maintenance in cancer cells and tumors was unclear. Here, we demonstrate that telomerase insertion of 6-thio-dGTP prevents synthesis of additional telomeric repeats but does not disrupt telomerase binding to telomeres. Specifically, 6-thio-dG inhibits telomere extension after telomerase t",
+        "journal": "Nature communications",
+        "year": "2025",
+        "doi": "10.1038/s41467-025-66534-w"
+      }
+    ],
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  "SC8073": {
+    "pmids": [
+      "41389974",
+      "16175140",
+      "17584603",
+      "30289487",
+      "34613767"
+    ],
+    "papers": [
+      {
+        "pmid": "41389974",
+        "title": "Azathioprine ameliorates cellular senescence in rhabdomyolysis-induced acute kidney injury by inhibiting the Vav1/Rac2/NF-κB pathway in macrophages.",
+        "abstract": "Rhabdomyolysis (RM) and rhabdomyolysis-induced acute kidney injury (RM-AKI) are increasingly prevalent, yet specific therapies are lacking.Cellular senescence contributes to the transition of RM-AKI to chronic kidney disease (CKD), in which macrophage-tubular epithelial interactions play a pivotal role. Azathioprine, an immunosuppressant, through its metabolite 6-thio-GTP, inhibits Vav1-mediated Rac2 activation; nevertheless, its potential role in RM-AKI has not been elucidated. This study explo",
+        "journal": "European journal of pharmacology",
+        "year": "2026",
+        "doi": "10.1016/j.ejphar.2025.178441"
+      },
+      {
+        "pmid": "16175140",
+        "title": "Thiopurine therapies: problems, complexities, and progress with monitoring thioguanine nucleotides.",
+        "abstract": "Metabolism of thiopurine drugs--azathioprine, 6-mercaptopurine, and 6-thioguanine--has provided a powerful pharmacogenetic model incorporating polymorphism of the enzyme thiopurine methyltransferase (TPMT) and the primary active metabolite, thioguanine nucleotide (TGN). However, a sense of uncertainty about the usefulness of TGNs and other thiopurine metabolites has appeared. This review critically appraises the basis of thiopurine metabolism and reveals the problems and complexities in TGN rese",
+        "journal": "Therapeutic drug monitoring",
+        "year": "2005",
+        "doi": "10.1097/01.ftd.0000169061.52715.3e"
+      },
+      {
+        "pmid": "17584603",
+        "title": "Enhanced cardiac allograft survival by Vav1-Rac signaling blockade in a mouse model.",
+        "abstract": "Vav1-Rac signaling plays a pivotal role in TCR/antigen and CD28 signals for T cell activation. However, pharmacological interference of this signaling has not been tested in the prevention of alloimmune-mediated allograft rejection. It has been demonstrated that 6-thio-GTP, a metabolite of azathioprine, specifically inhibits Vav1-Rac activity in T lymphocytes. Here we show the immunosuppressive efficacy of 6-thio-GTP in the prevention of cardiac allograft rejection.",
+        "journal": "Transplant immunology",
+        "year": "2007",
+        "doi": "10.1016/j.trim.2007.03.007"
+      },
+      {
+        "pmid": "30289487",
+        "title": "The NTP binding site of the polymerase ribozyme.",
+        "abstract": "A previously developed RNA polymerase ribozyme uses nucleoside triphosphates (NTPs) to extend a primer 3'-terminus, templated by an RNA template with good fidelity, forming 3'-5'-phosphordiester bonds. Indirect evidence has suggested that the ribozyme's accessory domain binds the NTP with a highly conserved purine-rich loop. To determine the NTP binding site more precisely we evolved the ribozyme for efficient use of 6-thio guanosine triphosphate (6sGTP). 6sGTP never appeared in the evolutionary",
+        "journal": "Nucleic acids research",
+        "year": "2018",
+        "doi": "10.1093/nar/gky898"
+      },
+      {
+        "pmid": "34613767",
+        "title": "A GTP-synthesizing ribozyme selected by metabolic coupling to an RNA polymerase ribozyme.",
+        "abstract": "Synthesis of RNA in early life forms required chemically activated nucleotides, perhaps in the same form of nucleoside 5′-triphosphates (NTPs) as in the contemporary biosphere. We show the development of a catalytic RNA (ribozyme) that generates the nucleoside triphosphate guanosine 5′-triphosphate (GTP) from the nucleoside guanosine and the prebiotically plausible cyclic trimetaphosphate. Ribozymes were selected from 1.6 × 10",
+        "journal": "Science advances",
+        "year": "2021",
+        "doi": "10.1126/sciadv.abj7487"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8074": {
+    "pmids": [
+      "38246006",
+      "39162583",
+      "11947041",
+      "19952870",
+      "32363674"
+    ],
+    "papers": [
+      {
+        "pmid": "38246006",
+        "title": "Measurement of the intracellular active metabolites of thiopurine drugs to evaluate the enzymatic activity of nudix hydrolase 15 in human blood samples.",
+        "abstract": "Thiopurine is metabolized to 6-thio-(deoxy) guanosine triphosphate (6-thio-(d) GTP), which is then incorporated into DNA or RNA and causes cytotoxicity. Nudix hydrolase 15 (NUDT15) reduces the cytotoxic effects of thiopurine by converting 6-thio-(d) GTP to 6-thio-(d) guanosine monophosphate (6-thio-(d) GMP). NUDT15 polymorphisms like the Arg139Cys variant are strongly linked to thiopurine-induced severe leukocytopenia and alopecia. Therefore, measurement of NUDT15 enzymatic activity in individua",
+        "journal": "Journal of chromatography. B, Analytical technologies in the biomedical and life sciences",
+        "year": "2024",
+        "doi": "10.1016/j.jchromb.2024.123993"
+      },
+      {
+        "pmid": "39162583",
+        "title": "Optimizing thiopurine therapy in autoimmune hepatitis: A multicenter study on monitoring metabolite profiles and co-therapy with allopurinol.",
+        "abstract": "In autoimmune hepatitis, achieving complete biochemical remission (CBR) with current weight-based thiopurine dosing is challenging. We investigated whether patients could be stratified regarding CBR according to a target range of thiopurine metabolites. Moreover, we explored the effects of azathioprine dosage increases and co-therapy of allopurinol with low-dose thiopurines on metabolite profiles and treatment response.",
+        "journal": "Hepatology (Baltimore, Md.)",
+        "year": "2024",
+        "doi": "10.1097/HEP.0000000000000940"
+      },
+      {
+        "pmid": "11947041",
+        "title": "[Not Available].",
+        "abstract": "The interaction of Actinomycin C(1) (AM) with purine nucleosides was investigated by circular dichroism. While dG and dGMP show identical interactions, rG, rGMP and 8-aza-GMP show lower tendency for complex formation. ara-G shows no complex formation. 6-Thio-GMP shows the strongest affinity for AM in accordance with previous results. Substitution on N-7 (methylation, protonation) or C-8 (8-Br-rG, 8-SH-rG) eliminate completely the complexing capacity. Another type of weaker complexes is formed by",
+        "journal": "FEBS letters",
+        "year": "1969",
+        "doi": "10.1016/0014-5793(69)80170-5"
+      },
+      {
+        "pmid": "19952870",
+        "title": "Thiopurine pathway.",
+        "abstract": "",
+        "journal": "Pharmacogenetics and genomics",
+        "year": "2010",
+        "doi": "10.1097/FPC.0b013e328334338f"
+      },
+      {
+        "pmid": "32363674",
+        "title": "Review article: opportunities to improve and expand thiopurine therapy for autoimmune hepatitis.",
+        "abstract": "Thiopurines in combination with glucocorticoids are used as first-line, second-line and maintenance therapies in autoimmune hepatitis and opportunities exist to improve and expand their use.",
+        "journal": "Alimentary pharmacology & therapeutics",
+        "year": "2020",
+        "doi": "10.1111/apt.15743"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8075": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8076": {
+    "pmids": [
+      "40273705"
+    ],
+    "papers": [
+      {
+        "pmid": "40273705",
+        "title": "Drug repurposing of 6-AZA-UTP and itraconazole reveals novel B3GALT5 inhibitors for pancreatic cancer.",
+        "abstract": "Pancreatic cancer has a poor prognosis with limited therapeutic options, necessitating novel treatment strategies. While B3GALT5 enzyme overexpression has been reported in pancreatic cancer cases, effective mechanisms to suppress its activity remain unexplored. In this study, we utilized bioinformatics and in silico studies to evaluate the relationship between B3GALT5 enzyme and pancreatic cancer. Through molecular docking analysis, FDA-approved drugs 6-AZA-UTP and itraconazole were identified a",
+        "journal": "Bioorganic chemistry",
+        "year": "2025",
+        "doi": "10.1016/j.bioorg.2025.108464"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8077": {
+    "pmids": [
+      "26243014",
+      "39256817"
+    ],
+    "papers": [
+      {
+        "pmid": "26243014",
+        "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+        "abstract": "Enhancing cardiovascular fitness can lead to substantial health benefits. High-intensity interval training (HIT) is an efficient way to develop cardiovascular fitness, yet comparisons between this type of training and traditional endurance training are equivocal.",
+        "journal": "Sports medicine (Auckland, N.Z.)",
+        "year": "2015",
+        "doi": "10.1007/s40279-015-0365-0"
+      },
+      {
+        "pmid": "39256817",
+        "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+        "abstract": "Uncertainty remains about the long-term effects of air pollutants (AP) on multiple diseases, especially subtypes of cardiovascular disease (CVD). We aimed to assess the individual and joint associations of fine particulate matter (PM",
+        "journal": "BMC medicine",
+        "year": "2024",
+        "doi": "10.1186/s12916-024-03596-5"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8078": {
+    "pmids": [
+      "26243014",
+      "39256817"
+    ],
+    "papers": [
+      {
+        "pmid": "26243014",
+        "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+        "abstract": "Enhancing cardiovascular fitness can lead to substantial health benefits. High-intensity interval training (HIT) is an efficient way to develop cardiovascular fitness, yet comparisons between this type of training and traditional endurance training are equivocal.",
+        "journal": "Sports medicine (Auckland, N.Z.)",
+        "year": "2015",
+        "doi": "10.1007/s40279-015-0365-0"
+      },
+      {
+        "pmid": "39256817",
+        "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+        "abstract": "Uncertainty remains about the long-term effects of air pollutants (AP) on multiple diseases, especially subtypes of cardiovascular disease (CVD). We aimed to assess the individual and joint associations of fine particulate matter (PM",
+        "journal": "BMC medicine",
+        "year": "2024",
+        "doi": "10.1186/s12916-024-03596-5"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8079": {
+    "pmids": [
+      "26243014",
+      "39256817"
+    ],
+    "papers": [
+      {
+        "pmid": "26243014",
+        "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+        "abstract": "Enhancing cardiovascular fitness can lead to substantial health benefits. High-intensity interval training (HIT) is an efficient way to develop cardiovascular fitness, yet comparisons between this type of training and traditional endurance training are equivocal.",
+        "journal": "Sports medicine (Auckland, N.Z.)",
+        "year": "2015",
+        "doi": "10.1007/s40279-015-0365-0"
+      },
+      {
+        "pmid": "39256817",
+        "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+        "abstract": "Uncertainty remains about the long-term effects of air pollutants (AP) on multiple diseases, especially subtypes of cardiovascular disease (CVD). We aimed to assess the individual and joint associations of fine particulate matter (PM",
+        "journal": "BMC medicine",
+        "year": "2024",
+        "doi": "10.1186/s12916-024-03596-5"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8080": {
+    "pmids": [
+      "26243014",
+      "39256817"
+    ],
+    "papers": [
+      {
+        "pmid": "26243014",
+        "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+        "abstract": "Enhancing cardiovascular fitness can lead to substantial health benefits. High-intensity interval training (HIT) is an efficient way to develop cardiovascular fitness, yet comparisons between this type of training and traditional endurance training are equivocal.",
+        "journal": "Sports medicine (Auckland, N.Z.)",
+        "year": "2015",
+        "doi": "10.1007/s40279-015-0365-0"
+      },
+      {
+        "pmid": "39256817",
+        "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+        "abstract": "Uncertainty remains about the long-term effects of air pollutants (AP) on multiple diseases, especially subtypes of cardiovascular disease (CVD). We aimed to assess the individual and joint associations of fine particulate matter (PM",
+        "journal": "BMC medicine",
+        "year": "2024",
+        "doi": "10.1186/s12916-024-03596-5"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8081": {
+    "pmids": [
+      "26243014",
+      "39256817"
+    ],
+    "papers": [
+      {
+        "pmid": "26243014",
+        "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+        "abstract": "Enhancing cardiovascular fitness can lead to substantial health benefits. High-intensity interval training (HIT) is an efficient way to develop cardiovascular fitness, yet comparisons between this type of training and traditional endurance training are equivocal.",
+        "journal": "Sports medicine (Auckland, N.Z.)",
+        "year": "2015",
+        "doi": "10.1007/s40279-015-0365-0"
+      },
+      {
+        "pmid": "39256817",
+        "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+        "abstract": "Uncertainty remains about the long-term effects of air pollutants (AP) on multiple diseases, especially subtypes of cardiovascular disease (CVD). We aimed to assess the individual and joint associations of fine particulate matter (PM",
+        "journal": "BMC medicine",
+        "year": "2024",
+        "doi": "10.1186/s12916-024-03596-5"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8082": {
+    "pmids": [
+      "26243014",
+      "39256817"
+    ],
+    "papers": [
+      {
+        "pmid": "26243014",
+        "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+        "abstract": "Enhancing cardiovascular fitness can lead to substantial health benefits. High-intensity interval training (HIT) is an efficient way to develop cardiovascular fitness, yet comparisons between this type of training and traditional endurance training are equivocal.",
+        "journal": "Sports medicine (Auckland, N.Z.)",
+        "year": "2015",
+        "doi": "10.1007/s40279-015-0365-0"
+      },
+      {
+        "pmid": "39256817",
+        "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+        "abstract": "Uncertainty remains about the long-term effects of air pollutants (AP) on multiple diseases, especially subtypes of cardiovascular disease (CVD). We aimed to assess the individual and joint associations of fine particulate matter (PM",
+        "journal": "BMC medicine",
+        "year": "2024",
+        "doi": "10.1186/s12916-024-03596-5"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8083": {
+    "pmids": [
+      "12509230",
+      "21553121"
+    ],
+    "papers": [
+      {
+        "pmid": "12509230",
+        "title": "The oxidized pyrimidine ribonucleotide, 5-hydroxy-CTP, is hydrolyzed efficiently by the Escherichia coli recombinant Orf135 protein.",
+        "abstract": "The Escherichia coli orf135 gene encodes a 15.4kDa protein with homology to the MutT family of nucleotide hydrolases. The orf135 gene was cloned within a glutathione S-transferase (GST) fusion protein expression vector, which was used to overproduce the GST-Orf135 fusion protein in E. coli. The fusion protein thus obtained was purified by affinity column chromatography and gel filtration chromatography from the crude extract. The recombinant Orf135 protein was obtained by removing the GST tag fr",
+        "journal": "DNA repair",
+        "year": "2002",
+        "doi": "10.1016/s1568-7864(02)00057-5"
+      },
+      {
+        "pmid": "21553121",
+        "title": "¹H, ¹³C and ¹⁵N NMR assignments of the Escherichia coli Orf135 protein.",
+        "abstract": "Escherichia coli Orf135 protein is thought to be an enzyme that efficiently hydrolyzes oxidatively damaged nucleotides such as 2-hydroxy-dATP, 8-hydroxy-dGTP and 5-hydroxy-CTP, in addition to 5-methyl-dCTP, dCTP and CTP, thus preventing mutations in cells caused by unfavorable base pairing. Nucleotide pool sanitization by Orf135 is important since organisms are continually subjected to potential damage by reactive oxygen species produced during respiration. It is known that the frequency of spon",
+        "journal": "Biomolecular NMR assignments",
+        "year": "2012",
+        "doi": "10.1007/s12104-011-9312-7"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8084": {
+    "pmids": [
+      "12509230"
+    ],
+    "papers": [
+      {
+        "pmid": "12509230",
+        "title": "The oxidized pyrimidine ribonucleotide, 5-hydroxy-CTP, is hydrolyzed efficiently by the Escherichia coli recombinant Orf135 protein.",
+        "abstract": "The Escherichia coli orf135 gene encodes a 15.4kDa protein with homology to the MutT family of nucleotide hydrolases. The orf135 gene was cloned within a glutathione S-transferase (GST) fusion protein expression vector, which was used to overproduce the GST-Orf135 fusion protein in E. coli. The fusion protein thus obtained was purified by affinity column chromatography and gel filtration chromatography from the crude extract. The recombinant Orf135 protein was obtained by removing the GST tag fr",
+        "journal": "DNA repair",
+        "year": "2002",
+        "doi": "10.1016/s1568-7864(02)00057-5"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8085": {
+    "pmids": [
+      "809436",
+      "2034218",
+      "4525160",
+      "33833118",
+      "943575"
+    ],
+    "papers": [
+      {
+        "pmid": "809436",
+        "title": "Ribonucleoside diphosphate reductase induced by bacteriophage T4. III. Isolation and characterization of proteins B1 and B2.",
+        "abstract": "Ribonucleoside diphosphate reductase determined by bacteriophage T4 consists of a tight complex (alpha2beta2) of the polypeptide chains alpha (Mr = 80,000 to 85,000) and beta (Mr = 35,000). The alpha2 dimer (= protein B1) was purified from Escherichia coli B infected with T4 mutant nrdB55 (Yeh, Y.C., and Tessman, I. (1972) Virology 47, 767-772) which carries an amber mutation in the gene coding for the beta polypeptide chain. Protein B1 contained binding sites for dATP, an allosteric effector of",
+        "journal": "The Journal of biological chemistry",
+        "year": "1975",
+        "doi": ""
+      },
+      {
+        "pmid": "2034218",
+        "title": "Analysis of mutagenesis induced by a thermolabile T4 phage deoxycytidylate hydroxymethylase suggests localized deoxyribonucleotide pool imbalance.",
+        "abstract": "To understand the molecular basis of mutation stimulated by deoxyribonucleotide pool imbalance, we studied a temperature-sensitive T4 phage gene 42 mutant (LB3), which specifies a thermolabile deoxycytidylate hydroxymethylase. Analysis of rII mutations, revertible to wild type along either GC-to-AT or AT-to-GC transition pathways, showed 8- to 80-fold stimulation of GC-to-AT mutations at a semi-permissive temperature (34 degrees C). One such marker, rII SN103, which showed the highest stimulatio",
+        "journal": "Molecular & general genetics : MGG",
+        "year": "1991",
+        "doi": "10.1007/BF00273611"
+      },
+      {
+        "pmid": "4525160",
+        "title": "Direct participation of dCMP hydroxymethylase in synthesis of bacteriophage T4 DNA.",
+        "abstract": "In order to retain in an in situ system the control mechanisms involved in synthesis of bacteriophage T4 DNA, infected cells were made permeable to nucleotides by plasmolysis with concentrated sucrose. Such preparations use exogenous deoxyribonucleotides to synthesize T4 phage DNA. As has been observed with in vivo studies, DNA synthesis was drastically reduced in plasmolyzed preparations from cells infected by amber mutants of genes 1, 32, 41, 42, 43, 44, or 45. Added 5-hydroxymethyl dCTP did n",
+        "journal": "Proceedings of the National Academy of Sciences of the United States of America",
+        "year": "1973",
+        "doi": "10.1073/pnas.70.8.2196"
+      },
+      {
+        "pmid": "33833118",
+        "title": "Targeting the nucleotide salvage factor DNPH1 sensitizes ",
+        "abstract": "Mutations in the ",
+        "journal": "Science (New York, N.Y.)",
+        "year": "2021",
+        "doi": "10.1126/science.abb4542"
+      },
+      {
+        "pmid": "943575",
+        "title": "Biochemistry of DNA-defective mutants of bacteriophage T4. VI. Biological functions of gene 42.",
+        "abstract": "Bacteriophage T4 gene 1 and 42 amber mutants (defective in deoxynucleoside monophosphate kinase and deoxycytidylate hydroxymethylase, respectively) are able to synthesize DNA in cell-free lysates prepared as described by Barry and Alberts (1972), in contrast to their inabliity to do so in plasmolyzed and toluenized cell systems. Addition of extracts containing an active gene 1 or 42 product has no effect on synthesis in lysates defective in the respective gene. Thus, if these enzymes do play add",
+        "journal": "Journal of virology",
+        "year": "1976",
+        "doi": "10.1128/JVI.17.3.973-982.1976"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8086": {
+    "pmids": [
+      "26243014",
+      "39256817"
+    ],
+    "papers": [
+      {
+        "pmid": "26243014",
+        "title": "Effectiveness of High-Intensity Interval Training (HIT) and Continuous Endurance Training for VO2max Improvements: A Systematic Review and Meta-Analysis of Controlled Trials.",
+        "abstract": "Enhancing cardiovascular fitness can lead to substantial health benefits. High-intensity interval training (HIT) is an efficient way to develop cardiovascular fitness, yet comparisons between this type of training and traditional endurance training are equivocal.",
+        "journal": "Sports medicine (Auckland, N.Z.)",
+        "year": "2015",
+        "doi": "10.1007/s40279-015-0365-0"
+      },
+      {
+        "pmid": "39256817",
+        "title": "Air pollution and risk of 32 health conditions: outcome-wide analyses in a population-based prospective cohort in Southwest China.",
+        "abstract": "Uncertainty remains about the long-term effects of air pollutants (AP) on multiple diseases, especially subtypes of cardiovascular disease (CVD). We aimed to assess the individual and joint associations of fine particulate matter (PM",
+        "journal": "BMC medicine",
+        "year": "2024",
+        "doi": "10.1186/s12916-024-03596-5"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8087": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8088": {
+    "pmids": [
+      "21227920",
+      "17027294",
+      "7373713"
+    ],
+    "papers": [
+      {
+        "pmid": "21227920",
+        "title": "Improved nucleotide selectivity and termination of 3'-OH unblocked reversible terminators by molecular tuning of 2-nitrobenzyl alkylated HOMedU triphosphates.",
+        "abstract": "We describe a novel 3'-OH unblocked reversible terminator with the potential to improve accuracy and read-lengths in next-generation sequencing (NGS) technologies. This terminator is based on 5-hydroxymethyl-2'-deoxyuridine triphosphate (HOMedUTP), a hypermodified nucleotide found naturally in the genomes of numerous bacteriophages and lower eukaryotes. A series of 5-(2-nitrobenzyloxy)methyl-dUTP analogs (dU.I-dU.V) were synthesized based on our previous work with photochemically cleavable termi",
+        "journal": "Nucleic acids research",
+        "year": "2011",
+        "doi": "10.1093/nar/gkq1293"
+      },
+      {
+        "pmid": "17027294",
+        "title": "Reliability of serum assays of iron status in postmenopausal women.",
+        "abstract": "The aim of the study is to determine the reliability during a 2-year period of several newly developed iron-related assays to assess their potential for use in prospective epidemiologic studies.",
+        "journal": "Annals of epidemiology",
+        "year": "2007",
+        "doi": "10.1016/j.annepidem.2006.07.004"
+      },
+      {
+        "pmid": "7373713",
+        "title": "Bacteriophage phi W-14-infected Pseudomonas acidovorans synthesizes hydroxymethyldeoxyuridine triphosphate.",
+        "abstract": "The infection of Pseudomonas acidovorans with bacteriophage phi W-14 leads to the gradual disappearance of dTTP from the cells and to the appearance of hydroxymethy dUTP (hmdUTP). Infected-cell contain dUMP hydroxymethylase and activities converting hmdUMP to humdUDP and hmdUTP. Hydroxymethylase appears immediately after infection, reaching a maximum 20 min later. Thymidylate synthase activity decreases to less than 10% of the preinfection level during the initial 40 min after infection. Newly r",
+        "journal": "Journal of virology",
+        "year": "1980",
+        "doi": "10.1128/JVI.34.2.347-353.1980"
+      }
+    ],
+    "methods": [],
+    "applications": [
+      "NGS Library Preparation"
+    ]
+  },
+  "SC8089": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8090": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8091": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8092": {
+    "pmids": [
+      "24467396"
+    ],
+    "papers": [
+      {
+        "pmid": "24467396",
+        "title": "The NTP pyrophosphatase DCTPP1 contributes to the homoeostasis and cleansing of the dNTP pool in human cells.",
+        "abstract": "The size and composition of dNTP (deoxyribonucleoside triphosphate) pools influence the accuracy of DNA synthesis and consequently the genetic stability of nuclear and mitochondrial genomes. In order to keep the dNTP pool in balance, the synthesis and degradation of DNA precursors must be precisely regulated. One such mechanism involves catabolic activities that convert deoxynucleoside triphosphates into their monophosphate form. Human cells possess an all-α NTP (nucleoside triphosphate) pyropho",
+        "journal": "The Biochemical journal",
+        "year": "2014",
+        "doi": "10.1042/BJ20130894"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8093": {
+    "pmids": [
+      "36902262",
+      "31444754",
+      "36477752"
+    ],
+    "papers": [
+      {
+        "pmid": "36902262",
+        "title": "G-Quadruplexes Regulate miRNA Biogenesis in Live Zebrafish Embryos.",
+        "abstract": "RNA guanine quadruplexes (G4s) regulate RNA functions, metabolism, and processing. G4s formed within precursors of microRNAs (pre-miRNAs) may impair pre-miRNAs maturation by Dicer, thus repressing mature miRNA biogenesis. As miRNAs are essential for proper embryonic development, we studied the role of G4s on miRNA biogenesis in vivo during zebrafish embryogenesis. We performed a computational analysis on zebrafish pre-miRNAs to find putative G4 forming sequences (PQSs). The precursor of the miRN",
+        "journal": "International journal of molecular sciences",
+        "year": "2023",
+        "doi": "10.3390/ijms24054828"
+      },
+      {
+        "pmid": "31444754",
+        "title": "Characterization of Co-transcriptional Formation of G-Quadruplexes in Double-Stranded DNA.",
+        "abstract": "In vitro transcription of double-stranded DNA (dsDNA) induces a formation of two types of G-quadruplexes, intramolecular DNA G-quadruplexes or DNA:RNA hybrid G-quadruplexes, in clusters of guanine tracts. The formation of G-quadruplexes can be characterized by native PEG polyacrylamide gel electrophoresis, DMS footprinting, and ligand-induced photocleavage footprinting. The type of G-quadruplexes can be distinguished by transcription with 7-deaza-GTP (dzGTP) or 4-thio-uridine-5'-triphosphate (4",
+        "journal": "Methods in molecular biology (Clifton, N.J.)",
+        "year": "2019",
+        "doi": "10.1007/978-1-4939-9666-7_14"
+      },
+      {
+        "pmid": "36477752",
+        "title": "Slippage at the initiation of RNA synthesis by Qβ replicase results in a periodic polyG pattern.",
+        "abstract": "The repetitive copying of template nucleotides due to transcriptional slippage has not been reported for RNA-directed RNA polymerases of positive-strand RNA phages. We unexpectedly observed that, with GTP as the only substrate, Qβ replicase, the RNA-directed RNA polymerase of bacteriophage Qβ, synthesizes by transcriptional slippage polyG strands, which on denaturing electrophoresis produce a ladder with at least three clusters of bolder bands. The ≈ 15-nt-long G",
+        "journal": "FEBS letters",
+        "year": "2023",
+        "doi": "10.1002/1873-3468.14556"
+      }
+    ],
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  "SC8094": {
+    "pmids": [
+      "36533569"
+    ],
+    "papers": [
+      {
+        "pmid": "36533569",
+        "title": "Chloroacetamide-Modified Nucleotide and RNA for Bioconjugations and Cross-Linking with RNA-Binding Proteins.",
+        "abstract": "Reactive RNA probes are useful for studying and identifying RNA-binding proteins. To that end, we designed and synthesized chloroacetamide-linked 7-deaza-ATP which was a good substrate for T7 RNA polymerase in in vitro transcription assay to synthesize reactive RNA probes bearing one or several reactive modifications. Modified RNA probes reacted with thiol-containing molecules as well as with cysteine- or histidine-containing peptides to form stable covalent products. They also reacted selective",
+        "journal": "Angewandte Chemie (International ed. in English)",
+        "year": "2023",
+        "doi": "10.1002/anie.202213764"
+      }
+    ],
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": [
+      "CuAAC Bioconjugation"
+    ]
+  },
+  "SC8095": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8096": {
+    "pmids": [
+      "18652488"
+    ],
+    "papers": [
+      {
+        "pmid": "18652488",
+        "title": "Formation of noncanonical DNA structures mediated by human ORC4, a protein component of the origin recognition complex.",
+        "abstract": "Many genomic sequences, DNA replication origins included, contain specific structural motifs prone to alternative base pairing. Structural rearrangements of DNA require specific environmental conditions and could be favored by chemical agents or proteins. To improve our understanding of alternative conformations of origins and the manner in which they form, we have investigated the effect of DNA-binding, AAA+ protein human ORC4 on single-stranded origin DNA or various oligonucleotides. Here we d",
+        "journal": "Biochemistry",
+        "year": "2008",
+        "doi": "10.1021/bi800684f"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8097": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8098": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8099": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8100": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8101": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8102": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8103": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8104": {
+    "pmids": [],
+    "papers": [],
+    "methods": [],
+    "applications": []
+  },
+  "SC8105": {
+    "pmids": [
+      "20164971",
+      "38983975",
+      "16498703"
+    ],
+    "papers": [
+      {
+        "pmid": "20164971",
+        "title": "Patents.",
+        "abstract": "3,813,141; 3,892,469 and 3,892,470; 3,893,751; 3,893,752; 3,895,857; 3,897,133; 3,899,242; 3,901,585; 3,902,792; 3,905,685; 3,909,115.",
+        "journal": "Applied optics",
+        "year": "1976",
+        "doi": ""
+      },
+      {
+        "pmid": "38983975",
+        "title": "[Ru",
+        "abstract": "A cluster-ligand is disclosed in the form of [Ru",
+        "journal": "European journal of inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1002/ejic.202300607"
+      },
+      {
+        "pmid": "16498703",
+        "title": "Yeast 14-3-3 proteins.",
+        "abstract": "14-3-3 proteins form a family of highly conserved proteins which are present in all eukaryotic organisms investigated, often in multiple isoforms, up to 13 in some plants. They interact with more than 200 different, mostly phosphorylated proteins. The molecular consequences of 14-3-3 binding are diverse: this binding may result in stabilization of the active or inactive phosphorylated form of the protein, to a conformational alteration leading to activation or inhibition, to a different subcellu",
+        "journal": "Yeast (Chichester, England)",
+        "year": "2006",
+        "doi": "10.1002/yea.1338"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8106": {
+    "pmids": [
+      "24211331"
+    ],
+    "papers": [
+      {
+        "pmid": "24211331",
+        "title": "Molecular mechanism of HIV-1 resistance to 3'-azido-2',3'-dideoxyguanosine.",
+        "abstract": "We reported that 3'-azido-2',3'-dideoxyguanosine (3'-azido-ddG) selected for the L74V, F77L, and L214F mutations in the polymerase domain and K476N and V518I mutations in the RNase H domain of HIV-1 reverse transcriptase (RT). In this study, we have defined the molecular mechanisms of 3'-azido-ddG resistance by performing in-depth biochemical analyses of HIV-1 RT containing mutations L74V, F77L, V106I, L214F, R277K, and K476N (SGS3). The SGS3 HIV-1 RT was from a single-genome-derived full-length",
+        "journal": "Antiviral research",
+        "year": "2014",
+        "doi": "10.1016/j.antiviral.2013.10.017"
+      }
+    ],
+    "methods": [
+      "BigDye Terminator Sequencing",
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  "SC8107": {
+    "pmids": [
+      "20164971",
+      "38983975",
+      "16498703"
+    ],
+    "papers": [
+      {
+        "pmid": "20164971",
+        "title": "Patents.",
+        "abstract": "3,813,141; 3,892,469 and 3,892,470; 3,893,751; 3,893,752; 3,895,857; 3,897,133; 3,899,242; 3,901,585; 3,902,792; 3,905,685; 3,909,115.",
+        "journal": "Applied optics",
+        "year": "1976",
+        "doi": ""
+      },
+      {
+        "pmid": "38983975",
+        "title": "[Ru",
+        "abstract": "A cluster-ligand is disclosed in the form of [Ru",
+        "journal": "European journal of inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1002/ejic.202300607"
+      },
+      {
+        "pmid": "16498703",
+        "title": "Yeast 14-3-3 proteins.",
+        "abstract": "14-3-3 proteins form a family of highly conserved proteins which are present in all eukaryotic organisms investigated, often in multiple isoforms, up to 13 in some plants. They interact with more than 200 different, mostly phosphorylated proteins. The molecular consequences of 14-3-3 binding are diverse: this binding may result in stabilization of the active or inactive phosphorylated form of the protein, to a conformational alteration leading to activation or inhibition, to a different subcellu",
+        "journal": "Yeast (Chichester, England)",
+        "year": "2006",
+        "doi": "10.1002/yea.1338"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  },
+  "SC8108": {
+    "pmids": [
+      "19761402"
+    ],
+    "papers": [
+      {
+        "pmid": "19761402",
+        "title": "Differential inhibition of homotrimeric dUTPases by the 3'-azido derivative of dideoxy-UTP.",
+        "abstract": "The inhibitory effects of 3'-azido-2',3'-dideoxyuridine-5'-triphosphate in complex with the Mg2+ ion (azido-ddUTP.Mg) on the dUTPases of the human, E. coli, and equine infectious anemia virus have been compared. Azido-ddUTP is analogous to drugs used in the treatment of HIV. Here it is shown to inhibit the bacterial dUTPase in a competitive manner (Ki = 9.3 microM), but to exhibit only marginal or no binding to the human and viral dUTPases, respectively. This is the first demonstration of an inh",
+        "journal": "Journal of enzyme inhibition and medicinal chemistry",
+        "year": "2010",
+        "doi": "10.3109/14756360902950422"
+      }
+    ],
+    "methods": [
+      "BigDye Terminator Sequencing"
+    ],
+    "applications": []
+  },
+  "SC8109": {
+    "pmids": [
+      "17184158",
+      "38983975",
+      "30853213",
+      "1285301",
+      "20164971"
+    ],
+    "papers": [
+      {
+        "pmid": "17184158",
+        "title": "Polymeric nanogel formulations of nucleoside analogs.",
+        "abstract": "Nanogels are colloidal microgel carriers that have been recently introduced as a prospective drug delivery system for nucleotide therapeutics. The crosslinked protonated polymer network of nanogels binds oppositely charged drug molecules, encapsulating them into submicron particles with a core-shell structure. The nanogel network also provides a suitable template for chemical engineering, surface modification and vectorisation. This review reveals recent attempts to develop novel drug formulatio",
+        "journal": "Expert opinion on drug delivery",
+        "year": "2007",
+        "doi": "10.1517/17425247.4.1.5"
+      },
+      {
+        "pmid": "38983975",
+        "title": "[Ru",
+        "abstract": "A cluster-ligand is disclosed in the form of [Ru",
+        "journal": "European journal of inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1002/ejic.202300607"
+      },
+      {
+        "pmid": "30853213",
+        "title": "LINE1 Derepression in Aged Wild-Type and SIRT6-Deficient Mice Drives Inflammation.",
+        "abstract": "Mice deficient for SIRT6 exhibit a severely shortened lifespan, growth retardation, and highly elevated LINE1 (L1) activity. Here we report that SIRT6-deficient cells and tissues accumulate abundant cytoplasmic L1 cDNA, which triggers strong type I interferon response via activation of cGAS. Remarkably, nucleoside reverse-transcriptase inhibitors (NRTIs), which inhibit L1 retrotransposition, significantly improved health and lifespan of SIRT6 knockout mice and completely rescued type I interfero",
+        "journal": "Cell metabolism",
+        "year": "2019",
+        "doi": "10.1016/j.cmet.2019.02.014"
+      },
+      {
+        "pmid": "1285301",
+        "title": "Inhibitors of HIV-1 reverse transcriptase and fidelity of in vitro DNA replication.",
+        "abstract": "Mechanisms of the effects of the dTTP analogues 3'-azido-3'-deoxythymidine 5'-triphosphate (AZTTP) and 3'-amino-3'-deoxythymidine 5'-triphosphate (NH2 TTP) upon the HIV-1 reverse transcriptase (RT) are discussed. These compounds block the RT in vitro and do so by different kinetic mechanisms. Infidelity of replication is a hallmark of the HIV-1 RT, and replication errors by the enzyme on RNA and DNA templates are discussed. The enzyme's infidelity has ramifications for inhibition: On the one han",
+        "journal": "Journal of enzyme inhibition",
+        "year": "1992",
+        "doi": "10.3109/14756369209041354"
+      },
+      {
+        "pmid": "20164971",
+        "title": "Patents.",
+        "abstract": "3,813,141; 3,892,469 and 3,892,470; 3,893,751; 3,893,752; 3,895,857; 3,897,133; 3,899,242; 3,901,585; 3,902,792; 3,905,685; 3,909,115.",
+        "journal": "Applied optics",
+        "year": "1976",
+        "doi": ""
+      }
+    ],
+    "methods": [
+      "Enzymatic Incorporation"
+    ],
+    "applications": []
+  },
+  "SC8110": {
+    "pmids": [
+      "20164971",
+      "38983975",
+      "16498703"
+    ],
+    "papers": [
+      {
+        "pmid": "20164971",
+        "title": "Patents.",
+        "abstract": "3,813,141; 3,892,469 and 3,892,470; 3,893,751; 3,893,752; 3,895,857; 3,897,133; 3,899,242; 3,901,585; 3,902,792; 3,905,685; 3,909,115.",
+        "journal": "Applied optics",
+        "year": "1976",
+        "doi": ""
+      },
+      {
+        "pmid": "38983975",
+        "title": "[Ru",
+        "abstract": "A cluster-ligand is disclosed in the form of [Ru",
+        "journal": "European journal of inorganic chemistry",
+        "year": "2024",
+        "doi": "10.1002/ejic.202300607"
+      },
+      {
+        "pmid": "16498703",
+        "title": "Yeast 14-3-3 proteins.",
+        "abstract": "14-3-3 proteins form a family of highly conserved proteins which are present in all eukaryotic organisms investigated, often in multiple isoforms, up to 13 in some plants. They interact with more than 200 different, mostly phosphorylated proteins. The molecular consequences of 14-3-3 binding are diverse: this binding may result in stabilization of the active or inactive phosphorylated form of the protein, to a conformational alteration leading to activation or inhibition, to a different subcellu",
+        "journal": "Yeast (Chichester, England)",
+        "year": "2006",
+        "doi": "10.1002/yea.1338"
+      }
+    ],
+    "methods": [],
+    "applications": []
+  }
+}

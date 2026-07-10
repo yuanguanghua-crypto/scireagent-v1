@@ -1,0 +1,21 @@
+sequenceDiagram
+    actor User
+    participant Page as 业务页面
+    participant AppButton as AppButton.vue
+    participant DS as Design System (main.css)
+    participant API as 后端 API
+
+    User->>Page: 点击"提交"按钮
+    Page->>AppButton: emit('click')
+    AppButton->>AppButton: set loading=true (内部状态)
+    AppButton->>AppButton: computed classes += 'btn-loading'
+    AppButton->>AppButton: disabled=true (pointer-events: none)
+    AppButton-->>DS: .btn .btn-primary .btn-loading 生效
+    AppButton-->>DS: ::after 伪元素 spinner 动画显示
+    AppButton-->>Page: loading=true (通过 v-model:loading 或直接)
+    Page->>API: 发起异步请求 (await)
+    API-->>Page: 返回结果
+    Page->>AppButton: loading 置为 false
+    AppButton->>AppButton: 移除 .btn-loading, disabled=false
+    AppButton-->>DS: spinner 隐藏, 按钮恢复正常
+    AppButton-->>User: 按钮可点击

@@ -1,0 +1,66 @@
+pack_id: rna-analysis
+pack_name: RNA Analysis
+version: "1.0"
+description: >
+  Complete knowledge domain for RNA analysis including labeling, quantification,
+  and imaging applications using modified nucleotides and click chemistry.
+
+entry_goal:
+  name: RNA Analysis
+  summary: >
+    Studying RNA structure, function, and expression through labeling,
+    quantification, and imaging techniques.
+
+applications:
+  - id: null  # filled after DB import
+    name: RNA Fluorescent Labeling
+    summary: >
+      Attach fluorescent dyes (Cy3, Cy5, FAM) to RNA molecules for visualization
+      in cells, gels, and hybridization assays.
+
+  - id: null
+    name: RNA Biotin Labeling
+    summary: >
+      Conjugate biotin to RNA for pull-down experiments, streptavidin-based
+      capture, and detection systems.
+
+  - id: null
+    name: RNA Quantification
+    summary: >
+      Measure RNA concentration and integrity using fluorescent dyes
+      and enzymatic methods.
+
+methods:
+  - name: CuAAC Click Chemistry
+    applications: [RNA Fluorescent Labeling, RNA Biotin Labeling]
+  - name: NHS-Ester Conjugation
+    applications: [RNA Fluorescent Labeling]
+  - name: Enzymatic Incorporation
+    applications: [RNA Fluorescent Labeling, RNA Quantification]
+  - name: RiboGreen Quantification
+    applications: [RNA Quantification]
+  - name: SPAAC Click Chemistry
+    applications: [RNA Fluorescent Labeling, RNA Biotin Labeling]
+
+products:
+  classes: [21, 10, 23]  # dNTPs, Modified NTPs, Labeled Nucleotides
+  filters:
+    - "azido" in name.lower()
+    - "amino" in name.lower()
+    - "propargyl" in name.lower()
+    - "biotin" in name.lower()
+    - "cy3" in name.lower() or "cy5" in name.lower()
+
+seo:
+  title: "RNA Analysis Reagents — Labeling, Quantification & Imaging | SciReagent"
+  description: >
+    Complete solutions for RNA fluorescent labeling, biotin labeling, and
+    quantification. Modified nucleotides and click chemistry reagents for research.
+  keywords:
+    - RNA labeling
+    - RNA fluorescent labeling
+    - RNA quantification
+    - click chemistry RNA
+    - azide nucleotide
+    - Cy3 RNA
+    - biotin RNA

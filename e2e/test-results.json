@@ -1,0 +1,266 @@
+{
+  "config": {
+    "argv": [
+      "C:\\Users\\yuankaifeng\\.workbuddy\\binaries\\node\\versions\\22.22.2\\node.exe",
+      "C:\\Users\\yuankaifeng\\WorkBuddy\\2026-07-08-11-22-32\\src_claude\\e2e\\node_modules\\@playwright\\test\\cli.js",
+      "test",
+      "tests/regression-verify.spec.js"
+    ],
+    "configFile": "C:\\Users\\yuankaifeng\\WorkBuddy\\2026-07-08-11-22-32\\src_claude\\e2e\\playwright.config.js",
+    "rootDir": "C:/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/e2e/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "C:/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/e2e/test-results",
+        "repeatEach": 1,
+        "retries": 2,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "C:/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/e2e/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 90000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report",
+          "open": "never"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.1",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "regression-verify.spec.js",
+      "file": "regression-verify.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "A1. KetcherEditor removal",
+          "file": "regression-verify.spec.js",
+          "line": 44,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Chemical Structure section: no Ketcher, SMILES textarea + StructureViewer present, console 0 errors",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1522,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "REPORT: Ketcher \"Open Structure Editor\" button absent ✓\n"
+                        },
+                        {
+                          "text": "REPORT: Ketcher \"Close Editor\" button absent ✓\n"
+                        },
+                        {
+                          "text": "REPORT: No \"ketcher\" text anywhere on page ✓\n"
+                        },
+                        {
+                          "text": "REPORT: SMILES textarea present & editable ✓\n"
+                        },
+                        {
+                          "text": "REPORT: StructureViewer (SVG) present ✓\n"
+                        },
+                        {
+                          "text": "REPORT: console 0 errors ✓\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-09T03:48:59.928Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e47879b9d5ddba532b55-ee224c922d9cabcb6eef",
+              "file": "regression-verify.spec.js",
+              "line": 49,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "A2. COA batch entry form",
+          "file": "regression-verify.spec.js",
+          "line": 107,
+          "column": 6,
+          "specs": [
+            {
+              "title": "New batch creation form visible for SKU without batches, can fill and submit",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4707,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "REPORT: \"批次 COA\" section title visible ✓\n"
+                        },
+                        {
+                          "text": "REPORT: 5 SKU COA group(s) found ✓\n"
+                        },
+                        {
+                          "text": "REPORT: SKU group 1 — batch lot number input visible ✓\n"
+                        },
+                        {
+                          "text": "REPORT: SKU group 1 — 2 date inputs found ✓\n"
+                        },
+                        {
+                          "text": "REPORT: SKU group 1 — \"生成 COA\" button is enabled ✓\n"
+                        },
+                        {
+                          "text": "REPORT: SKU group 1 — COA card appeared after creation ✓\n"
+                        },
+                        {
+                          "text": "REPORT: SKU group 1 — COA card shows \"草稿\" status ✓\n"
+                        },
+                        {
+                          "text": "REPORT: SKU group 1 — \"录入实测\" & \"审批并发布\" buttons present ✓\n"
+                        },
+                        {
+                          "text": "REPORT: console 0 errors ✓\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-09T03:49:01.652Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e47879b9d5ddba532b55-6f30f238eacccc167711",
+              "file": "regression-verify.spec.js",
+              "line": 112,
+              "column": 3
+            },
+            {
+              "title": "Batch creation form visible and fillable (minimum UI assertion, no submit)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1673,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "REPORT: Batch creation form — all fields visible and fillable ✓\n"
+                        },
+                        {
+                          "text": "REPORT: console 0 errors ✓\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-07-09T03:49:06.370Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "e47879b9d5ddba532b55-b66f8b7f9cdaf6a5e397",
+              "file": "regression-verify.spec.js",
+              "line": 216,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-07-09T03:48:59.123Z",
+    "duration": 9274.753,
+    "expected": 3,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

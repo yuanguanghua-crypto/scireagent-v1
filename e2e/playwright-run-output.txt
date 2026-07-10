@@ -1,0 +1,151 @@
+
+Running 17 tests using 1 worker
+
+  x   1 tests\entity-fk-e2e.spec.js:42:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Applications editor: select Research Goal FK and persist it (16.7s)
+  x   2 tests\entity-fk-e2e.spec.js:73:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Methods editor: select Application FK and persist it (0ms)
+  -   3 tests\entity-fk-e2e.spec.js:101:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Protocols editor: select Method FK and persist it
+  -   4 tests\entity-fk-e2e.spec.js:42:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Applications editor: select Research Goal FK and persist it (retry #1)
+  x   5 tests\entity-fk-e2e.spec.js:73:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Methods editor: select Application FK and persist it (retry #1) (0ms)
+  -   6 tests\entity-fk-e2e.spec.js:101:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Protocols editor: select Method FK and persist it (retry #1)
+  -   7 tests\entity-fk-e2e.spec.js:42:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Applications editor: select Research Goal FK and persist it (retry #2)
+  x   8 tests\entity-fk-e2e.spec.js:73:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Methods editor: select Application FK and persist it (retry #2) (0ms)
+  -   9 tests\entity-fk-e2e.spec.js:101:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Protocols editor: select Method FK and persist it (retry #2)
+  x  10 tests\ketcher-e2e.spec.js:56:3 › Ketcher coexisting panel (gap ②) › panel button present, toggles open, Export/Load render; SMILES write-back tolerated (0ms)
+  x  11 tests\ketcher-e2e.spec.js:56:3 › Ketcher coexisting panel (gap ②) › panel button present, toggles open, Export/Load render; SMILES write-back tolerated (retry #1) (0ms)
+  x  12 tests\ketcher-e2e.spec.js:56:3 › Ketcher coexisting panel (gap ②) › panel button present, toggles open, Export/Load render; SMILES write-back tolerated (retry #2) (0ms)
+  x  13 tests\knowledge-intake-e2e.spec.js:48:3 › KnowledgeIntake (gap ①) › enter from sidebar, fill intake form, save successfully, and clean up (0ms)
+  x  14 tests\knowledge-intake-e2e.spec.js:48:3 › KnowledgeIntake (gap ①) › enter from sidebar, fill intake form, save successfully, and clean up (retry #1) (0ms)
+  x  15 tests\knowledge-intake-e2e.spec.js:48:3 › KnowledgeIntake (gap ①) › enter from sidebar, fill intake form, save successfully, and clean up (retry #2) (0ms)
+  x  16 tests\product-edit-e2e.spec.js:37:3 › ProductEdit AI Tools (gap ④) — edit mode › Validate (loading + success), Recommend Protocols (success), Recommend Literature (mocked success) (0ms)
+  -  17 tests\product-edit-e2e.spec.js:82:3 › ProductEdit AI Tools (gap ④) — edit mode › Recommend Literature error state shows the error banner (mocked failure)
+  -  18 tests\product-edit-e2e.spec.js:106:3 › ProductEdit AI Tools (gap ④) — new / unsaved mode › unsaved variants: Validate, Recommend Protocols, Recommend Literature (mocked)
+  x  19 tests\product-edit-e2e.spec.js:37:3 › ProductEdit AI Tools (gap ④) — edit mode › Validate (loading + success), Recommend Protocols (success), Recommend Literature (mocked success) (retry #1) (0ms)
+  -  20 tests\product-edit-e2e.spec.js:82:3 › ProductEdit AI Tools (gap ④) — edit mode › Recommend Literature error state shows the error banner (mocked failure) (retry #1)
+  -  21 tests\product-edit-e2e.spec.js:106:3 › ProductEdit AI Tools (gap ④) — new / unsaved mode › unsaved variants: Validate, Recommend Protocols, Recommend Literature (mocked) (retry #1)
+  x  22 tests\product-edit-e2e.spec.js:37:3 › ProductEdit AI Tools (gap ④) — edit mode › Validate (loading + success), Recommend Protocols (success), Recommend Literature (mocked success) (retry #2) (0ms)
+  -  23 tests\product-edit-e2e.spec.js:82:3 › ProductEdit AI Tools (gap ④) — edit mode › Recommend Literature error state shows the error banner (mocked failure) (retry #2)
+  -  24 tests\product-edit-e2e.spec.js:106:3 › ProductEdit AI Tools (gap ④) — new / unsaved mode › unsaved variants: Validate, Recommend Protocols, Recommend Literature (mocked) (retry #2)
+  x  25 tests\workspace-e2e.spec.js:13:3 › Authentication › unauthenticated visit to /workspace redirects to /login, then login lands on Dashboard (0ms)
+  -  26 tests\workspace-e2e.spec.js:49:3 › Workspace feature walkthrough › Dashboard shows stat cards with real numbers
+  -  27 tests\workspace-e2e.spec.js:58:3 › Workspace feature walkthrough › Products list renders real data
+  -  28 tests\workspace-e2e.spec.js:70:3 › Workspace feature walkthrough › Research Goals list renders real data
+  -  29 tests\workspace-e2e.spec.js:80:3 › Workspace feature walkthrough › Applications list renders real data
+  -  30 tests\workspace-e2e.spec.js:90:3 › Workspace feature walkthrough › Methods list renders real data
+  -  31 tests\workspace-e2e.spec.js:100:3 › Workspace feature walkthrough › Protocols list renders real data
+  -  32 tests\workspace-e2e.spec.js:110:3 › Workspace feature walkthrough › References list renders real data
+  -  33 tests\workspace-e2e.spec.js:129:3 › Product CRUD › create a product, edit it, and clean it up
+  x  34 tests\workspace-e2e.spec.js:13:3 › Authentication › unauthenticated visit to /workspace redirects to /login, then login lands on Dashboard (retry #1) (0ms)
+  -  35 tests\workspace-e2e.spec.js:49:3 › Workspace feature walkthrough › Dashboard shows stat cards with real numbers (retry #1)
+  -  36 tests\workspace-e2e.spec.js:58:3 › Workspace feature walkthrough › Products list renders real data (retry #1)
+  -  37 tests\workspace-e2e.spec.js:70:3 › Workspace feature walkthrough › Research Goals list renders real data (retry #1)
+  -  38 tests\workspace-e2e.spec.js:80:3 › Workspace feature walkthrough › Applications list renders real data (retry #1)
+  -  39 tests\workspace-e2e.spec.js:90:3 › Workspace feature walkthrough › Methods list renders real data (retry #1)
+  -  40 tests\workspace-e2e.spec.js:100:3 › Workspace feature walkthrough › Protocols list renders real data (retry #1)
+  -  41 tests\workspace-e2e.spec.js:110:3 › Workspace feature walkthrough › References list renders real data (retry #1)
+  -  42 tests\workspace-e2e.spec.js:129:3 › Product CRUD › create a product, edit it, and clean it up (retry #1)
+  x  43 tests\workspace-e2e.spec.js:13:3 › Authentication › unauthenticated visit to /workspace redirects to /login, then login lands on Dashboard (retry #2) (0ms)
+  -  44 tests\workspace-e2e.spec.js:49:3 › Workspace feature walkthrough › Dashboard shows stat cards with real numbers (retry #2)
+  -  45 tests\workspace-e2e.spec.js:58:3 › Workspace feature walkthrough › Products list renders real data (retry #2)
+  -  46 tests\workspace-e2e.spec.js:70:3 › Workspace feature walkthrough › Research Goals list renders real data (retry #2)
+  -  47 tests\workspace-e2e.spec.js:80:3 › Workspace feature walkthrough › Applications list renders real data (retry #2)
+  -  48 tests\workspace-e2e.spec.js:90:3 › Workspace feature walkthrough › Methods list renders real data (retry #2)
+  -  49 tests\workspace-e2e.spec.js:100:3 › Workspace feature walkthrough › Protocols list renders real data (retry #2)
+  -  50 tests\workspace-e2e.spec.js:110:3 › Workspace feature walkthrough › References list renders real data (retry #2)
+  -  51 tests\workspace-e2e.spec.js:129:3 › Product CRUD › create a product, edit it, and clean it up (retry #2)
+
+
+  1) tests\entity-fk-e2e.spec.js:42:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Applications editor: select Research Goal FK and persist it 
+
+    Error: expect(locator).toBeHidden() failed
+
+    Locator:  locator('.dialog')
+    Expected: hidden
+    Received: visible
+    Timeout:  15000ms
+
+    Call log:
+      - Expect "toBeHidden" with timeout 15000ms
+      - waiting for locator('.dialog')
+        33 × locator resolved to <div class="dialog" data-v-c89b7740="">…</div>
+           - unexpected value "visible"
+
+
+      55 |
+      56 |     await page.getByRole('button', { name: 'Save' }).click()
+    > 57 |     await expect(page.locator('.dialog')).toBeHidden({ timeout: 15000 })
+         |                                           ^
+      58 |
+      59 |     // Row appears in the list.
+      60 |     await expect(page.locator('.entity-table tbody tr', { hasText: name }).first()).toBeVisible()
+        at C:\Users\yuankaifeng\WorkBuddy\2026-07-08-11-22-32\src_claude\e2e\tests\entity-fk-e2e.spec.js:57:43
+
+    Error Context: test-results\entity-fk-e2e-Apps-Methods-f478b-arch-Goal-FK-and-persist-it\error-context.md
+
+  2) tests\entity-fk-e2e.spec.js:73:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Methods editor: select Application FK and persist it 
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+  3) tests\ketcher-e2e.spec.js:56:3 › Ketcher coexisting panel (gap ②) › panel button present, toggles open, Export/Load render; SMILES write-back tolerated 
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+  4) tests\knowledge-intake-e2e.spec.js:48:3 › KnowledgeIntake (gap ①) › enter from sidebar, fill intake form, save successfully, and clean up 
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+  5) tests\product-edit-e2e.spec.js:37:3 › ProductEdit AI Tools (gap ④) — edit mode › Validate (loading + success), Recommend Protocols (success), Recommend Literature (mocked success) 
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+  6) tests\workspace-e2e.spec.js:13:3 › Authentication › unauthenticated visit to /workspace redirects to /login, then login lands on Dashboard 
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+    Retry #2 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: worker process exited unexpectedly (code=3221225794, signal=null)
+
+  6 failed
+    tests\entity-fk-e2e.spec.js:42:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Applications editor: select Research Goal FK and persist it 
+    tests\entity-fk-e2e.spec.js:73:3 › Apps/Methods/Protocols FK dropdowns (gap ③) › Methods editor: select Application FK and persist it 
+    tests\ketcher-e2e.spec.js:56:3 › Ketcher coexisting panel (gap ②) › panel button present, toggles open, Export/Load render; SMILES write-back tolerated 
+    tests\knowledge-intake-e2e.spec.js:48:3 › KnowledgeIntake (gap ①) › enter from sidebar, fill intake form, save successfully, and clean up 
+    tests\product-edit-e2e.spec.js:37:3 › ProductEdit AI Tools (gap ④) — edit mode › Validate (loading + success), Recommend Protocols (success), Recommend Literature (mocked success) 
+    tests\workspace-e2e.spec.js:13:3 › Authentication › unauthenticated visit to /workspace redirects to /login, then login lands on Dashboard 
+  11 did not run

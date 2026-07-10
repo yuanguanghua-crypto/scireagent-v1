@@ -1,0 +1,10 @@
+[project]
+name = "scireagent-backend"
+version = "1.0.0"
+description = "SciReagent Backend - LabPro Global API"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.development"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+addopts = "--tb=short -q"

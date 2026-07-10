@@ -1,0 +1,46 @@
+pack_id: dna-sequencing
+pack_name: DNA Sequencing
+version: "1.0"
+description: >
+  Knowledge domain for DNA sequencing including Sanger sequencing and
+  next-generation sequencing library preparation.
+
+entry_goal:
+  name: DNA Sequencing
+  summary: >
+    Determining DNA sequences using Sanger and next-generation sequencing technologies.
+
+applications:
+  - name: Sanger Sequencing
+    summary: >
+      Determine DNA sequences using chain-terminating dideoxynucleotides
+      and fluorescent detection via capillary electrophoresis.
+
+  - name: NGS Library Preparation
+    summary: >
+      Prepare DNA libraries for next-generation sequencing platforms
+      using tagmentation or enzymatic fragmentation.
+
+methods:
+  - name: BigDye Terminator Sequencing
+    applications: [Sanger Sequencing]
+  - name: Nextera DNA Library Prep
+    applications: [NGS Library Preparation]
+
+products:
+  classes: [22]  # ddNTPs
+  filters:
+    - "dd" in name.lower()
+    - "terminator" in name.lower()
+
+seo:
+  title: "DNA Sequencing Reagents — Sanger & NGS | SciReagent"
+  description: >
+    Dideoxynucleotide terminators for Sanger sequencing and library prep reagents
+    for NGS. High purity ddNTPs for research use.
+  keywords:
+    - Sanger sequencing
+    - ddNTP
+    - BigDye terminator
+    - NGS library prep
+    - DNA sequencing reagent

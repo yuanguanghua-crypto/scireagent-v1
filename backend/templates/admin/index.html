@@ -1,0 +1,76 @@
+{% extends 'admin/base.html' %}
+{% load i18n %}
+
+{% block title %}Dashboard | SciReagent Admin{% endblock %}
+
+{% block branding %}
+    {% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="flex flex-col lg:flex-row lg:gap-8">
+    <div class="grow">
+        <h1 class="font-semibold mb-6 text-2xl text-font-important-light dark:text-font-important-dark">
+            SciReagent Dashboard
+        </h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            <!-- Products Card -->
+            <a href="/admin/commerce/product/" class="bg-white border border-base-200 flex flex-col gap-3 p-5 rounded-default shadow-xs hover:border-primary-400 transition-colors dark:bg-base-900 dark:border-base-800">
+                <span class="material-symbols-outlined text-3xl text-primary-600">science</span>
+                <div>
+                    <h3 class="font-semibold text-font-important-light dark:text-font-important-dark">Products</h3>
+                    <p class="text-sm text-font-secondary-light dark:text-font-secondary-dark">Manage products, SKUs, and knowledge links</p>
+                </div>
+            </a>
+
+            <!-- Research Goals Card -->
+            <a href="/admin/knowledge/researchgoal/" class="bg-white border border-base-200 flex flex-col gap-3 p-5 rounded-default shadow-xs hover:border-primary-400 transition-colors dark:bg-base-900 dark:border-base-800">
+                <span class="material-symbols-outlined text-3xl text-primary-600">flag</span>
+                <div>
+                    <h3 class="font-semibold text-font-important-light dark:text-font-important-dark">Research Goals</h3>
+                    <p class="text-sm text-font-secondary-light dark:text-font-secondary-dark">Define research directions and applications</p>
+                </div>
+            </a>
+
+            <!-- Methods Card -->
+            <a href="/admin/knowledge/method/" class="bg-white border border-base-200 flex flex-col gap-3 p-5 rounded-default shadow-xs hover:border-primary-400 transition-colors dark:bg-base-900 dark:border-base-800">
+                <span class="material-symbols-outlined text-3xl text-primary-600">psychology</span>
+                <div>
+                    <h3 class="font-semibold text-font-important-light dark:text-font-important-dark">Methods</h3>
+                    <p class="text-sm text-font-secondary-light dark:text-font-secondary-dark">Scientific methods and protocols</p>
+                </div>
+            </a>
+
+            <!-- Orders Card -->
+            <a href="/admin/transactions/order/" class="bg-white border border-base-200 flex flex-col gap-3 p-5 rounded-default shadow-xs hover:border-primary-400 transition-colors dark:bg-base-900 dark:border-base-800">
+                <span class="material-symbols-outlined text-3xl text-primary-600">receipt_long</span>
+                <div>
+                    <h3 class="font-semibold text-font-important-light dark:text-font-important-dark">Orders</h3>
+                    <p class="text-sm text-font-secondary-light dark:text-font-secondary-dark">Manage customer orders</p>
+                </div>
+            </a>
+
+            <!-- Quote Requests Card -->
+            <a href="/admin/quotes/quoterequest/" class="bg-white border border-base-200 flex flex-col gap-3 p-5 rounded-default shadow-xs hover:border-primary-400 transition-colors dark:bg-base-900 dark:border-base-800">
+                <span class="material-symbols-outlined text-3xl text-primary-600">help_outline</span>
+                <div>
+                    <h3 class="font-semibold text-font-important-light dark:text-font-important-dark">Quote Requests</h3>
+                    <p class="text-sm text-font-secondary-light dark:text-font-secondary-dark">Customer inquiry management</p>
+                </div>
+            </a>
+
+            <!-- Users Card -->
+            <a href="/admin/accounts/user/" class="bg-white border border-base-200 flex flex-col gap-3 p-5 rounded-default shadow-xs hover:border-primary-400 transition-colors dark:bg-base-900 dark:border-base-800">
+                <span class="material-symbols-outlined text-3xl text-primary-600">group</span>
+                <div>
+                    <h3 class="font-semibold text-font-important-light dark:text-font-important-dark">Users</h3>
+                    <p class="text-sm text-font-secondary-light dark:text-font-secondary-dark">User accounts and organizations</p>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    {% include "unfold/helpers/history.html" %}
+</div>
+{% endblock %}

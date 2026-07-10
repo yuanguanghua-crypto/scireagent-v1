@@ -1,0 +1,46 @@
+pack_id: click-chemistry
+pack_name: Click Chemistry
+version: "1.0"
+description: >
+  Knowledge domain for bioorthogonal click chemistry reactions including
+  CuAAC and SPAAC for specific labeling and conjugation of biomolecules.
+
+entry_goal:
+  name: Click Chemistry
+  summary: >
+    Bioorthogonal reactions for specific labeling and conjugation of biomolecules
+    in biological systems.
+
+applications:
+  - name: CuAAC Bioconjugation
+    summary: >
+      Copper(I)-catalyzed azide-alkyne cycloaddition for specific labeling
+      of biomolecules with azide or alkyne handles.
+
+methods:
+  - name: CuAAC Click Chemistry
+    applications: [CuAAC Bioconjugation]
+  - name: SPAAC Click Chemistry
+    applications: [CuAAC Bioconjugation]
+
+products:
+  classes: [21, 10]  # dNTPs, Modified NTPs
+  filters:
+    - "azido" in name.lower()
+    - "alkyn" in name.lower()
+    - "propargyl" in name.lower()
+    - "dbco" in name.lower()
+
+seo:
+  title: "Click Chemistry Reagents — Azide & Alkyne Modified Nucleotides | SciReagent"
+  description: >
+    Azide and alkyne functionalized nucleotides for CuAAC and SPAAC click chemistry.
+    Bioorthogonal conjugation reagents for research use.
+  keywords:
+    - click chemistry
+    - CuAAC
+    - SPAAC
+    - azide nucleotide
+    - alkyne nucleotide
+    - bioconjugation
+    - triazole

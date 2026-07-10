@@ -1,0 +1,87 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+eggs/
+*.egg
+venv/
+.venv/
+env/
+*.log
+
+# Django
+*.sqlite3
+db.sqlite3
+media/
+staticfiles/
+static_collected/
+.env
+local_settings.py
+
+# BioProCorpus 协议语料库（大文件，可重新下载：scripts/download_bioprocorpus.py）
+backend/data/bioprocorpus/
+
+# jena 产品数据集（大文件，来源于 WorkBuddy jena_scraper 项目）
+backend/data/jena/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm
+.yarn-integrity
+
+# Vue / Vite
+frontend/dist/
+frontend/.vite/
+*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Test artifacts
+frontend/test-results/
+frontend/playwright-report/
+
+# Claude Code / Agent tooling (personal config)
+.claude/
+.agents/
+skills-lock.json
+
+# Screenshots / scratch images
+canvas.png
+screenshot.png
+screenshot.jpg
+
+# Migrations (uncomment if you want to ignore)
+# **/migrations/*.py
+# !**/migrations/__init__.py
