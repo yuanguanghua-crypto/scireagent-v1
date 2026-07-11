@@ -12,7 +12,7 @@ from apps.transactions.api.v1.admin_order_views import (
     AdminQuoteOrderView, AdminVerifyPaymentView,
 )
 from apps.transactions.api.v1.po_views import (
-    POSubmitView, ApproveOrderView, RejectOrderView, AssignRepView,
+    POSubmitView, ApproveOrderView, RejectOrderView, CancelOrderView, AssignRepView,
     ShipmentCreateView, MarkShippedView, MarkDeliveredView,
     InvoiceIssueView, PaymentCreateView, ArAgingView,
     InvoicePdfDownloadView, PoAttachmentDownloadView,
@@ -38,6 +38,7 @@ urlpatterns = [
     path('orders/po/', POSubmitView.as_view(), name='po-submit'),
     path('orders/<int:pk>/approve/', ApproveOrderView.as_view(), name='order-approve'),
     path('orders/<int:pk>/reject/', RejectOrderView.as_view(), name='order-reject'),
+    path('orders/<int:pk>/cancel/', CancelOrderView.as_view(), name='order-cancel'),
     path('orders/<int:pk>/assign-rep/', AssignRepView.as_view(), name='order-assign-rep'),
     path('orders/<int:pk>/shipments/', ShipmentCreateView.as_view(), name='order-shipments'),
     path('orders/<int:pk>/invoice/', InvoiceIssueView.as_view(), name='order-invoice'),

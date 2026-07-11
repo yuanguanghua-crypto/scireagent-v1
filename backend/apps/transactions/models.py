@@ -88,7 +88,9 @@ class Order(TimeStampedModel):
         max_length=20, choices=PaymentMethod.choices,
         default=PaymentMethod.PO, verbose_name='付款方式'
     )
-    po_number = models.CharField(max_length=100, blank=True, default='', unique=True, verbose_name='PO 号')
+    # null=True so optional (non-PO) orders can store NULL instead of '' — a
+    # UNIQUE column must not collide on the empty string.
+    po_number = models.CharField(max_length=100, blank=True, null=True, default='', unique=True, verbose_name='PO 号')
     po_contact = models.CharField(max_length=200, blank=True, default='', verbose_name='PO 联系人')
     payment_terms = models.CharField(
         max_length=20, choices=PaymentTerms.choices,
@@ -381,6 +383,7 @@ class StatusLog(TimeStampedModel):
         STATUS_CHANGE = 'status_change', 'Status Change'
         REP_ASSIGNED = 'rep_assigned', 'Rep Assigned'
         REJECTED = 'rejected', 'Rejected'
+        CANCELLED = 'cancelled', 'Cancelled'
         NOTED = 'noted', 'Noted'
         SHIPMENT = 'shipment', 'Shipment'
         INVOICE = 'invoice', 'Invoice'

@@ -32,7 +32,7 @@
 
 | Token | Hex | oklch | Usage |
 |-------|-----|-------|-------|
-| `--color-primary` | `#059669` | oklch(0.55 0.13 160) | 主色，emerald。Primary actions, links, brand |
+| `--color-primary` | `#047857` | — | 主色，emerald-700。Primary actions, links, brand（2026-07-11 由 emerald-600 #059669 加深以满足 WCAG AA 4.5:1） |
 | `--color-primary-hover` | `#047857` | — | Primary hover |
 | `--color-primary-light` | `#D1FAE5` | — | Primary background tint |
 | `--color-primary-subtle` | `#ECFDF5` | — | Subtle bg (row hover, etc.) |
@@ -212,7 +212,7 @@ border: 1px solid var(--color-border-light);
 | `--color-border` (`#CBD5E1`) | `#334155` |
 | `--color-text` (`#0F172A`) | `#F1F5F9` |
 | `--color-text-secondary` (`#475569`) | `#94A3B8` |
-| `--color-primary` (`#059669`) | `#34D399` (lighter emerald) |
+| `--color-primary` (`#047857`) | `#34D399` (lighter emerald) |
 
 Toggle 方式：`prefers-color-scheme` media query + 用户手动切换。
 
@@ -372,6 +372,7 @@ Grid columns（header 和 rows 必须严格一致）：
 |------|--------|---------|
 | 2026-07-09 | 品牌定位确认 (精确冷峻) | §1 |
 | 2026-07-09 | 主色 teal → emerald; 强调色 amber; 冷灰中性色 | §2 |
+| 2026-07-11 | 主色 emerald-600(#059669) → emerald-700(#047857) 以满足 WCAG AA 4.5:1；text-tertiary gray-400→gray-500；success emerald-600→emerald-700 | §2 |
 | 2026-07-09 | 字体 Inter + JetBrains Mono; 字号表 11/12/14/20/24/32px | §3 |
 | 2026-07-09 | 间距 8px 基线网格; 两栏布局 | §4 |
 | 2026-07-09 | 动效 ease-out(0.22,1,0.36,1); 0.15s/0.2s/0.3s | §5 |

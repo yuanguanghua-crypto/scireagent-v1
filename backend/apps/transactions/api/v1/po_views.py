@@ -1,4 +1,5 @@
 """PO 门户 P0 端点 — 提交/审核/发货/开票/收款/AR（信封统一，跨模型写入走 Service）。"""
+import json
 import os
 
 from django.conf import settings
@@ -34,7 +35,16 @@ class POSubmitView(EnvelopeMixin, APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        serializer = PoSubmitSerializer(data=request.data)
+        data = request.data
+        # 兼容前端 multipart 路径：items 可能以 JSON 字符串字段传入（DRF multipart 不展开方括号）。
+        items = data.get('items') if hasattr(data, 'get') else None
+        if isinstance(items, str):
+            try:
+                data = data.copy()
+                data['items'] = json.loads(items)
+            except (ValueError, TypeError):
+                pass
+        serializer = PoSubmitSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         files = request.FILES.getlist('attachments') or request.FILES.getlist('file')
         try:
@@ -82,6 +92,24 @@ class RejectOrderView(EnvelopeMixin, APIView):
             OrderStateMachine.transition_to(
                 order, Order.Status.CANCELLED, actor=request.user,
                 action_type=StatusLog.ActionType.REJECTED,
+                note=reason,
+            )
+        except InvalidTransitionError as e:
+            return self.error_response(str(e), code='INVALID_TRANSITION', status_code=400)
+        return self.success_response(OrderDetailSerializer(order, context={'request': request}).data)
+
+
+class CancelOrderView(EnvelopeMixin, APIView):
+    """POST /api/v1/orders/<id>/cancel/ — 任意非终态 → CANCELLED。"""
+    permission_classes = [IsProcurementOrAdmin]
+
+    def post(self, request, pk):
+        order = get_object_or_404(Order, pk=pk)
+        reason = request.data.get('reason', '')
+        try:
+            OrderStateMachine.transition_to(
+                order, Order.Status.CANCELLED, actor=request.user,
+                action_type=StatusLog.ActionType.CANCELLED,
                 note=reason,
             )
         except InvalidTransitionError as e:

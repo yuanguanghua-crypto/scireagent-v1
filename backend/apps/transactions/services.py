@@ -453,10 +453,6 @@ class PaymentArService:
                 invoice.order, Order.Status.PAID, actor=actor,
                 action_type=StatusLog.ActionType.INVOICE, note='Invoice paid'
             )
-            OrderStateMachine.transition_to(
-                invoice.order, Order.Status.COMPLETED, actor=actor,
-                action_type=StatusLog.ActionType.INVOICE, note='Order completed'
-            )
         return invoice
 
     @staticmethod

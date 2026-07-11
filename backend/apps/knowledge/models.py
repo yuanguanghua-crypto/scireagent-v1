@@ -47,7 +47,7 @@ class Application(StatusMixin, TimeStampedModel):
     """应用场景 — 按科研用途分组方法"""
     research_goal = models.ForeignKey(
         ResearchGoal, on_delete=models.CASCADE, related_name='applications', verbose_name='研究目标',
-        help_text='这个应用属于哪个研究方向'
+        help_text='这个应用属于哪个研究方向', null=True, blank=True,
     )
     name = models.CharField(max_length=255, verbose_name='名称',
         help_text='具体实验场景，例如：RNA Fluorescent Labeling, Sanger Sequencing')
@@ -102,7 +102,7 @@ class Method(StatusMixin, TimeStampedModel):
 
     application = models.ForeignKey(
         Application, on_delete=models.CASCADE, related_name='methods', verbose_name='应用场景',
-        help_text='这个方法属于哪个实验场景'
+        help_text='这个方法属于哪个实验场景', null=True, blank=True,
     )
     name = models.CharField(max_length=255, verbose_name='名称',
         help_text='技术方法名称，例如：CuAAC Click Chemistry, NHS-Ester Conjugation')
@@ -160,7 +160,7 @@ class Protocol(TimeStampedModel):
 
     method = models.ForeignKey(
         Method, on_delete=models.CASCADE, related_name='protocols', verbose_name='方法',
-        help_text='这个协议基于哪个技术方法'
+        help_text='这个协议基于哪个技术方法', null=True, blank=True,
     )
     name = models.CharField(max_length=255, verbose_name='名称',
         help_text='协议全名，例如：CuAAC RNA Fluorescent Labeling Protocol')
@@ -273,9 +273,9 @@ class Reference(TimeStampedModel):
         help_text='期刊名称，例如：Nature Protocols, Chemical Reviews')
     year = models.IntegerField(null=True, blank=True, verbose_name='年份',
         help_text='发表年份，例如：2024')
-    doi = models.CharField(max_length=100, blank=True, default='', unique=True, null=True, verbose_name='DOI',
+    doi = models.CharField(max_length=100, blank=True, null=True, unique=True, verbose_name='DOI',
         help_text='数字对象标识符，例如：10.1038/s41586-024-12345-6')
-    pmid = models.CharField(max_length=50, blank=True, default='', unique=True, null=True, verbose_name='PMID',
+    pmid = models.CharField(max_length=50, blank=True, null=True, unique=True, verbose_name='PMID',
         help_text='PubMed ID，例如：38123456')
     url = models.URLField(max_length=500, blank=True, default='', verbose_name='URL',
         help_text='文献链接')
@@ -296,6 +296,15 @@ class Reference(TimeStampedModel):
         indexes = []
         if _USE_POSTGRES:
             indexes.append(GinIndex(fields=['search_vector'], name='reference_search_gin'))
+
+    def save(self, *args, **kwargs):
+        # 空字符串视为未填写，转为 NULL 以避免 unique 约束冲突
+        # （'' 不等于 NULL，多条空 DOI/PMID 会违反 unique=True 导致 IntegrityError）
+        if self.doi == '':
+            self.doi = None
+        if self.pmid == '':
+            self.pmid = None
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title[:80]

@@ -66,7 +66,7 @@ class CheckoutView(APIView):
                 order_no=order_no,
                 status=initial_status,
                 payment_method=payment_method,
-                po_number=data.get('po_number', ''),
+                po_number=data.get('po_number') or None,
                 po_contact=data.get('po_contact', ''),
                 subtotal=subtotal,
                 grand_total=grand_total,
