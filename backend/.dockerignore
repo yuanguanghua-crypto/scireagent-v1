@@ -1,0 +1,14 @@
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.git/
+.gitignore
+node_modules/
+media/
+staticfiles/
+.env
+.env.*
+dist/
+*.md
+.pytest_cache/

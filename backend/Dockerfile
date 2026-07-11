@@ -1,5 +1,5 @@
 # Backend Dockerfile - Django + Gunicorn
-FROM python:3.13-slim
+FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -22,5 +22,8 @@ COPY . .
 # Collect static files
 RUN python manage.py collectstatic --noinput
 
-# Run Gunicorn
+# Run Gunicorn (via entrypoint that migrates first)
+COPY docker-entrypoint.sh .
+RUN chmod +x docker-entrypoint.sh
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]
