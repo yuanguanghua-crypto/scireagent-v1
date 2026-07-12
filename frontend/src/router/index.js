@@ -75,6 +75,12 @@ const routes = [
     meta: { title: 'Product Detail', nav: 'public' },
   },
   {
+    path: '/about',
+    name: 'About',
+    component: () => import('@/views/AboutPage.vue'),
+    meta: { title: 'About', nav: 'public' },
+  },
+  {
     path: '/research-goals',
     name: 'ResearchGoals',
     component: () => import('@/views/ResearchGoalIndex.vue'),
