@@ -1,0 +1,10 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://<RAILWAY_BACKEND_URL>/api/$1" },
+    { "source": "/admin/(.*)", "destination": "https://<RAILWAY_BACKEND_URL>/admin/$1" },
+    { "source": "/static/(.*)", "destination": "https://<RAILWAY_BACKEND_URL>/static/$1" },
+    { "source": "/media/(.*)", "destination": "https://<RAILWAY_BACKEND_URL>/media/$1" }
+  ]
+}

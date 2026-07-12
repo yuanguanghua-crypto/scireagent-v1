@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist_verify/
+dist-verify/
+dist_new/
+_d*/
+_dist*/
+.verify-build/
+test-results/
+test-results-tmp/
+xoutput/
+*.log

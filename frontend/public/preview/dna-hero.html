@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DNA Helix — Hero Animation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a1f; }
+  canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+/* ─── CONFIG ─── */
+const COLORS = {
+  bg:        '#0a0a1f',
+  strand1:   '#00E5FF',
+  strand1D:  '#0088AA',
+  strand2:   '#D500F9',
+  strand2D:  '#7A00AA',
+  basePair:  '#FFD700',
+  basePairG: '#FFB300',
+  nodeGlow1: '#00E5FF',
+  nodeGlow2: '#D500F9',
+  particle:  '#00E5FF',
+  energy:    'rgba(0, 229, 255, 0.15)',
+  crispr:    '#FF1744',
+  crisprG:   '#FF0000',
+};
+
+/* ─── DNA PARAMETERS ─── */
+const DNA = {
+  radius:     80,
+  pitch:      240,    // height per full turn
+  turns:      3.5,
+  segments:   240,
+  basePairs:  28,     // number of rungs
+  rotSpeed:   0.15,   // radians per frame
+  swayAmp:    6,      // subtle breathing
+  swaySpeed:  0.02,
+};
+
+/* ─── PARTICLES ─── */
+const PARTICLE_COUNT = 320;
+let particles = [];
+
+class Particle {
+  constructor() {
+    this.reset();
+  }
+  reset() {
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = 100 + Math.random() * 400;
+    this.x = Math.cos(angle) * dist;
+    this.y = (Math.random() - 0.5) * (H * 0.7);
+    this.z = (Math.random() - 0.5) * 300;
+    this.vx = (Math.random() - 0.5) * 0.15;
+    this.vy = (Math.random() - 0.5) * 0.15;
+    this.vz = (Math.random() - 0.5) * 0.1;
+    this.size = 1 + Math.random() * 2.5;
+    this.phase = Math.random() * Math.PI * 2;
+    this.oscSpeed = 0.3 + Math.random() * 0.5;
+    this.baseOpacity = 0.2 + Math.random() * 0.5;
+  }
+  update() {
+    // Random walk
+    this.x += this.vx;
+    this.y += this.vy;
+    this.z += this.vz;
+
+    // Subtle attraction toward center
+    const dist = Math.sqrt(this.x*this.x + this.y*this.y + this.z*this.z);
+    if (dist > 350) {
+      this.vx -= this.x * 0.0003;
+      this.vy -= this.y * 0.0003;
+      this.vz -= this.z * 0.0003;
+    }
+    if (dist < 50) {
+      this.vx += this.x * 0.001;
+      this.vy += this.y * 0.001;
+      this.vz += this.z * 0.001;
+    }
+
+    // Damping
+    this.vx *= 0.999;
+    this.vy *= 0.999;
+    this.vz *= 0.999;
+
+    // Oscillation
+    this.x += Math.sin(this.phase + this.oscSpeed * time * 0.001) * 0.03;
+    this.y += Math.cos(this.phase + this.oscSpeed * time * 0.001 + 1) * 0.03;
+
+    // Wrap around
+    if (Math.abs(this.x) > 600) this.vx *= -1;
+    if (Math.abs(this.y) > H * 0.5) this.vy *= -1;
+    if (Math.abs(this.z) > 300) this.vz *= -1;
+  }
+}
+
+function initParticles() {
+  particles = [];
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    particles.push(new Particle());
+  }
+}
+initParticles();
+
+/* ─── ENERGY RINGS ─── */
+const RINGS = 3;
+
+/* ─── CRISPR STATE ─── */
+let crisprTimer = 0;
+const CRISPR_INTERVAL = 4000; // ms between events
+const CRISPR_DURATION = 600;  // ms duration
+let crisprActive = false;
+let crisprProgress = 0;
+
+/* ─── RENDER ─── */
+let time = 0;
+let rotation = 0;
+
+function drawHelix(ctx, cx, cy) {
+  const seg = DNA.segments;
+  const pitch = DNA.pitch;
+  const turns = DNA.turns;
+  const totalH = pitch * turns;
+  const R = DNA.radius;
+  const sway = Math.sin(time * DNA.swaySpeed) * DNA.swayAmp;
+
+  // Build 3D helix points
+  const pts1 = []; // strand 1 (cyan)
+  const pts2 = []; // strand 2 (magenta)
+
+  for (let i = 0; i <= seg; i++) {
+    const t = i / seg;
+    const y = -totalH / 2 + t * totalH;
+    const angle = t * Math.PI * 2 * turns + rotation;
+
+    const x1 = (R + sway * Math.sin(t * Math.PI)) * Math.cos(angle);
+    const z1 = (R + sway * Math.sin(t * Math.PI)) * Math.sin(angle);
+    pts1.push({ x: x1, y, z: z1, angle });
+
+    const x2 = (R + sway * Math.sin(t * Math.PI)) * Math.cos(angle + Math.PI);
+    const z2 = (R + sway * Math.sin(t * Math.PI)) * Math.sin(angle + Math.PI);
+    pts2.push({ x: x2, y, z: z2, angle: angle + Math.PI });
+  }
+
+  // Sort back-to-front for proper depth
+  function depthSort(p) { return p.z; }
+
+  // Helper: project 3D → 2D
+  function project(p, zOffset) {
+    const d = 500;
+    const scale = d / (d + p.z + (zOffset || 0));
+    return {
+      sx: cx + p.x * scale,
+      sy: cy + p.y * scale,
+      scale: scale,
+    };
+  }
+
+  // ── Draw base pairs (behind strands) ──
+  const bpCount = DNA.basePairs;
+  for (let i = 0; i < bpCount; i++) {
+    const t = i / bpCount;
+    const idx = Math.floor(t * seg);
+    if (idx >= pts1.length || idx >= pts2.length) continue;
+    const p1 = pts1[idx];
+    const p2 = pts2[idx];
+    const avgZ = (p1.z + p2.z) / 2;
+
+    const pp1 = project(p1);
+    const pp2 = project(p2);
+
+    // Depth-based opacity
+    const depthFade = Math.max(0.1, Math.min(1, (p2.z + 200) / 400));
+    const glow = 0.5 + 0.5 * Math.sin(time * 0.003 + i * 0.5);
+
+    ctx.beginPath();
+    ctx.moveTo(pp1.sx, pp1.sy);
+    ctx.lineTo(pp2.sx, pp2.sy);
+    ctx.strokeStyle = `rgba(255, 215, 0, ${0.2 + 0.5 * glow * depthFade})`;
+    ctx.lineWidth = 1 + 1.5 * glow * depthFade;
+    ctx.shadowColor = `rgba(255, 215, 0, ${0.1 * depthFade})`;
+    ctx.shadowBlur = 6;
+    ctx.stroke();
+
+    // Base pair node glow at midpoint
+    const mx = (pp1.sx + pp2.sx) / 2;
+    const my = (pp1.sy + pp2.sy) / 2;
+    const grad = ctx.createRadialGradient(mx, my, 0, mx, my, 4 * depthFade);
+    grad.addColorStop(0, `rgba(255, 215, 0, ${0.3 * glow * depthFade})`);
+    grad.addColorStop(1, `rgba(255, 215, 0, 0)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(mx - 5, my - 5, 10, 10);
+  }
+  ctx.shadowBlur = 0;
+
+  // ── Draw energy rings ──
+  for (let r = 0; r < RINGS; r++) {
+    const ry = -30 + r * 30 + Math.sin(time * 0.002 + r * 2) * 10;
+    const ringW = 180 + r * 30 + Math.sin(time * 0.001 + r) * 15;
+    const ringH = 60 + r * 15 + Math.cos(time * 0.0015 + r * 1.5) * 10;
+
+    ctx.save();
+    ctx.translate(cx, cy + ry);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, ringW, ringH, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(0, 229, 255, ${0.04 + 0.04 * Math.sin(time * 0.002 + r)})`;
+    ctx.lineWidth = 1;
+    ctx.shadowColor = 'rgba(0, 229, 255, 0.02)';
+    ctx.shadowBlur = 10;
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.shadowBlur = 0;
+
+  // ── Draw strands ──
+  // Back half first, front half later (by z-sorting strand segments)
+  // Actually we draw strand as a continuous thick line with glow
+
+  function drawStrand(pts, color, colorDark, glowColor) {
+    // Split into front/back halves
+    const front = [];
+    const back = [];
+    for (let i = 0; i < pts.length; i++) {
+      const p = project(pts[i]);
+      const z = pts[i].z;
+      if (z > 0) front.push({ ...p, z, nodeZ: z });
+      else back.push({ ...p, z, nodeZ: z });
+    }
+
+    // Sort back-to-front
+    back.sort((a, b) => a.z - b.z);
+    front.sort((a, b) => a.z - b.z);
+
+    function drawSegmentSet(arr, isFront) {
+      if (arr.length < 2) return;
+      // Draw line
+      ctx.beginPath();
+      ctx.moveTo(arr[0].sx, arr[0].sy);
+      for (let i = 1; i < arr.length; i++) {
+        ctx.lineTo(arr[i].sx, arr[i].sy);
+      }
+      const alpha = isFront ? 0.9 : 0.3;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = isFront ? 3 : 1.5;
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = isFront ? 25 : 8;
+      ctx.globalAlpha = alpha;
+      ctx.stroke();
+
+      // Draw nodes every few segments
+      for (let i = 0; i < arr.length; i += 3) {
+        const p = arr[i];
+        const depth = Math.max(0.2, Math.min(1, (p.nodeZ + 200) / 400));
+        const size = (isFront ? 5 : 2) * depth;
+
+        ctx.beginPath();
+        ctx.arc(p.sx, p.sy, size, 0, Math.PI * 2);
+        const g = ctx.createRadialGradient(p.sx, p.sy, 0, p.sx, p.sy, size * 3);
+        g.addColorStop(0, `${color}`);
+        g.addColorStop(0.5, `${color}88`);
+        g.addColorStop(1, `${color}00`);
+        ctx.fillStyle = g;
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 30 * depth;
+        ctx.globalAlpha = (isFront ? 1 : 0.3) * depth;
+        ctx.fill();
+      }
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+    drawSegmentSet(back, false);
+    drawSegmentSet(front, true);
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+
+  drawStrand(pts1, '#00E5FF', '#0088AA', 'rgba(0, 229, 255, 0.6)');
+  drawStrand(pts2, '#D500F9', '#7A00AA', 'rgba(213, 0, 249, 0.6)');
+
+  // ── Central axis glow ──
+  const axisGrad = ctx.createLinearGradient(cx, cy - totalH/2, cx, cy + totalH/2);
+  axisGrad.addColorStop(0, 'rgba(0, 229, 255, 0)');
+  axisGrad.addColorStop(0.5, 'rgba(0, 229, 255, 0.03)');
+  axisGrad.addColorStop(1, 'rgba(0, 229, 255, 0)');
+  ctx.fillStyle = axisGrad;
+  ctx.shadowBlur = 0;
+  ctx.fillRect(cx - 3, cy - totalH/2, 6, totalH);
+}
+
+/* ─── PARTICLES RENDER ─── */
+function drawParticles(ctx, cx, cy) {
+  for (const p of particles) {
+    const d = 400;
+    const scale = d / (d + p.z);
+    const sx = cx + p.x * scale;
+    const sy = cy + p.y * scale;
+    const depth = Math.max(0.15, Math.min(1, (p.z + 300) / 600));
+    const alpha = p.baseOpacity * depth;
+    const size = p.size * scale;
+
+    ctx.beginPath();
+    ctx.arc(sx, sy, size, 0, Math.PI * 2);
+    const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, size * 4);
+    g.addColorStop(0, `rgba(0, 229, 255, ${alpha})`);
+    g.addColorStop(0.4, `rgba(0, 229, 255, ${alpha * 0.3})`);
+    g.addColorStop(1, `rgba(0, 229, 255, 0)`);
+    ctx.fillStyle = g;
+    ctx.shadowColor = 'rgba(0, 229, 255, 0.15)';
+    ctx.shadowBlur = 8 * depth;
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+}
+
+/* ─── CRISPR EFFECT ─── */
+function drawCrispr(ctx, cx, cy) {
+  if (!crisprActive) return;
+
+  const prog = crisprProgress; // 0 → 1
+  const alpha = prog < 0.15 ? prog / 0.15 : (1 - prog) / 0.85;
+  if (alpha <= 0) return;
+
+  const sy = cy - 20; // position on helix
+  const size = 30 + prog * 40;
+  const glowSize = 60 + prog * 80;
+
+  // Outer glow
+  const g = ctx.createRadialGradient(cx, sy, 0, cx, sy, glowSize);
+  g.addColorStop(0, `rgba(255, 23, 68, ${alpha * 0.3})`);
+  g.addColorStop(0.5, `rgba(255, 23, 68, ${alpha * 0.1})`);
+  g.addColorStop(1, `rgba(255, 23, 68, 0)`);
+  ctx.fillStyle = g;
+  ctx.shadowBlur = 0;
+  ctx.fillRect(cx - glowSize, sy - glowSize, glowSize * 2, glowSize * 2);
+
+  // Scissor symbol
+  ctx.save();
+  ctx.translate(cx, sy);
+  ctx.scale(1 + prog * 1.2, 1 + prog * 1.2);
+  ctx.globalAlpha = alpha;
+
+  // Draw ✂ using canvas paths
+  const sw = size * 0.7;
+  const sh = size;
+  ctx.strokeStyle = '#FF1744';
+  ctx.lineWidth = 3;
+  ctx.shadowColor = '#FF1744';
+  ctx.shadowBlur = 30;
+
+  // Left blade
+  ctx.beginPath();
+  ctx.moveTo(-sw/2, -sh/3);
+  ctx.lineTo(-sw/3, sh/3);
+  ctx.lineTo(-sw/6, -sh/4);
+  ctx.stroke();
+
+  // Right blade
+  ctx.beginPath();
+  ctx.moveTo(sw/2, -sh/3);
+  ctx.lineTo(sw/3, sh/3);
+  ctx.lineTo(sw/6, -sh/4);
+  ctx.stroke();
+
+  // Pivot circle
+  ctx.beginPath();
+  ctx.arc(0, sh/8, 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#FF1744';
+  ctx.shadowBlur = 20;
+  ctx.fill();
+
+  // Bolt effect lines
+  ctx.shadowBlur = 15;
+  for (let i = 0; i < 4; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = 20 + Math.random() * 15;
+    ctx.beginPath();
+    ctx.moveTo(cx, sy);
+    ctx.lineTo(cx + Math.cos(a) * r, sy + Math.sin(a) * r);
+    ctx.strokeStyle = `rgba(255, 23, 68, ${alpha * 0.3})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  ctx.restore();
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
+}
+
+/* ─── MAIN LOOP ─── */
+function loop(timestamp) {
+  time = timestamp || 0;
+  const cx = W / 2;
+  const cy = H / 2;
+
+  // Clear
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Vignette
+  const vig = ctx.createRadialGradient(cx, cy, H * 0.1, cx, cy, H * 0.8);
+  vig.addColorStop(0, 'rgba(10, 10, 31, 0)');
+  vig.addColorStop(1, 'rgba(10, 10, 31, 0.4)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, W, H);
+
+  // Update rotation
+  rotation += DNA.rotSpeed * 0.016; // normalize to frame time
+
+  // Update CRISPR timer
+  crisprTimer += 16;
+  if (crisprTimer >= CRISPR_INTERVAL) {
+    crisprTimer = 0;
+    crisprActive = true;
+    crisprProgress = 0;
+  }
+  if (crisprActive) {
+    crisprProgress += 16 / CRISPR_DURATION;
+    if (crisprProgress >= 1) {
+      crisprActive = false;
+    }
+  }
+
+  // Update particles
+  for (const p of particles) p.update();
+
+  // Draw particles (behind DNA)
+  drawParticles(ctx, cx, cy);
+
+  // Draw helix
+  drawHelix(ctx, cx, cy);
+
+  // Draw CRISPR
+  drawCrispr(ctx, cx, cy);
+
+  // Subtle top/bottom fade
+  const fadeGrad = ctx.createLinearGradient(0, 0, 0, 60);
+  fadeGrad.addColorStop(0, 'rgba(10, 10, 31, 0.6)');
+  fadeGrad.addColorStop(1, 'rgba(10, 10, 31, 0)');
+  ctx.fillStyle = fadeGrad;
+  ctx.fillRect(0, 0, W, 60);
+
+  const fadeGrad2 = ctx.createLinearGradient(0, H-60, 0, H);
+  fadeGrad2.addColorStop(0, 'rgba(10, 10, 31, 0)');
+  fadeGrad2.addColorStop(1, 'rgba(10, 10, 31, 0.6)');
+  ctx.fillStyle = fadeGrad2;
+  ctx.fillRect(0, H-60, W, 60);
+
+  requestAnimationFrame(loop);
+}
+
+// Handle resize
+window.addEventListener('resize', () => {
+  resize();
+  // Reinitialize particles with new dimensions
+  initParticles();
+});
+
+loop();
+</script>
+</body>
+</html>

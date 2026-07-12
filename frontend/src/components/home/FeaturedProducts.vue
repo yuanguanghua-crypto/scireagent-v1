@@ -1,0 +1,284 @@
+<script setup>
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
+
+const props = defineProps({
+  products: { type: Array, default: () => [] },
+})
+
+const router = useRouter()
+
+const gridEl = ref(null)
+const columns = ref(5)
+
+function updateColumns() {
+  if (gridEl.value) {
+    const style = getComputedStyle(gridEl.value)
+    columns.value = style.gridTemplateColumns.split(' ').length
+  }
+}
+
+onMounted(() => {
+  updateColumns()
+  window.addEventListener('resize', updateColumns)
+})
+onUnmounted(() => window.removeEventListener('resize', updateColumns))
+
+const displayProducts = computed(() => {
+  return props.products.slice(0, columns.value * 2)
+})
+
+function formatPrice(price, currency) {
+  if (price == null || price === '') return null
+  const sym = currency === 'CNY' ? '¥' : '$'
+  return `${sym}${parseFloat(price).toFixed(2)}`
+}
+
+function domainStyle(category) {
+  const map = {
+    nucleotide: { bg: 'var(--color-domain-nucleotide-soft)', color: 'var(--color-domain-nucleotide)' },
+    click: { bg: 'var(--color-domain-click-soft)', color: 'var(--color-domain-click)' },
+    fluor: { bg: 'var(--color-domain-fluor-soft)', color: 'var(--color-domain-fluor)' },
+    bioconjugate: { bg: 'var(--color-domain-bioconjugate-soft)', color: 'var(--color-domain-bioconjugate)' },
+    modifier: { bg: 'var(--color-domain-modifier-soft)', color: 'var(--color-domain-modifier)' },
+  }
+  const key = (category || '').toLowerCase().replace(/[^a-z]/g, '')
+  for (const [k, v] of Object.entries(map)) {
+    if (key.includes(k)) return v
+  }
+  return { bg: 'var(--color-bg-alt)', color: 'var(--color-text-secondary)' }
+}
+
+function viewAllLink() {
+  return `/products`
+}
+</script>
+
+<template>
+  <section v-if="products.length" class="fp" aria-label="Featured products">
+    <div class="section-h">
+      <div>
+        <h2>Featured Products</h2>
+        <div class="sub">High-purity reagents for life science research</div>
+      </div>
+      <router-link :to="viewAllLink()" class="section-link">View all {{ products.length }}+ →</router-link>
+    </div>
+    <div class="section-divider"></div>
+
+    <div class="product-grid" ref="gridEl">
+      <button
+        v-for="p in displayProducts"
+        :key="p.id"
+        class="product-card"
+        @click="router.push(`/products/${p.id}`)"
+      >
+        <span
+          class="domain-tag"
+          :style="{ background: domainStyle(p.category_l1).bg, color: domainStyle(p.category_l1).color }"
+        >
+          {{ p.category_l1 || 'General' }}
+        </span>
+        <h3>{{ p.name }}</h3>
+        <div class="cas-meta">
+          <span v-if="p.cas" class="cas">CAS: {{ p.cas }}</span>
+          <span v-if="p.formula" class="formula-badge">{{ p.formula }}</span>
+        </div>
+        <div class="price-row">
+          <span v-if="formatPrice(p.price, p.currency)" class="price">
+            <span class="currency">{{ p.currency === 'CNY' ? '¥' : '$' }}</span>
+            {{ formatPrice(p.price, p.currency) }}
+          </span>
+          <span v-else class="price">—</span>
+          <span class="stock in-stock">In Stock</span>
+        </div>
+      </button>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.fp {
+  padding: 8px 0 48px;
+}
+.section-h {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.section-h h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+.sub {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+.section-link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.section-link:hover {
+  color: var(--color-primary-hover);
+  gap: 8px;
+}
+.section-divider {
+  height: 2px;
+  width: 80px;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-emerald-100) 100%);
+  border-radius: 2px;
+  margin-bottom: 24px;
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.product-card {
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border);
+  border-radius: 10px;
+  padding: 20px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-sans);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+}
+.product-card::before {
+  content: '';
+  position: absolute;
+  top: -1.5px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--color-primary) 42%,
+    #A7FFFF 50%,
+    #38BDF8 58%,
+    transparent 100%);
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  border-radius: 0 0 3px 3px;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.product-card:hover {
+  border-color: var(--color-emerald-100);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.10);
+}
+.product-card:hover::before {
+  opacity: 1;
+  animation: firefly-sweep 1.4s ease-in-out;
+}
+@keyframes firefly-sweep {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-card:hover::before { animation: none; background-position: 50% 0; }
+}
+
+.domain-tag {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.product-card h3 {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 4px;
+  color: var(--color-text);
+  min-height: 2.6em;
+}
+.cas-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  flex: 1 0 auto;
+}
+.cas {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+}
+.formula-badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--color-gray-100);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+}
+.price-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-gray-100);
+  margin-top: auto;
+}
+.price {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.currency {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+.stock {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.stock.in-stock {
+  background: var(--color-success-light);
+  color: var(--color-primary-active);
+}
+
+@media (max-width: 1024px) {
+  .product-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 768px) {
+  .product-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .product-grid { grid-template-columns: 1fr; }
+}
+</style>
