@@ -156,6 +156,7 @@ REST_FRAMEWORK = {
         'core.renderers.EnvelopeRenderer',
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'apps.accounts.authentication.XAuthTokenAuthentication',
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],

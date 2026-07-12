@@ -162,7 +162,7 @@ class Protocol(TimeStampedModel):
         Method, on_delete=models.CASCADE, related_name='protocols', verbose_name='方法',
         help_text='这个协议基于哪个技术方法', null=True, blank=True,
     )
-    name = models.CharField(max_length=255, verbose_name='名称',
+    name = models.CharField(max_length=500, verbose_name='名称',
         help_text='协议全名，例如：CuAAC RNA Fluorescent Labeling Protocol')
     slug = models.SlugField(max_length=255, verbose_name='Slug')
     version = models.CharField(max_length=50, default='1.0', verbose_name='版本号',

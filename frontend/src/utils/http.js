@@ -17,10 +17,12 @@ const http = axios.create({
 // Request interceptor
 http.interceptors.request.use(
   (config) => {
-    // Add auth token if exists
+    // Add auth token if exists.
+    // Use X-Auth-Token (not Authorization) so it does NOT clash with the
+    // nginx HTTP Basic Auth popup, which also uses the Authorization header.
     const token = localStorage.getItem('token')
     if (token) {
-      config.headers.Authorization = `Token ${token}`
+      config.headers['X-Auth-Token'] = token
     }
 
     // Add session key for guest users (only when no auth token)
