@@ -27,7 +27,7 @@
 defineProps({
   modelValue: { type: [String, Number], default: '' },
   label: { type: String, default: '' },
-  placeholder: { type: String, default: '请选择' },
+  placeholder: { type: String, default: 'Please select' },
   options: {
     type: Array,
     default: () => [],

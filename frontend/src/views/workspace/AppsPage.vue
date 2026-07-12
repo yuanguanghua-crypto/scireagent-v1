@@ -108,7 +108,7 @@ async function save() {
           <el-select v-model="form.research_goal_id" placeholder="Select research goal" clearable :disabled="!researchGoals.length" style="width: 100%">
             <el-option v-for="g in researchGoals" :key="g.id" :label="g.name" :value="g.id" />
           </el-select>
-          <span v-if="!researchGoals.length" class="fk-empty">无可选 Research Goal</span>
+          <span v-if="!researchGoals.length" class="fk-empty">No Research Goal available</span>
         </label>
         <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="showEditor = false">Cancel</button>

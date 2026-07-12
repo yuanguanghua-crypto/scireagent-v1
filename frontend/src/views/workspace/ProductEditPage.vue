@@ -116,7 +116,7 @@ const statusOptions = [
   { label: 'Draft', value: 'draft' },
   { label: 'Active', value: 'active' },
   { label: 'Deprecated', value: 'deprecated' },
-  { label: 'Archived（下架）', value: 'archived' },
+  { label: 'Archived', value: 'archived' },
 ]
 const purityOptions = [{ label: '— Custom —', value: '' }].concat(purityOpts.map(o => ({ label: o, value: o })))
 const concentrationSelectOpts = [{ label: '— Custom —', value: '' }].concat(concentrationOpts.map(o => ({ label: o, value: o })))
@@ -515,7 +515,7 @@ const enrichBioz = computed(() => pubchemEnrichResult.value?.bioz || null)
 // CAS 冲突检测（P3-2）— 表单 / PubChem / jena 三源非空且去 dash 互不相同 → 警示
 const casSources = computed(() => {
   const out = []
-  if (form.cas) out.push({ src: '表单', val: form.cas })
+  if (form.cas) out.push({ src: 'Form', val: form.cas })
   if (enrichChemical.value?.cas_resolved) out.push({ src: 'PubChem', val: enrichChemical.value.cas_resolved })
   if (enrichJena.value?.cas_number) out.push({ src: 'jena', val: enrichJena.value.cas_number })
   return out
@@ -692,7 +692,7 @@ function applyJenaNormalized() {
   if (n.shipping_condition && !form.shipping) form.shipping = normalizeShipping(n.shipping_condition)
   if (n.shelf_life && !form.shelf_life) form.shelf_life = n.shelf_life
   if (n.category_l1 && !form.product_class_id) applyJenaCategoryL1(n.category_l1)
-  setFeedback('success', 'Jena 规格已填入表单')
+  setFeedback('success', 'Jena specs filled into form')
 }
 
 // Map jena category_l1 slug → cascader L1 selection
@@ -840,13 +840,13 @@ async function handleAdoptBiozRef({ ref, index }) {
     const d = resp.data
     if (d?.adopted >= 1) {
       wrapRef.value?.markAdopted?.([index])
-      setFeedback('success', '文献已落库')
+      setFeedback('success', 'Reference stored')
     } else {
-      setFeedback('success', `已跳过 / 已存在 (skipped=${d?.skipped || 0})`)
+      setFeedback('success', `Skipped / already exists (skipped=${d?.skipped || 0})`)
       wrapRef.value?.markAdopted?.([index])
     }
   } catch (e) {
-    setFeedback('error', `落库失败: ${e?.response?.data?.meta?.error?.message || e.message}`)
+    setFeedback('error', `Store failed: ${e?.response?.data?.meta?.error?.message || e.message}`)
   } finally {
     wrapRef.value?.setAdoptingAll?.(false)
   }
@@ -862,10 +862,10 @@ async function handleAdoptAllBioz({ refs }) {
       // 全部标记为已落库（前 5 条都是可见卡片，全部标记）
       const allIndices = refs.map((_, i) => i)
       wrapRef.value?.markAdopted?.(allIndices)
-      setFeedback('success', `Adopt 完成: ${d.adopted} 新建 / ${d.skipped} 已存在`)
+      setFeedback('success', `Adopt complete: ${d.adopted} created / ${d.skipped} existing`)
     }
   } catch (e) {
-    setFeedback('error', `批量落库失败: ${e?.response?.data?.meta?.error?.message || e.message}`)
+    setFeedback('error', `Batch store failed: ${e?.response?.data?.meta?.error?.message || e.message}`)
   } finally {
     wrapRef.value?.setAdoptingAll?.(false)
   }
@@ -978,7 +978,7 @@ async function loadCompliance() {
     })
     newBatchForms.value = init
   } catch (e) {
-    setFeedback('error', e.response?.data?.error || '合规数据加载失败')
+    setFeedback('error', e.response?.data?.error || 'Compliance data failed to load')
   } finally {
     complianceLoading.value = false
   }
@@ -1002,11 +1002,11 @@ const creatingBatch = ref(false)
 async function createBatchAndCoa(skuId) {
   const form = newBatchForms.value[skuId]
   if (!form || !form.lot_number) {
-    setFeedback('error', '请填写批次号')
+    setFeedback('error', 'Enter a lot number')
     return
   }
   if (!form.produced_at) {
-    setFeedback('error', '请选择生产日期')
+    setFeedback('error', 'Select a production date')
     return
   }
   creatingBatch.value = true
@@ -1017,7 +1017,7 @@ async function createBatchAndCoa(skuId) {
       produced_at: form.produced_at,
       retest_at: form.retest_at || undefined,
     })
-    setFeedback('success', '批次 + COA 草稿已创建')
+    setFeedback('success', 'Batch + COA draft created')
     // 刷新合规数据
     await loadCompliance()
     // 清空当前表单
@@ -1025,7 +1025,7 @@ async function createBatchAndCoa(skuId) {
       newBatchForms.value[skuId] = { lot_number: '', produced_at: '', retest_at: '' }
     }
   } catch (e) {
-    setFeedback('error', e.response?.data?.error || '创建失败')
+    setFeedback('error', e.response?.data?.error || 'Creation failed')
   } finally {
     creatingBatch.value = false
   }
@@ -1035,28 +1035,28 @@ async function createBatchAndCoa(skuId) {
 async function generateProductSds() {
   try {
     await documentsApi.generateSds(productId.value)
-    setFeedback('success', 'SDS 已生成（草稿）')
+    setFeedback('success', 'SDS generated (draft)')
     await loadCompliance()
   } catch (e) {
-    setFeedback('error', e.response?.data?.error || 'SDS 生成失败')
+    setFeedback('error', e.response?.data?.error || 'SDS generation failed')
   }
 }
 async function approveSdsRev(id) {
   try {
     await documentsApi.approveSds(id)
-    setFeedback('success', 'SDS 已审批并发布')
+    setFeedback('success', 'SDS approved and published')
     await loadCompliance()
   } catch (e) {
-    setFeedback('error', e.response?.data?.error || 'SDS 审批失败')
+    setFeedback('error', e.response?.data?.error || 'SDS approval failed')
   }
 }
 async function withdrawSdsRev(id) {
   try {
     await documentsApi.withdrawSds(id)
-    setFeedback('success', 'SDS 已撤回')
+    setFeedback('success', 'SDS withdrawn')
     await loadCompliance()
   } catch (e) {
-    setFeedback('error', e.response?.data?.error || 'SDS 撤回失败')
+    setFeedback('error', e.response?.data?.error || 'SDS withdrawal failed')
   }
 }
 function previewSds(sds) { openPreview('sds', sds) }
@@ -1074,28 +1074,28 @@ async function generateCoaForBatch(batch) {
       lot_number: lotNumber,
       produced_at: batch.produced_at || new Date().toISOString().slice(0, 10),
     })
-    setFeedback('success', `COA 已生成（${lotNumber}）`)
+    setFeedback('success', `COA generated (${lotNumber})`)
     await loadCompliance()
   } catch (e) {
-    setFeedback('error', e.response?.data?.error || 'COA 生成失败')
+    setFeedback('error', e.response?.data?.error || 'COA generation failed')
   }
 }
 async function approveCoaRev(coa) {
   try {
     await documentsApi.approveCoa(coa.id)
-    setFeedback('success', 'COA 已审批并发布')
+    setFeedback('success', 'COA approved and published')
     await loadCompliance()
   } catch (e) {
-    setFeedback('error', e.response?.data?.error || 'COA 审批失败')
+    setFeedback('error', e.response?.data?.error || 'COA approval failed')
   }
 }
 async function withdrawCoaRev(coa) {
   try {
     await documentsApi.withdrawCoa(coa.id)
-    setFeedback('success', 'COA 已撤回（回到草稿）')
+    setFeedback('success', 'COA withdrawn (back to draft)')
     await loadCompliance()
   } catch (e) {
-    setFeedback('error', e.response?.data?.error || 'COA 撤回失败')
+    setFeedback('error', e.response?.data?.error || 'COA withdrawal failed')
   }
 }
 function previewCoa(coa) { openPreview('coa', coa) }
@@ -1121,16 +1121,16 @@ async function saveQc(coa) {
   const payload = qcForms[coa.id] || {}
   try {
     await documentsApi.updateCoaQc(coa.id, payload)
-    setFeedback('success', 'COA 实测已保存')
+    setFeedback('success', 'COA measurements saved')
     qcEditingId.value = null
     await loadCompliance()
   } catch (e) {
-    setFeedback('error', e.response?.data?.error || '实测保存失败')
+    setFeedback('error', e.response?.data?.error || 'Measurement save failed')
   }
 }
 
 function confidenceLabel(v) {
-  return { high: '高', medium: '中', low: '低', very_low: '极低' }[v] || v || '—'
+  return { high: 'High', medium: 'Medium', low: 'Low', very_low: 'Very low' }[v] || v || '—'
 }
 function formatPictograms(p) {
   if (!p) return '—'
@@ -1208,7 +1208,7 @@ async function saveDraft(isPublish = false) {
   const missing = collectMissing()
   missingFields.value = missing.map(m => m.key)
   if (missing.length) {
-    setFeedback('warn', `${missing.length} 个必填字段未填写（已标红），已为你保留保存/发布`)
+    setFeedback('warn', `${missing.length} required fields unfilled (marked red); save/publish kept available`)
   }
   saving.value = true
   // 派生 sku_code：Word 导入/AI 不生成，按 catalog_no + 序号兜底
@@ -1237,7 +1237,7 @@ async function saveDraft(isPublish = false) {
         if (d.seo_description) form.seo_description = d.seo_description
         if (d.slug) form.slug = d.slug
       }
-      setFeedback('success', isPublish ? '产品已发布' : 'Draft saved')
+      setFeedback('success', isPublish ? 'Product published' : 'Draft saved')
     } else {
       const resp = await http.post('/products/', payload)
       // 新建保存后同样回填后端派生字段（POST 路径也会触发 _auto_seo_on_publish）
@@ -1250,7 +1250,7 @@ async function saveDraft(isPublish = false) {
       }
       if (newId) {
         router.replace(`/workspace/products/${newId}/edit`)
-        setFeedback('success', isPublish ? '产品已创建并发布' : 'Product created. Edit details and publish when ready.')
+        setFeedback('success', isPublish ? 'Product created and published' : 'Product created. Edit details and publish when ready.')
       }
     }
   } catch (e) {
@@ -1393,7 +1393,7 @@ watch(
         </table>
         <!-- CAS 冲突警示条（P3-2）— 表单/PubChem/jena 三源不一致 -->
         <div v-if="casConflict" class="cas-conflict">
-          <div class="cas-conflict-title">⚠ CAS 来源不一致，请核实</div>
+          <div class="cas-conflict-title">⚠ CAS sources inconsistent, please verify</div>
           <div class="cas-conflict-body">
             <span v-for="s in casConflict" :key="s.src" class="cas-conflict-src">
               {{ s.src }}: <strong>{{ s.val }}</strong>
@@ -1625,11 +1625,11 @@ watch(
         <div class="field-grid">
           <label>Name *
             <AppInput v-model="form.name" placeholder="e.g. 2'-Amino-ATP" />
-            <span v-if="isFieldMissing('name')" class="field-error">⚠ 必填字段未填写</span>
+            <span v-if="isFieldMissing('name')" class="field-error">⚠ Required field unfilled</span>
           </label>
           <label>Catalog No *
             <AppInput v-model="form.catalog_no" placeholder="e.g. SC8043" />
-            <span v-if="isFieldMissing('catalog_no')" class="field-error">⚠ 必填字段未填写</span>
+            <span v-if="isFieldMissing('catalog_no')" class="field-error">⚠ Required field unfilled</span>
           </label>
           <label>CAS
             <AppInput v-model="form.cas" placeholder="e.g. 1927-31-7" />
@@ -1652,7 +1652,7 @@ watch(
           <div class="chem-inputs">
             <label>SMILES
               <AppInput v-model="form.smiles" type="textarea" rows="2" placeholder="e.g. C1=CC=C(C=C1)N" />
-              <span v-if="isFieldMissing('smiles')" id="smiles-missing" class="field-error">⚠ 必填字段未填写</span>
+              <span v-if="isFieldMissing('smiles')" id="smiles-missing" class="field-error">⚠ Required field unfilled</span>
               <span v-if="validateField('smiles')" class="field-error">{{ validateField('smiles') }}</span>
             </label>
             <label>InChI <AppInput v-model="form.inchi" type="textarea" rows="2" placeholder="Standard InChI" /></label>
@@ -1714,7 +1714,7 @@ watch(
               :aria-invalid="isFieldMissing('product_class_id')"
               @change="onCategoryChange"
             />
-            <span v-if="isFieldMissing('product_class_id')" class="field-error">⚠ 必填字段未填写</span>
+            <span v-if="isFieldMissing('product_class_id')" class="field-error">⚠ Required field unfilled</span>
           </label>
         </div>
       </section>
@@ -1800,7 +1800,7 @@ watch(
           </tbody>
         </table>
         <button type="button" @click="addSku" class="btn btn-ghost btn-sm">+ Add SKU</button>
-        <p v-if="isFieldMissing('default_sku')" class="field-error">⚠ 请添加至少一个 SKU 并勾选 Default</p>
+        <p v-if="isFieldMissing('default_sku')" class="field-error">⚠ Add at least one SKU and tick Default</p>
         <p v-if="skuDuplicate.size" class="sku-warning">⚠ Duplicate pack size + concentration combination detected</p>
         <p class="form-hint">Each SKU represents a purchasable variant. Set one as Default.</p>
       </section>
@@ -1821,43 +1821,43 @@ watch(
       <!-- 9. Compliance — COA & SDS -->
       <section class="form-section" v-if="isEdit">
         <h3>9. Compliance — COA &amp; SDS</h3>
-        <p class="form-hint">为该产品生成 / 审批 SDS 与 COA。匿名访客在产品详情页可查看已发布文档。</p>
+        <p class="form-hint">Generate / approve SDS and COA for this product. Anonymous visitors can view published documents on the product detail page.</p>
 
         <!-- SDS 卡 -->
         <div class="compliance-block">
           <div class="compliance-block-title">
-            <span>SDS（安全数据表）</span>
+            <span>SDS (Safety Data Sheet)</span>
             <button
               type="button"
               class="btn btn-primary btn-sm"
               :disabled="sdsGenerateDisabled || complianceLoading"
-              :title="sdsGenerateDisabled ? '缺少 CAS / 结构标识（SMILES / InChI），无法生成 SDS，请先补全产品标识' : '生成 SDS 草稿'"
+              :title="sdsGenerateDisabled ? 'Missing CAS / structure identifier (SMILES / InChI); cannot generate SDS. Complete the product identifier first' : 'Generate SDS draft'"
               @click="generateProductSds"
-            >生成 SDS</button>
+            >Generate SDS</button>
           </div>
 
-          <LoadingSpinner v-if="complianceLoading" size="small" text="加载中…" />
-          <div v-else-if="!sdsList.length" class="compliance-empty">尚无 SDS 版本。</div>
+          <LoadingSpinner v-if="complianceLoading" size="small" text="Loading…" />
+          <div v-else-if="!sdsList.length" class="compliance-empty">No SDS versions yet.</div>
           <div v-else class="sds-rev-list">
             <div v-for="sds in sdsList" :key="sds.id" class="sds-rev-card">
               <div class="sds-rev-head">
                 <span class="sds-rev-no">v{{ sds.revision_no }}</span>
-                <span v-if="sds.is_current" class="tag tag-sds">当前发布</span>
-                <span v-else class="tag tag-incomplete">草稿</span>
+                <span v-if="sds.is_current" class="tag tag-sds">Currently published</span>
+                <span v-else class="tag tag-incomplete">Draft</span>
                 <span class="sds-confidence" :title="sds.data_source_detail">
-                  可信度: {{ confidenceLabel(sds.data_confidence) }}
+                  Confidence: {{ confidenceLabel(sds.data_confidence) }}
                 </span>
               </div>
               <div class="sds-rev-meta">
-                <span>信号词: {{ sds.signal_word || '—' }}</span>
+                <span>Signal word: {{ sds.signal_word || '—' }}</span>
                 <span>GHS: {{ formatPictograms(sds.pictograms) }}</span>
               </div>
               <div v-if="sds.data_source_detail" class="sds-source">{{ sds.data_source_detail }}</div>
               <div class="sds-rev-actions">
-                <button v-if="!sds.is_current" type="button" class="btn btn-ghost btn-sm" @click="approveSdsRev(sds.id)">审批并发布</button>
-                <button v-if="sds.is_current" type="button" class="btn btn-ghost btn-sm" @click="withdrawSdsRev(sds.id)">撤回</button>
-                <button type="button" class="btn btn-ghost btn-sm" @click="previewSds(sds)">预览</button>
-                <button v-if="sds.pdf_path" type="button" class="btn btn-ghost btn-sm" @click="downloadSds(sds.id)">下载</button>
+                <button v-if="!sds.is_current" type="button" class="btn btn-ghost btn-sm" @click="approveSdsRev(sds.id)">Approve &amp; publish</button>
+                <button v-if="sds.is_current" type="button" class="btn btn-ghost btn-sm" @click="withdrawSdsRev(sds.id)">Withdraw</button>
+                <button type="button" class="btn btn-ghost btn-sm" @click="previewSds(sds)">Preview</button>
+                <button v-if="sds.pdf_path" type="button" class="btn btn-ghost btn-sm" @click="downloadSds(sds.id)">Download</button>
               </div>
             </div>
           </div>
@@ -1865,69 +1865,69 @@ watch(
 
         <!-- 每 SKU 的批次 + COA -->
         <div class="compliance-block" v-if="!complianceLoading">
-          <div class="compliance-block-title"><span>批次 COA</span></div>
-          <div v-if="!skuCompliance.length" class="compliance-empty">该产品暂无批次。</div>
+          <div class="compliance-block-title"><span>Batch COA</span></div>
+          <div v-if="!skuCompliance.length" class="compliance-empty">This product has no batches yet.</div>
           <div v-for="sc in skuCompliance" :key="sc.sku.id" class="sku-coa-group">
             <div class="sku-coa-title">SKU: {{ sc.sku.sku_code || ('#' + sc.sku.id) }}</div>
             <div v-for="item in sc.batches" :key="item.batch.id" class="coa-card">
               <div class="coa-card-head">
-                <span>批次 {{ item.batch.lot_number }}</span>
+                <span>Batch {{ item.batch.lot_number }}</span>
                 <span v-if="item.coa" class="tag" :class="item.coa.status === 'published' ? 'tag-sds' : 'tag-incomplete'">
-                  {{ item.coa.status === 'published' ? '已发布' : '草稿' }}
+                  {{ item.coa.status === 'published' ? 'Published' : 'Draft' }}
                 </span>
-                <span v-else class="tag tag-incomplete">无 COA</span>
+                <span v-else class="tag tag-incomplete">No COA</span>
               </div>
 
               <template v-if="item.coa">
                 <div class="coa-card-meta">
                   <span>Doc: {{ item.coa.doc_id }}</span>
-                  <span>生产: {{ item.coa.produced_at }}</span>
+                  <span>Produced: {{ item.coa.produced_at }}</span>
                 </div>
 
                 <div v-if="qcEditingId === item.coa.id" class="qc-form">
-                  <label>外观实测 <AppInput v-model="qcForms[item.coa.id].appearance_result" style="margin-bottom:0" /></label>
-                  <label>纯度实测 <AppInput v-model="qcForms[item.coa.id].purity_result" style="margin-bottom:0" /></label>
-                  <label>水分实测 <AppInput v-model="qcForms[item.coa.id].water_content_result" style="margin-bottom:0" /></label>
-                  <label>熔点 <AppInput v-model="qcForms[item.coa.id].melting_point" style="margin-bottom:0" /></label>
-                  <label>比旋光度 <AppInput v-model="qcForms[item.coa.id].specific_rotation" style="margin-bottom:0" /></label>
-                  <label>残留溶剂 <AppInput v-model="qcForms[item.coa.id].residual_solvents" style="margin-bottom:0" /></label>
-                  <label>重金属 <AppInput v-model="qcForms[item.coa.id].heavy_metals" style="margin-bottom:0" /></label>
+                  <label>Appearance <AppInput v-model="qcForms[item.coa.id].appearance_result" style="margin-bottom:0" /></label>
+                  <label>Purity <AppInput v-model="qcForms[item.coa.id].purity_result" style="margin-bottom:0" /></label>
+                  <label>Water content <AppInput v-model="qcForms[item.coa.id].water_content_result" style="margin-bottom:0" /></label>
+                  <label>Melting point <AppInput v-model="qcForms[item.coa.id].melting_point" style="margin-bottom:0" /></label>
+                  <label>Specific rotation <AppInput v-model="qcForms[item.coa.id].specific_rotation" style="margin-bottom:0" /></label>
+                  <label>Residual solvents <AppInput v-model="qcForms[item.coa.id].residual_solvents" style="margin-bottom:0" /></label>
+                  <label>Heavy metals <AppInput v-model="qcForms[item.coa.id].heavy_metals" style="margin-bottom:0" /></label>
                   <label>NMR <AppInput v-model="qcForms[item.coa.id].nmr_result" style="margin-bottom:0" /></label>
                   <label>LC-MS <AppInput v-model="qcForms[item.coa.id].lcms_result" style="margin-bottom:0" /></label>
                   <div class="qc-form-actions">
-                    <button type="button" class="btn btn-primary btn-sm" @click="saveQc(item.coa)">保存实测</button>
-                    <button type="button" class="btn btn-ghost btn-sm" @click="closeQcForm">取消</button>
+                    <button type="button" class="btn btn-primary btn-sm" @click="saveQc(item.coa)">Save measurements</button>
+                    <button type="button" class="btn btn-ghost btn-sm" @click="closeQcForm">Cancel</button>
                   </div>
                 </div>
 
                 <div class="coa-card-actions">
-                  <button v-if="item.coa.status === 'draft'" type="button" class="btn btn-ghost btn-sm" @click="openQcForm(item.coa)">录入实测</button>
-                  <button v-if="item.coa.status === 'draft'" type="button" class="btn btn-ghost btn-sm" @click="approveCoaRev(item.coa)">审批并发布</button>
-                  <button v-if="item.coa.status === 'published'" type="button" class="btn btn-ghost btn-sm" @click="withdrawCoaRev(item.coa)">撤回</button>
-                  <button type="button" class="btn btn-ghost btn-sm" @click="previewCoa(item.coa)">预览</button>
-                  <button v-if="item.coa.pdf_path" type="button" class="btn btn-ghost btn-sm" @click="downloadCoa(item.coa.id)">下载</button>
+                  <button v-if="item.coa.status === 'draft'" type="button" class="btn btn-ghost btn-sm" @click="openQcForm(item.coa)">Enter measurements</button>
+                  <button v-if="item.coa.status === 'draft'" type="button" class="btn btn-ghost btn-sm" @click="approveCoaRev(item.coa)">Approve &amp; publish</button>
+                  <button v-if="item.coa.status === 'published'" type="button" class="btn btn-ghost btn-sm" @click="withdrawCoaRev(item.coa)">Withdraw</button>
+                  <button type="button" class="btn btn-ghost btn-sm" @click="previewCoa(item.coa)">Preview</button>
+                  <button v-if="item.coa.pdf_path" type="button" class="btn btn-ghost btn-sm" @click="downloadCoa(item.coa.id)">Download</button>
                 </div>
               </template>
 
               <template v-else>
                 <div class="coa-card-actions">
-                  <button type="button" class="btn btn-ghost btn-sm" @click="generateCoaForBatch(item.batch)">生成 COA</button>
+                  <button type="button" class="btn btn-ghost btn-sm" @click="generateCoaForBatch(item.batch)">Generate COA</button>
                 </div>
               </template>
             </div>
           <!-- 无批次时显示新建入口 -->
           <div v-if="!sc.batches.length" class="batch-create-form">
-            <label>批次号
-              <AppInput v-model="newBatchForms[sc.sku.id].lot_number" placeholder="例如 B20260709-01" style="margin-bottom:0" />
+            <label>Lot number
+              <AppInput v-model="newBatchForms[sc.sku.id].lot_number" placeholder="e.g. B20260709-01" style="margin-bottom:0" />
             </label>
-            <label>生产日期
+            <label>Production date
               <input v-model="newBatchForms[sc.sku.id].produced_at" type="date" />
             </label>
-            <label>复检日期
+            <label>Retest date
               <input v-model="newBatchForms[sc.sku.id].retest_at" type="date" />
             </label>
             <button type="button" class="btn btn-primary btn-sm" :disabled="creatingBatch" @click="createBatchAndCoa(sc.sku.id)">
-              {{ creatingBatch ? '创建中…' : '生成 COA' }}
+              {{ creatingBatch ? 'Creating…' : 'Generate COA' }}
             </button>
             <span class="sku-code-hint">({{ sc.sku.sku_code }})</span>
           </div>

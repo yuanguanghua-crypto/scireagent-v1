@@ -108,7 +108,7 @@ async function save() {
           <el-select v-model="form.application_id" placeholder="Select application" clearable :disabled="!applications.length" style="width: 100%">
             <el-option v-for="a in applications" :key="a.id" :label="a.name" :value="a.id" />
           </el-select>
-          <span v-if="!applications.length" class="fk-empty">无可选 Application</span>
+          <span v-if="!applications.length" class="fk-empty">No Application available</span>
         </label>
         <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="showEditor = false">Cancel</button>

@@ -21,16 +21,25 @@ def _build_homepage_graph():
     return graph if graph and graph['nodes'] else None
 
 
-SUGGESTED_SEARCHES = [
-    'RNA labeling',
-    'Click chemistry',
-    'NGS library prep',
-    'DNA sequencing',
-    'FISH',
-    'Modified nucleotides',
-    'Fluorescent dyes',
-    'Bioconjugation',
-]
+def get_suggested_searches():
+    """Popular search tags derived from real, searchable application names.
+
+    After the content translation (knowledge 0010) application names are
+    English, so these tags always resolve to at least one grouped result.
+    Falls back to a curated English list when no applications exist.
+    """
+    names = list(
+        Application.objects.filter(status='active')
+        .order_by('-display_priority', 'id')
+        .values_list('name', flat=True)[:8]
+    )
+    if names:
+        return names
+    return [
+        'Fluorescent Labeling', 'Biotin Labeling', 'Click Chemistry Labeling',
+        'PCR/qPCR', 'Sequencing', 'FISH', 'In Vitro Transcription',
+        'RNA/Protein Purification',
+    ]
 
 
 @api_view(['GET'])
@@ -194,7 +203,7 @@ def site_home(request):
             'hero': {
                 'title': 'SciReagent',
                 'subtitle': 'AI-Native Scientific Reagent Platform for Nucleotides & Click Chemistry',
-                'suggested_searches': SUGGESTED_SEARCHES,
+                'suggested_searches': get_suggested_searches(),
             },
             'stats': stats_payload,
             'categories': categories_payload,

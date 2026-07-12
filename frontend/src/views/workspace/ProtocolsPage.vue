@@ -106,7 +106,7 @@ async function save() {
           <el-select v-model="form.method_id" placeholder="Select method" clearable :disabled="!methods.length" style="width: 100%">
             <el-option v-for="m in methods" :key="m.id" :label="m.name" :value="m.id" />
           </el-select>
-          <span v-if="!methods.length" class="fk-empty">无可选 Method</span>
+          <span v-if="!methods.length" class="fk-empty">No Method available</span>
         </label>
         <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="showEditor = false">Cancel</button>

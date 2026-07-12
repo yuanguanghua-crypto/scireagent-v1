@@ -49,7 +49,7 @@ const activeTabLabel = computed(() => {
 async function runActiveTab() {
   // 新建页（无 productId）必须先填产品名才能调用 unsaved 端点
   if (!props.productId && !props.productName) {
-    errorMsg.value = '请先填写产品名，再运行 AI 工具'
+    errorMsg.value = 'Enter a product name before running AI tools'
     return
   }
   loading.value = true

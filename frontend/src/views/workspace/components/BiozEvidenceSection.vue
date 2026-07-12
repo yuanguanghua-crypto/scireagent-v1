@@ -65,28 +65,28 @@ defineExpose({
 <template>
   <div v-if="shouldRender" class="bioz-section pubchem-preview">
     <div class="bioz-header">
-      <h4 class="bioz-title">📚 Bioz 文献证据</h4>
+      <h4 class="bioz-title">📚 Bioz Literature Evidence</h4>
       <button
         v-if="!isError && refs.length"
         type="button"
         class="btn btn-primary btn-sm bioz-adopt-all"
         :disabled="!canAdopt || adoptingAll || adoptedSet.size >= refs.length"
-        :title="!canAdopt ? '先保存产品再落库' : ''"
+        :title="!canAdopt ? 'Save the product before adopting' : ''"
         @click="adoptAll"
-      >{{ adoptingAll ? '落库中…' : `Adopt all (${refs.length})` }}</button>
+      >{{ adoptingAll ? 'Adopting…' : `Adopt all (${refs.length})` }}</button>
     </div>
 
     <!-- 错误态 -->
-    <p v-if="isError" class="bioz-err">Bioz 查询失败：{{ bioz.error }}</p>
+    <p v-if="isError" class="bioz-err">Bioz query failed: {{ bioz.error }}</p>
 
     <!-- 正常态 -->
     <template v-else>
       <div class="bioz-meta">
         <span class="equiv-badge" :class="equivClass">equivalence: {{ bioz.equivalence || '—' }}</span>
-        <span class="bioz-total">共 {{ bioz.total ?? 0 }} 篇文献</span>
+        <span class="bioz-total">{{ bioz.total ?? 0 }} references total</span>
       </div>
       <div v-if="bioz.needs_review" class="bioz-warn">
-        ⚠ 该证据需人工复核 — 依据厂商+货号查询，CAS 不可用，可能存在供应商/批次偏差
+        ⚠ This evidence requires manual review — queried by vendor + catalog no.; CAS unavailable, vendor/lot variance possible
       </div>
       <p v-if="bioz.disclaimer" class="bioz-disclaimer">{{ bioz.disclaimer }}</p>
 
@@ -120,24 +120,24 @@ defineExpose({
               :href="`/references/${r.ref_id}`"
               target="_blank"
               class="bioz-linked"
-              title="已落库到知识库"
-            >✓ 已关联 #{{ r.ref_id }}</a>
+              title="Stored in knowledge base"
+            >✓ Linked #{{ r.ref_id }}</a>
             <button
               v-else-if="!isAdopted(i)"
               type="button"
               class="btn btn-ghost btn-sm bioz-adopt-one"
               :disabled="!canAdopt"
-              :title="!canAdopt ? '先保存产品再落库' : ''"
+              :title="!canAdopt ? 'Save the product before adopting' : ''"
               @click.stop="adoptOne(i)"
             >Adopt</button>
-            <span v-else class="bioz-adopted">✓ 已落库</span>
+            <span v-else class="bioz-adopted">✓ Stored</span>
           </div>
         </div>
-        <p v-if="refs.length > 5" class="bioz-more">… 还有 {{ refs.length - 5 }} 篇（P1 仅预览前 5 条，Adopt all 落库全部）</p>
+        <p v-if="refs.length > 5" class="bioz-more">… {{ refs.length - 5 }} more (P1 previews only the first 5; Adopt all stores all)</p>
       </div>
-      <p v-else class="bioz-empty">Bioz 查询成功但无文献记录</p>
+      <p v-else class="bioz-empty">Bioz query succeeded but returned no records</p>
 
-      <p v-if="!canAdopt" class="bioz-nosave-hint">先保存产品后再 Adopt 文献</p>
+      <p v-if="!canAdopt" class="bioz-nosave-hint">Save the product before adopting references</p>
     </template>
   </div>
 </template>

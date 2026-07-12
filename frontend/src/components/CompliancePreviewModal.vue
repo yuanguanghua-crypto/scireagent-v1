@@ -44,8 +44,8 @@ watch(
   <div v-if="visible" class="preview-overlay" @click.self="close">
     <div class="preview-dialog" role="dialog" aria-modal="true">
       <div class="preview-header">
-        <h3>{{ type === 'sds' ? 'SDS 实时预览' : 'COA 实时预览' }}</h3>
-        <button class="preview-close" type="button" @click="close" aria-label="关闭">✕</button>
+        <h3>{{ type === 'sds' ? 'SDS Live Preview' : 'COA Live Preview' }}</h3>
+        <button class="preview-close" type="button" @click="close" aria-label="Close">✕</button>
       </div>
       <div class="preview-body">
         <iframe ref="frame" :src="previewUrl" @load="onLoad" title="document preview"></iframe>

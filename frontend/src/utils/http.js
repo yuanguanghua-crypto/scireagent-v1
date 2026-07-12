@@ -58,7 +58,7 @@ function extractErrorMessage(data) {
   if (data?.detail) return data.detail
   if (data?.message) return data.message
   // 4) 通用兜底文案
-  return '操作失败'
+  return 'Action failed'
 }
 
 // Response interceptor
@@ -94,7 +94,7 @@ http.interceptors.response.use(
 
     // 其余错误优先透传后端真实错误消息（含 403/404/5xx 等）
     const message = extractErrorMessage(error.response?.data)
-    ElMessage.error(message || '操作失败')
+    ElMessage.error(message || 'Action failed')
     return Promise.reject(error)
   }
 )

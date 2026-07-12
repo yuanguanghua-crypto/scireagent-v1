@@ -325,8 +325,8 @@ async function confirmArchive() {
     await refreshProducts()
     showArchiveDialog.value = false
     selectedIds.value = new Set()
-    if (fail === 0) toast.success(`已下架 ${ok} 个产品`)
-    else toast.warning(`已下架 ${ok} 个，失败 ${fail} 个`)
+    if (fail === 0) toast.success(`Archived ${ok} products`)
+    else toast.warning(`Archived ${ok}, failed ${fail}`)
   } finally {
     archiveLoading.value = false
   }
@@ -336,9 +336,9 @@ async function reactivate(product) {
   try {
     await reactivateProduct(product.id)
     await refreshProducts()
-    toast.success(`「${product.name}」已重新上架`)
+    toast.success(`${product.name} republished`)
   } catch (e) {
-    toast.error('重新上架失败: ' + (e.response?.data?.meta?.error?.message || e.message))
+    toast.error('Republish failed: ' + (e.response?.data?.meta?.error?.message || e.message))
   }
   closeMenu()
 }
@@ -360,8 +360,8 @@ async function confirmDelete() {
     await refreshProducts()
     showDeleteDialog.value = false
     selectedIds.value = new Set()
-    if (fail === 0) toast.success(`已删除 ${ok} 个产品`)
-    else toast.warning(`已删除 ${ok} 个，失败 ${fail} 个`)
+    if (fail === 0) toast.success(`Deleted ${ok} products`)
+    else toast.warning(`Deleted ${ok}, failed ${fail}`)
   } finally {
     deleteLoading.value = false
   }
@@ -384,8 +384,8 @@ async function confirmDelete() {
         <span class="filter-count">{{ filteredProducts.length }} products</span>
         <template v-if="selectedCount > 0">
           <button class="btn btn-ghost btn-sm" @click="openBatchLink">Batch Link</button>
-          <button class="btn btn-ghost btn-sm" @click="openBatchArchive">批量下架</button>
-          <button class="btn btn-danger-ghost btn-sm" @click="openBatchDelete">批量删除</button>
+          <button class="btn btn-ghost btn-sm" @click="openBatchArchive">Batch archive</button>
+          <button class="btn btn-danger-ghost btn-sm" @click="openBatchDelete">Batch delete</button>
         </template>
         <router-link to="/workspace/products/new" class="btn btn-primary btn-sm" style="margin-left: auto">+ New Product</router-link>
       </div>
@@ -402,7 +402,7 @@ async function confirmDelete() {
             <th>Complete</th>
             <th class="sortable" @click="toggleSort('status')">Status{{ sortIcon('status') }}</th>
             <th class="sortable" @click="toggleSort('category_l1')">Category{{ sortIcon('category_l1') }}</th>
-            <th>合规</th>
+            <th>Compliance</th>
             <th class="col-action"></th>
           </tr>
         </thead>
@@ -419,16 +419,16 @@ async function confirmDelete() {
             <td><span class="status-tag" :class="`status-${p.status}`">{{ p.status }}</span></td>
             <td>{{ p.product_class_name || p.category_l1 || '—' }}</td>
             <td class="col-compliance">
-              <span class="tag" :class="p.sds_published ? 'tag-sds' : 'tag-gray'" :title="p.sds_published ? 'SDS 已发布' : 'SDS 未发布'">SDS{{ p.sds_published ? '✓' : '—' }}</span>
-              <span class="tag" :class="(p.coa_published_count || 0) > 0 ? 'tag-coa' : 'tag-gray'" :title="`已发布 COA 批次数: ${p.coa_published_count || 0}`">COA {{ p.coa_published_count || 0 }}</span>
+              <span class="tag" :class="p.sds_published ? 'tag-sds' : 'tag-gray'" :title="p.sds_published ? 'SDS published' : 'SDS not published'">SDS{{ p.sds_published ? '✓' : '—' }}</span>
+              <span class="tag" :class="(p.coa_published_count || 0) > 0 ? 'tag-coa' : 'tag-gray'" :title="`Published COA batches: ${p.coa_published_count || 0}`">COA {{ p.coa_published_count || 0 }}</span>
             </td>
             <td class="col-action row-actions" @click.stop>
-              <button class="menu-trigger" @click="toggleMenu(p.id)">操作 ▾</button>
+              <button class="menu-trigger" @click="toggleMenu(p.id)">Actions ▾</button>
               <div v-if="openMenuId === p.id" class="menu-popover">
-                <button class="menu-item" @click="goToProduct(p.id); closeMenu()">编辑</button>
-                <button v-if="p.status !== 'archived'" class="menu-item" @click="openArchiveOne(p)">下架</button>
-                <button v-else class="menu-item" @click="reactivate(p)">重新上架</button>
-                <button class="menu-item menu-item--danger" @click="openDeleteOne(p)">删除</button>
+                <button class="menu-item" @click="goToProduct(p.id); closeMenu()">Edit</button>
+                <button v-if="p.status !== 'archived'" class="menu-item" @click="openArchiveOne(p)">Archive</button>
+                <button v-else class="menu-item" @click="reactivate(p)">Republish</button>
+                <button class="menu-item menu-item--danger" @click="openDeleteOne(p)">Delete</button>
               </div>
             </td>
           </tr>
@@ -461,19 +461,19 @@ async function confirmDelete() {
     <!-- Archive confirm dialog -->
     <div v-if="showArchiveDialog" ref="archiveOverlay" class="dialog-overlay" v-bind="archiveAttrs" @click.self="showArchiveDialog = false">
       <div class="dialog">
-        <h3 id="archive-title">确认下架</h3>
-        <p class="dialog-sub">下架后产品在前台不可见，但保留全部数据与历史订单关联，可随时重新上架。</p>
+        <h3 id="archive-title">Confirm archive</h3>
+        <p class="dialog-sub">After archiving, the product is hidden from the storefront but all data and order history are kept; you can republish at any time.</p>
         <div class="archive-list">
-          <p>将下架 <strong>{{ archiveTargets.length }}</strong> 个产品：</p>
+          <p>Will archive <strong>{{ archiveTargets.length }}</strong> products:</p>
           <ul>
             <li v-for="t in archiveTargets.slice(0, 8)" :key="t.id">{{ t.name }}</li>
-            <li v-if="archiveTargets.length > 8">…还有 {{ archiveTargets.length - 8 }} 个</li>
+            <li v-if="archiveTargets.length > 8">… {{ archiveTargets.length - 8 }} more</li>
           </ul>
         </div>
         <div class="dialog-actions">
-          <button class="btn btn-ghost" @click="showArchiveDialog = false">取消</button>
+          <button class="btn btn-ghost" @click="showArchiveDialog = false">Cancel</button>
           <button class="btn btn-primary" @click="confirmArchive" :disabled="archiveLoading">
-            {{ archiveLoading ? '下架中...' : '确认下架' }}
+            {{ archiveLoading ? 'Archiving…' : 'Confirm archive' }}
           </button>
         </div>
       </div>
@@ -482,32 +482,32 @@ async function confirmDelete() {
     <!-- Delete confirm dialog -->
     <div v-if="showDeleteDialog" ref="deleteOverlay" class="dialog-overlay" v-bind="deleteAttrs" @click.self="showDeleteDialog = false">
       <div class="dialog">
-        <h3 id="delete-title">确认删除</h3>
+        <h3 id="delete-title">Confirm delete</h3>
         <div class="dialog-warn" role="alert">
-          <p><strong>此操作不可恢复。</strong>删除将连带清除该产品的 SKU、文档、知识关联与购物车引用；历史订单记录会保留但商品将变为空。</p>
+          <p><strong>This action cannot be undone.</strong> Deleting also removes the product's SKUs, documents, knowledge links and cart references; historical order records are kept but the item becomes empty.</p>
         </div>
         <template v-if="deleteTarget?.batch">
-          <p>将永久删除 <strong>{{ deleteTarget.batch.length }}</strong> 个产品：</p>
+          <p>Will permanently delete <strong>{{ deleteTarget.batch.length }}</strong> products:</p>
           <ul class="delete-list">
             <li v-for="t in deleteTarget.batch.slice(0, 8)" :key="t.id">{{ t.name }}</li>
-            <li v-if="deleteTarget.batch.length > 8">…还有 {{ deleteTarget.batch.length - 8 }} 个</li>
+            <li v-if="deleteTarget.batch.length > 8">… {{ deleteTarget.batch.length - 8 }} more</li>
           </ul>
         </template>
         <template v-else>
-          <p>将永久删除产品：<strong>{{ deleteTarget?.name }}</strong></p>
+          <p>Will permanently delete product: <strong>{{ deleteTarget?.name }}</strong></p>
         </template>
         <label class="confirm-check">
           <input type="checkbox" v-model="deleteConfirmChecked" />
-          我已了解上述后果，确认永久删除
+          I understand the consequences and confirm permanent deletion
         </label>
         <div class="dialog-actions">
-          <button class="btn btn-ghost" @click="showDeleteDialog = false">取消</button>
+          <button class="btn btn-ghost" @click="showDeleteDialog = false">Cancel</button>
           <button
             class="btn btn-danger"
             @click="confirmDelete"
             :disabled="deleteLoading || !deleteConfirmChecked"
           >
-            {{ deleteLoading ? '删除中...' : '永久删除' }}
+            {{ deleteLoading ? 'Deleting…' : 'Permanently delete' }}
           </button>
         </div>
       </div>

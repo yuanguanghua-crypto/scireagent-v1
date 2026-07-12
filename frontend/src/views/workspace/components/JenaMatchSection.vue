@@ -27,11 +27,11 @@ const hasFillable = computed(() => normalizedEntries.value.length > 0)
 
 <template>
   <div v-if="jena" class="jena-section pubchem-preview">
-    <h4 class="jena-title">🧪 Jena 规格匹配</h4>
+    <h4 class="jena-title">🧪 Jena Spec Match</h4>
 
     <!-- 命中：凭证表 + 归一化规格表 -->
     <template v-if="matched">
-      <p class="jena-match-key">命中 ({{ jena.match_key }})</p>
+      <p class="jena-match-key">Matched ({{ jena.match_key }})</p>
       <table class="jena-table">
         <tr><td>Catalog No:</td><td class="prop-highlight">{{ jena.catalog_no || '—' }}</td></tr>
         <tr><td>Product Name:</td><td>{{ jena.product_name || '—' }}</td></tr>
@@ -40,7 +40,7 @@ const hasFillable = computed(() => normalizedEntries.value.length > 0)
       </table>
 
       <div v-if="normalizedEntries.length" class="jena-norm">
-        <div class="jena-norm-title">归一化规格（可填入表单）</div>
+        <div class="jena-norm-title">Normalized specs (fillable into form)</div>
         <table>
           <tr v-for="e in normalizedEntries" :key="e.key">
             <td>{{ e.label }}:</td>
@@ -54,12 +54,12 @@ const hasFillable = computed(() => normalizedEntries.value.length > 0)
         type="button"
         class="btn btn-ghost btn-sm jena-apply-btn"
         @click="emit('apply')"
-      >仅填空字段 Apply</button>
-      <span v-if="hasFillable" class="form-hint" style="margin-left:8px">不覆盖已填字段</span>
+      >Apply empty fields only</button>
+      <span v-if="hasFillable" class="form-hint" style="margin-left:8px">Does not overwrite filled fields</span>
     </template>
 
     <!-- 未命中 -->
-    <p v-else class="jena-miss">jena 索引未匹配 — 无法获取规格凭证与 Bioz 文献</p>
+    <p v-else class="jena-miss">Jena index not matched — cannot retrieve spec credentials or Bioz references</p>
   </div>
 </template>
 
