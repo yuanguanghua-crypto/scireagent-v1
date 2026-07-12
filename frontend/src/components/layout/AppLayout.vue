@@ -19,12 +19,13 @@ const isWorkspace = () => route.path.startsWith('/workspace')
 const isHome = () => route.path === '/'
 
 // 匿名用户在 public 页面会渲染固定浮层 PublicNav（position:fixed, 高 68px）。
-// quote-request 内容区顶部留白不足会被遮挡，故在此补上顶部间距。
-const needsNavPad = () => !authStore.isAuthenticated && isPublicPage() && route.path === '/quote-request'
+// quote-request / search 等内容区顶部留白不足会被遮挡，故在此补上顶部间距。
+const NAV_PAD_PAGES = ['/quote-request', '/search']
+const needsNavPad = () => !authStore.isAuthenticated && isPublicPage() && NAV_PAD_PAGES.includes(route.path)
 </script>
 
 <template>
-  <div class="app-layout" :class="{ 'layout-workspace': isWorkspace(), 'home-layout': isHome() }">
+  <div class="app-layout" :class="{ 'layout-workspace': isWorkspace(), 'home-layout': isHome(), 'public-nav-pad': needsNavPad() }">
     <!-- Public pages for anonymous visitors: transparent fixed-top nav.
          Logged-in users on public pages get the full AppHeader (avatar + cart badge + menu). -->
     <PublicNav v-if="!authStore.isAuthenticated && isPublicPage()" />

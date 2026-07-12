@@ -41,15 +41,40 @@ def _build_vector(columns):
 
 
 def _search_products_fts(q, limit=10):
-    """PostgreSQL FTS with ranking — computed at query time."""
+    """PostgreSQL FTS with ranking — computed at query time.
+
+    Supplements with substring (icontains) matches on ``catalog_no``/``cas``/
+    ``name`` when the FTS hit count is below ``limit``. FTS matches whole
+    tokens only, so a fragment like ``8003`` (inside ``SC8003``) would
+    otherwise never match — the substring fallback covers that case.
+    """
     query = SearchQuery(q)
     vector = _build_vector(_PRODUCT_SEARCH_COLS)
-    return list(
+    fts = list(
         Product.objects.annotate(search=vector, score=SearchRank(vector, query))
         .filter(search=query)
         .order_by('-score')
         .values('id', 'name', 'slug', 'catalog_no', 'cas', 'formula', 'score')[:limit]
     )
+    if len(fts) >= limit:
+        return fts
+    # Supplement with substring matches not already present in the FTS results.
+    seen = {r['id'] for r in fts}
+    ql = q.lower()
+    supp = Product.objects.filter(
+        Q(catalog_no__icontains=q) | Q(cas__icontains=q) | Q(name__icontains=q)
+    ).exclude(id__in=seen).values(
+        'id', 'name', 'slug', 'catalog_no', 'cas', 'formula'
+    )[: limit - len(fts)]
+    for p in supp:
+        if ql in (p['catalog_no'] or '').lower():
+            score = 0.6
+        elif ql in (p['cas'] or '').lower():
+            score = 0.55
+        else:
+            score = 0.5
+        fts.append({**p, 'score': score})
+    return fts
 
 
 def _search_products_icontains(q, limit=10):
