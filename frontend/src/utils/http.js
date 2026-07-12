@@ -1,8 +1,13 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
+// 运行时基地址：Cloudflare Pages 部署时通过 public/runtime-config.js 注入。
+// 留空或仍为占位符时走同源相对路径（本地 dev proxy / 同域后端）。
+const RT = (typeof window !== 'undefined' && window.__RUNTIME_CONFIG__) || {}
+const API_BASE_URL = RT.API_BASE_URL && RT.API_BASE_URL !== '__BACKEND_API_BASE__' ? RT.API_BASE_URL : '/api/v1'
+
 const http = axios.create({
-  baseURL: '/api/v1',
+  baseURL: API_BASE_URL,
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
