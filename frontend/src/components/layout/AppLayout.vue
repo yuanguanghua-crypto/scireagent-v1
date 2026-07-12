@@ -17,6 +17,10 @@ const isWorkspace = () => route.path.startsWith('/workspace')
 
 // Home is a full-bleed marketing page (dark hero under transparent/white nav) — no content padding
 const isHome = () => route.path === '/'
+
+// 匿名用户在 public 页面会渲染固定浮层 PublicNav（position:fixed, 高 68px）。
+// quote-request 内容区顶部留白不足会被遮挡，故在此补上顶部间距。
+const needsNavPad = () => !authStore.isAuthenticated && isPublicPage() && route.path === '/quote-request'
 </script>
 
 <template>
@@ -69,6 +73,12 @@ const isHome = () => route.path === '/'
    Inner sections (.home > .content-area) keep their own max-width + padding. */
 .home-layout .content-area {
   padding: 0;
+}
+
+/* 匿名 public 页面（PublicNav 固定浮层）下，为内容区补足顶部间距，
+   避免固定导航遮挡页面标题（如 /quote-request 的 "Request a Quote"）。 */
+.public-nav-pad .content-area {
+  padding-top: 72px;
 }
 
 @media (max-width: 768px) {
