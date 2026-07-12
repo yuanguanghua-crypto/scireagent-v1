@@ -12,3 +12,10 @@ staticfiles/
 dist/
 *.md
 .pytest_cache/
+
+# 大本地数据集：不进镜像（构建期排除；运行时按需下载或挂载卷）
+# - BioProCorpus 约 514MB，仅在设置 DOWNLOAD_BIOPROC=1 且 DATASET_BASE_URL 时启动期拉取
+# - jena 目录整体排除，但例外保留核心 3MB JSONL（让 AI AUTO MATCH 默认可用）
+backend/data/bioprocorpus/
+backend/data/jena/*
+!backend/data/jena/jena_products_v2.jsonl

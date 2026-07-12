@@ -41,6 +41,30 @@
 
 ---
 
+## 1.1 大本地数据集（jena / bioprocorpus）处理
+
+后端依赖两个本地语料，均已由 `.gitignore` 排除、**不进 GitHub**；且 Docker 构建也不打进镜像（`.dockerignore` 排除），避免镜像膨胀/构建超时。两者在**文件缺失时均静默降级为空索引（不崩溃）**，仅影响个别 AI 功能：
+
+| 数据集 | 大小 | 用途 | 缺失时影响 | 部署策略 |
+|--------|------|------|------------|----------|
+| `backend/data/jena/jena_products_v2.jsonl` | ~3MB | AI AUTO MATCH 标识符匹配 | 无匹配建议，其余正常 | **bake 进镜像**（已加 `.gitignore`/`.dockerignore` 例外） |
+| `backend/data/bioprocorpus/` | ~514MB | 协议推荐 / 文献推荐检索语料 | 推荐/文献接口返回空，浏览/加购/下单正常 | **不进镜像**；按需启动期下载 |
+
+### BioProCorpus 按需下载（可选，默认不下载）
+仅在需要「协议推荐 / 文献推荐」功能时开启。HF Space Secrets / 容器环境变量设置：
+```
+DOWNLOAD_BIOPROC=1
+DATASET_BASE_URL=https://<你的对象存储>/bioprocorpus/      # 指向 .tar.gz 或 manifest.txt 目录
+# 或：HF_DATASET_REPO=youruser/bioprocorpus                # 用 huggingface_hub 拉取
+```
+- entrypoint 在迁移前调用 `scripts/download_bioprocorpus.py`：目录非空则跳过；下载失败仅告警、功能降级。
+- 数据源需你自行托管（S3 / Supabase Storage / GitHub Release / HF dataset）。**本项目不提供托管 URL**——这是你的大文件，请放到你能控制的位置。
+- 若不设 `DOWNLOAD_BIOPROC=1`：镜像不含该 514MB，启动快、体积小；协议推荐接口返回空，同事测试网站其余功能完全无碍。
+
+> 测试阶段建议**先不下载** BioProCorpus（绝大多数功能点不受影响），等需要专门验证协议推荐时再开。jena 已随镜像内置，AI AUTO MATCH 默认可用。
+
+---
+
 ## 2. 前置账号（全部免费，需自行注册）
 
 | 平台 | 用途 | 获取 |

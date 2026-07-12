@@ -22,11 +22,13 @@ static_collected/
 .env
 local_settings.py
 
-# BioProCorpus 协议语料库（大文件，可重新下载：scripts/download_bioprocorpus.py）
+# BioProCorpus 协议语料库（大文件 ~514MB，不进仓库；部署时按需在容器启动期下载，见 scripts/download_bioprocorpus.py）
 backend/data/bioprocorpus/
 
 # jena 产品数据集（大文件，来源于 WorkBuddy jena_scraper 项目）
-backend/data/jena/
+backend/data/jena/*
+# 例外：jena 核心 JSONL 仅 3MB，纳入仓库随镜像发布，使 AI AUTO MATCH 默认可用
+!backend/data/jena/jena_products_v2.jsonl
 
 # Node
 node_modules/

@@ -32,6 +32,18 @@ fi
 # --- 3) 生产环境强制关闭 DEBUG ---
 export DEBUG=False
 
+# --- 4) 可选下载大语料 BioProCorpus（约 514MB，不进镜像）。
+#   仅当显式设置 DOWNLOAD_BIOPROC=1 并提供 DATASET_BASE_URL / HF_DATASET_REPO 时拉取。
+#   未下载时协议推荐/文献推荐接口静默返回空（见 protocol_recommender.py）。
+if [ "${DOWNLOAD_BIOPROC:-0}" = "1" ]; then
+  if [ -n "${DATASET_BASE_URL:-}" ] || [ -n "${HF_DATASET_REPO:-}" ]; then
+    echo ">> DOWNLOAD_BIOPROC=1：拉取 BioProCorpus 语料..."
+    python scripts/download_bioprocorpus.py || echo ">> 警告：BioProCorpus 下载失败，相关功能将降级。"
+  else
+    echo ">> DOWNLOAD_BIOPROC=1 但未提供 DATASET_BASE_URL/HF_DATASET_REPO，跳过。"
+  fi
+fi
+
 echo ">> Running database migrations..."
 python manage.py migrate --noinput
 
