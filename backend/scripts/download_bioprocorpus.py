@@ -26,7 +26,10 @@ logger = logging.getLogger("download_bioprocorpus")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BACKEND_DIR = os.path.dirname(HERE)
-TARGET_DIR = os.path.join(BACKEND_DIR, "data", "bioprocorpus")
+DEFAULT_DIR = os.path.join(BACKEND_DIR, "data", "bioprocorpus")
+# 优先使用 BIOPROCORPUS_DIR，使其与运行时加载路径（protocol_recommender.py）一致：
+# 无论「一次性上传到持久盘」还是「启动期下载」，写盘与读盘都指向同一目录。
+TARGET_DIR = os.environ.get("BIOPROCORPUS_DIR", DEFAULT_DIR)
 
 
 def main() -> int:
