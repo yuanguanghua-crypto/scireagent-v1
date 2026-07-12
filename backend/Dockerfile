@@ -22,6 +22,9 @@ COPY . .
 # Collect static files at BUILD time.
 # Use the development settings (SQLite-capable, no required SECRET_KEY/DATABASE_URL)
 # so the build does not need production secrets. Runtime uses production settings.
+# DB_ENGINE=sqlite 让 base.py 走开发密钥回退（避免构建期因缺 SECRET_KEY 报错），
+# 运行期由 compose 的 environment 覆盖为 postgresql。
+ENV DB_ENGINE=sqlite
 ENV DJANGO_SETTINGS_MODULE=config.settings.development
 RUN python manage.py collectstatic --noinput
 ENV DJANGO_SETTINGS_MODULE=config.settings.production
