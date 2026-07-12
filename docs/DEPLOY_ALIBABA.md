@@ -213,3 +213,73 @@ docker compose down               # 停止（数据卷保留）
 | 适用 | 必要后台模块 + 少量内部用户 | 纯静态/无重数据的轻量 demo |
 
 HF 免费方案仍保留在 `docs/DEPLOY_FREE_PLAN.md` 作为零成本备选。
+
+---
+
+## 11. 内部访问限制（HTTP Basic Auth，推荐用于测试期）
+
+> 场景：域名做公网 A 记录，但**只允许内部测试人员访问**，不对公众开放。
+> 做法：在 Nginx 层加 HTTP Basic Auth，访问网站时弹出浏览器账号密码框，输对才放行。
+> 优点：不修改任何应用代码、可随时增删账号、对国内外同事都友好。
+
+### 11.1 配置已内置
+
+- `deploy/nginx.conf` 的 80 与 443 server 段均已加：
+  ```nginx
+  auth_basic "SciReAgent Internal Test";
+  auth_basic_user_file /etc/nginx/.htpasswd;
+  ```
+- `docker-compose.yml` 的 nginx 服务已挂载 `./deploy/.htpasswd:/etc/nginx/.htpasswd:ro`。
+- `certbot` 域名验证路径 `/.well-known/acme-challenge/` 已设 `auth_basic off`，不影响 HTTPS 证书申请/续期。
+
+### 11.2 部署前必须先生成密码文件
+
+> ⚠️ **重要**：`auth_basic_user_file` 指向的文件若不存在，nginx 容器会启动失败。
+> 所以在 `docker compose up` **之前**，务必先在服务器上生成 `deploy/.htpasswd`。
+
+在服务器（Ubuntu）的仓库根目录执行，按提示输入密码（6 人就 init 1 次 + add 5 次）：
+
+```bash
+# 第一个账号（会新建 .htpasswd）
+bash deploy/generate-htpasswd.sh init alice
+# 其余 5 人
+bash deploy/generate-htpasswd.sh add bob
+bash deploy/generate-htpasswd.sh add carol
+bash deploy/generate-htpasswd.sh add dave
+bash deploy/generate-htpasswd.sh add erin
+bash deploy/generate-htpasswd.sh add frank
+```
+
+脚本用 `openssl passwd -apr1` 生成标准哈希，权限自动设为 `600`。
+（`.htpasswd` 已被 `.gitignore` 忽略，不会进仓库。）
+
+### 11.3 启动与验证
+
+```bash
+docker compose up -d --build
+docker compose ps            # nginx 应为 running（之前已生成 .htpasswd 才不会报错）
+```
+
+浏览器打开你的域名 → 弹出账号密码框 → 输入 alice 的账号密码 → 进入网站。
+未输入或输错会显示 `401 Authorization Required`。
+
+### 11.4 日常管理
+
+| 操作 | 命令 |
+|---|---|
+| 新增账号 | `bash deploy/generate-htpasswd.sh add <用户名>` |
+| 修改某账号密码 | 直接编辑 `deploy/.htpasswd` 删除旧行再 `add`，或装 `apache2-utils` 后 `htpasswd deploy/.htpasswd <用户名>` |
+| 删除账号 | 编辑 `deploy/.htpasswd` 删掉对应行，然后 `docker compose restart nginx` |
+| 临时关闭限制（开放公众） | 注释掉 nginx.conf 的 `auth_basic` 两行并 `docker compose restart nginx`（不推荐测试期这么做） |
+
+### 11.5 与 HTTPS 的关系
+
+启用 443（取消 `deploy/nginx.conf` 末尾注释段）后，Basic Auth 同样生效；
+申请证书仍用第 7 节的 `certbot certonly --webroot` 命令，因 `/.well-known/acme-challenge/` 已免认证，不受影响。
+
+### 11.6 备选限制方式（如需更严格）
+
+- **IP 白名单**：在 `deploy/nginx.conf` 的 server 段加 `allow 1.2.3.4; deny all;`（放在 `auth_basic` 之前或替代它）。适合测试人员有固定办公 IP；IP 变动需改配置。
+- **阿里云安全组白名单**：ECS 防火墙只放行指定源 IP 的 80/443。与 IP 白名单同弊端，但在服务器之外生效。
+- 这几种方式可叠加（Basic Auth + IP 白名单同时用）。
+

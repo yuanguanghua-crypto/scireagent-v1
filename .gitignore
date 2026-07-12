@@ -90,3 +90,7 @@ screenshot.jpg
 
 # 单机全栈部署：compose 绑定挂载的主机数据目录（bioprocorpus 一次性上传至此，不入库）
 /data/
+
+# Basic Auth 密码文件（含哈希，不入库；由 deploy/generate-htpasswd.sh 生成）
+deploy/.htpasswd
+deploy/.htpasswd.*

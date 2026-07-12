@@ -62,6 +62,7 @@ services:
       - static_volume:/usr/share/nginx/static:ro          # 后端 collectstatic 产出
       - media_volume:/usr/share/nginx/media:ro            # 用户上传媒体
       - ./deploy/certbot/conf:/etc/letsencrypt:ro         # HTTPS 证书（certbot 申请后挂载）
+      - ./deploy/.htpasswd:/etc/nginx/.htpasswd:ro         # Basic Auth 账号（由 generate-htpasswd.sh 生成）
     depends_on:
       - backend
 
