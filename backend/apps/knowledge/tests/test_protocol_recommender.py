@@ -8,6 +8,7 @@ from apps.commerce.tests.factories import ProductFactory
 from apps.knowledge.services.protocol_recommender import (
     BioProCorpusIndexer, ProtocolRetriever, ProtocolRecommender,
     get_shared_recommender, get_shared_retriever,
+    expand_protocol_query, _merge_results,
 )
 
 
@@ -158,3 +159,69 @@ class SharedSingletonTest(TestCase):
     def test_shared_recommender_reuses_shared_retriever(self):
         """recommender 单例复用 retriever 单例（共享同一份索引）"""
         self.assertIs(get_shared_recommender().retriever, get_shared_retriever())
+
+
+class ProtocolQueryExpansionTest(TestCase):
+    """TDD #4：协议查询扩展增强。
+
+    原始 search 只拿产品名整体检索，冷门精确名（如 5-Propargylamino-CTP）
+    常返回 0。扩展：产品名碎片化（CTP / Propargyl）+ jena 分类路径领域关键词
+    （nucleotide / labeling / click chemistry）+ 同义词，多查询合并去重。
+    """
+
+    def test_expand_includes_name_and_fragments(self):
+        """扩展包含原始名 + 碎片化有意义的片段（CTP 等）"""
+        qs = expand_protocol_query("5-Propargylamino-CTP")
+        self.assertIn("5-Propargylamino-CTP", qs)
+        self.assertIn("CTP", qs)
+        self.assertTrue(any("propargyl" in q.lower() for q in qs), "fragment 'propargyl' missing")
+
+    def test_expand_from_category_path_keywords(self):
+        """从 jena 分类路径抽取领域关键词（nucleotide / labeling）"""
+        path = ("Probes & Epigenetics | RNA/cRNA Labeling | "
+                "Amine-modified Nucleotides | 5-Propargylamino-CTP")
+        qs = expand_protocol_query("5-Propargylamino-CTP", category_path=path)
+        self.assertIn("nucleotide", qs)
+        self.assertIn("labeling", qs)
+
+    def test_expand_short_fragments_dropped(self):
+        """过短/无意义片段（'5'、'd'）应被丢弃，避免噪声"""
+        qs = expand_protocol_query("5-dX")
+        self.assertNotIn("5", qs)
+        self.assertNotIn("d", qs)
+
+    def test_expand_dedup_preserves_order(self):
+        """同义重复（synonyms 与 name 片段相同）应去重"""
+        qs = expand_protocol_query("CTP", synonyms=["ctp", "CTP"])
+        self.assertEqual(qs, ["CTP"])
+
+    def test_merge_dedup_by_id_keeps_max_score(self):
+        """合并：同 id 取最高分，按分降序，截断 top_k"""
+        r1 = [{"id": "p1", "title": "A", "source": "s", "score": 1.0}]
+        r2 = [
+            {"id": "p1", "title": "A", "source": "s", "score": 3.0},
+            {"id": "p2", "title": "B", "source": "s", "score": 2.0},
+        ]
+        merged = _merge_results([r1, r2], top_k=10)
+        self.assertEqual([m["id"] for m in merged], ["p1", "p2"])
+        self.assertEqual(merged[0]["score"], 3.0)
+
+    def test_recommend_expanded_finds_protocols_for_obscure_name(self):
+        """SC8001 这类冷门精确名：扩展后必须能命中协议（原 search 返回 0）"""
+        recommender = ProtocolRecommender()
+        recommender.retriever.indexer._entries = [
+            {"id": "p1", "title": "Click Chemistry Protocol", "source": "Bio-protocol",
+             "text": "Using CTP for click labeling.", "keywords": "click chemistry, CTP"},
+            {"id": "p2", "title": "RNA Labeling", "source": "Bio-protocol",
+             "text": "nucleotide labeling.", "keywords": "RNA"},
+        ]
+        recs = recommender.recommend_expanded(
+            "5-Propargylamino-CTP",
+            category_path=("Probes & Epigenetics | RNA/cRNA Labeling | "
+                           "Amine-modified Nucleotides | 5-Propargylamino-CTP"),
+            top_k=5,
+        )
+        self.assertGreater(len(recs), 0, "expanded query should find protocols for SC8001")
+        for rec in recs:
+            self.assertGreater(rec["score"], 0)
+            self.assertIn("matched_query", rec)

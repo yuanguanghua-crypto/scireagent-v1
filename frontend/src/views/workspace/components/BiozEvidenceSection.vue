@@ -24,9 +24,9 @@ const visibleRefs = computed(() => refs.value)
 
 const equivClass = computed(() => {
   const e = props.bioz?.equivalence
-  if (e === 'strong') return 'equiv-strong'
-  if (e === 'moderate') return 'equiv-moderate'
-  return 'equiv-weak'
+  if (e === 'exact' || e === 'name_match') return 'equiv-strong'
+  if (e === 'weak') return 'equiv-moderate'
+  return 'equiv-weak'   // mismatch 及其他
 })
 
 // 去重 key：优先 doi，其次 pmid，最后 title
@@ -153,6 +153,7 @@ defineExpose({
 .equiv-strong { background: var(--color-success-light); color: var(--color-emerald-800); }
 .equiv-moderate { background: var(--color-warning-light); color: var(--color-amber-800); }
 .equiv-weak { background: var(--color-danger-light); color: var(--color-red-700); }
+html.dark .equiv-badge { color: #fff; }
 .bioz-total { font-size: 12px; color: var(--color-text-secondary); }
 .bioz-warn { background: var(--color-warning-light); border: 1px solid var(--color-amber-500); border-radius: 6px; padding: 6px 10px; font-size: 11px; color: var(--color-amber-800); margin-bottom: 6px; }
 .bioz-disclaimer { font-size: 11px; color: var(--color-text-secondary); margin: 0 0 8px 0; font-style: italic; }

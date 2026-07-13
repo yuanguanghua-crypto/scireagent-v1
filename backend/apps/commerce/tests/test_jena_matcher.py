@@ -153,3 +153,31 @@ class JenaMatcherTest(TestCase):
         self.assertTrue(r["matched"])
         # 命中的 product_name 匹配（N1-Methylpseudo-UTP 没有 CAS 记录）
         self.assertEqual(r["match_key"], "name")
+
+    def test_category_path_returned_for_expansion(self):
+        """match_jena 结果带 raw category_path（供协议查询扩展使用）"""
+        r = jena_matcher.match_jena("1927-31-7", namespace="cas")
+        self.assertTrue(r["matched"])
+        self.assertEqual(r["category_path"], "Nucleotides & Nucleosides|dNTPs")
+
+    def test_stale_cache_without_mapper_version_is_ignored(self):
+        """预修复缓存（无 mapper_version、带错误 slug）必须被忽略并重新查询。
+
+        回归守卫：旧版本 map_category_l1 只取第一段，曾把 SC8001 映射成
+        不存在的 'probes_epigenetics' slug 并写入 30 天缓存。修复后，
+        缺 mapper_version 的缓存项视为失效，强制重查得到正确 L1。
+        """
+        from apps.documents.services.datasource_cache import set_cache
+        stale = {
+            "matched": True,
+            "match_key": "cas",
+            "catalog_no": "NU-1001",
+            # 旧版错误 slug（ProductClass 中不存在）
+            "normalized": {"category_l1": "probes_epigenetics"},
+        }
+        set_cache("jena_match", "1927-31-7", "cas", stale)
+        r = jena_matcher.match_jena("1927-31-7", namespace="cas")
+        self.assertTrue(r["matched"])
+        self.assertEqual(r["normalized"]["category_l1"], "nucleotides_nucleosides")
+        # 新结果必须带 mapper_version，避免下次又被误判为旧缓存
+        self.assertIn("mapper_version", r)

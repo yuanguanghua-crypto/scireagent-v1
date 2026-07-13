@@ -2,10 +2,12 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBasketStore } from '@/stores/basket'
+import { useAuthStore } from '@/stores/auth'
 import { AppButton } from '@/components/common'
 
 const router = useRouter()
 const basketStore = useBasketStore()
+const authStore = useAuthStore()
 const scrolled = ref(false)
 const searchQuery = ref('')
 
@@ -42,6 +44,22 @@ onMounted(() => {
     document.documentElement.classList.add('dark')
   }
 })
+
+// ── User menu (when authenticated) ──
+const userMenuRef = ref(null)
+const showUserMenu = ref(false)
+function toggleUserMenu() { showUserMenu.value = !showUserMenu.value }
+function closeUserMenu() { showUserMenu.value = false }
+function handleClickOutside(e) {
+  if (userMenuRef.value && !userMenuRef.value.contains(e.target)) closeUserMenu()
+}
+async function handleLogout() {
+  closeUserMenu()
+  await authStore.logout()
+  router.push('/')
+}
+onMounted(() => document.addEventListener('click', handleClickOutside))
+onUnmounted(() => document.removeEventListener('click', handleClickOutside))
 </script>
 
 <template>
@@ -104,8 +122,19 @@ onMounted(() => {
             <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
           </svg>
         </button>
-        <AppButton variant="outline" size="sm" to="/login">Sign In</AppButton>
-        <AppButton variant="primary" size="sm" to="/register">Register</AppButton>
+        <template v-if="!authStore.isAuthenticated">
+          <AppButton variant="outline" size="sm" to="/login">Sign In</AppButton>
+          <AppButton variant="primary" size="sm" to="/register">Register</AppButton>
+        </template>
+        <div v-else class="nav-user" ref="userMenuRef">
+          <button type="button" class="nav-btn user-avatar" @click="toggleUserMenu" :title="authStore.username">
+            {{ authStore.userInitial }}
+          </button>
+          <div v-if="showUserMenu" class="nav-user-dropdown">
+            <router-link to="/workspace" class="nav-user-item" @click="closeUserMenu">Workspace</router-link>
+            <button type="button" class="nav-user-item" @click="handleLogout">Sign Out</button>
+          </div>
+        </div>
       </div>
     </div>
   </nav>
@@ -257,4 +286,26 @@ onMounted(() => {
 .public-nav:not(.scrolled) .theme-toggle:hover { color: #fff; background: rgba(255,255,255,0.1); }
 .public-nav.scrolled .theme-toggle { color: var(--color-text-secondary); background: transparent; }
 .public-nav.scrolled .theme-toggle:hover { color: var(--color-text); background: var(--color-gray-100); }
+
+/* User menu (authenticated) */
+.nav-user { position: relative; display: inline-flex; align-items: center; }
+.nav-user .user-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--color-emerald-600); color: #fff; border: none; cursor: pointer;
+  font-size: 14px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center;
+  transition: opacity 0.2s;
+}
+.nav-user .user-avatar:hover { opacity: 0.9; }
+.nav-user-dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0; min-width: 160px;
+  background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12); z-index: 200; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.nav-user-item {
+  display: block; text-align: left; padding: 10px 14px; border: none; background: none;
+  font-size: 14px; color: var(--color-text-secondary); cursor: pointer; text-decoration: none;
+  font-family: var(--font-body);
+}
+.nav-user-item:hover { background: var(--color-bg-alt); color: var(--color-text); }
 </style>

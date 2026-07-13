@@ -72,12 +72,14 @@ export function batchEnrichFromPubchem(productIds) {
  * - jena: 规格凭证 + 归一化规格（purity/storage/...），可填入表单
  * - bioz: 文献证据（依赖 jena 命中 catalog_no），只读预览
  */
-export function enrichProduct({ name, cas, smiles, inchi, productId } = {}) {
+export function enrichProduct({ name, cas, smiles, inchi, formula, molecular_weight, productId } = {}) {
   return http.post('/products/enrich/', {
     product_name: name || '',
     cas: cas || '',
     smiles: smiles || '',
     inchi: inchi || '',
+    formula: formula || '',
+    molecular_weight: molecular_weight ?? null,
     product_id: productId || null,
   }, { timeout: 90000 })
 }

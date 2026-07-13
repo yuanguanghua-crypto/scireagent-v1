@@ -84,6 +84,9 @@ canvas.png
 screenshot.png
 screenshot.jpg
 
+# Docx parse scratch media (extracted from uploaded .docx, not source)
+_docx_media/
+
 # Migrations (uncomment if you want to ignore)
 # **/migrations/*.py
 # !**/migrations/__init__.py

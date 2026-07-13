@@ -197,7 +197,7 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
             for product in products:
                 name = product.name
                 product_cas = product.cas or ""
-                enriched = enhancer.resolve_to_properties(name)
+                enriched = enhancer.resolve_to_properties(name, expected_cas=product_cas or None)
                 resolved_cas = enriched.get('cas_resolved') or product_cas
                 props = enriched.get('properties') or {}
                 results.append({
@@ -217,12 +217,13 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
             return self.success_response(results)
 
         # ── 单产品模式 — 优先级: CAS > name > SMILES > InChI ──
+        # pubchempy 不支持 namespace='cas'，CAS 走 name 查询但传 expected_cas 做身份校验（修复 2）
         identifier = None
         namespace = 'name'
 
         if cas and cas.strip():
             identifier = cas.strip()
-            namespace = 'name'  # CAS 作为 name 搜索
+            namespace = 'name'
         elif product_name and product_name.strip():
             identifier = product_name.strip()
             namespace = 'name'
@@ -238,7 +239,20 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
                 'At least one identifier is required: product_name, cas, smiles, or inchi'
             )
 
-        enriched = enhancer.resolve_to_properties(identifier, namespace=namespace)
+        expected_cas = cas.strip() if cas and cas.strip() else None
+        expected_formula = (request.data.get("formula") or "").strip() or None
+        try:
+            expected_mw = float(request.data.get("molecular_weight")) \
+                if request.data.get("molecular_weight") not in (None, "") else None
+        except (TypeError, ValueError):
+            expected_mw = None
+
+        enriched = enhancer.resolve_to_properties(
+            identifier, namespace=namespace,
+            expected_cas=expected_cas,
+            expected_formula=expected_formula,
+            expected_mw=expected_mw,
+        )
 
         # 降级策略：当前 identifier 搜不到时，依次尝试其他可用字段
         fallbacks = []
@@ -255,7 +269,8 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
                 pass  # CAS already handled
 
             for fb_ns, fb_id in fallbacks:
-                enriched = enhancer.resolve_to_properties(fb_id, namespace=fb_ns)
+                enriched = enhancer.resolve_to_properties(
+                    fb_id, namespace=fb_ns, expected_cas=expected_cas)
                 if enriched.get('found'):
                     break
 
@@ -289,8 +304,11 @@ class ProductEnrichView(EnvelopeMixin, APIView):
         chemical = {"found": False, "properties": {}, "source": ""}
 
         # 优先级: CAS > name > SMILES > InChI
+        # 注意：pubchempy 不支持 namespace='cas'（会 400），故 CAS 仍走 name 查询，
+        # 但把 cas 作为 expected_cas 传入，由 resolve_to_properties 做身份校验兜底（修复 2）。
         identifier = None
         namespace = "name"
+        expected_cas = cas or ""
         if cas:
             identifier = cas
         elif product_name:
@@ -302,12 +320,30 @@ class ProductEnrichView(EnvelopeMixin, APIView):
             identifier = inchi
             namespace = "inchi"
 
-        if identifier:
-            chemical = enhancer.resolve_to_properties(identifier, namespace=namespace)
+        # 文档已提供的 Formula/MW，用于与搜索结果交叉校验（修复 3）
+        expected_formula = (request.data.get("formula") or "").strip()
+        try:
+            expected_mw = float(request.data.get("molecular_weight")) \
+                if request.data.get("molecular_weight") not in (None, "") else None
+        except (TypeError, ValueError):
+            expected_mw = None
 
-            # CAS 搜不到时用 name 降级
+        if identifier:
+            chemical = enhancer.resolve_to_properties(
+                identifier, namespace=namespace,
+                expected_cas=expected_cas or None,
+                expected_formula=expected_formula or None,
+                expected_mw=expected_mw,
+            )
+
+            # CAS 搜不到时用 name 降级（name 结果会标 requires_review，由用户显式选择）
             if not chemical.get("found") and cas and product_name:
-                chemical = enhancer.resolve_to_properties(product_name, "name")
+                chemical = enhancer.resolve_to_properties(
+                    product_name, "name",
+                    expected_cas=None,
+                    expected_formula=expected_formula or None,
+                    expected_mw=expected_mw,
+                )
 
             # ── Lipinski（本地计算，集成 Validate 能力）──
             if chemical.get("found") and chemical.get("properties"):
@@ -360,13 +396,20 @@ class ProductEnrichView(EnvelopeMixin, APIView):
         except Exception as e:
             logger.warning(f"Literature recommender failed: {e}")
 
-        # ── 协议推荐 ──
+        # ── 协议推荐（查询扩展：覆盖冷门精确名，如 SC8001）──
         protocols = []
         try:
             proto_recommender = get_shared_recommender()
             search_name = product_name or identifier or ""
             if search_name:
-                results = proto_recommender.retriever.search(search_name, top_k=5, include_content=True)
+                # expand：产品名碎片化 + jena 分类路径领域关键词 + 化学同义词
+                results = proto_recommender.recommend_expanded(
+                    search_name,
+                    category_path=(jena or {}).get("category_path"),
+                    synonyms=synonyms,
+                    top_k=5,
+                    include_content=True,
+                )
                 for r in results:
                     protocols.append({
                         "id": r["id"],
@@ -380,6 +423,7 @@ class ProductEnrichView(EnvelopeMixin, APIView):
                         "materials": r.get("materials", ""),
                         "steps": r.get("steps", []),
                         "method_hint": r.get("method_hint", ""),
+                        "matched_query": r.get("matched_query", ""),
                     })
         except Exception as e:
             logger.warning(f"Protocol recommender failed: {e}")
@@ -444,7 +488,7 @@ class ProductImportProtocolView(EnvelopeMixin, APIView):
 
     def post(self, request):
         from apps.knowledge.models import Method, Protocol, ProtocolStep
-        from apps.bridges.models import ProductMethod
+        from apps.bridges.models import ProductMethod, MethodProtocol
         from apps.commerce.models import Product
         from django.utils.text import slugify
 
@@ -456,7 +500,8 @@ class ProductImportProtocolView(EnvelopeMixin, APIView):
         equipment = (request.data.get("equipment") or "").strip()
         materials = (request.data.get("materials") or "").strip()
         steps = request.data.get("steps") or []
-        method_ids = request.data.get("method_ids") or []
+        method_ids = request.data.get("method_ids") or []   # 向后兼容：历史上误当作 product id 使用
+        product_id = request.data.get("product_id")
 
         if not protocol_title:
             return self.error_response("protocol_title is required")
@@ -566,17 +611,22 @@ class ProductImportProtocolView(EnvelopeMixin, APIView):
                 ))
             ProtocolStep.objects.bulk_create(step_objs)
 
-        # 4. Link Method to product if method_ids provided
-        if method_ids:
-            for pid in method_ids:
-                try:
-                    product = Product.objects.get(pk=pid)
-                    ProductMethod.objects.get_or_create(
-                        product=product,
-                        method=method,
-                    )
-                except Product.DoesNotExist:
-                    pass
+        # 4. 建立 Method↔Protocol 桥（核心修复：此前缺失导致产品 protocol_ids 恒为空 → Protocols: None）
+        MethodProtocol.objects.get_or_create(method=method, protocol=protocol)
+
+        # 5. 将 Method 关联至产品（编辑页传 product_id；新建成品无 id 时由保存阶段按数组重建）
+        product_ids = [product_id] if product_id else list(method_ids)
+        for pid in product_ids:
+            if not pid:
+                continue
+            try:
+                product = Product.objects.get(pk=pid)
+                ProductMethod.objects.get_or_create(
+                    product=product,
+                    method=method,
+                )
+            except Product.DoesNotExist:
+                pass
 
         return self.success_response({
             "method_id": method.id,

@@ -16,6 +16,11 @@ logger = logging.getLogger(__name__)
 # jena 数据静态，L1 TTL 30 天（同 PubChem）
 JENA_MATCH_TTL = 60 * 60 * 24 * 30
 
+# 映射器版本：随 map_category_l1 等归一化逻辑变更而递增。
+# 缓存命中时校验此版本——缺版本或版本不符的旧缓存（可能带错误 slug，
+# 如预修复把 SC8001 映射成不存在的 'probes_epigenetics'）必须被忽略并重查。
+MAPPER_VERSION = "2"
+
 
 def _looks_like_cas(s: str) -> bool:
     r"""CAS 号形态识别（\d{2,7}-\d{2}-\d）。避免非 CAS 字符串被误 CAS 查询。"""
@@ -87,6 +92,8 @@ def _match_jena_no_cache(identifier: str, synonyms: list) -> dict:
         "product_name": record.product_name,
         "systematic_name": record.systematic_name,
         "cas_number": record.cas_number,
+        "category_path": record.category_path,
+        "mapper_version": MAPPER_VERSION,
         "normalized": {
             "purity": normalize_purity(record.purity),
             "storage_condition": normalize_storage(record.storage_condition),
@@ -132,7 +139,11 @@ def match_jena(identifier: str, namespace: str = "name", synonyms: list | None =
     try:
         entry = get_cache("jena_match", cache_key, cache_ns)
         if entry is not None and not entry.is_stale:
-            return entry.get_data()
+            data = entry.get_data()
+            # 预修复缓存（缺 mapper_version 或版本不符）可能带错误 slug，
+            # 视为失效强制重查，避免陈旧错误结果长期驻留 30 天。
+            if data.get("mapper_version") == MAPPER_VERSION:
+                return data
     except Exception:
         pass
 

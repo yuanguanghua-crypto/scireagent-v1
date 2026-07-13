@@ -116,6 +116,9 @@ class WordParserService:
         label_map = {
             'cas number': 'cas',
             'catalog number': 'catalog_number',
+            'smiles': 'smiles',
+            'canonical smiles': 'smiles',
+            'inchi': 'inchi',
             'formula': 'formula',
             'molecular weight': 'molecular_weight',
             'purity': 'purity',

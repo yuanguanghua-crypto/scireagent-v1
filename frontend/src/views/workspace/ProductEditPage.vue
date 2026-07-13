@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/http'
@@ -82,7 +82,7 @@ const form = reactive({
   name: '', slug: '', catalog_no: '', cas: '', smiles: '', synonyms: '',
   inchi: '', formula: '', molecular_weight: null, purity: '', concentration: '',
   storage: '', shipping: '', lead_time: '', handling_notes: '', shelf_life: '',
-  research_use_only: true, overview: '', structure_svg: '',
+  research_use_only: true, overview: '', structure_svg: '', structure_image: '',
   seo_title: '', seo_description: '',
   status: 'draft', product_class_id: null,
 })
@@ -281,6 +281,9 @@ function prefillFromWord(data) {
   if (data.shipping) form.shipping = normalizeShipping(data.shipping)
   if (data.synonyms) form.synonyms = data.synonyms
   if (data.description) form.overview = data.description
+  // 文档原样字段：SMILES / 结构图 必须保持原样，不做任何加工（用户要求）
+  if (data.smiles) form.smiles = data.smiles
+  if (data.structure_image_base64) form.structure_image = data.structure_image_base64
   // Pre-fill SKUs from word import
   if (data.skus && data.skus.length) {
     const importCatNo = (data.catalog_number || form.catalog_no || 'SKU').trim()
@@ -392,11 +395,13 @@ function toggleProtocolId(id) {
 // Combined add-existing toggle — replaces two separate select+button blocks
 const linkMethodSelect = ref('')
 const linkProtocolSelect = ref('')
-function addSelectedMethod() {
-  if (linkMethodSelect.value) { toggleMethodId(Number(linkMethodSelect.value)); linkMethodSelect.value = '' }
+function addSelectedMethod(val) {
+  const raw = (val != null && val !== '') ? val : linkMethodSelect.value
+  if (raw) { toggleMethodId(Number(raw)); linkMethodSelect.value = '' }
 }
-function addSelectedProtocol() {
-  if (linkProtocolSelect.value) { toggleProtocolId(Number(linkProtocolSelect.value)); linkProtocolSelect.value = '' }
+function addSelectedProtocol(val) {
+  const raw = (val != null && val !== '') ? val : linkProtocolSelect.value
+  if (raw) { toggleProtocolId(Number(raw)); linkProtocolSelect.value = '' }
 }
 
 async function saveInlineEntity() {
@@ -487,14 +492,18 @@ async function importSingleProtocol(idx) {
       equipment: p.equipment || '',
       materials: p.materials || '',
       steps: p.steps || [],
-      method_ids: methodIds.value,  // link to current product
+      product_id: isEdit.value ? productId.value : null,  // 关联当前产品（编辑页有 id；新建成品为 null，保存时按数组重建）
     })
     if (resp.success) {
       protocolImported.value[idx] = true
-      // Add new method_id to current product
+      // 写入 method_id 与 protocol_id 到当前产品（修复此前 Protocols: None）
       const newMethodId = resp.data.method_id
       if (newMethodId && !methodIds.value.includes(newMethodId)) {
         methodIds.value.push(newMethodId)
+      }
+      const newProtocolId = resp.data.protocol_id
+      if (newProtocolId && !protocolIds.value.includes(newProtocolId)) {
+        protocolIds.value.push(newProtocolId)
       }
       await loadKnowledge()
       setFeedback('success', 'Protocol imported to knowledge base')
@@ -512,6 +521,17 @@ const enrichLiterature = computed(() => pubchemEnrichResult.value?.literature ||
 const enrichProtocols = computed(() => pubchemEnrichResult.value?.protocols || null)
 const enrichJena = computed(() => pubchemEnrichResult.value?.jena || null)
 const enrichBioz = computed(() => pubchemEnrichResult.value?.bioz || null)
+// 化学属性是否「已验证、可安全自动套用」（修复 1/3）：
+// 仅当后端 identity_verified 且非待复核、无候选、无 Formula/MW 不一致时才自动套用；
+// 否则必须用户从候选中显式选用，杜绝未经验证即写入表单。
+const chemAutoVerified = computed(() => {
+  const c = enrichChemical.value
+  if (!c || !c.found) return false
+  if (c.candidates && c.candidates.length) return false
+  if (c.requires_review) return false
+  if (c.formula_mismatch || c.mw_mismatch) return false
+  return !!c.identity_verified
+})
 // CAS 冲突检测（P3-2）— 表单 / PubChem / jena 三源非空且去 dash 互不相同 → 警示
 const casSources = computed(() => {
   const out = []
@@ -550,6 +570,9 @@ async function runPubchemEnrich() {
     cas: (form.cas || '').trim(),
     smiles: (form.smiles || '').trim(),
     inchi: (form.inchi || '').trim(),
+    // 文档已提供的 Formula/MW，传给后端做交叉校验（修复 3）
+    formula: (form.formula || '').trim(),
+    molecular_weight: form.molecular_weight ?? null,
     productId: isEdit.value ? productId.value : null,
   }
   if (!ids.name && !ids.cas && !ids.smiles && !ids.inchi) return
@@ -558,6 +581,10 @@ async function runPubchemEnrich() {
   try {
     const resp = await enrichProduct(ids)
     pubchemEnrichResult.value = resp.data
+    // 自动预填 Category（若表单尚未选择）：enrich 返回的 jena.normalized.category_l1
+    if (!form.product_class_id && resp.data?.jena?.matched && resp.data?.jena?.normalized?.category_l1) {
+      applyJenaCategoryL1(resp.data.jena.normalized.category_l1)
+    }
   } catch (e) {
     pubchemEnrichResult.value = { error: e?.response?.data?.meta?.error?.message || 'Enrich failed' }
   } finally {
@@ -704,7 +731,22 @@ function applyJenaCategoryL1(l1Slug) {
   }
 }
 
+// 显式选用一个候选化合物（用户主动确认，允许套用未自动验证的结果）
+function applyCandidate(c) {
+  if (!c) return
+  if (c.canonical_smiles && !form.smiles) form.smiles = c.canonical_smiles
+  if (c.molecular_formula && !form.formula) form.formula = c.molecular_formula
+  if (c.molecular_weight) form.molecular_weight = Number(c.molecular_weight) || null
+  if (c.cas && !form.cas) form.cas = c.cas
+  if (c.inchi && !form.inchi) form.inchi = c.inchi
+  setFeedback('success', 'Candidate applied — please verify before saving')
+}
+
 function applyPubchemProperties() {
+  if (!chemAutoVerified.value) {
+    setFeedback('warn', '化学属性未经验证，请先从候选中选择正确化合物')
+    return
+  }
   const data = pubchemEnrichResult.value
   const chem = data?.chemical || data
   if (!chem || !chem.properties) return
@@ -726,19 +768,21 @@ function lipinskiClass(val) {
 }
 
 // Apply All: chemical properties + knowledge links + protocols
-function applyAllEnrichResults() {
+async function applyAllEnrichResults() {
   const data = pubchemEnrichResult.value
   if (!data) return
   const chem = data?.chemical || data
 
-  // 1. Chemical properties
-  if (chem?.properties) {
+  // 1. Chemical properties — 仅当后端已验证才自动套用；否则跳过并提示人工确认
+  if (chem?.properties && chemAutoVerified.value) {
     const p = chem.properties
     if (p.canonical_smiles && !form.smiles) form.smiles = p.canonical_smiles
     if (p.inchi && !form.inchi) form.inchi = p.inchi
     if (p.molecular_formula && !form.formula) form.formula = p.molecular_formula
     if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
     if (chem.cas_resolved && !form.cas) form.cas = chem.cas_resolved
+  } else if (chem?.found && !chemAutoVerified.value) {
+    setFeedback('warn', '化学属性未经验证，未自动套用 — 请从候选中选择或手动填写')
   }
 
   // 2. Knowledge chain — matched methods
@@ -770,14 +814,33 @@ function applyAllEnrichResults() {
     }
   }
 
-  // 4. Protocols — only link protocols with numeric DB IDs (not BioProCorpus search results)
+  // 4. Protocols — 数字 DB id 直接链；BioProCorpus 字符串 id 先导入知识库再链
   let protoCount = 0
   const protos = enrichProtocols.value || []
   for (const p of protos) {
-    if (Number.isInteger(p.id) && !protocolIds.value.includes(p.id)) {
-      protocolIds.value.push(p.id)
-      protoCount++
+    if (Number.isInteger(p.id)) {
+      if (!protocolIds.value.includes(p.id)) { protocolIds.value.push(p.id); protoCount++ }
+      continue
     }
+    // BioProCorpus 检索结果（id 为字符串）：导入生成 DB Protocol 后链入
+    try {
+      const r = await importProtocol({
+        method_name: p.method_hint || p.title || '',
+        protocol_title: p.title || '',
+        protocol_url: p.url || '',
+        objective: p.abstract || '',
+        reagents: p.reagents || '',
+        equipment: p.equipment || '',
+        materials: p.materials || '',
+        steps: p.steps || [],
+        product_id: isEdit.value ? productId.value : null,
+      })
+      if (r.success && r.data?.protocol_id && !protocolIds.value.includes(r.data.protocol_id)) {
+        protocolIds.value.push(r.data.protocol_id)
+        if (r.data.method_id && !methodIds.value.includes(r.data.method_id)) methodIds.value.push(r.data.method_id)
+        protoCount++
+      }
+    } catch { /* 单个协议导入失败不影响其余 */ }
   }
 
   // 5. Jena 归一化规格（仅填空字段，不覆盖已填）
@@ -1249,7 +1312,9 @@ async function saveDraft(isPublish = false) {
         if (d.slug) form.slug = d.slug
       }
       if (newId) {
-        router.replace(`/workspace/products/${newId}/edit`)
+        await router.replace(`/workspace/products/${newId}/edit`)
+        await nextTick()        // 确保 route.params.id 已刷新为 newId，再重载产品
+        await loadProduct()     // 从服务端重新同步带 id 的 SKU 并触发 loadCompliance（修复新建后 Batch COA 为空 #3）
         setFeedback('success', isPublish ? 'Product created and published' : 'Product created. Edit details and publish when ready.')
       }
     }
@@ -1347,6 +1412,12 @@ watch(
         <span v-if="pubchemEnrichResult && enrichChemical?.found && !pubchemEnrichResult.applied && !enrichChemical.candidates?.length" class="word-status word-ok">
           ✓ Found: {{ enrichChemical.source === 'chembl' ? 'ChEMBL' : 'PubChem' }} CID {{ enrichChemical.cid }} <template v-if="enrichChemical.fallback_used">(via fragment search)</template>
         </span>
+        <span v-if="enrichChemical?.confidence" class="word-status" :class="enrichChemical.identity_verified ? 'word-ok' : 'word-warn'">
+          {{ enrichChemical.identity_verified ? '✓ 身份已验证' : '⚠ 未验证' }} ({{ enrichChemical.confidence }})
+        </span>
+        <span v-if="enrichChemical?.doc_value_mismatch" class="word-status word-warn">
+          ⚠ 文档 Formula/MW 与库值不一致，请核对文档是否有误
+        </span>
         <span v-else-if="pubchemEnrichResult && enrichChemical?.candidates?.length && !pubchemEnrichResult.applied" class="word-status word-warn">
           ⚠ Multiple candidates ({{ enrichChemical.candidates.length }}) — select correct one
         </span>
@@ -1404,6 +1475,7 @@ watch(
       <!-- Lipinski rules (from Validate integration) -->
       <div v-if="enrichChemical?.lipinski && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
         <h4 style="margin:0 0 6px 0;font-size:13px">💊 Lipinski Rule of Five</h4>
+        <p class="lipinski-help">Rule of Five predicts oral-drug-likeness of small molecules (MW≤500, LogP≤5, HBD≤5, HBA≤10, RotB≤10). Bioreagents/oligonucleotides (e.g. Jena SC8001) typically fail — this is expected.</p>
         <span :class="enrichChemical.lipinski.passed ? 'lipinski-pass' : 'lipinski-fail'" style="font-size:12px;font-weight:600">
           {{ enrichChemical.lipinski.passed ? '✓ PASS' : '✗ FAIL' }}
         </span>
@@ -1507,19 +1579,26 @@ watch(
         </div>
       </div>
       <!-- Apply All button -->
-      <div v-if="enrichChemical?.found && !pubchemEnrichResult.applied && !enrichChemical.candidates?.length" style="margin-top:8px">
+      <div v-if="!pubchemEnrichResult?.applied && !enrichChemical?.candidates?.length && (enrichChemical?.found || enrichMatchedMethods.length || enrichMatchedApps.length || enrichProtocols?.length || !!enrichJena?.normalized)" style="margin-top:8px">
         <button type="button" class="btn btn-primary btn-sm" @click="applyAllEnrichResults">
           Apply All to Form
         </button>
-        <span class="form-hint" style="margin-left:8px">Chemical properties + knowledge links + protocols</span>
+        <span v-if="enrichChemical?.found && chemAutoVerified" class="form-hint" style="margin-left:8px">Scope: entire form — chemical properties + knowledge links + protocols</span>
+        <span v-else class="form-hint" style="margin-left:8px">Scope: knowledge links + protocols（化学属性未验证，未包含）</span>
+        <span v-if="enrichChemical?.found && !chemAutoVerified" class="field-error" style="margin-left:8px">⚠ 化学属性未验证，未一并套用</span>
       </div>
-      <!-- Ambiguous candidates -->
+      <!-- Ambiguous candidates (require explicit user choice — 修复 1/4) -->
       <div v-if="enrichChemical?.candidates?.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview">
-        <p class="form-hint">Multiple candidates found. Select the correct one or try with a CAS number.</p>
+        <p class="form-hint">⚠ 自动匹配未经验证（{{ enrichChemical.confidence }}）— 必须手动选择正确的化合物，请勿直接 Apply All。</p>
         <div v-for="c in enrichChemical.candidates" :key="c.cid" class="candidate-item">
-          <strong>{{ c.iupac_name || '—' }}</strong>
-          <span>CID: {{ c.cid }}, MW: {{ c.molecular_weight }}</span>
-          <span v-if="c.cas">, CAS: {{ c.cas }}</span>
+          <div style="flex:1;min-width:0">
+            <strong>{{ c.iupac_name || '—' }}</strong>
+            <span>CID: {{ c.cid }}, MW: {{ c.molecular_weight }}</span>
+            <span v-if="c.cas">, CAS: {{ c.cas }}</span>
+            <span v-if="c.canonical_smiles" class="mono-wrap" style="display:block;font-size:10px;color:var(--color-text-secondary);word-break:break-all">{{ c.canonical_smiles }}</span>
+            <span v-if="c.formula_mismatch || c.mw_mismatch" class="field-error" style="display:block">⚠ 与文档 Formula/MW 不一致</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" style="font-size:11px;white-space:nowrap" @click="applyCandidate(c)">Use this</button>
         </div>
       </div>
       <!-- Not found guidance (Bug 2 fix: check enrichChemical instead of top-level) -->
@@ -1666,7 +1745,7 @@ watch(
             </label>
           </div>
           <div class="chem-preview">
-            <StructureViewer :smiles="form.smiles" :pubchem-cid="pubchemEnrichResult?.found ? pubchemEnrichResult.cid : null" />
+            <StructureViewer :smiles="form.smiles" :pubchem-cid="pubchemEnrichResult?.found ? pubchemEnrichResult.cid : null" :structure-image="form.structure_image" />
           </div>
         </div>
       </section>
@@ -1706,7 +1785,7 @@ watch(
             <el-cascader
               v-model="categoryCascaderValue"
               :options="categoryCascaderOptions"
-              :props="{ expandTrigger: 'hover', emitPath: true, checkStrictly: false }"
+              :props="{ expandTrigger: 'hover', emitPath: true, checkStrictly: true }"
               placeholder="Select category"
               clearable
               style="width: 100%"
@@ -1745,12 +1824,14 @@ watch(
 
         <!-- Add existing (single select + add button) -->
         <div class="entity-select-row">
-          <AppSelect v-model="linkMethodSelect" :options="[{label:'— Link existing Method —',value:''},...knowledgeList.methods.filter(m => !methodIds.includes(m.id)).map(m => ({label:m.name,value:String(m.id)}))]" />
+          <AppSelect v-model="linkMethodSelect" :options="[{label:'— Link existing Method —',value:''},...knowledgeList.methods.filter(m => !methodIds.includes(m.id)).map(m => ({label:m.name,value:String(m.id)}))]" @change="addSelectedMethod" />
           <button type="button" class="btn btn-ghost btn-sm" @click="addSelectedMethod" :disabled="!linkMethodSelect">Link</button>
 
-          <AppSelect v-model="linkProtocolSelect" :options="[{label:'— Link existing Protocol —',value:''},...knowledgeList.protocols.filter(p => !protocolIds.includes(p.id)).map(p => ({label:p.name,value:String(p.id)}))]" style="margin-left:16px" />
+          <AppSelect v-model="linkProtocolSelect" :options="[{label:'— Link existing Protocol —',value:''},...knowledgeList.protocols.filter(p => !protocolIds.includes(p.id)).map(p => ({label:p.name,value:String(p.id)}))]" style="margin-left:16px" @change="addSelectedProtocol" />
           <button type="button" class="btn btn-ghost btn-sm" @click="addSelectedProtocol" :disabled="!linkProtocolSelect">Link</button>
         </div>
+
+        <p class="form-hint" style="margin:2px 0 0">Select a knowledge entity above and it links to this product immediately; the “Link” button is an explicit alternative.</p>
 
         <!-- Quick-create inline (single button, dropdown type) -->
         <div class="inline-buttons">
@@ -1774,7 +1855,7 @@ watch(
         <h3>7. SKUs</h3>
         <table class="sku-table" v-if="skus.length">
           <thead>
-            <tr><th>Code</th><th>Pack Size</th><th>Unit</th><th>Concn</th><th>Unit</th><th>Price</th><th>Curr</th><th>Default</th><th></th></tr>
+            <tr><th>Code</th><th>Pack Size</th><th>Pack Unit</th><th>Concn</th><th>Conc Unit</th><th>Price</th><th>Curr</th><th>Default</th><th></th></tr>
           </thead>
           <tbody>
             <tr v-for="(s, i) in skus" :key="s._key" :class="{ 'sku-duplicate': skuDuplicate.has(i) }">
@@ -2045,6 +2126,7 @@ watch(
 .candidate-item span { font-size: 11px; color: var(--color-text-secondary); margin-left: 8px; }
 .source-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-bottom: 6px; }
 .source-pubchem { background: var(--color-info-light); color: var(--color-blue-700); }
+html.dark .source-pubchem { color: #fff; }
 .source-chembl { background: var(--color-warning-light); color: var(--color-warning); }
 .pubchem-notfound { background: var(--color-warning-bg); border: 1px solid var(--color-amber-200); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
 .pubchem-notfound .form-hint { margin-top: 0; color: var(--color-amber-800); }
@@ -2076,6 +2158,7 @@ watch(
 .lipinski-pass { color: var(--color-success); }
 .lipinski-fail { color: var(--color-danger); }
 .lipinski-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.lipinski-help { font-size: 11px; line-height: 1.4; color: var(--color-text-tertiary); margin: 0 0 6px 0; }
 .lipinski-ok { font-size: 11px; background: var(--color-success-light); color: var(--color-emerald-800); border: 1px solid var(--color-success-light); border-radius: 4px; padding: 2px 8px; }
 .lipinski-ng { font-size: 11px; background: var(--color-danger-light); color: var(--color-red-700); border: 1px solid var(--color-danger-light); border-radius: 4px; padding: 2px 8px; }
 .lipinski-unknown { font-size: 11px; background: var(--color-bg-alt); color: var(--color-text-tertiary); border: 1px solid var(--color-border-hover); border-radius: 4px; padding: 2px 8px; }
@@ -2097,6 +2180,17 @@ watch(
 .sku-table input, .sku-table select { padding: 4px 6px; border: 1px solid var(--color-border); border-radius: 4px; font-size: 13px; background: var(--color-bg); color: var(--color-text); }
 .sku-duplicate td { background: var(--color-warning-bg); }
 .col-default { text-align: center; }
+/* 将 SKU 三对字段视觉分组：Pack Size+Pack Unit / Concn+Conc Unit / Price+Curr
+   每对首列前加分隔线 + 留白，使「一对」作为一个单元靠在一起（#7）。 */
+.sku-table th:nth-child(2),
+.sku-table td:nth-child(2),
+.sku-table th:nth-child(4),
+.sku-table td:nth-child(4),
+.sku-table th:nth-child(6),
+.sku-table td:nth-child(6) {
+  border-left: 2px solid var(--color-border);
+  padding-left: 14px;
+}
 .sku-warning { font-size: 12px; color: var(--color-warning); margin: 4px 0; }
 
 /* Knowledge inline */
@@ -2109,6 +2203,8 @@ watch(
 .chip-remove:hover { opacity: 1; }
 .chip-none { font-size: 12px; color: var(--color-text-secondary); font-style: italic; }
 .entity-select-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; flex-wrap: wrap; }
+.entity-select-row .app-select { flex: 1 1 240px; min-width: 240px; margin-bottom: 0; }
+.entity-select-row .el-select { width: 100%; }
 .entity-select-row select { flex: 1; min-width: 180px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px; background: var(--color-bg); color: var(--color-text); }
 .inline-buttons { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
 .inline-label { font-size: 13px; color: var(--color-text-secondary); }

@@ -11,7 +11,7 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from apps.commerce.services.jena_index import (
-    JenaIndex, JenaRecord, get_shared_jena_index,
+    JenaIndex, JenaRecord, get_shared_jena_index, map_category_l1,
 )
 
 
@@ -207,3 +207,53 @@ class JenaSharedSingletonTest(TestCase):
         finally:
             import shutil
             shutil.rmtree(tmpdir)
+
+
+class MapCategoryL1Test(TestCase):
+    """map_category_l1：jena category_path → 平台 CategoryL1（扫描全部分类段）
+
+    TDD 回归：旧实现只取第一段，导致 SC8001 这类
+    '正确 L1 藏在深层段' 的记录归不到分类（Category 空）。
+    """
+
+    def test_map_scans_all_segments_not_just_first(self):
+        """SC8001 真实路径：关键词在深层段也能命中 nucleotides_nucleosides"""
+        path = ("Probes & Epigenetics | RNA/cRNA Labeling | "
+                "Amine Labeling of RNA/cRNA | Amine-modified Nucleotides | 5-Propargylamino-CTP")
+        self.assertEqual(map_category_l1(path), "nucleotides_nucleosides")
+
+    def test_map_first_segment_still_matches(self):
+        """第一段命中仍正常（原行为不退化）"""
+        self.assertEqual(map_category_l1("Nucleotides & Nucleosides|dNTPs"), "nucleotides_nucleosides")
+
+    def test_map_click_chemistry_in_deep_segment(self):
+        """click chemistry 在第二段也能命中"""
+        self.assertEqual(map_category_l1("Probes & Epigenetics | Click Chemistry | Nucleosides"),
+                         "click_chemistry")
+
+    def test_map_molecular_biology_deep(self):
+        self.assertEqual(map_category_l1("X | Y | Molecular Biology Reagents"), "molecular_biology")
+
+    def test_map_no_match_returns_empty(self):
+        self.assertEqual(map_category_l1("Unknown Cat|A|B"), "")
+
+    def test_map_empty_path_returns_empty(self):
+        self.assertEqual(map_category_l1(""), "")
+        self.assertEqual(map_category_l1(None), "")
+
+
+class JenaDataAvailabilityTest(TestCase):
+    """回归守卫：JENA_DATA_DIR 必须指向真实可用的数据文件。
+
+    防止『rebuild 镜像后 jena 数据丢失 / 路径错位』这类静默回归——
+    文件缺失时本测试直接失败，CI/本地都能立刻发现。
+    """
+
+    def test_jena_data_dir_has_index_file(self):
+        import os
+        from apps.commerce.services.jena_index import JENA_DATA_DIR, JENA_JSONL_FILENAME
+        path = os.path.join(JENA_DATA_DIR, JENA_JSONL_FILENAME)
+        self.assertTrue(os.path.exists(path), f"jena index missing at {path}")
+        idx = JenaIndex(data_dir=JENA_DATA_DIR)
+        idx.build()
+        self.assertGreater(idx.size(), 0, "jena index built empty — data file broken/missing")

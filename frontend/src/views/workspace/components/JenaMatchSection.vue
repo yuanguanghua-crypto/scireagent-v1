@@ -55,7 +55,7 @@ const hasFillable = computed(() => normalizedEntries.value.length > 0)
         class="btn btn-ghost btn-sm jena-apply-btn"
         @click="emit('apply')"
       >Apply empty fields only</button>
-      <span v-if="hasFillable" class="form-hint" style="margin-left:8px">Does not overwrite filled fields</span>
+      <span v-if="hasFillable" class="form-hint" style="margin-left:8px">Scope: Jena spec fields only (Purity, Storage, …) — won't overwrite filled fields</span>
     </template>
 
     <!-- 未命中 -->

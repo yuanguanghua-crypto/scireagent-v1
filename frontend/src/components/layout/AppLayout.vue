@@ -26,9 +26,10 @@ const needsNavPad = () => !authStore.isAuthenticated && isPublicPage() && NAV_PA
 
 <template>
   <div class="app-layout" :class="{ 'layout-workspace': isWorkspace(), 'home-layout': isHome(), 'public-nav-pad': needsNavPad() }">
-    <!-- Public pages for anonymous visitors: transparent fixed-top nav.
-         Logged-in users on public pages get the full AppHeader (avatar + cart badge + menu). -->
-    <PublicNav v-if="!authStore.isAuthenticated && isPublicPage()" />
+    <!-- Public pages (home/login/register/products/knowledge…) ALWAYS show the
+         marketing nav (PublicNav) regardless of login state. Logged-in users still
+         get the user menu inside PublicNav; AppHeader is reserved for the workspace. -->
+    <PublicNav v-if="isPublicPage()" />
 
     <!-- Authenticated pages (incl. logged-in users on public pages): full AppHeader -->
     <AppHeader v-else-if="!isWorkspace()" />

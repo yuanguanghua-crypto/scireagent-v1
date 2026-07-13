@@ -1570,6 +1570,10 @@ html.dark .loading-spinner.is-fullscreen {
 }
 
 /* Dark mode: invert status badges for readability */
+html.dark .lipinski-ok { color: #D1FAE5; }
+html.dark .lipinski-ng { color: #FCA5A5; }
+html.dark .lipinski-unknown { color: #CBD5E1; }
+
 html.dark .badge-success { background: var(--color-success); color: white; }
 html.dark .badge-warning { background: var(--color-warning); color: white; }
 html.dark .badge-danger { background: var(--color-danger); color: white; }

@@ -5,6 +5,8 @@ import { renderStructure } from '@/api/aiTools'
 const props = defineProps({
   smiles: { type: String, default: '' },
   pubchemCid: { type: [Number, String], default: null },
+  // 从导入文档提取的原始结构图（base64 data URL）。若提供则原样显示，不做任何加工/重绘。
+  structureImage: { type: String, default: '' },
 })
 
 const svgContent = ref('')
@@ -45,6 +47,12 @@ async function renderSmiles(smiles) {
   svgContent.value = ''
   canonicalSmiles.value = ''
   error.value = ''
+
+  // 文档结构图优先：原样显示，不做加工/重绘
+  if (props.structureImage && props.structureImage.trim()) {
+    svgContent.value = `<img src="${props.structureImage}" alt="Imported structure" style="max-width:100%;max-height:100%;object-fit:contain" />`
+    return
+  }
 
   if (!smiles || !smiles.trim()) {
     return
@@ -94,7 +102,7 @@ async function testImgUrl(url) {
   }
 }
 
-watch(() => [props.smiles, props.pubchemCid], () => renderSmiles(props.smiles), { immediate: true })
+watch(() => [props.smiles, props.pubchemCid, props.structureImage], () => renderSmiles(props.smiles), { immediate: true })
 </script>
 
 <template>

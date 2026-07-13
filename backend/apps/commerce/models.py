@@ -155,7 +155,9 @@ class Product(StatusMixin, TimeStampedModel):
     overview = models.TextField(blank=True, default='', verbose_name='产品概述',
         help_text='产品详细介绍，支持 Markdown')
     structure_svg = models.TextField(blank=True, default='', verbose_name='结构式SVG',
-        help_text='分子结构 SVG 代码')
+        help_text='分子结构 SVG 代码（由 SMILES 渲染，或回退自文档结构图）')
+    structure_image = models.TextField(blank=True, default='', verbose_name='文档结构图',
+        help_text='从导入的 Word 文档中提取的原始结构图（base64 data URL），原样保存，不做加工')
     seo_title = models.CharField(max_length=256, blank=True, default='', verbose_name='SEO标题',
         help_text='搜索引擎标题，建议 50-60 字符')
     seo_description = models.TextField(blank=True, default='', verbose_name='SEO描述',

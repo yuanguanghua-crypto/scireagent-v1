@@ -499,10 +499,11 @@ class L1DataSourceCacheIntegrationTest(TestCase):
 
     @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
     def test_l1_hit_skips_external(self, mock_get_compounds):
-        """L1 命中（未过期）时不调 PubChem 外部 API。"""
+        """L1 命中（未过期、已验证）时不调 PubChem 外部 API。"""
         from apps.documents.services.datasource_cache import set_cache
         cached = {"source": "pubchem", "found": True, "namespace": "name",
-                  "cid": 2244, "properties": {"molecular_weight": 180.16}}
+                  "cid": 2244, "identity_verified": True,
+                  "properties": {"molecular_weight": 180.16}}
         set_cache("pubchem", "Aspirin", "name", cached)
 
         result = self.enhancer.resolve_to_properties("Aspirin")
@@ -513,19 +514,33 @@ class L1DataSourceCacheIntegrationTest(TestCase):
 
     @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
     def test_l1_miss_fills_l1(self, mock_get_compounds):
-        """L1 未命中 → 查 PubChem → 成功结果写入 L1 DataSourceCache。"""
+        """L1 未命中 → 查 PubChem → 已验证（带 expected_cas）结果写入 L1 DataSourceCache。"""
         from apps.commerce.services.validators.pubchem_enhancer import PubChemEnhancer
-        mock_get_compounds.return_value = [self._mock_compound()]
+        c = self._mock_compound()
+        c.synonyms = ["50-78-2"]  # 含 CAS，配合 expected_cas 触发 identity_verified
+        mock_get_compounds.return_value = [c]
         enhancer = PubChemEnhancer()
 
-        result = enhancer.resolve_to_properties("Aspirin")
+        result = enhancer.resolve_to_properties("Aspirin", expected_cas="50-78-2")
 
         self.assertTrue(result["found"])
+        self.assertTrue(result["identity_verified"])
         from apps.documents.models import DataSourceCache
         entry = DataSourceCache.objects.get(
             source="pubchem", query_key="Aspirin", query_namespace="name")
         self.assertEqual(entry.get_data()["cid"], 2244)
         self.assertFalse(entry.is_stale)
+
+    @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
+    def test_l1_miss_unverified_not_cached(self, mock_get_compounds):
+        """修复 5：未验证（纯 name 查、无 expected_cas）结果不写 L1，避免固化错误。"""
+        from apps.documents.models import DataSourceCache
+        mock_get_compounds.return_value = [self._mock_compound()]
+        result = self.enhancer.resolve_to_properties("Aspirin")
+        self.assertTrue(result["found"])
+        self.assertFalse(result.get("identity_verified"))
+        self.assertFalse(DataSourceCache.objects.filter(
+            source="pubchem", query_key="Aspirin", query_namespace="name").exists())
 
     @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
     def test_l1_expired_treated_as_miss(self, mock_get_compounds):

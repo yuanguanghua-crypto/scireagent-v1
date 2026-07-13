@@ -344,11 +344,18 @@ def normalize_shelf_life(raw) -> str:
 
 
 def map_category_l1(category_path) -> str:
-    """jena category_path 第一级 → 平台 CategoryL1 枚举值。匹配不上返回空。"""
+    """jena category_path 任意段 → 平台 CategoryL1 枚举值。匹配不上返回空。
+
+    扫描 | 分隔的全部层级（不只第一段），以覆盖
+    'Probes & Epigenetics | … | Amine-modified Nucleotides' 这类
+    正确 L1 藏在深层段的记录（SC8001 真实案例：L1=nucleotides_nucleosides
+    在第四段，旧实现只取第一段 → 漏匹配 → Category 空）。
+    """
     if not category_path:
         return ''
-    first = str(category_path).split('|')[0].strip().lower()
+    segments = [s.strip().lower() for s in str(category_path).split('|')]
     for keyword, l1_value in _CATEGORY_L1_MAP:
-        if keyword in first:
-            return l1_value
+        for seg in segments:
+            if keyword in seg:
+                return l1_value
     return ''

@@ -424,7 +424,7 @@ class ProductEnrichAPITest(TestCase):
 
     @patch("apps.commerce.services.validators.pubchem_enhancer.PubChemEnhancer.resolve_to_properties")
     @patch("apps.knowledge.services.literature_recommender.LiteratureRecommender.recommend")
-    @patch("apps.knowledge.services.protocol_recommender.ProtocolRecommender.recommend")
+    @patch("apps.knowledge.services.protocol_recommender.ProtocolRecommender.recommend_expanded")
     def test_enrich_returns_all_sections(self, mock_proto, mock_lit, mock_chem):
         """一站式 enrich 返回 chemical + literature + protocols + jena"""
         mock_chem.return_value = {
@@ -444,8 +444,10 @@ class ProductEnrichAPITest(TestCase):
             "matched_apps": [], "matched_methods": [],
             "unmatched_app_keywords": [], "unmatched_method_keywords": [],
         }
+        # ai_views 现调用 recommend_expanded（查询扩展），mock 其返回受控列表
         mock_proto.return_value = [
-            {"protocol": {"title": "Aspirin synthesis", "source": "Bio-protocol"}},
+            {"id": "p1", "source": "Bio-protocol", "title": "Aspirin synthesis", "score": 1.0,
+             "matched_query": "aspirin"},
         ]
 
         resp = self.client.post(
@@ -663,3 +665,91 @@ class ProductImportProtocolAPITest(TestCase):
         )
         data = resp.json()
         self.assertFalse(data["success"])
+
+    def test_import_protocol_creates_methodprotocol_bridge(self):
+        """导入协议必须建立 Method↔Protocol 桥（修复 Protocols:None 的核心）。
+
+        之前 ProductImportProtocolView 只建 Method + Protocol，从不建 MethodProtocol 桥，
+        导致产品 protocol_ids（经 MethodProtocol×产品 methods 推导）恒为空 → Knowledge Links 显示 None。
+        """
+        from apps.bridges.models import MethodProtocol
+        from apps.knowledge.models import Method, Protocol
+
+        payload = {
+            "method_name": "CuAAC Click Chemistry",
+            "protocol_title": "CuAAC Bridge Test Protocol",
+            "protocol_url": "https://doi.org/10.21769/BridgeTest.5555",
+        }
+        resp = self.client.post(
+            "/api/v1/products/import-protocol/", payload, format="json"
+        )
+        data = resp.json()["data"]
+        method = Method.objects.get(pk=data["method_id"])
+        protocol = Protocol.objects.get(pk=data["protocol_id"])
+        self.assertTrue(
+            MethodProtocol.objects.filter(method=method, protocol=protocol).exists(),
+            "MethodProtocol bridge must be created when importing a protocol",
+        )
+
+    def test_import_protocol_links_method_to_product_via_product_id(self):
+        """带 product_id 导入 → ProductMethod 桥建立，且产品 protocol_ids 经 MethodProtocol 含该协议。"""
+        from apps.commerce.tests.factories import ProductFactory
+        from apps.commerce.api.v1.serializers import ProductDetailSerializer
+        from apps.bridges.models import ProductMethod, MethodProtocol
+        from apps.knowledge.models import Method, Protocol
+
+        product = ProductFactory()
+        payload = {
+            "method_name": "RNA Labeling",
+            "protocol_title": "RNA Labeling Protocol Link",
+            "protocol_url": "https://doi.org/10.21769/LinkTest.8888",
+            "product_id": product.id,
+        }
+        resp = self.client.post(
+            "/api/v1/products/import-protocol/", payload, format="json"
+        )
+        data = resp.json()["data"]
+        method = Method.objects.get(pk=data["method_id"])
+        protocol = Protocol.objects.get(pk=data["protocol_id"])
+
+        self.assertTrue(
+            ProductMethod.objects.filter(product=product, method=method).exists(),
+            "Method must be linked to the product via ProductMethod",
+        )
+        self.assertTrue(
+            MethodProtocol.objects.filter(method=method, protocol=protocol).exists(),
+            "MethodProtocol bridge must be created",
+        )
+        # 读路径：get_protocol_ids 经 MethodProtocol×产品 methods 推导
+        serialized = ProductDetailSerializer(product).data
+        self.assertIn(
+            protocol.id, serialized["protocol_ids"],
+            "Product protocol_ids must include the imported protocol after bridging",
+        )
+
+    def test_serializer_sync_protocol_bridges_creates_methodprotocol(self):
+        """保存路径锁行为：protocol_ids × 产品 methods 必须建 MethodProtocol 桥（且不删已有）。"""
+        from apps.commerce.tests.factories import ProductFactory
+        from apps.commerce.api.v1.serializers import ProductCreateUpdateSerializer
+        from apps.bridges.models import ProductMethod, MethodProtocol
+        from apps.knowledge.models import Method, Protocol
+
+        product = ProductFactory()
+        method = Method.objects.create(name="Sync M", slug="sync-m", status="active")
+        protocol = Protocol.objects.create(
+            method=method, name="Sync P", slug="sync-p", status="published"
+        )
+        ProductMethod.objects.create(product=product, method=method)
+
+        ser = ProductCreateUpdateSerializer(instance=product)
+        ser._sync_protocol_bridges(product, [protocol.id])
+
+        self.assertTrue(
+            MethodProtocol.objects.filter(method=method, protocol=protocol).exists(),
+            "_sync_protocol_bridges must create MethodProtocol for given protocol_ids",
+        )
+        # 不删已有：再传一次仍只有一条（get_or_create）
+        ser._sync_protocol_bridges(product, [protocol.id])
+        self.assertEqual(
+            MethodProtocol.objects.filter(method=method, protocol=protocol).count(), 1
+        )

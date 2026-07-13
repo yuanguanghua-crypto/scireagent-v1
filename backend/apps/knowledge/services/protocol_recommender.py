@@ -235,6 +235,88 @@ class ProtocolRecommender:
             })
         return recommendations
 
+    def recommend_expanded(self, product_name: str, category_path: Optional[str] = None,
+                           synonyms: Optional[list] = None, top_k: int = 5,
+                           include_content: bool = False) -> list:
+        """扩展查询后推荐：产品名 → 多检索串 → 分别检索 → 合并去重。
+
+        解决冷门精确名（如 5-Propargylamino-CTP）原 search 整体匹配返回 0 的问题：
+        碎片化产品名（CTP / Propargyl）+ jena 分类路径领域关键词
+        （nucleotide / labeling / click chemistry）+ 同义词，扩大命中面。
+        返回结构与 retriever.search 一致（含 matched_query 标记来源）。
+        """
+        queries = expand_protocol_query(product_name, category_path=category_path, synonyms=synonyms)
+        if not queries:
+            return []
+        lists = []
+        for q in queries:
+            res = self.retriever.search(q, top_k=top_k, include_content=include_content)
+            for r in res:
+                r["matched_query"] = q
+            lists.append(res)
+        return _merge_results(lists, top_k)
+
+
+# ── 查询扩展（TDD #4）：把产品名扩成多个检索串，提升 BioProCorpus 命中率 ──
+# 领域关键词：按 jena 分类路径段抽取；覆盖核苷酸/标记/点击化学等核心场景。
+_CATEGORY_KEYWORDS = ("nucleotide", "click chemistry", "rna", "labeling",
+                      "cuac", "epigenetics", "probe", "modified nucleotide")
+
+
+def expand_protocol_query(product_name: Optional[str], category_path: Optional[str] = None,
+                          synonyms: Optional[list] = None) -> list:
+    """把产品名扩展成多个检索串（去重保序）。
+
+    策略：
+      1. 原始产品名（精确）
+      2. 产品名碎片化：按 -/_/空格/camelCase 切分，取有意义片段（如 'CTP'、'Propargyl'）
+      3. jena 分类路径段中的领域关键词（nucleotide / labeling / click chemistry …）
+      4. 传入的同义词/系统名
+    """
+    queries: list = []
+    if product_name:
+        queries.append(product_name.strip())
+    # 碎片化：分离 CTP / Propargyl / dUTP 等有意义片段（按 -/_/空格/camelCase 切分，
+    # 连字符也作为分隔，使 'CTP' 成为独立检索串；丢弃过短噪声如 '5'、'd'）
+    if product_name:
+        for frag in re.findall(r"[A-Za-z][A-Za-z0-9]*", product_name):
+            fl = frag.lower()
+            if len(fl) >= 3 and fl not in ("the", "and", "for"):
+                queries.append(frag)
+    # 分类路径关键词
+    if category_path:
+        for seg in category_path.split("|"):
+            seg_l = seg.lower()
+            for kw in _CATEGORY_KEYWORDS:
+                if kw in seg_l:
+                    queries.append(kw)
+    # 同义词
+    if synonyms:
+        for s in synonyms[:10]:
+            if s and str(s).strip():
+                queries.append(str(s).strip())
+    # 去重保序
+    seen = set()
+    out = []
+    for q in queries:
+        q = (q or "").strip()
+        if q and q.lower() not in seen:
+            seen.add(q.lower())
+            out.append(q)
+    return out
+
+
+def _merge_results(result_lists: list, top_k: int) -> list:
+    """合并多次检索结果：同 id 取最高分，按分降序，截断 top_k。"""
+    best: dict = {}
+    for results in result_lists:
+        for r in results:
+            rid = r.get("id")
+            if rid not in best or r["score"] > best[rid]["score"]:
+                best[rid] = r
+    merged = sorted(best.values(), key=lambda x: x["score"], reverse=True)
+    return merged[:top_k]
+
 
 # ── 进程级共享单例（惰性构建，线程安全）──────────────────────────────────────
 # 解决「每次 HTTP 请求 new ProtocolRecommender() → rebuild 175MB 索引」的性能问题。

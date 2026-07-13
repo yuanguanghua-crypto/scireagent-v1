@@ -46,6 +46,12 @@ services:
       - media_volume:/app/media
       # 大数据集：一次性上传到主机 ./data/bioprocorpus，绑定挂载进容器（只读、常驻持久盘）
       - ./data/bioprocorpus:/app/backend/data/bioprocorpus:ro
+      # jena 产品数据集：与 bioprocorpus 同构，绑定挂载进容器（只读、常驻持久盘）。
+      # 关键：rebuild 镜像时 `COPY . .` 会把数据放到 /app/data/jena 而非代码读取的
+      # /app/backend/data/jena，导致 jena 索引为空、Category 静默归不到类（rebuild 回归）。
+      # 改为卷挂载后，数据来自主机持久盘、rebuild 永不丢失；且 JENA_DATA_DIR 指向
+      # /app/backend/data/jena 正好命中。
+      - ./backend/data/jena:/app/backend/data/jena:ro
     depends_on:
       db:
         condition: service_healthy

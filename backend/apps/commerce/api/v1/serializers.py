@@ -157,7 +157,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'name', 'slug', 'catalog_no', 'cas', 'smiles', 'synonyms', 'inchi',
             'formula', 'molecular_weight', 'purity', 'concentration', 'storage',
             'shipping', 'lead_time', 'handling_notes', 'shelf_life', 'research_use_only',
-            'overview', 'structure_svg', 'seo_title', 'seo_description',
+            'overview', 'structure_svg', 'structure_image', 'seo_title', 'seo_description',
             'status', 'product_class_id',
             'skus', 'method_ids', 'protocol_ids', 'research_goal_ids', 'application_ids',
         ]
@@ -306,7 +306,7 @@ class ProductDetailSerializer(BaseModelSerializer):
             'id', 'name', 'slug', 'catalog_no', 'cas', 'smiles', 'synonyms', 'inchi',
             'formula', 'molecular_weight', 'purity', 'concentration', 'storage',
             'shipping', 'lead_time', 'handling_notes', 'shelf_life', 'research_use_only',
-            'overview', 'structure_svg', 'seo_title', 'seo_description',
+            'overview', 'structure_svg', 'structure_image', 'seo_title', 'seo_description',
             'category_l1', 'category_l2', 'status', 'product_class_id',
             'product_class_name', 'product_class_path',
             'skus', 'documents', 'application_ids', 'method_ids', 'protocol_ids',
