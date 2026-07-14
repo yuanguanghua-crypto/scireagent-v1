@@ -452,7 +452,8 @@ class PubChemEnhancer:
             if len(results) > 1:
                 candidates = []
                 for c in results[:5]:
-                    candidates.append(self._build_candidate(c))
+                    candidates.append(self._build_candidate(
+                        c, requires_review=True, confidence='multiple'))
                 return {
                     'source': 'pubchem',
                     'found': True,
@@ -469,6 +470,12 @@ class PubChemEnhancer:
             c = results[0]
             verified, confidence = self._validate_identity(identifier, namespace, c, expected_cas)
             cross = self._cross_check(expected_formula, expected_mw, c)
+
+            # 身份(CAS)通过但分子式/MW 与文档(权威)不符 → 视为错误化合物，
+            # 降级为需人工核实，绝不自动套用（任务2(b)：根治 PubChem 模糊匹配到错误分子）。
+            if verified and (cross['formula_mismatch'] or cross['mw_mismatch']):
+                verified = False
+                confidence = 'formula_mismatch'
 
             if confidence == 'rejected':
                 # 返回化合物与输入身份（CAS/结构）不符 → 拒绝，绝不套用
@@ -518,7 +525,8 @@ class PubChemEnhancer:
                 'cid': c.cid,
                 'properties': properties,
                 'cas_resolved': self._extract_cas_from_synonyms(c),
-                'candidates': [self._build_candidate(c)],
+                'candidates': [self._build_candidate(
+                    c, cross=cross, confidence='unverified', requires_review=True)],
                 'fallback_used': fallback_used,
                 'identity_verified': False,
                 'requires_review': True,
@@ -536,8 +544,12 @@ class PubChemEnhancer:
             logger.warning(f"Resolve failed for {identifier} ({namespace}): {e}")
             return {'error': str(e), 'found': False, 'namespace': namespace, 'candidates': []}
 
-    def _build_candidate(self, c) -> dict:
-        """构造候选化合物条目（供前端显式选择）。"""
+    def _build_candidate(self, c, cross=None, confidence=None, requires_review=None) -> dict:
+        """构造候选化合物条目（供前端显式选择）。
+
+        携带守卫标志（formula_mismatch / mw_mismatch / requires_review / confidence），
+        供前端 applyCandidate 据此拦截错误分子（任务2(b)）。
+        """
         return {
             'cid': c.cid,
             'iupac_name': c.iupac_name or '',
@@ -546,6 +558,10 @@ class PubChemEnhancer:
             'cas': self._extract_cas_from_synonyms(c),
             'canonical_smiles': getattr(c, 'smiles', '') or getattr(c, 'canonical_smiles', '') or '',
             'inchi': getattr(c, 'inchi', '') or '',
+            'formula_mismatch': bool(cross['formula_mismatch']) if cross else False,
+            'mw_mismatch': bool(cross['mw_mismatch']) if cross else False,
+            'requires_review': bool(requires_review) if requires_review is not None else False,
+            'confidence': confidence or '',
         }
 
     def _extract_cas_from_synonyms(self, compound) -> Optional[str]:

@@ -560,3 +560,92 @@ class L1DataSourceCacheIntegrationTest(TestCase):
         result = PubChemEnhancer().resolve_to_properties("Aspirin")
         self.assertEqual(result["cid"], 2244)  # 来自外部，非过期 999
         mock_get_compounds.assert_called_once()
+
+
+class PubChemGuardTest(TestCase):
+    """任务2(b)：保留 SMILES 渲染，但根治 PubChem 模糊匹配到错误分子。
+
+    RED→GREEN：
+    - 身份(CAS)通过但分子式/MW 与文档(权威)不符 → 视为错误化合物，强制 requires_review，绝不自动套用。
+    - name 模糊匹配(无 CAS)的候选必须携带 formula_mismatch/requires_review 标志，
+      供前端 applyCandidate 据此拦截错误分子。
+    """
+
+    def setUp(self):
+        self.enhancer = PubChemEnhancer()
+        cache.clear()
+
+    def _mock_compound(self, cid=2244):
+        c = MagicMock()
+        c.cid = cid
+        c.molecular_formula = "C9H8O4"
+        c.molecular_weight = 180.16
+        c.iupac_name = "2-acetyloxybenzoic acid"
+        c.smiles = "CC(=O)OC1=CC=CC=C1C(=O)O"
+        c.isomeric_smiles = "CC(=O)OC1=CC=CC=C1C(=O)O"
+        c.inchi = "InChI=1S/C9H8O4/c10-8(11)6-4-2-1-3-5(6)9(12)13-7(8)14/h1-4H,(H,10,11)"
+        c.inchikey = "BSYNRYMUTXBXSQ-UHFFFAOYSA-N"
+        c.xlogp = 1.2
+        c.tpsa = 63.6
+        c.h_bond_donor_count = 1
+        c.h_bond_acceptor_count = 4
+        c.rotatable_bond_count = 3
+        c.complexity = 250
+        c.exact_mass = 180.0423
+        c.monoisotopic_mass = 180.0423
+        c.charge = 0
+        c.heavy_atom_count = 13
+        c.synonyms = []
+        return c
+
+    @patch("core.datasource_client.requests.request")
+    @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
+    @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_cids")
+    def test_verified_cas_but_formula_mismatch_requires_review(
+        self, mock_get_cids, mock_get_compounds, mock_request
+    ):
+        """CAS 匹配(身份通过)但分子式与文档不符 → 错误化合物，requires_review=True。"""
+        c = self._mock_compound(cid=2244)
+        c.synonyms = ["12345-67-8"]
+        c.molecular_formula = "C9H8O4"  # 故意与文档不符
+        mock_get_compounds.return_value = [c]
+        mock_get_cids.return_value = [2244]
+
+        result = self.enhancer.resolve_to_properties(
+            "Some Compound", namespace='name',
+            expected_cas="12345-67-8", expected_formula="C12H19N4O14P3")
+
+        self.assertTrue(result["found"])
+        self.assertTrue(result["formula_mismatch"], "分子式与文档不符应标记 mismatch")
+        # RED: 当前 verified 分支返回 requires_review=False；修复后应为 True
+        self.assertTrue(
+            result["requires_review"],
+            "CAS 通过但分子式不符 = 错误化合物，必须 requires_review=True")
+        self.assertFalse(result["identity_verified"])
+
+    @patch("core.datasource_client.requests.request")
+    @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
+    @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_cids")
+    def test_name_only_match_candidate_carries_guard_flags(
+        self, mock_get_cids, mock_get_compounds, mock_request
+    ):
+        """name 模糊匹配(无 CAS)的候选必须携带 formula_mismatch/requires_review 标志。"""
+        c = self._mock_compound(cid=2244)
+        c.molecular_formula = "C9H8O4"  # 与文档不符
+        mock_get_compounds.return_value = [c]
+        mock_get_cids.return_value = [2244]
+
+        result = self.enhancer.resolve_to_properties(
+            "5-Propargylamino-CTP", namespace='name',
+            expected_formula="C12H19N4O14P3")
+
+        self.assertFalse(result["identity_verified"])
+        self.assertTrue(result["requires_review"])
+        self.assertTrue(result["formula_mismatch"])
+        # 候选必须携带守卫标志，前端 applyCandidate 才能据此拦截
+        self.assertTrue(len(result["candidates"]) >= 1)
+        cand = result["candidates"][0]
+        self.assertTrue(cand.get("formula_mismatch"),
+                        "候选必须携带 formula_mismatch 供前端拦截")
+        self.assertTrue(cand.get("requires_review"),
+                        "候选必须携带 requires_review 供前端拦截")

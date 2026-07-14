@@ -734,6 +734,11 @@ function applyJenaCategoryL1(l1Slug) {
 // 显式选用一个候选化合物（用户主动确认，允许套用未自动验证的结果）
 function applyCandidate(c) {
   if (!c) return
+  // 任务2(b)：分子式/MW 与文档(权威)不符 → 这是错误化合物，禁止套用其 SMILES/属性
+  if (c.formula_mismatch || c.mw_mismatch || c.confidence === 'rejected') {
+    setFeedback('warn', '⚠ 该候选分子式/分子量与文档不一致，疑似错误化合物，未套用。请人工核实或手动录入。')
+    return
+  }
   if (c.canonical_smiles && !form.smiles) form.smiles = c.canonical_smiles
   if (c.molecular_formula && !form.formula) form.formula = c.molecular_formula
   if (c.molecular_weight) form.molecular_weight = Number(c.molecular_weight) || null
@@ -1596,9 +1601,13 @@ watch(
             <span>CID: {{ c.cid }}, MW: {{ c.molecular_weight }}</span>
             <span v-if="c.cas">, CAS: {{ c.cas }}</span>
             <span v-if="c.canonical_smiles" class="mono-wrap" style="display:block;font-size:10px;color:var(--color-text-secondary);word-break:break-all">{{ c.canonical_smiles }}</span>
+            <span class="mono-wrap" style="display:block;font-size:10px;color:var(--color-text-secondary)">文档 Formula: {{ form.formula || '—' }} ｜ PubChem: {{ c.molecular_formula || '—' }}</span>
             <span v-if="c.formula_mismatch || c.mw_mismatch" class="field-error" style="display:block">⚠ 与文档 Formula/MW 不一致</span>
           </div>
-          <button type="button" class="btn btn-sm btn-primary" style="font-size:11px;white-space:nowrap" @click="applyCandidate(c)">Use this</button>
+          <button type="button" class="btn btn-sm btn-primary" style="font-size:11px;white-space:nowrap"
+            :disabled="c.formula_mismatch || c.mw_mismatch || c.confidence === 'rejected'"
+            :title="(c.formula_mismatch || c.mw_mismatch) ? '分子式/分子量与文档不符，疑似错误化合物，已禁用' : ''"
+            @click="applyCandidate(c)">Use this</button>
         </div>
       </div>
       <!-- Not found guidance (Bug 2 fix: check enrichChemical instead of top-level) -->
@@ -2257,7 +2266,7 @@ html.dark .source-pubchem { color: #fff; }
 .qc-form input { padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px; background: var(--color-bg); color: var(--color-text); }
 
 /* 合规徽章（沿用 ProductsPage 体系） */
-.tag-sds { background: var(--color-success-light); color: var(--color-primary-active); }
+.tag-sds { background: #d1fae5; color: #065f46; }
 .tag-coa { background: var(--color-info-bg); color: var(--color-info); }
 
 /* 无批次 SKU 的新建入口 */

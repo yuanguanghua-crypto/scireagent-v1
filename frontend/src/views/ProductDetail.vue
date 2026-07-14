@@ -348,6 +348,9 @@ function onSearch(query) {
 
           <!-- Structure (280x220) -->
           <div class="pd-structure-box">
+            <!-- 优先显示 Word 提取的结构图（权威、高于 SMILES 渲染） -->
+            <img v-if="product.structure_image" :src="product.structure_image" class="pd-structure-img" alt="Chemical structure" />
+            <template v-else>
             <div v-if="renderedSvg" class="pd-svg-wrap" v-html="renderedSvg"></div>
             <div v-else-if="renderingStructure || rdkitLoading" class="pd-svg-placeholder">
               <svg class="spinner" width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="2.5" stroke-dasharray="50" stroke-dashoffset="15" stroke-linecap="round"/></svg>
@@ -361,6 +364,7 @@ function onSearch(query) {
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h4"/></svg>
               <span>No structure</span>
             </div>
+            </template>
           </div>
 
           <!-- Description (right side) -->
@@ -752,6 +756,8 @@ function onSearch(query) {
 /* ── SVG inside structure box ── */
 .pd-svg-wrap { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 8px; }
 .pd-svg-wrap :deep(svg) { max-width: 100%; max-height: 100%; height: auto; }
+/* Word 提取的结构图（权威）优先显示 */
+.pd-structure-img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; padding: 8px; }
 .pd-svg-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--color-text-tertiary); font-size: 12px; padding: 16px; text-align: center; }
 .spinner { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

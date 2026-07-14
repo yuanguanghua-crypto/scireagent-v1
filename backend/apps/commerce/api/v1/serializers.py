@@ -29,13 +29,15 @@ class SKUSerializer(BaseModelSerializer):
 class SKUCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SKU
-        fields = ['sku_code', 'pack_size', 'price', 'currency', 'inventory_status',
+        fields = ['id', 'sku_code', 'pack_size', 'price', 'currency', 'inventory_status',
                   'concentration', 'lead_time', 'is_default']
         # 移除 sku_code 自动生成的 UniqueValidator：
-        # ProductCreateUpdateSerializer.update() 先 delete 旧 SKU 再 create 新 SKU，
-        # 但 is_valid() 在 update() 之前运行嵌套 UniqueValidator，此时旧 SKU 仍在库中，
-        # 草稿保存→发布（sku_code 不变）会被判为 unique 冲突。唯一性由 update() 的 delete 保证。
+        # 嵌套写入时 is_valid() 在 update() 之前运行 UniqueValidator，旧 SKU 仍在库中，
+        # 草稿保存→发布（sku_code 不变）会被判为 unique 冲突。唯一性由业务保证。
         extra_kwargs = {
+            # id 可写但非必填：保存时带上既有 SKU 的 id 即可原地更新，
+            # 避免 update() 删光重建（否则 SKU id 变化会级联删 Batch/Coa）。
+            'id': {'required': False, 'read_only': False},
             'sku_code': {'validators': []},
         }
 
@@ -241,7 +243,8 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 
         product = Product.objects.create(**validated_data)
         for sku_data in skus_data:
-            SKU.objects.create(product=product, **sku_data)
+            SKU.objects.create(
+                product=product, **{k: v for k, v in sku_data.items() if k != 'id'})
 
         # Sync method bridges only if any method-related field was explicitly provided.
         # Explicit empty list clears all bridges; omitting all fields preserves existing.
@@ -269,9 +272,43 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         instance.save()
 
         if skus_data is not None:
-            instance.skus.all().delete()
+            # 增量同步：保留既有 SKU（避免删光重建导致 SKU id 变化、Batch/Coa 级联丢失，
+            # 修复 COA 报 "SKU does not exist"）。
+            # 匹配优先级：payload 带 id → 按 id 原地更新（前端保存走此路径，SKU id 稳定）；
+            # 否则按 sku_code 兜底匹配（纯 API/测试不带 id 时仍避免 unique 冲突）。
+            # 仅当 skus 在 payload 中才处理；缺失 skus 键则保留现有 SKU 不动。
+            existing_by_id = {sku.id: sku for sku in instance.skus.all()}
+            existing_by_code = {}
+            for sku in existing_by_id.values():
+                existing_by_code.setdefault(sku.sku_code, sku)
+            matched_existing_ids = set()
+            incoming_ids = []
             for sku_data in skus_data:
-                SKU.objects.create(product=instance, **sku_data)
+                sid = sku_data.get('id')
+                target = None
+                if sid and sid in existing_by_id and sid not in matched_existing_ids:
+                    target = existing_by_id[sid]
+                elif sku_data.get('sku_code') and sku_data['sku_code'] in existing_by_code:
+                    cand = existing_by_code[sku_data['sku_code']]
+                    if cand.id not in matched_existing_ids:
+                        target = cand
+                if target is not None:
+                    for attr, val in sku_data.items():
+                        if attr == 'id':
+                            continue
+                        setattr(target, attr, val)
+                    target.save()
+                    matched_existing_ids.add(target.id)
+                    incoming_ids.append(target.id)
+                else:
+                    sku = SKU.objects.create(
+                        product=instance,
+                        **{k: v for k, v in sku_data.items() if k != 'id'})
+                    incoming_ids.append(sku.id)
+            # 删除前端未包含的 SKU（用户移除的），级联删其 Batch/Coa
+            stale_ids = [sid for sid in existing_by_id if sid not in matched_existing_ids]
+            if stale_ids:
+                instance.skus.filter(id__in=stale_ids).delete()
 
         # Sync method bridges only if any method-related field was explicitly provided.
         # Explicit empty list clears all bridges; omitting all fields preserves existing.
