@@ -97,3 +97,11 @@ _docx_media/
 # Basic Auth 密码文件（含哈希，不入库；由 deploy/generate-htpasswd.sh 生成）
 deploy/.htpasswd
 deploy/.htpasswd.*
+
+# 部署敏感/生成物（不入库）
+# CREDENTIALS.txt 由 deploy/setup-env.sh 生成，含 6 个账号明文密码（权限 600）
+# certbot/ 含 Let's Encrypt TLS 证书与私钥
+# frontend/dist.bak* 为前端构建历史备份目录（占空间，非源码）
+deploy/CREDENTIALS.txt
+deploy/certbot/
+frontend/dist.bak*/
