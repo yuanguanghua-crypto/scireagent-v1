@@ -1,8 +1,8 @@
-# 全站 E2E 测试计划 — SciReAgent 前端（彻底完全覆盖版 v2）
+# 全站 E2E 测试计划 — SciReAgent 前端（彻底完全覆盖版 v2.1）
 
 > 目的：对**全站每个页面、每个交互元素（按钮 / 跳转 / 输入 / 选择 / 弹窗 / 下拉 / Tab / 上传 / 分页 / 排序 / Toast / 加载态）、每个权限角色、每个业务状态、每种视口、每个浏览器、全站可访问性**建立可重复运行的端到端覆盖。
 > 技术栈：Playwright（`@playwright/test`）+ 真实 Chromium/Firefox/WebKit，`baseURL=http://localhost:5173`，后端 `http://localhost:8000`。
-> 状态：**计划文档 v2（彻底覆盖级）**。实现按阶段 0→10 推进，每阶段完成需回归全绿后再进下一阶段。
+> 状态：**计划文档 v2.1（彻底覆盖级）**。v2.1 相对 v2 增补：§10 响应式视口矩阵、§11 a11y 章节、Basic Auth 前置、两套账号体系区分、账号基线更正（admin/scire/e2e_customer）、状态逐态表、§5.1 三项修复回归专项、阶段退出量化门槛与验收报告机制。实现按阶段 0→10 推进，每阶段完成需回归全绿后再进下一阶段。
 > 配套清单：`docs/e2e/INTERACTION_INVENTORY.md`（全站交互元素逐页扫描，本计划 §2 引用）。
 
 ---
@@ -121,29 +121,67 @@
 
 ### 2.3 权限矩阵（4 角色 × 受限页）
 
-角色：①匿名（无 token）②customer（is_staff=False，requiresAuth）③staff（is_staff=True，即 admin 账号）④admin（同 staff，requiresAdmin）。
+角色（⚠️ 见 §6「两套账号体系」区分 Basic Auth 与 Django 应用账号）：
+- ① **匿名**（无 Django token）
+- ② **customer**（`is_staff=False`，`requiresAuth`，普通登录用户）
+- ③ **staff**（`is_staff=True` 的研究员账号，如 `scire02`/`scire03`/`admin`，可进 `/workspace`）
+- ④ **admin**（`is_staff=True` **且** `is_superuser`，可进 `/admin` 及 `/workspace`）
 
-| 页面类型 | 匿名 | customer | staff | admin |
-|---------|------|----------|-------|-------|
-| 公开页（无 meta） | ✓ 可访问 | ✓ | ✓ | ✓ |
-| `guest:true`（/login /register） | ✓ | 已登录→重定向(测目标) | 已登录→重定向 | 已登录→重定向 |
-| `requiresAuth`（/settings /checkout /orders /po/*） | → `/login?redirect=<原路径>` | ✓ | ✓ | ✓ |
-| `requiresAdmin`（/admin/* /workspace/*） | → `/login?redirect=<原路径>` | AdminLayout 重定向(测实际目标/无权限提示) | ✓ | ✓ |
+> 读/写必须分开断言（同一受限页，匿名读与匿名写、customer 读与 customer 写响应不同）：
 
-**阶段 6 须逐页穷举上表**，断言：重定向 URL 含 `redirect=`、customer 访问 admin 页被拦、staff 可进。K4（匿名写返回 403 而非 401）锁定。
+| 页面类型 | 匿名（读） | 匿名（写） | customer（读） | customer（写） | staff/admin |
+|---------|-----------|-----------|---------------|---------------|------------|
+| 公开页（无 meta） | ✓ 可访问 | ✓（公开资源） | ✓ | ✓ | ✓ |
+| `guest:true`（`/login` `/register`） | ✓ | — | 已登录→重定向(测目标) | 已登录→重定向 | 已登录→重定向 |
+| `requiresAuth`（`/settings` `/checkout` `/orders` `/po/*`） | → `/login?redirect=<原路径>` | → `/login?redirect=<原路径>`（或 403，视 endpoint） | ✓ | ✓ | ✓ |
+| `requiresAdmin`（`/admin/*` `/workspace/*`） | → `/login?redirect=<原路径>` | **403**（K4，DRF 标准，非 401） | **AdminLayout 重定向 / 无权限提示**（非 403，UI 层拦截） | **403**（API 层） | ✓ |
+
+**逐页穷举断言清单（阶段 6）**：
+1. 匿名访问受限页 → 重定向 URL **含 `redirect=<原路径>`**（断言 `response.url()` 匹配，`not 401`）。
+2. 匿名 POST/PUT/DELETE 受限写操作 → **断言 403**（K4），非 401、非 200。
+3. customer（`is_staff=False`）访问 `/workspace/*` 或 `/admin/*`：
+   - 页面导航 → 命中 AdminLayout 重定向 / 显示无权限提示（断言**不进入工作台内容**）。
+   - 直接调受限写 API → 断言 403。
+4. staff（`scire02`/`scire03`）访问 `/workspace/*` → 200 且可见工作台内容；访问 `/admin/*` → 若非 superuser 则按 AdminLayout 规则重定向（见 §6 账号分工）。
+5. admin（`admin`）→ 全部 200。
 
 ### 2.4 状态分支矩阵
 
-**PO / Order 8 态**（驱动 PO 门户 + Admin 订单 UI 差异）：
-`PO_RECEIVED → CONFIRMED → IN_PRODUCTION → SHIPPED → DELIVERED → INVOICED → PAID → COMPLETED`，外加 `CANCELLED`。
-- 每态须测：状态标签文案+色（中性边框+语义色点）、该态可用按钮集、禁用项、时间线 StatusLog 节点。
-- 需后端 seed 不同状态订单（写 `seed_e2e` 或 factory）逐态构造。
-- 多批发：SHIPPED（部分发货）/ DELIVERED（全部签收）语义（见 ARCHITECTURE.md）。
+#### 2.4.1 PO / Order 8 态逐态表（驱动 PO 门户 + Admin 订单 UI 差异）
 
-**产品 status**：`active` / `draft` / `discontinued`：
-- 列表/详情展示差异、ProductEditPage 发布按钮可用性、discontinued 是否仍可加购（断言预期）。
+流转：`PO_RECEIVED → CONFIRMED → IN_PRODUCTION → SHIPPED → DELIVERED → INVOICED → PAID → COMPLETED`，外加 `CANCELLED`。
 
-**订单旧态（legacy，deprecated）**：`DRAFT` / `QUOTE_*` / `PROCESSING` 仅存量数据展示，不测新流程（旧 admin 视图已停用，见 PRD）。
+| 状态 | 状态点色（设计系统） | 客户侧（/po/*）可用按钮集 | 内部台（/admin/po/*）可用按钮集 | 禁用项 | 时间线 StatusLog 节点 | 备注 |
+|------|-------------------|------------------------|------------------------------|--------|---------------------|------|
+| `PO_RECEIVED` | 灰（中性） | 查看 / 编辑（未确认前） | 审核：approve / reject / assign-rep | 发货/开票 | 已收到 | 起点 |
+| `CONFIRMED` | 蓝（info） | 查看 / 重订入口隐藏 | 标记生产 / 退回 | 发货/开票 | 已确认 | — |
+| `IN_PRODUCTION` | 琥珀（amber） | 查看 | 标记发货（部分） | 开票 | 生产中 | — |
+| `SHIPPED` | 蓝（info） | 查看 / 下载（若有） | 标记签收（全部）/ 记录分批 | 开票（未 DELIVERED） | 已发货（可能部分） | 多批发：部分发货语义 |
+| `DELIVERED` | 绿（emerald） | 查看 / 下载 | 开票（对 DELIVERED） | — | 已签收 | 多批发：全部签收 |
+| `INVOICED` | 琥珀（amber） | 查看发票 | 标记收款 | 重开发票 | 已开票 | 仅 DELIVERED 可开票 |
+| `PAID` | 绿（emerald） | 查看 | 标记完成 | — | 已付款 | — |
+| `COMPLETED` | 绿（emerald） | 查看 | — | 全部写操作 | 已完成 | 终态 |
+| `CANCELLED` | 红（danger） | 查看 | 查看（不可再流转） | 全部写操作 | 已取消 | 终态，独立分支 |
+
+- 每态须 seed 指定态订单（§3.1 factory `createPoOrderInState(state)`），断言：状态标签文案 + 点色（computed style 取色）、按钮集与禁用项、时间线节点存在。
+- 多批发：SHIPPED（部分发货）/ DELIVERED（全部签收）语义（见 ARCHITECTURE.md），需构造「部分发货→再发货→全部签收」序列用例。
+- 状态点色断言：取 `.status-dot` 背景色，对照设计系统 `emerald/amber/blue/danger` 令牌（§0#10）。
+
+#### 2.4.2 产品 3 态逐态表
+
+`active` / `draft` / `discontinued`：
+
+| 状态 | 列表/详情展示 | 详情页结构图（§5.1 修复） | Add to Cart | ProductEditPage 发布按钮 | 备注 |
+|------|-------------|------------------------|------------|------------------------|------|
+| `active` | 正常展示 + 完整信息 | ✅ 优先显示文档图（structure_image），无则回退 SMILES 渲染 | ✅ 可加购 | 可用（可改回 draft？按业务） | 正式上线 |
+| `draft` | 标记「草稿」徽标，部分字段可能空 | 同 active（若有图） | ⚠️ **非 active 不可加购**（断言购物车按钮禁用 / 点击报「未发布」） | 可用（发布→active） | 未发布 |
+| `discontinued` | 标记「停产」徽标（红/灰） | 同 active（若有图） | ⚠️ **断言不可加购**（按钮禁用，文案「已停产」） | 可用（可作归档编辑） | 停产，仍可见详情 |
+
+> 断言预期固化：**`draft` 与 `discontinued` 均不可加购**（按钮 `disabled` + 文案提示）；仅 `active` 可加购。此预期须写进 `product-detail` 用例，避免回归。
+
+#### 2.4.3 订单旧态（legacy，deprecated）
+
+`DRAFT` / `QUOTE_*` / `PROCESSING` 仅存量数据展示，不测新流程（旧 admin 视图已停用，见 PRD）。阶段 7 仅断言「旧态订单能在订单详情页正常渲染、不白屏」，不测状态流转。
 
 ### 2.5 全局守卫与跳转链（E2E 必测）
 
@@ -175,6 +213,29 @@ frontend/e2e/
   (保留既有 8 个 spec，迁移通用 helper 后逐步并入)
 ```
 
+### 3.1.1 数据 Factory 实体依赖图与最小字段集
+
+Factory 函数（`api.cjs` 内）须按真实外键依赖构造，避免 seed 因 NOT NULL 约束失败：
+
+```
+Organization (必填: name)
+   └─ Address (必填: org_id, line1, city, country)
+Product (必填: name, slug, status[active/draft/discontinued])
+   ├─ SKU (必填: product_id, sku_code)
+   ├─ ProductMethod / MethodProtocol (可选，关联知识实体)
+POOrder (必填: org_id, po_number[UNIQUE 注意空串冲突 K-UNIQUE], status)
+   ├─ POOrderLine (必填: po_id, product_id, qty, unit_price)
+   ├─ Shipment (SHIPPED/DELIVERED 态: po_id, carrier, tracking_no)
+   ├─ Invoice (INVOICED 态: po_id, invoice_no, amount)
+   └─ StatusLog (每态流转自动写入; 断言时间线节点用)
+QuoteRequest (匿名可建: 必填 email + 产品描述)
+```
+
+- **最小字段集**：每个 factory 仅填 NOT NULL 字段 + 驱动本用例必需的字段，不填无关可选字段（保持测试数据精简、可重复）。
+- **幂等策略**：`createXxx` 用固定 slug/code；`finally { cleanupXxx }` 按主键删除，保证重跑无 UNIQUE 冲突（尤其 `po_number`：用随机后缀或显式 cleanup，避免 K-UNIQUE 复现）。
+- **状态构造**：`createPoOrderInState(state)` 内部按 §2.4.1 流转顺序依次建态并写 StatusLog，最终落到目标态；避免直接 INSERT 终态导致时间线缺失。
+- **隔离**：所有 factory 数据前缀 `e2e_`（产品 slug `e2e-prod-*`、PO `e2e-po-*`），cleanup 按前缀批量删，防遗漏。
+
 ### 3.2 交互 Helper（基于真实组件，非 el-*）
 - `clickButton(page, {text?, testId?, role?})`：按文本 / `data-testid` / `role=button` 定位点击（兼容原生 `<button>` 与 `<AppButton>`）。
 - `openDialog(page, trigger)` / `closeDialog(page, {esc?, overlay?, cancelText?})`：等 `.dialog-overlay` 可见 / 按 ESC 或点遮罩或取消按钮关闭。
@@ -187,15 +248,50 @@ frontend/e2e/
 - `paginate(page, {page})`：点 `DataPagination` 对应按钮。
 - **data-testid 约定（建议，非强制）**：为彻底覆盖稳定性，建议前端对关键交互加 `data-testid`（属 P2 增强；未加前用文本/role 定位）。
 
-### 3.3 Mock 策略（出网 AI 端点）
-- 对 `**/api/v1/products/enrich/` 与 `**/api/v1/products/recommend-*` 等出网端点，用 `page.route()` + `route.fulfill({ status:200, json: <fixture> })` 隔离网络抖动。
-- mock fixture 放 `e2e/fixtures/ai-responses.json`（enrich 5 段 + recommend 返回）。
-- 仅「真实 AI 联调」专项用例关闭 mock、真实等待（长超时）。
+### 3.3 Mock 策略（出网 AI 端点隔离）
+
+所有会触发**出站网络**的端点必须 mock，否则受沙箱/网络抖动影响致 flaky。完整出网端点清单：
+
+| 端点（后端代理出网） | 触发场景 | mock 关键字段 | 关联修复/用例 |
+|---------------------|---------|--------------|--------------|
+| `POST /api/v1/products/enrich/` | 产品编辑页「AI 补全」 | `{smiles, formula, molecular_weight, name, cas, source}` | — |
+| `POST /api/v1/products/recommend-protocols/` | 推荐协议 | `{protocols:[{id,name}]}` | — |
+| `POST /api/v1/products/recommend-literature/` | 推荐文献 | `{references:[{id,title}]}` | — |
+| `POST /api/v1/products/validate/` | SMILES/结构校验 | `{valid:true, message}` | §5.1 修复2 |
+| `POST /api/v1/products/render-structure/` | SMILES→SVG 渲染 | `{svg:"<svg...>"}` | §5.1 修复1（详情页图） |
+| **`POST /api/v1/products/apply-pubchem-candidate/`** | PubChem 候选写入（§5.1 修复2） | `{smiles, formula, molecular_weight, confidence, formula_mismatch, mw_mismatch, requires_review}` | **守卫：formula_mismatch/requires_review 时前端须拦截、不写 SMILES** |
+| `POST /api/v1/knowledge/graph-match/` 或 `jena` 匹配 | jena 索引匹配分类 | `{matches:[{id,label,score}]}` | K1/K2 cascader |
+| `POST /api/v1/products/parse-word/` | Word 文档解析提取结构图/SMILES | `{structure_image_base64, smiles, ...}` | §5.1 修复1（落库） |
+
+- 用 `page.route('**/api/v1/products/enrich', r => r.fulfill({status:200, json: fixture}))` 等逐端点拦截（注意 path 匹配用 glob，避免漏 `/`）。
+- fixture 放 `e2e/fixtures/ai-responses.json`，结构示例：
+  ```json
+  {
+    "enrich": { "smiles": "C1=...", "formula": "C9H14N5O12P3", "molecular_weight": 483.1, "name": "Sample", "cas": null, "source": "pubchem" },
+    "pubchem_candidate_ok": { "smiles":"C1=...", "formula":"C9H14N5O12P3", "molecular_weight":483.1, "confidence":"high", "formula_mismatch":false, "mw_mismatch":false, "requires_review":false },
+    "pubchem_candidate_bad": { "smiles":"WRONG", "formula":"C20H30O2", "molecular_weight":302.0, "confidence":"low", "formula_mismatch":true, "mw_mismatch":true, "requires_review":true }
+  }
+  ```
+- **真实联调用例**（不打 mock）：仅「AI 联调专项」关闭 mock、用 `test.slow()` + 长超时（≥60s）真实等待 PubChem/jena；其余用例一律 mock。
+- apply-pubchem-candidate 守卫用例：mock `pubchem_candidate_bad`（formula_mismatch=true），断言前端 `applyCandidate` 被拦截、SMILES 输入框不变、显示错误 feedback（见 §5.1 修复2）。
 
 ### 3.4 Console 错误雷达
+
 - 每 spec `test.beforeEach` 挂 `page.on('console')` + `page.on('pageerror')` 收集 error 级。
 - `test.afterEach` 断言数组为空（白屏/运行时异常早期雷达）。
-- 已知噪声第三方警告用白名单过滤（记录原因）。
+- **白名单（已知噪声，按原因过滤，不计入失败）**：
+
+| 噪声特征（substring 匹配） | 来源 | 过滤原因 |
+|--------------------------|------|---------|
+| `favicon.ico` 404 | 浏览器自动请求 | 测试环境无 favicon，无害 |
+| `[vite]` / `HMR` / `hmr` | Vite dev server | 开发热更新日志，非应用错误 |
+| `Download the Vue Devtools` | Vue 生产/开发提示 | 框架提示，非错误 |
+| `Source map` / `sourcemap` | 构建产物 | 仅在 dev 偶发，无害 |
+| `Cross-Origin` / `CORS` 来自 `pubchem.ncbi` / `jena` | 出网端点（已 mock 时仍可能预检） | 联调专项外不阻断；真实联调用例单独处理 |
+| `net::ERR_` 在 `route.fulfill` 已 mock 的端点 | 路由拦截日志 | 断言由用例负责，非 console 错误 |
+
+- 过滤实现：`console.cjs` 维护 `CONSOLE_IGNORE = [/favicon/, /\[vite\]/, /Devtools/, ...]`，`afterEach` 对未过滤项断言为空。
+- 真 `pageerror`（未捕获异常）**绝不白名单**，一律失败——它是白屏/崩溃的直接信号。
 
 ### 3.5 数据清理
 - 写操作：factory 创建 → `finally { deleteXxx() }`。
@@ -222,30 +318,139 @@ frontend/e2e/
 
 > 阶段 0~5 实现时，每页用例须对照 INTERACTION_INVENTORY.md 该行"按钮/弹窗/Toast/加载态"列，**逐元素写 test**，不得抽样。
 
+### 4.1 阶段退出标准量化（覆盖率门槛）
+
+每阶段进入下一阶段前，须满足以下量化门槛（避免「跑过即算绿」的虚假覆盖）：
+
+| 门槛项 | 阈值 | 度量方式 |
+|--------|------|---------|
+| 本阶段 spec 通过率 | **100%**（0 failed） | `npx playwright test --reporter=line` |
+| 交互元素覆盖率（I 维） | 每页用例数 **≥** 该页 INTERACTION_INVENTORY 「按钮/弹窗/Toast/加载态」条目数 | 逐页比对 inventory 行 vs spec `test` 数 |
+| Flake 率 | 连续 2 次全量跑 **≤ 1%** 用例不稳定（重试后通过） | CI 跑 2 遍，统计 `retries` 命中数 |
+| 控制台错误 | 0 未过滤 error（§3.4 白名单外） | `afterEach` 断言 |
+| 权限/状态维（阶段 6/7） | 矩阵**每行每列**均有断言，0 遗漏 | §2.3 / §2.4 表 vs 用例 |
+| 视口/浏览器维（阶段 8/9） | 4 视口 × 关键页 + 3 浏览器冒烟全绿 | §10 / §7 project |
+| a11y 维（阶段 10） | 0 critical/serious violation | axe-core 报告 |
+
+> 覆盖率口径：以 `INTERACTION_INVENTORY.md` 为权威清单。阶段 0~5 每页 `test` 数不得低于 inventory 该页交互条目数；若 inventory 有漏扫交互，先补 inventory 再补用例（双向同步）。
+
+### 4.2 验收与报告机制
+
+- **本地报告**：`npx playwright test --reporter=html` 生成 `playwright-report/index.html`（含每用例步骤 / 失败快照 / trace）。
+- **CI 报告**：`--reporter=github` 或 `list` + JUnit `results.xml`（`@playwright/test` 内置），供流水线汇总。
+- **失败分类流程**：
+  1. 失败先判 **flaky**（重跑通过）→ 归为稳定性问题，查 §0#4（出网/竞态/动画），加 `waitForSelector` 或 `retries`。
+  2. 稳定失败 → 判 **真 bug** → 提 issue + 在 §5 登记（或更新既有 K 条目），E2E 先以「预期」锁定避免阻塞（仅限已确认的非阻断缺陷）。
+  3. 真 bug 修复后，解除锁定、验证绿。
+- **覆盖率看板**：阶段 10 完成后，对照 §2.2 矩阵逐页打勾（I/P/S/R/V/A/B 七维），输出 `COVERAGE.md` 勾选表，0 遗漏为彻底覆盖达成标志。
+- **轨迹留痕**（见 §6）：scire02/scire03 执行的 E2E 轨迹（账号 + 用例 + 时间）建议并入报告元信息，便于测试人员问题回溯。
+
 ---
 
 ## 5. 已知问题登记（E2E 中锁定为「预期」断言，避免误报）
 
 | ID | 现象 | 处理 |
 |----|------|------|
-| K1 | L1 根分类产品编辑页 cascader 回填空（`checkStrictly:false` 限制） | 用空值锁定；待 cascader 改 `checkStrictly:true` 或 jena apply 走叶子后代后更新用例 |
-| K2 | Jena apply 后 cascader 选中 L1 根失败（同 K1 根因） | 同上锁定 |
+| K1 | L1 根分类产品编辑页 cascader 回填空（`checkStrictly:false` 限制） | **状态待回填**：阶段 3（Workspace 穷举）实跑 `ProductEditPage` 确认是否仍存在；若 jena apply 走叶子后代后已修复 → 移除 K1 锁定、改断言正确回填；若仍在 → 维持空值锁定并提 issue |
+| K2 | Jena apply 后 cascader 选中 L1 根失败（同 K1 根因） | 同 K1：阶段 3 实跑回填结论 |
 | K3 | 无 CAS 产品「生成 SDS」按钮禁用+tooltip（设计预期） | 断言 disabled + tooltip 文案 |
 | K4 | 匿名写返回 403（DRF 标准） | 断言 403 而非 401 |
-| **K5** | `products/ProductEditPage.vue` 为遗留版，与 `workspace/ProductEditPage.vue` 疑似重复 | 先确认前者是否被取代；若取代则 E2E 只覆盖 workspace 版并标记 K5；若并存则两版都测 |
+| **K5** | `products/ProductEditPage.vue` 遗留版与 `workspace/ProductEditPage.vue` 关系 | **2026-07-14 已确认**：`workspace/ProductEditPage.vue` 为权威完整版（产品编辑页是完整单元，勿拆碎）；`products/ProductEditPage.vue` 为遗留版，**E2E 只覆盖 workspace 版**，标记 K5 为「已取代/仅覆盖 workspace 版」 |
 | **K6** | `admin/AdminProductsPage`/`AdminProductEdit` 无独立路由，经 `/workspace/products` 内链访问 | E2E 从 workspace 入口覆盖，断言内链可达 |
+| **K-UNIQUE** | `po_number` 空串 UNIQUE 冲突致 500（阶段 7 状态 seed 易触发） | factory 用随机后缀 / 显式 cleanup（见 §3.1.1），断言不 500 |
+
+### 5.1 功能修复回归专项（v2026.07.14 三项修复）
+
+> 对应后端 `3da02a3` / `14e2fe3` 发布。以下用例须纳入 `regression-fixes.spec.cjs`，**每次全量 E2E 必跑**，防止回退。
+
+**修复 1：详情页结构图优先于 SMILES 渲染（`frontend/src/views/ProductDetail.vue`）**
+- 前提：产品同时含 `structure_image`（文档提取图，base64）与 `rendered_svg`（SMILES 渲染）。
+- 用例：`product-detail-structure-image.spec.cjs`
+  - 打开含 structure_image 的产品详情页 → 断言 `<img class="pd-structure-img">` **存在且可见**、`src` 非占位。
+  - 断言该 img 在 `renderedSvg` 容器**之前**（DOM 顺序 / 视觉优先）。
+  - 反转数据（仅 rendered_svg、无 structure_image）→ 断言回退显示 rendered_svg。
+- 防回退：若有人删 `<template v-if="product.structure_image">`，用例失败。
+
+**修复 2：PubChem 模糊匹配守卫拦截（后端 `pubchem_enhancer` + 前端 `applyCandidate`）**
+- 用例：mock `apply-pubchem-candidate` 返回 `pubchem_candidate_bad`（`formula_mismatch:true` / `requires_review:true` / `confidence:low`）。
+- 断言（前端 `ProductEditPage.applyCandidate`）：
+  - 点击候选「Use this」按钮 → **被 `:disabled` 拦截 / 点击后 `setFeedback('error', ...)` 提示 Formula 不符**。
+  - **SMILES 输入框值不变**（不写入错误分子）。
+  - 候选卡显示文档 Formula 与匹配 Formula 对比（`formula_mismatch` 标记）。
+- 正向用例：mock `pubchem_candidate_ok`（`formula_mismatch:false`）→ 点击写入成功。
+
+**修复 3：重存产品 SKU 不丢 CoA / Batch（后端 `ProductCreateUpdateSerializer` 增量同步）**
+- 用例：用 API 建一产品（含 1 SKU + 该 SKU 的 CoA/Batch 记录）→ 再 PATCH 更新同一产品（传同一 sku_code、不传 id）→ 断言：
+  - SKU **id 稳定**（未重建）→ CoA/Batch 级联记录仍在（不被 CASCADE 删）。
+  - 移除某 SKU 行 → 该 SKU 及关联 CoA/Batch 被删，其余存活。
+  - 新增无 id 的 SKU 行 → 新建不冲突。
+- 后端单测已覆盖（`test_serializers.py::ProductCreateUpdateSerializerSKUSyncTest`），E2E 侧用 UI 重存路径补端到端验证。
+
+---
 
 ---
 
 ## 6. 账号与数据基线
 
-- **admin（is_staff）**：现有 spec 默认 `admin` / `AdminPass123!`（可用 `E2E_USER`/`E2E_PASS` 覆盖）。跑前须确认账号在测试库存在。
-- **customer（is_staff=False，待建）**：阶段 0 基础设施创建，建议：
-  - 用户名 `e2e_customer`，密码经 `E2E_CUSTOMER_PASS` 注入（不落库明文）。
-  - 关联一个 `Organization`（供 PO 客户侧地址/订单使用）。
-  - 创建方式：Django shell 一次性 seed，或 `management/seed_e2e.py` 命令（幂等）。
-- **状态种子**：`seed_e2e` 须能造 PO 各态订单（PO_RECEIVED…COMPLETED/CANCELLED）+ 产品三态，供阶段 6/7。
-- **已知只读数据**：产品 21（L1 根分类）、23（incomplete published）、66（SC8047 详情字段基准）等。
+### 6.1 两套账号体系（务必区分）
+
+| 体系 | 控制什么 | 存储 | E2E 如何使用 |
+|------|---------|------|-------------|
+| **① nginx Basic Auth** | 谁能**进站点**（整站 `auth_basic "SciReAgent Internal Test"`，401 拦截） | 服务器 `/etc/nginx/.htpasswd`（非 Django） | Playwright context 须带 basic auth，否则所有请求 401 |
+| **② Django 应用账号** | 业务权限（匿名/customer/staff/admin） | `auth_user` 表 | 前端登录（`/login`）拿 token，驱动业务断言 |
+
+> ⚠️ **两套账号相互独立**：`scire01`~`scire06` 仅存在于 Basic Auth，**不是 Django 用户**（Django `auth_user` 查不到）；Django 的 `admin`/`scire02`/`scire03`/`e2e_customer` 也需在 Basic Auth 通过后才能访问站点。E2E 必须**同时**满足两层。
+
+### 6.2 Basic Auth 前置（E2E 必做，原文档遗漏）
+
+站点经 nginx `auth_basic` 保护。Playwright 在 `baseURL=https://scireagent.com`（或本地 nginx）下**必须注入 basic auth**，否则全部 401：
+
+```js
+// playwright.config.cjs 或 spec 内
+use: {
+  httpCredentials: { username: process.env.E2E_BASIC_USER, password: process.env.E2E_BASIC_PASS },
+  // 或 baseURL 内联： https://scire01:c5CCzN7LadMr@localhost
+}
+```
+- Basic Auth 账号（来自服务器 `deploy/CREDENTIALS.txt`，明文，**已 gitignore**）：
+
+| 账号 | 密码 | 用途 |
+|------|------|------|
+| `scire01` | `c5CCzN7LadMr` | 站点访问（休斯顿/北京测试人员共用入口之一） |
+| `scire02` | `l618tWxn1CDi` | 站点访问 **+ Django staff**（见 6.3） |
+| `scire03` | `TpJOAXrameB3` | 站点访问 **+ Django staff**（见 6.3） |
+| `scire04`~`scire06` | 见 `CREDENTIALS.txt` | 站点访问（普通） |
+
+- 本地 dev（`localhost:5173` + `localhost:8000`）若未套 nginx basic auth，则无需此步；**仅真环境/预发需带**。
+
+### 6.3 Django 应用账号基线（2026-07-14 核实）
+
+| 账号 | 密码 | 角色 | 状态 | E2E 用途 |
+|------|------|------|------|---------|
+| `admin` | **`admin123`** | superuser（兼管订单/发票） | 存在 | Workspace + Admin 全部；spec 默认 staff/admin 身份 |
+| `scire02` | `l618tWxn1CDi` | **Django staff（is_staff）** | 2026-07-14 建库并授权 | **休斯顿实验室研究员**测试账号；执行 Workspace E2E，其轨迹留痕有价值（§4.2） |
+| `scire03` | `TpJOAXrameB3` | **Django staff（is_staff）** | 2026-07-14 建库并授权 | **北京产品测试人员**测试账号；执行前端/Workspace E2E，轨迹留痕有价值 |
+| `e2e_customer` | `E2ePass123!` | customer（is_staff=False） | **已存在**（非「待建」） | 认证用户/PO 客户侧用例 |
+| `e2e_user_demo` | （测试库既有） | customer | 存在 | 补充认证用例 |
+| `solo_researcher` | — | — | **2026-07-14 已删除**（不明来历） | 不再使用 |
+
+> 纠正旧文档：admin 密码为 **`admin123`**（非 `AdminPass123!`）；`e2e_customer` 已存在（非待建）；`scire02`/`scire03` 为 2026-07-14 新增的 staff 测试账号（休斯顿/北京），其访问/操作轨迹具分析价值，E2E 报告应带账号元信息（§4.2）。
+
+### 6.4 环境变量（运行命令配套）
+
+```bash
+E2E_BASIC_USER=scire01 E2E_BASIC_PASS=c5CCzN7LadMr \
+E2E_USER=admin E2E_PASS=admin123 \
+E2E_CUSTOMER_USER=e2e_customer E2E_CUSTOMER_PASS=E2ePass123! \
+E2E_STAFF_USER=scire02 E2E_STAFF_PASS=l618tWxn1CDi \
+npx playwright test
+```
+
+### 6.5 状态种子与已知只读数据
+
+- **状态种子**：`seed_e2e` 须能造 PO 各态订单（PO_RECEIVED…COMPLETED/CANCELLED）+ 产品三态，供阶段 6/7（构造见 §3.1.1）。
+- **已知只读数据**：产品 21（L1 根分类）、23（incomplete published）、66（SC8047 详情字段基准）等（仅读，不写）。
+- **轨迹留痕**：`scire02`/`scire03` 执行的 E2E 在报告中标明账号+时间（§4.2），便于测试人员反馈问题回溯。
 
 ---
 
@@ -277,9 +482,15 @@ npx playwright test e2e/inventory-driven/public.spec.cjs
 npx playwright test --project=firefox          # 跨浏览器
 npx playwright test e2e/responsive.spec.cjs     # 响应式
 
-# 环境变量
-E2E_USER=admin E2E_PASS=AdminPass123! E2E_CUSTOMER_USER=e2e_customer E2E_CUSTOMER_PASS=xxx npx playwright test
+# 环境变量（含 Basic Auth 前置，见 §6.2；密码以 2026-07-14 核实为准）
+E2E_BASIC_USER=scire01 E2E_BASIC_PASS=c5CCzN7LadMr \
+E2E_USER=admin E2E_PASS=admin123 \
+E2E_CUSTOMER_USER=e2e_customer E2E_CUSTOMER_PASS=E2ePass123! \
+E2E_STAFF_USER=scire02 E2E_STAFF_PASS=l618tWxn1CDi \
+npx playwright test
 ```
+
+> ⚠️ 真环境（`scireagent.com` / 本地 nginx）必须带 `httpCredentials`（§6.2），否则全量 401。本地纯 dev（`5173+8000` 无 nginx）可省 Basic Auth 步。
 
 > 沙箱内 `npm run build` 可能因 safe-delete 护栏被拦，CI 须在普通 runner 执行；跨浏览器需 `npx playwright install firefox webkit`。
 
@@ -297,14 +508,85 @@ E2E_USER=admin E2E_PASS=AdminPass123! E2E_CUSTOMER_USER=e2e_customer E2E_CUSTOME
 | 弹层/下拉竞态 | 复用 helper + retries（§0#4） |
 | **组件库误判（el-* 不存在）** | 所有选择器基于真实 DOM（§0#11 / §2.1） |
 | 跨浏览器/视口差异 | 阶段 8/9 专项；webkit 对 `:has` 等支持差异先记录 |
-| a11y 噪声 | axe 规则白名单（颜色对比度容忍度按设计系统校准） |
+| a11y 噪声 | axe 规则白名单（颜色对比度容忍度按设计系统校准，见 §11） |
+
+---
+
+## 10. 响应式视口矩阵（R 维度，阶段 8）
+
+> §2.0 / §4 阶段 8 引用本章。四视口须保证「布局不崩 + 关键交互可用」。
+
+### 10.1 四视口定义
+
+| 视口 | 尺寸（宽×高） | 代表设备 | 全局默认 |
+|------|-------------|---------|---------|
+| 移动 Mobile | **375 × 667** | iPhone SE / 安卓 | — |
+| 平板 Tablet | **768 × 1024** | iPad 竖 | — |
+| 笔记本 Laptop | **1280 × 720** | 常用开发/办公 | ✅ `playwright.config` 默认 |
+| 桌面 Desktop | **1920 × 1080** | 外接显示器 | — |
+
+- 视口在 `responsive.spec.cjs` 内用 `test.use({ viewport: { width, height } })` 逐视口覆盖（不写死全局，§7）。
+- 额外边界：超窄 **320×568**（防止极端溢出）、宽屏 **2560×1440**（大屏不空旷异常）。
+
+### 10.2 每视口断言清单
+
+**通用不崩断言（每个视口必做）**：
+1. `document.documentElement.scrollWidth <= viewport.width + 2`（无横向滚动 / 无溢出）。
+2. 无元素 `position:fixed` 遮挡致关键 CTA 不可点（如移动端底部 bar 不挡 Add to Cart）。
+3. 关键文本不被截断（对比 desktop 与 mobile 的标题/价格可见）。
+
+**关键页 × 视口交互可用矩阵**：
+
+| 关键页 | 移动(375) | 平板(768) | 笔记本(1280) | 桌面(1920) |
+|--------|----------|----------|------------|-----------|
+| HomePage | 汉堡菜单展开导航 ✓ | 导航可见 ✓ | 全导航 ✓ | 全导航 ✓ |
+| ProductDetail | Tab 可切、Add to Cart 触底可见 ✓ | 同 ✓ | ✓ | ✓ |
+| ProductEditPage（37 按钮） | 表单可滚动填、发布弹层全屏 ✓ | 同 ✓ | ✓ | ✓ |
+| Workspace 列表 | 表格横向可滚 / 列折行不崩 ✓ | ✓ | ✓ | ✓ |
+| CartPage | 提交审批按钮可见 ✓ | ✓ | ✓ | ✓ |
+| Admin 各台 | 表格/弹层可用 ✓ | ✓ | ✓ | ✓ |
+
+- 移动端特有：导航收为汉堡（`click` 展开断言链接出现）；表格允许横向滚动而非压扁。
+- 断言手段：`test.use({ viewport })` + `expect(page).toHaveScreenshot()` 可选（视觉回归，P2）；主用 DOM 断言（无溢出 + 关键元素 `toBeVisible` + `toBeEnabled`）。
+
+### 10.3 阶段 8 退出标准
+四视口 × 上表关键页全绿；通用不崩断言 0 失败；无横向溢出。
+
+---
+
+## 11. 全站可访问性（A 维度，阶段 10）
+
+> §2.0 / §4 阶段 10 引用本章。用 `@axe-core/playwright` 扫描。
+
+### 11.1 等级与规则集
+- **目标等级：WCAG 2.1 AA**（critical/serious 零容忍；moderate/minor 记录但不阻断）。
+- 启用的 axe 规则标签：`wcag2a`、`wcag2aa`、`wcag21a`、`wcag21aa`（可选 `+ best-practice` 仅记录）。
+- 封装：`e2e/helpers/a11y.cjs` 的 `runAxe(page, { tags })` 返回 violations。
+
+### 11.2 对比度容忍度（按设计系统校准）
+- 主色 `emerald` 文字 on 白底、中性灰文字 on 白底均须 ≥ 4.5:1（AA 正文）。
+- `amber` 仅用于强调/状态点（非正文），豁免「小字/非文本」对比度规则（按 §0#10 设计令牌）。
+- 若某配色经设计系统确认为「状态语义点」（非文字），在白名单标 `color-contrast` 豁免并注明理由。
+
+### 11.3 已知误报白名单（axe 规则 → 原因）
+| axe 规则 | 误报场景 | 处理 |
+|---------|---------|------|
+| `color-contrast`（状态点） | emerald/amber 语义点非正文 | 白名单豁免（设计系统确认） |
+| `aria-hidden-focus` | 装饰性 SVG / 图标按钮带 `aria-hidden` | 改用 `role="img"`+`aria-label` 或确认无焦点 |
+| `image-alt`（装饰图） | 纯装饰背景图 `alt=""` | 标 `presentation` 白名单 |
+| `region` | 单 main 外的 section 未命名 | 补 `aria-label` 或标 landmark 白名单（仅记录） |
+| 第三方 widget（地图/图表 canvas） | 外部库无 aria | 标 `best-practice` 仅记录，不阻断 |
+
+- 白名单实现：`runAxe(page, { disabledRules: [...] })` 或在报告中过滤指定 ruleId+selector。
+- 阶段 10 退出：**0 critical / 0 serious violation**；moderate/minor 进报告但不阻断（除非设计确认需修）。
 
 ---
 
 ## 9. 下一步
 
-1. 本计划 v2 经用户确认。
-2. 升级 `playwright.config.cjs`（多浏览器 project）。
-3. 实现**阶段 0**：`e2e/helpers/*` + 创建 customer 账号 seed + `public-smoke.spec.cjs`（全路由冒烟）。
-4. 阶段 0 回归全绿后，逐阶段推进 1→10，每阶段退出标准满足再进下一阶段。
-5. **彻底覆盖验收**：阶段 10 完成后，对照 §2.2 矩阵逐页打勾，确认 I/P/S/R/V/A/B 七维全覆盖、0 遗漏。
+1. 本计划 v2.1 经用户确认（§10/§11/§5.1/Basic Auth/账号体系已补全）。
+2. 升级 `playwright.config.cjs`（多浏览器 project + httpCredentials 注入 Basic Auth）。
+3. 实现**阶段 0**：`e2e/helpers/*`（auth.cjs 区分 Basic Auth + Django 两层登录）+ 确认 `e2e_customer` 已存在（必要时 seed）+ `public-smoke.spec.cjs`（全路由冒烟）。
+4. 阶段 0 回归全绿后，逐阶段推进 1→10，每阶段退出标准（§4.1 量化门槛）满足再进下一阶段。
+5. **功能修复回归**：每次全量 E2E 必跑 `regression-fixes.spec.cjs`（§5.1 三项修复：详情页结构图优先 / PubChem 守卫 / SKU 增量同步），防回退。
+6. **彻底覆盖验收**：阶段 10 完成后，对照 §2.2 矩阵逐页打勾 + §10 四视口 + §11 a11y 报告，确认 I/P/S/R/V/A/B 七维全覆盖、0 遗漏，输出 `COVERAGE.md`（§4.2）。
