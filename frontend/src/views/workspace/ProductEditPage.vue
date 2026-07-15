@@ -1412,6 +1412,12 @@ watch(
       {{ saveFeedback.message }}
     </div>
 
+    <!-- ④ 页面身份行：保存后显示 catalog_no · status，不依赖路由 meta 时机 -->
+    <div v-if="isEdit || form.name || form.catalog_no" class="page-identity">
+      <strong>{{ isEdit ? 'Editing ' + (form.catalog_no || form.name || '…') : 'New Product' }}</strong>
+      <span class="page-identity-status" :class="'status-' + (form.status || 'draft')">{{ form.status || 'draft' }}</span>
+    </div>
+
     <!-- Word Import Panel — 3.9 clearer button -->
     <section class="form-section word-import-section">
       <h3>📄 Word Import (optional)</h3>
@@ -1438,10 +1444,22 @@ watch(
     <!-- AI AUTO MATCH Panel -->
     <section v-if="form.name || form.cas || form.smiles || form.inchi" class="form-section pubchem-enrich-section">
       <h3>🤖 AI AUTO MATCH</h3>
+      <!-- ① 未验证警告横条：化学属性不会自动写入，提示核对后 Apply All 或手填 -->
+      <div v-if="enrichChemical?.found && !chemAutoVerified && !enrichChemical.candidates?.length" class="ai-warn-banner">
+        ⚠ 化学身份未验证，化学属性不会自动写入表单。请核对 CAS / 分子式无误后点 “Apply All”，或手动填写下方字段。
+      </div>
       <div class="word-import-row">
         <button type="button" class="file-upload-btn" @click="runPubchemEnrich" :disabled="pubchemEnriching || (!form.name && !form.cas && !form.smiles && !form.inchi)">
           {{ pubchemEnriching ? 'Searching & matching…' : `AI AUTO MATCH "${form.name || form.cas || form.smiles || form.inchi}"` }}
         </button>
+        <!-- ② Apply All 移到顶部，删除底部重复块 -->
+        <button
+          v-if="enrichChemical?.found && !pubchemEnrichResult?.applied && !enrichChemical.candidates?.length"
+          type="button"
+          class="btn btn-primary btn-sm"
+          style="margin-left:8px"
+          @click="applyAllEnrichResults"
+        >Apply All to Form</button>
         <span v-if="pubchemEnriching" class="ai-loading-spinner" aria-label="loading">
           <span class="spinner-ring"></span>
         </span>
@@ -1508,6 +1526,9 @@ watch(
           </div>
         </div>
       </div>
+      <!-- ⑥ 高级匹配区默认折叠，核心化学预览表常显 -->
+      <details class="ai-advanced">
+        <summary>高级匹配详情（Lipinski / Jena / 文献 / 协议）</summary>
       <!-- Lipinski rules (from Validate integration) -->
       <div v-if="enrichChemical?.lipinski && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
         <h4 style="margin:0 0 6px 0;font-size:13px">💊 Lipinski Rule of Five</h4>
@@ -1614,15 +1635,8 @@ watch(
           </div>
         </div>
       </div>
-      <!-- Apply All button -->
-      <div v-if="!pubchemEnrichResult?.applied && !enrichChemical?.candidates?.length && (enrichChemical?.found || enrichMatchedMethods.length || enrichMatchedApps.length || enrichProtocols?.length || !!enrichJena?.normalized)" style="margin-top:8px">
-        <button type="button" class="btn btn-primary btn-sm" @click="applyAllEnrichResults">
-          Apply All to Form
-        </button>
-        <span v-if="enrichChemical?.found && chemAutoVerified" class="form-hint" style="margin-left:8px">Scope: entire form — chemical properties + knowledge links + protocols</span>
-        <span v-else class="form-hint" style="margin-left:8px">Scope: knowledge links + protocols（化学属性未验证，未包含）</span>
-        <span v-if="enrichChemical?.found && !chemAutoVerified" class="field-error" style="margin-left:8px">⚠ 化学属性未验证，未一并套用</span>
-      </div>
+      </details>
+      <!-- Apply All button moved to top action row (see AI AUTO MATCH panel header) -->
       <!-- Ambiguous candidates (require explicit user choice — 修复 1/4) -->
       <div v-if="enrichChemical?.candidates?.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview">
         <p class="form-hint">⚠ 自动匹配未经验证（{{ enrichChemical.confidence }}）— 必须手动选择正确的化合物，请勿直接 Apply All。</p>
@@ -1833,7 +1847,7 @@ watch(
               :aria-invalid="isFieldMissing('product_class_id')"
               @change="onCategoryChange"
             />
-            <span v-if="isFieldMissing('product_class_id')" class="field-error">⚠ Required field unfilled</span>
+            <span v-if="isFieldMissing('product_class_id')" class="field-error">⚠ 请选择 Category（需选到三级分类{{ categoryCascaderValue.length ? '，当前仅选到 L' + categoryCascaderValue.length : '' }}）</span>
           </label>
         </div>
       </section>
@@ -1928,7 +1942,7 @@ watch(
 
       <!-- 8. SEO -->
       <section class="form-section">
-        <h3>8. SEO (auto-generated on publish)</h3>
+        <h3>8. SEO</h3>
         <div class="field-grid">
           <label>SEO Title <AppInput v-model="form.seo_title" placeholder="Auto-generated if left empty" /></label>
           <label>SEO Description <AppInput v-model="form.seo_description" placeholder="Auto-generated if left empty" /></label>
@@ -1936,7 +1950,7 @@ watch(
         <button type="button" class="btn btn-ghost btn-sm" style="margin-top:8px" @click="autoGenerateSeo" :disabled="seoGenerating || !isEdit">
           {{ !isEdit ? 'Save product first to enable SEO auto-gen' : (seoGenerating ? 'Generating...' : 'Auto-generate SEO') }}
         </button>
-        <p class="form-hint">SEO fields are auto-generated when publishing from draft → active if left empty.</p>
+        <p class="form-hint">SEO 在发布时自动生成；也可点上方按钮立即生成。</p>
       </section>
 
       <!-- 9. Compliance — COA & SDS -->
@@ -2333,4 +2347,19 @@ html.dark .source-pubchem { color: #fff; }
 .step-todo { opacity: 0.55; }
 .step-arrow { color: var(--color-text-tertiary); }
 .stepper-hint { margin-bottom: 16px; }
+
+/* ④ 页面身份行 */
+.page-identity { display: flex; align-items: center; gap: 10px; margin: 4px 0 2px; font-size: 15px; }
+.page-identity strong { font-weight: 600; color: var(--color-text); }
+.page-identity-status { font-size: 11px; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; letter-spacing: .03em; }
+.page-identity-status.status-draft { background: #fef3c7; color: #92400e; }
+.page-identity-status.status-active { background: #d1fae5; color: #065f46; }
+
+/* ① 未验证警告横条 */
+.ai-warn-banner { margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; font-size: 13px; line-height: 1.5; }
+
+/* ⑥ AI 高级区折叠 */
+details.ai-advanced { margin: 10px 0; border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 10px; background: #fff; }
+details.ai-advanced > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); user-select: none; }
+details.ai-advanced[open] > summary { margin-bottom: 8px; }
 </style>
