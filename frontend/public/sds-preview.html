@@ -121,7 +121,7 @@
 </head>
 <body>
 
-<div>
+<div id="doc">
   <p class="print-hint">SDS full template — all 16 sections covered, 7 pages</p>
 
   <!-- ==================== PAGE 1: Section 1-3 ==================== -->
@@ -593,41 +593,292 @@
 
 </div>
 
-<!-- Live preview bridge: 接收父窗口 postMessage 的真实 SDS 数据并填充模板字段。
-     未收到消息时保持上方硬编码样本。 -->
+<!-- Live preview bridge —— 收到父窗口 postMessage 的真实 SDS 数据后，
+     整份文档由 renderSds() 从 section_data 动态重建 16 节。
+     渲染逻辑逐节镜像后端 backend/apps/documents/services/sds_generator.py，
+     确保「预览 = 成品 PDF」内容绝对一致。未收到消息时保持上方硬编码样本。 -->
 <script>
 (function () {
-  function setField(field, value) {
-    if (value == null || value === '') return
-    var els = document.querySelectorAll('[data-field="' + field + '"]')
-    Array.prototype.forEach.call(els, function (el) { el.textContent = value })
-  }
-
-  function escapeHtml(s) {
+  function esc(s) {
     if (s == null) return ''
     return String(s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
   }
 
+  // Python str.title(): 先整体小写，再每个词首字母大写
+  function titleCase(k) {
+    return String(k).replace(/_/g, ' ').toLowerCase()
+      .replace(/\b\w/g, function (c) { return c.toUpperCase() })
+  }
+
+  // 解析可能为 JSON 字符串的数组字段（pictograms/hazard_codes/precaution_codes）
+  function parseArr(v) {
+    if (Array.isArray(v)) return v
+    if (typeof v === 'string' && v) {
+      try { var p = JSON.parse(v); return Array.isArray(p) ? p : [] } catch (e) { return [] }
+    }
+    return []
+  }
+
+  function kvTable(pairs) {
+    if (!pairs.length) return ''
+    var rows = pairs.map(function (p) {
+      return '<tr><td style="width:35%; font-weight:600;">' + esc(p[0]) +
+             '</td><td>' + esc(p[1]) + '</td></tr>'
+    }).join('')
+    return '<table class="sds-table">' + rows + '</table>'
+  }
+
+  function sub(t) { return '<p class="sub-label">' + esc(t) + '</p>' }
+  function para(t) { return '<p>' + esc(t) + '</p>' }
+  function section(num, title, inner) {
+    return '<div class="section"><div class="section-header">Section ' + num + ': ' +
+           esc(title) + '</div><div class="section-content">' + inner + '</div></div>'
+  }
+  // 取对象非空条目 → [key,value] 数组（镜像 generator 的 `if v` 过滤）
+  function nonEmptyPairs(obj, keyFn) {
+    keyFn = keyFn || titleCase
+    if (!obj) return []
+    return Object.keys(obj).filter(function (k) { return obj[k] })
+      .map(function (k) { return [keyFn(k), obj[k]] })
+  }
+
+  function renderSds(data) {
+    var sd = {}
+    try { sd = data.section_data ? JSON.parse(data.section_data) : {} } catch (e) { sd = {} }
+    if (!sd || typeof sd !== 'object') sd = {}
+
+    var productName = data.product_name || ''
+    var catalog = data.catalog_no || productName
+    var cas = data.cas || ''
+    var rev = (data.revision_no != null) ? data.revision_no : ''
+    var docId = 'SD-' + catalog + '-v' + rev
+    var revised = data.revised_at || ''
+
+    var html = ''
+
+    // ── Header ──
+    html += '<div class="header-bar">' +
+      '<div class="logo-area"><img src="logo.svg" alt="SciReagent"><div>' +
+      '<div class="title">SAFETY DATA SHEET</div>' +
+      '<div class="subtitle">According to OSHA HCS 2012 (29 CFR 1910.1200) &amp; GHS Rev. 9</div>' +
+      '</div></div>' +
+      '<div style="text-align:right;">' +
+      '<div style="font-size:12px; font-weight:700;">' + esc(productName) + '</div>' +
+      '<div style="font-size:9px; color:#94a3b8;">CAS: ' + esc(cas || 'N/A') + ' | ' + esc(docId) + '</div>' +
+      '</div></div>'
+
+    // ── Section 1: Identification ──
+    var s1 = sd.section_1 || {}
+    var supplier = s1.supplier || {}
+    var inner1 = kvTable([
+      ['Product Name', productName],
+      ['Catalog Number', data.catalog_no || ''],
+      ['Synonyms', s1.synonyms || ''],
+      ['CAS Number', cas],
+      ['Recommended Use', ('recommended_use' in s1) ? s1.recommended_use : 'Laboratory research reagent'],
+      ['Restrictions on Use', s1.restrictions || '']
+    ])
+    inner1 += sub('Supplier')
+    inner1 += kvTable([
+      ['Company', ('company' in supplier) ? supplier.company : 'SciReagent'],
+      ['Address', supplier.address || ''],
+      ['Telephone', supplier.telephone || ''],
+      ['Email', supplier.email || ''],
+      ['Emergency Phone (24h)', supplier.emergency_phone || '']
+    ])
+    html += section(1, 'Identification', inner1)
+
+    // ── Section 2: Hazards Identification ──
+    var s2 = sd.section_2 || {}
+    var signalWord = ('signal_word' in s2) ? s2.signal_word : (data.signal_word || 'Warning')
+    var pictograms = ('pictograms' in s2) ? s2.pictograms : parseArr(data.pictograms)
+    if (!Array.isArray(pictograms)) pictograms = parseArr(pictograms)
+    var hCodes = ('hazard_codes' in s2) ? s2.hazard_codes : parseArr(data.hazard_codes)
+    if (!Array.isArray(hCodes)) hCodes = parseArr(hCodes)
+    var pCodes = ('precaution_codes' in s2) ? s2.precaution_codes : parseArr(data.precaution_codes)
+    if (!Array.isArray(pCodes)) pCodes = parseArr(pCodes)
+
+    var pictoHtml = pictograms.length
+      ? '<div class="pictograms">' + pictograms.map(function (p) {
+          return '<div class="pictogram">' + esc(p) + '</div>'
+        }).join('') + '</div>'
+      : ''
+    var inner2 = '<div class="signal-word-box"><div class="word">⚠ ' +
+      esc(String(signalWord || '').toUpperCase()) + '</div>' + pictoHtml + '</div>'
+    if (hCodes.length) {
+      inner2 += sub('Hazard Statements (H-Codes)') +
+        '<ul class="hazards-list">' + hCodes.map(function (c) {
+          return '<li><span class="code">' + esc(c) + '</span></li>'
+        }).join('') + '</ul>'
+    }
+    if (pCodes.length) {
+      inner2 += sub('Precautionary Statements') +
+        '<ul class="hazards-list">' + pCodes.map(function (c) {
+          return '<li><span class="code">' + esc(c) + '</span></li>'
+        }).join('') + '</ul>'
+    }
+    if (s2.other_hazards) inner2 += sub('Other Hazards') + para(s2.other_hazards)
+    html += section(2, 'Hazards Identification', inner2)
+
+    // ── Section 3: Composition ──
+    var s3 = sd.section_3 || {}
+    var comp = Array.isArray(s3.composition) ? s3.composition : []
+    var compRows = comp.map(function (it) {
+      return '<tr><td>' + esc(it.name || '') + '</td><td>' + esc(cas) + '</td><td>' +
+        esc(it.concentration || '') + '</td><td>' + esc(it.classification || '') + '</td></tr>'
+    }).join('')
+    var inner3 = '<table class="sds-table"><tr><th>Chemical Name</th><th>CAS No.</th>' +
+      '<th>Concentration</th><th>GHS Classification</th></tr>' + compRows + '</table>'
+    if (s3.note) inner3 += '<p style="font-size:8.5px; color:#64748b; margin-top:4px;"><i>' +
+      esc(s3.note) + '</i></p>'
+    html += section(3, 'Composition / Information on Ingredients', inner3)
+
+    // ── Sections 4-7 (text-based) ──
+    var sectionTexts = [
+      [4, 'First-Aid Measures', [
+        ['Inhalation', 'inhalation'], ['Skin Contact', 'skin_contact'],
+        ['Eye Contact', 'eye_contact'], ['Ingestion', 'ingestion'],
+        ['Most Important Symptoms', 'symptoms'], ['Notes to Physician', 'physician_notes']]],
+      [5, 'Fire-Fighting Measures', [
+        ['Suitable Extinguishing Media', 'suitable_media'],
+        ['Unsuitable Extinguishing Media', 'unsuitable_media'],
+        ['Specific Hazards', 'hazards'],
+        ['Special Protective Equipment', 'firefighter_equipment']]],
+      [6, 'Accidental Release Measures', [
+        ['Personal Precautions', 'personal'],
+        ['Environmental Precautions', 'environmental'],
+        ['Methods for Containment & Cleanup', 'cleanup']]],
+      [7, 'Handling and Storage', [
+        ['Handling', 'handling'], ['Storage', 'storage'], ['Specific Use', 'specific_use']]]
+    ]
+    sectionTexts.forEach(function (secDef) {
+      var secData = sd['section_' + secDef[0]] || {}
+      var inner = ''
+      secDef[2].forEach(function (f) {
+        var val = secData[f[1]]
+        if (val) inner += sub(f[0]) + para(val)
+      })
+      html += section(secDef[0], secDef[1], inner)
+    })
+
+    // ── Section 8: Exposure Controls ──
+    var s8 = sd.section_8 || {}
+    var inner8 = ''
+    ;['exposure_limits', 'engineering_controls', 'hygiene'].forEach(function (k) {
+      if (s8[k]) inner8 += sub(titleCase(k)) + para(s8[k])
+    })
+    var ppe = s8.ppe || {}
+    if (Object.keys(ppe).length) {
+      inner8 += sub('Personal Protective Equipment (PPE)') +
+        kvTable(Object.keys(ppe).map(function (k) { return [titleCase(k), ppe[k]] }))
+    }
+    html += section(8, 'Exposure Controls / Personal Protection', inner8)
+
+    // ── Section 9: Physical Properties ──
+    var s9 = sd.section_9 || {}
+    var propLabels = [
+      ['appearance', 'Appearance'], ['odor', 'Odor'], ['odor_threshold', 'Odor Threshold'],
+      ['ph', 'pH'], ['melting_point', 'Melting Point'], ['boiling_point', 'Boiling Point'],
+      ['flash_point', 'Flash Point'], ['evaporation_rate', 'Evaporation Rate'],
+      ['flammability', 'Flammability'], ['vapor_pressure', 'Vapor Pressure'],
+      ['vapor_density', 'Vapor Density'], ['relative_density', 'Relative Density'],
+      ['solubility_water', 'Solubility in Water'], ['solubility_dmso', 'Solubility (DMSO)'],
+      ['partition_coefficient', 'Partition Coefficient'],
+      ['auto_ignition', 'Auto-ignition Temperature'],
+      ['decomposition_temp', 'Decomposition Temperature'],
+      ['viscosity', 'Viscosity'], ['explosive', 'Explosive Properties'],
+      ['oxidizing', 'Oxidizing Properties'], ['exact_mass', 'Exact Mass']
+    ]
+    var rows9 = []
+    propLabels.forEach(function (pl) {
+      var has = Object.prototype.hasOwnProperty.call(s9, pl[0])
+      var val = has ? s9[pl[0]] : 'Not available'
+      if (val) rows9.push([pl[1], val])
+    })
+    html += section(9, 'Physical and Chemical Properties', kvTable(rows9))
+
+    // ── Section 10: Stability and Reactivity ──
+    html += section(10, 'Stability and Reactivity', kvTable(nonEmptyPairs(sd.section_10)))
+
+    // ── Section 11: Toxicological Information ──
+    var s11 = sd.section_11 || {}
+    var inner11 = ''
+    var atPairs = nonEmptyPairs(s11.acute_toxicity)
+    if (atPairs.length) inner11 += sub('Acute Toxicity') + kvTable(atPairs)
+    ;['skin_irritation', 'eye_irritation', 'sensitization', 'mutagenicity', 'carcinogenicity',
+      'reproductive_toxicity', 'stot_single', 'stot_repeated', 'aspiration'].forEach(function (k) {
+      if (s11[k]) inner11 += sub(titleCase(k)) + para(s11[k])
+    })
+    html += section(11, 'Toxicological Information', inner11)
+
+    // ── Section 12: Ecological Information ──
+    html += section(12, 'Ecological Information', kvTable(nonEmptyPairs(sd.section_12)))
+
+    // ── Section 13: Disposal Considerations ──
+    var s13 = sd.section_13 || {}
+    var inner13 = ''
+    ;['waste', 'packaging', 'rcra'].forEach(function (k) {
+      if (s13[k]) inner13 += sub(titleCase(k)) + para(s13[k])
+    })
+    html += section(13, 'Disposal Considerations', inner13)
+
+    // ── Section 14: Transport Information ──
+    var s14 = sd.section_14 || {}
+    function g(o, k, d) { return (k in o) ? o[k] : d }
+    html += section(14, 'Transport Information', kvTable([
+      ['DOT (USA)', g(s14, 'dot', 'Not regulated')],
+      ['IMDG (Sea)', g(s14, 'imdg', 'Not regulated')],
+      ['IATA (Air)', g(s14, 'iata', 'Not regulated')],
+      ['UN Number', g(s14, 'un_number', 'None')],
+      ['UN Proper Shipping Name', g(s14, 'shipping_name', 'Not applicable')],
+      ['Transport Hazard Class', g(s14, 'hazard_class', 'None')],
+      ['Packing Group', g(s14, 'packing_group', 'None')],
+      ['Special Precautions', g(s14, 'special_precautions', '')]
+    ]))
+
+    // ── Section 15: Regulatory Information ──
+    html += section(15, 'Regulatory Information',
+      kvTable(nonEmptyPairs(sd.section_15, function (k) { return String(k).toUpperCase() })))
+
+    // ── Section 16: Other Information ──
+    var s16 = sd.section_16 || {}
+    var inner16 = kvTable([
+      ['Revision Date', revised || ''],
+      ['Revision Number', rev + '.0'],
+      ['Supersedes', ('supersedes' in s16) ? s16.supersedes : 'New document'],
+      ['Prepared By', s16.prepared_by || '']
+    ])
+    var refs = Array.isArray(s16.references) ? s16.references : []
+    if (refs.length) {
+      inner16 += sub('References') + '<ul class="hazards-list" style="margin-left:8px;">' +
+        refs.map(function (r) { return '<li style="list-style: disc;">' + esc(r) + '</li>' }).join('') +
+        '</ul>'
+    }
+    var abbr = s16.abbreviations || {}
+    if (Object.keys(abbr).length) {
+      inner16 += sub('Abbreviations') +
+        kvTable(Object.keys(abbr).map(function (k) { return [k, abbr[k]] }))
+    }
+    if (s16.disclaimer) {
+      inner16 += '<div class="disclaimer-box" style="margin-top: 12px;"><i>' +
+        esc(s16.disclaimer) + '</i></div>'
+    }
+    html += section(16, 'Other Information', inner16)
+
+    // ── Footer ──
+    html += '<div class="page-footer"><div>SciReagent — Safety Data Sheet</div>' +
+      '<div>END OF SAFETY DATA SHEET | ' + esc(docId) + '</div></div>'
+
+    return '<div class="page">' + html + '</div>'
+  }
+
   window.addEventListener('message', function (e) {
     var data = e.data
     if (!data || data.__type !== 'sds') return
-    setField('product_name', data.product_name)
-    setField('cas_number', data.cas_number)
-    setField('header_cas', data.cas_number ? ('CAS: ' + data.cas_number) : null)
-    if (data.signal_word) {
-      Array.prototype.forEach.call(
-        document.querySelectorAll('[data-field="signal_word"]'),
-        function (el) { el.textContent = '⚠ ' + data.signal_word }
-      )
-    }
-    if (Array.isArray(data.pictograms) && data.pictograms.length) {
-      Array.prototype.forEach.call(
-        document.querySelectorAll('[data-field="pictograms"]'),
-        function (el) { el.textContent = escapeHtml(data.pictograms[0]) }
-      )
-    }
+    var doc = document.getElementById('doc')
+    if (doc) doc.innerHTML = renderSds(data)
   })
 })()
 </script>

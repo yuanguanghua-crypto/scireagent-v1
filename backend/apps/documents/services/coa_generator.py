@@ -125,7 +125,7 @@ def generate_coa_pdf(coa):
         ['Purity (HPLC)', coa.purity_spec, coa.purity_result, coa.purity_method or 'HPLC', ''],
         ['Water Content', coa.water_content_spec, coa.water_content_result, 'Karl Fischer', ''],
         ['Melting Point', '', coa.melting_point, 'USP <741>', ''],
-        ['Specific Rotation', '', coa.specific_rotation, 'USP <771>', ''],
+        ['Specific Rotation', '', coa.specific_rotation, 'USP <781>', ''],
         ['Residual Solvents', '', coa.residual_solvents, 'GC', ''],
         ['Heavy Metals', '', coa.heavy_metals, 'USP <231>', ''],
         ['Identity (NMR)', 'Conforms', coa.nmr_result, 'NMR', ''],

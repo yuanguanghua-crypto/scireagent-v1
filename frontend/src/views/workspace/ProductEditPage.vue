@@ -316,7 +316,8 @@ async function autoGenerateSeo() {
     if (seoData) {
       if (seoData.seo_title) form.seo_title = seoData.seo_title
       if (seoData.seo_description) form.seo_description = seoData.seo_description
-      setFeedback('success', 'SEO generated successfully')
+      // ④ 生成后明确引导
+      setFeedback('success', 'SEO generated. It is auto-applied on publish if title/description are left empty.')
     }
   } catch (e) {
     setFeedback('error', 'SEO generation failed')
@@ -1016,6 +1017,23 @@ const newBatchForms = ref({}) // { [skuId]: { lot_number, produced_at, retest_at
 const sdsGenerateDisabled = computed(() => !form.cas && !form.smiles && !form.inchi)
 // 当前已发布（is_current）的 SDS
 const currentSds = computed(() => sdsList.value.find(s => s.is_current) || null)
+// ③ 文档生命周期状态（None → Draft → Published），供状态步进器使用
+const sdsState = computed(() => {
+  if (!sdsList.value.length) return 'none'
+  if (sdsList.value.some(s => s.is_current)) return 'published'
+  return 'draft'
+})
+const coaState = computed(() => {
+  const coas = skuCompliance.value.flatMap(sc => sc.batches.map(b => b.coa).filter(Boolean))
+  if (!coas.length) return 'none'
+  return coas.some(c => c.status === 'published') ? 'published' : 'draft'
+})
+function docStepClass(state, step) {
+  const idx = { none: 0, draft: 1, published: 2 }[state] ?? 0
+  if (idx > step) return 'step-done'
+  if (idx === step) return 'step-current'
+  return 'step-todo'
+}
 
 async function loadCompliance() {
   if (!isEdit.value) return
@@ -1042,7 +1060,7 @@ async function loadCompliance() {
     // 为每个 SKU 初始化新建批次的表单
     const init = {}
     skuCompliance.value.forEach(sc => {
-      init[sc.sku.id] = { lot_number: '', produced_at: '', retest_at: '' }
+      init[sc.sku.id] = { lot_number: sc.sku.sku_code || '', produced_at: '', retest_at: '' }
     })
     newBatchForms.value = init
   } catch (e) {
@@ -1056,12 +1074,12 @@ async function loadCompliance() {
 watch(skuCompliance, (list) => {
   const init = { ...newBatchForms.value }
   let changed = false
-  list.forEach(sc => {
-    if (!init[sc.sku.id]) {
-      init[sc.sku.id] = { lot_number: '', produced_at: '', retest_at: '' }
-      changed = true
-    }
-  })
+    list.forEach(sc => {
+      if (!init[sc.sku.id]) {
+        init[sc.sku.id] = { lot_number: sc.sku.sku_code || '', produced_at: '', retest_at: '' }
+        changed = true
+      }
+    })
   if (changed) newBatchForms.value = init
 }, { deep: true })
 
@@ -1085,7 +1103,8 @@ async function createBatchAndCoa(skuId) {
       produced_at: form.produced_at,
       retest_at: form.retest_at || undefined,
     })
-    setFeedback('success', 'Batch + COA draft created')
+    // ④ 生成后明确引导：下一步是批准并公开
+    setFeedback('success', 'Batch + COA draft created. Click “Approve & Publish COA” to make it public.')
     // 刷新合规数据
     await loadCompliance()
     // 清空当前表单
@@ -1101,9 +1120,15 @@ async function createBatchAndCoa(skuId) {
 
 // ── SDS actions ──
 async function generateProductSds() {
+  // ② 缺化学标识时不静默禁用，而是点击后给出明确引导（不引入新错误）
+  if (sdsGenerateDisabled.value) {
+    setFeedback('warn', 'SDS needs a chemical identifier (CAS, SMILES, or InChI). Add one in section 2 “Chemical Structure” first.')
+    return
+  }
   try {
     await documentsApi.generateSds(productId.value)
-    setFeedback('success', 'SDS generated (draft)')
+    // ④ 生成后明确引导：下一步是批准并公开
+    setFeedback('success', 'SDS draft generated. Click “Approve & Publish SDS” to make it public.')
     await loadCompliance()
   } catch (e) {
     setFeedback('error', e.response?.data?.error || 'SDS generation failed')
@@ -1131,23 +1156,6 @@ function previewSds(sds) { openPreview('sds', sds) }
 function downloadSds(id) { window.open(documentsApi.downloadSdsUrl(id), '_blank') }
 
 // ── COA actions ──
-async function generateCoaForBatch(batch) {
-  // 后端 create-coa 同时创建 Batch + COA（lot_number 唯一）。
-  // 对未出 COA 的批次，用其 SKU 派生新 lot_number 以避免唯一冲突。
-  const base = batch.lot_number || (form.catalog_no || 'L')
-  const lotNumber = `${base}-COA`
-  try {
-    await documentsApi.createCoa({
-      sku_id: batch.sku,
-      lot_number: lotNumber,
-      produced_at: batch.produced_at || new Date().toISOString().slice(0, 10),
-    })
-    setFeedback('success', `COA generated (${lotNumber})`)
-    await loadCompliance()
-  } catch (e) {
-    setFeedback('error', e.response?.data?.error || 'COA generation failed')
-  }
-}
 async function approveCoaRev(coa) {
   try {
     await documentsApi.approveCoa(coa.id)
@@ -1305,6 +1313,9 @@ async function saveDraft(isPublish = false) {
         if (d.seo_description) form.seo_description = d.seo_description
         if (d.slug) form.slug = d.slug
       }
+      // ⑤ 编辑态保存后重新同步 SKU / 合规数据：新加的 SKU 立即可生成 COA，
+      // 避免操作员加了 SKU 却看不到生成入口（与新建分支一致，不丢已保存数据）。
+      await loadProduct()
       setFeedback('success', isPublish ? 'Product published' : 'Draft saved')
     } else {
       const resp = await http.post('/products/', payload)
@@ -1320,7 +1331,8 @@ async function saveDraft(isPublish = false) {
         await router.replace(`/workspace/products/${newId}/edit`)
         await nextTick()        // 确保 route.params.id 已刷新为 newId，再重载产品
         await loadProduct()     // 从服务端重新同步带 id 的 SKU 并触发 loadCompliance（修复新建后 Batch COA 为空 #3）
-        setFeedback('success', isPublish ? 'Product created and published' : 'Product created. Edit details and publish when ready.')
+        // ⑥ 首次保存后不跳离（router.replace 保持本页）+ 解锁提示
+        setFeedback('success', isPublish ? 'Product created and published' : 'Product saved. You can now generate SDS, COA, and SEO in section 9.')
       }
     }
   } catch (e) {
@@ -1375,6 +1387,25 @@ watch(
       <span v-if="isComplete">✓ Complete</span>
       <span v-else>✗ Incomplete — missing: {{ incompleteItems.join(', ') }}</span>
     </div>
+
+    <!-- ③ 生命周期状态步进器：厘清「产品发布」与「文档发布」两个概念 -->
+    <div class="lifecycle-stepper" v-if="isEdit">
+      <div class="stepper-track">
+        <span class="stepper-label">Product</span>
+        <span class="step" :class="form.status === 'active' ? 'step-done' : 'step-current'">Draft</span>
+        <span class="step-arrow">→</span>
+        <span class="step" :class="form.status === 'active' ? 'step-done' : 'step-todo'">Published</span>
+      </div>
+      <div class="stepper-track">
+        <span class="stepper-label">SDS</span>
+        <span v-for="(label, i) in ['None','Draft','Published']" :key="label" class="step" :class="docStepClass(sdsState, i)">{{ label }}</span>
+      </div>
+      <div class="stepper-track">
+        <span class="stepper-label">COA</span>
+        <span v-for="(label, i) in ['None','Draft','Published']" :key="label" class="step" :class="docStepClass(coaState, i)">{{ label }}</span>
+      </div>
+    </div>
+    <p v-if="isEdit" class="form-hint stepper-hint">“Publish” makes the product visible to the public. “Approve &amp; Publish SDS / COA” makes the compliance document public.</p>
 
     <!-- Feedback toast -->
     <div v-if="saveFeedback.message" class="toast" :class="'toast-' + saveFeedback.type">
@@ -1909,8 +1940,13 @@ watch(
       </section>
 
       <!-- 9. Compliance — COA & SDS -->
-      <section class="form-section" v-if="isEdit">
+      <section class="form-section">
         <h3>9. Compliance — COA &amp; SDS</h3>
+        <!-- ① 未保存时常显占位横幅，给出原因而非隐藏整段 -->
+        <div v-if="!isEdit" class="compliance-placeholder">
+          💡 Save the product first to enable SDS / COA generation. After saving, return here to generate compliance documents.
+        </div>
+        <template v-else>
         <p class="form-hint">Generate / approve SDS and COA for this product. Anonymous visitors can view published documents on the product detail page.</p>
 
         <!-- SDS 卡 -->
@@ -1920,10 +1956,12 @@ watch(
             <button
               type="button"
               class="btn btn-primary btn-sm"
-              :disabled="sdsGenerateDisabled || complianceLoading"
-              :title="sdsGenerateDisabled ? 'Missing CAS / structure identifier (SMILES / InChI); cannot generate SDS. Complete the product identifier first' : 'Generate SDS draft'"
+              :disabled="complianceLoading"
+              :title="sdsGenerateDisabled ? 'SDS needs a chemical identifier (CAS / SMILES / InChI). Click to see what is missing.' : 'Generate SDS draft'"
               @click="generateProductSds"
             >Generate SDS</button>
+            <!-- ② 缺标识时按钮不静默禁用，常显引导文案 -->
+            <p v-if="sdsGenerateDisabled" class="form-hint sds-hint">⚠ Add a chemical identifier (CAS, SMILES, or InChI) in section 2 “Chemical Structure” before generating SDS.</p>
           </div>
 
           <LoadingSpinner v-if="complianceLoading" size="small" text="Loading…" />
@@ -1944,7 +1982,7 @@ watch(
               </div>
               <div v-if="sds.data_source_detail" class="sds-source">{{ sds.data_source_detail }}</div>
               <div class="sds-rev-actions">
-                <button v-if="!sds.is_current" type="button" class="btn btn-ghost btn-sm" @click="approveSdsRev(sds.id)">Approve &amp; publish</button>
+                <button v-if="!sds.is_current" type="button" class="btn btn-ghost btn-sm" @click="approveSdsRev(sds.id)">Approve &amp; Publish SDS</button>
                 <button v-if="sds.is_current" type="button" class="btn btn-ghost btn-sm" @click="withdrawSdsRev(sds.id)">Withdraw</button>
                 <button type="button" class="btn btn-ghost btn-sm" @click="previewSds(sds)">Preview</button>
                 <button v-if="sds.pdf_path" type="button" class="btn btn-ghost btn-sm" @click="downloadSds(sds.id)">Download</button>
@@ -1992,7 +2030,7 @@ watch(
 
                 <div class="coa-card-actions">
                   <button v-if="item.coa.status === 'draft'" type="button" class="btn btn-ghost btn-sm" @click="openQcForm(item.coa)">Enter measurements</button>
-                  <button v-if="item.coa.status === 'draft'" type="button" class="btn btn-ghost btn-sm" @click="approveCoaRev(item.coa)">Approve &amp; publish</button>
+                  <button v-if="item.coa.status === 'draft'" type="button" class="btn btn-ghost btn-sm" @click="approveCoaRev(item.coa)">Approve &amp; Publish COA</button>
                   <button v-if="item.coa.status === 'published'" type="button" class="btn btn-ghost btn-sm" @click="withdrawCoaRev(item.coa)">Withdraw</button>
                   <button type="button" class="btn btn-ghost btn-sm" @click="previewCoa(item.coa)">Preview</button>
                   <button v-if="item.coa.pdf_path" type="button" class="btn btn-ghost btn-sm" @click="downloadCoa(item.coa.id)">Download</button>
@@ -2001,14 +2039,14 @@ watch(
 
               <template v-else>
                 <div class="coa-card-actions">
-                  <button type="button" class="btn btn-ghost btn-sm" @click="generateCoaForBatch(item.batch)">Generate COA</button>
+                  <span class="coa-note">No COA yet — COA is generated together when you create the batch above.</span>
                 </div>
               </template>
             </div>
           <!-- 无批次时显示新建入口 -->
           <div v-if="!sc.batches.length" class="batch-create-form">
             <label>Lot number
-              <AppInput v-model="newBatchForms[sc.sku.id].lot_number" placeholder="e.g. B20260709-01" style="margin-bottom:0" />
+              <AppInput v-model="newBatchForms[sc.sku.id].lot_number" placeholder="默认带入 SKU code，可修改" style="margin-bottom:0" />
             </label>
             <label>Production date
               <input v-model="newBatchForms[sc.sku.id].produced_at" type="date" />
@@ -2019,15 +2057,16 @@ watch(
             <button type="button" class="btn btn-primary btn-sm" :disabled="creatingBatch" @click="createBatchAndCoa(sc.sku.id)">
               {{ creatingBatch ? 'Creating…' : 'Generate COA' }}
             </button>
-            <span class="sku-code-hint">({{ sc.sku.sku_code }})</span>
+            <span class="sku-code-hint">（已默认带入 SKU code，可修改）</span>
           </div>
         </div>
         </div>
+        </template>
       </section>
 
       <!-- Actions -->
       <div class="form-actions">
-        <button type="button" @click="saveDraft" class="btn btn-outline btn-md" :disabled="saving">
+        <button type="button" @click="saveDraft()" class="btn btn-outline btn-md" :disabled="saving">
           {{ saving ? 'Saving...' : 'Save Draft' }}
         </button>
         <button type="button" @click="handlePublish" class="btn btn-primary btn-md" :disabled="saving">
@@ -2274,4 +2313,24 @@ html.dark .source-pubchem { color: #fff; }
 .batch-create-form label { font-size: 13px; display: flex; flex-direction: column; gap: 4px; color: var(--color-text-secondary); }
 .batch-create-form input { padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px; background: var(--color-bg); color: var(--color-text); min-width: 140px; }
 .sku-code-hint { font-size: 12px; color: var(--color-text-secondary); font-weight: 500; }
+
+/* ① Compliance 占位横幅 */
+.compliance-placeholder { padding: 16px; border: 1px dashed var(--color-border); border-radius: 8px; background: var(--color-bg); font-size: 13px; color: var(--color-text-secondary); }
+
+/* ② SDS 缺失标识引导 */
+.sds-hint { margin-top: 6px; }
+
+/* ⑤ 批次无 COA 注释 */
+.coa-note { font-size: 12px; color: var(--color-text-secondary); }
+
+/* ③ 生命周期状态步进器 */
+.lifecycle-stepper { display: flex; gap: 20px; flex-wrap: wrap; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; background: var(--color-bg-alt); border: 1px solid var(--color-border); }
+.stepper-track { display: flex; align-items: center; gap: 6px; }
+.stepper-label { font-size: 12px; font-weight: 700; color: var(--color-text-secondary); margin-right: 4px; }
+.step { font-size: 12px; padding: 3px 10px; border-radius: 12px; border: 1px solid var(--color-border); color: var(--color-text-tertiary); background: var(--color-surface); }
+.step-done { background: var(--color-success-light); color: var(--color-primary-active); border-color: var(--color-success-light); }
+.step-current { background: var(--color-primary); color: #fff; border-color: var(--color-primary); }
+.step-todo { opacity: 0.55; }
+.step-arrow { color: var(--color-text-tertiary); }
+.stepper-hint { margin-bottom: 16px; }
 </style>

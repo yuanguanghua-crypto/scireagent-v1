@@ -22,13 +22,14 @@ class BatchSerializer(serializers.ModelSerializer):
 class CoaSerializer(serializers.ModelSerializer):
     lot_number = serializers.CharField(source='batch.lot_number', read_only=True)
     produced_at = serializers.DateField(source='batch.produced_at', read_only=True)
+    retest_at = serializers.DateField(source='batch.retest_at', read_only=True, allow_null=True)
     sku_code = serializers.CharField(source='batch.sku.sku_code', read_only=True)
     product_id = serializers.IntegerField(source='batch.sku.product_id', read_only=True)
 
     class Meta:
         model = Coa
         fields = [
-            'id', 'doc_id', 'status', 'batch', 'lot_number', 'produced_at', 'sku_code',
+            'id', 'doc_id', 'status', 'batch', 'lot_number', 'produced_at', 'retest_at', 'sku_code',
             'product_id',
             # 产品快照
             'product_name', 'catalog_number', 'cas_number',
@@ -89,12 +90,13 @@ class CoaCreateSerializer(serializers.Serializer):
 class SdsRevisionSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     catalog_no = serializers.CharField(source='product.catalog_no', read_only=True)
+    cas = serializers.CharField(source='product.cas', read_only=True)
     is_current = serializers.SerializerMethodField()
 
     class Meta:
         model = SdsRevision
         fields = [
-            'id', 'product', 'product_name', 'catalog_no',
+            'id', 'product', 'product_name', 'catalog_no', 'cas',
             'revision_no', 'revised_at', 'change_note',
             'signal_word', 'pictograms', 'hazard_codes', 'precaution_codes',
             'section_data', 'pdf_path', 'is_current', 'created_at',

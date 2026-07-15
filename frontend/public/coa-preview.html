@@ -260,10 +260,12 @@
     </table>
 
     <!-- Analytical Methods -->
-    <div class="section-title">Analytical Methods</div>
-    <div class="method-box">
-      <strong>HPLC Conditions:</strong> C18, 5 µm, 4.6 × 250 mm | Mobile Phase: A = 0.1% TFA in H₂O, B = Acetonitrile | Gradient: 5% B → 95% B over 20 min | Flow Rate: 1.0 mL/min | Detection: UV 260 nm | Injection: 10 µL<br>
-      <strong>LC-MS Conditions:</strong> Ionization: ESI (+) | Column: C18, 2.1 × 50 mm
+    <div id="methods-section">
+      <div class="section-title">Analytical Methods</div>
+      <div class="method-box" id="method-box">
+        <strong>HPLC:</strong> C18, 5 µm, 4.6 × 250 mm | Mobile Phase: A = 0.1% TFA in H₂O, B = Acetonitrile | Gradient: 5% B → 95% B over 20 min | Flow Rate: 1.0 mL/min | Detection: UV 260 nm | Injection: 10 µL<br>
+        <strong>LC-MS:</strong> Ionization: ESI (+) | Column: C18, 2.1 × 50 mm
+      </div>
     </div>
 
     <!-- Signatures -->
@@ -271,14 +273,14 @@
       <div class="sig-block">
         <div class="sig-title">QC Analyst</div>
         <div class="sig-line"></div>
-        <div class="sig-name">Sarah Chen</div>
-        <div class="sig-date">Date: 2026-05-18</div>
+        <div class="sig-name" data-field="qc_analyst">Sarah Chen</div>
+        <div class="sig-date">Date: <span data-field="qc_date">2026-05-18</span></div>
       </div>
       <div class="sig-block">
         <div class="sig-title">QA Approval</div>
         <div class="sig-line"></div>
-        <div class="sig-name">Dr. Michael Lee</div>
-        <div class="sig-date">Date: 2026-05-19</div>
+        <div class="sig-name" data-field="qa_approval">Dr. Michael Lee</div>
+        <div class="sig-date">Date: <span data-field="qa_date">2026-05-19</span></div>
       </div>
     </div>
 
@@ -289,7 +291,7 @@
         For research use only. Not for diagnostic or therapeutic use.
       </div>
       <div style="text-align: right;">
-        Doc ID: COA-SC8001-2026-001<br>
+        Doc ID: <span data-field="doc_id">COA-SC8001-2026-001</span><br>
         Page 1 of 1
       </div>
     </div>
@@ -297,14 +299,17 @@
   </div>
 </div>
 
-<!-- Live preview bridge: 接收父窗口 postMessage 的真实 COA 数据并填充模板字段。
+<!-- Live preview bridge —— 收到父窗口 postMessage 的真实 COA 数据后填充所有字段。
+     QC 表 / 分析方法 / 签名 / Doc ID 逐项镜像后端
+     backend/apps/documents/services/coa_generator.py，确保「预览 = 成品 PDF」内容绝对一致。
      未收到消息时保持上方硬编码样本。 -->
 <script>
 (function () {
   function setField(field, value) {
-    if (value == null || value === '') return
     var els = document.querySelectorAll('[data-field="' + field + '"]')
-    Array.prototype.forEach.call(els, function (el) { el.textContent = value })
+    Array.prototype.forEach.call(els, function (el) {
+      el.textContent = (value == null) ? '' : value
+    })
   }
 
   function escapeHtml(s) {
@@ -314,38 +319,71 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;')
   }
 
-  function passOrNA(v) {
-    return (v != null && String(v).trim() !== '') ? 'PASS' : 'N/A'
+  // 镜像 coa_generator.py 的判定：有实测值即 PASS，否则留空
+  function verdictOf(result) {
+    return (result != null && String(result).trim() !== '') ? 'PASS' : ''
   }
 
+  // QC 表 —— 行定义、spec、method 逐项对齐 coa_generator.py 的 qc_rows
   function buildQcTable(data) {
+    var mw = data.molecular_weight || ''
     var rows = [
       { item: 'Appearance', spec: data.appearance_spec, result: data.appearance_result, method: 'Visual' },
       { item: 'Purity (HPLC)', spec: data.purity_spec, result: data.purity_result, method: data.purity_method || 'HPLC' },
-      { item: 'Water Content (KF)', spec: data.water_content_spec, result: data.water_content_result, method: 'Karl Fischer' },
-      { item: 'Melting Point', spec: null, result: data.melting_point, method: 'USP <741>' },
-      { item: 'Specific Rotation', spec: null, result: data.specific_rotation, method: 'USP <781>' },
-      { item: 'Residual Solvents', spec: null, result: data.residual_solvents, method: 'GC' },
-      { item: 'Heavy Metals (as Pb)', spec: null, result: data.heavy_metals, method: 'USP <231>' },
-      { item: 'Identity (¹H-NMR)', spec: null, result: data.nmr_result, method: 'NMR' },
-      { item: 'Identity (LC-MS)', spec: null, result: data.lcms_result, method: 'LC-MS' }
+      { item: 'Water Content', spec: data.water_content_spec, result: data.water_content_result, method: 'Karl Fischer' },
+      { item: 'Melting Point', spec: '', result: data.melting_point, method: 'USP <741>' },
+      { item: 'Specific Rotation', spec: '', result: data.specific_rotation, method: 'USP <781>' },
+      { item: 'Residual Solvents', spec: '', result: data.residual_solvents, method: 'GC' },
+      { item: 'Heavy Metals', spec: '', result: data.heavy_metals, method: 'USP <231>' },
+      { item: 'Identity (NMR)', spec: 'Conforms', result: data.nmr_result, method: 'NMR' },
+      { item: 'Identity (LC-MS)', spec: 'MW: ' + mw, result: data.lcms_result, method: 'LC-MS' }
     ]
-    var hasAny = rows.some(function (r) { return r.result != null && String(r.result).trim() !== '' })
-    if (!hasAny) return // 无实测值则保留样本表格
     var tbody = document.querySelector('.qc-table tbody')
     if (!tbody) return
     tbody.innerHTML = rows.map(function (r) {
-      var spec = (r.spec != null && r.spec !== '') ? r.spec : ''
-      var verdict = passOrNA(r.result)
+      var spec = (r.spec != null) ? r.spec : ''
+      var verdict = verdictOf(r.result)
       var verdictCls = verdict === 'PASS' ? ' class="pass"' : ''
       return '<tr>' +
         '<td>' + escapeHtml(r.item) + '</td>' +
         '<td class="spec">' + escapeHtml(spec) + '</td>' +
-        '<td>' + escapeHtml(r.result) + '</td>' +
+        '<td>' + escapeHtml(r.result == null ? '' : r.result) + '</td>' +
         '<td>' + escapeHtml(r.method) + '</td>' +
         '<td' + verdictCls + '>' + verdict + '</td>' +
         '</tr>'
     }).join('')
+  }
+
+  // 分析方法框 —— 仅当有 HPLC 或 LC-MS 条件时显示（镜像 generator 的 if 判断）
+  function buildMethods(data) {
+    var section = document.getElementById('methods-section')
+    var box = document.getElementById('method-box')
+    if (!section || !box) return
+    var hplc = data.hplc_conditions
+    var lcms = data.lcms_conditions
+    if (!hplc && !lcms) {
+      section.style.display = 'none'
+      return
+    }
+    section.style.display = ''
+    var html = ''
+    if (hplc) html += '<strong>HPLC:</strong> ' + escapeHtml(hplc) + '<br>'
+    if (lcms) html += '<strong>LC-MS:</strong> ' + escapeHtml(lcms)
+    box.innerHTML = html
+  }
+
+  // 签名 —— qc_analyst / qa_approval 缺省为 "_________"；两处日期同用 approved_at.date()
+  function buildSignatures(data) {
+    var approvedDate = ''
+    if (data.approved_at) {
+      // approved_at 为 ISO datetime，取日期部分，对齐 PDF 的 approved_at.date()
+      approvedDate = String(data.approved_at).slice(0, 10)
+    }
+    var dateStr = approvedDate || '_________'
+    setField('qc_analyst', data.qc_analyst || '_________')
+    setField('qa_approval', data.qa_approval || '_________')
+    setField('qc_date', dateStr)
+    setField('qa_date', dateStr)
   }
 
   window.addEventListener('message', function (e) {
@@ -356,11 +394,15 @@
     setField('cas_number', data.cas_number)
     setField('lot_number', data.lot_number)
     setField('molecular_formula', data.molecular_formula)
-    setField('molecular_weight', data.molecular_weight)
+    // 分子量 —— 镜像 PDF：有值时追加 " g/mol"
+    setField('molecular_weight', data.molecular_weight ? (data.molecular_weight + ' g/mol') : '')
     setField('produced_at', data.produced_at)
     setField('retest_at', data.retest_at)
     setField('storage_condition', data.storage_condition)
+    setField('doc_id', data.doc_id)
     buildQcTable(data)
+    buildMethods(data)
+    buildSignatures(data)
   })
 })()
 </script>
