@@ -422,7 +422,7 @@ async function saveInlineEntity() {
     await loadKnowledge()
     setFeedback('success', `${type} created and linked`)
   } catch (e) {
-    setFeedback('error', 'Save failed: ' + (e.response?.data?.meta?.error?.message || e.message))
+    setFeedback('error', 'Save failed: ' + formatSaveError(e))
   } finally {
     inlineSaving.value = false
   }
@@ -764,6 +764,21 @@ function applyPubchemProperties() {
   if (chem.cas_resolved && !form.cas) form.cas = chem.cas_resolved
   pubchemEnrichResult.value = { ...data, applied: true }
   setFeedback('success', 'Chemical properties applied to form')
+}
+
+// #170B: 保存前若化学身份已 verified 而表单 cas/smiles 仍空，自动套用（verified=后端已校验，安全），
+// 避免研究员点 Save Draft 后化学属性「凭空消失」造成不完整。unverified/候选分支不自动套用（须人工选候选）。
+function applyVerifiedChemicalToForm() {
+  if (!chemAutoVerified.value) return
+  const data = pubchemEnrichResult.value
+  const chem = data?.chemical || data
+  if (!chem?.properties) return
+  const p = chem.properties
+  if (p.canonical_smiles && !form.smiles) form.smiles = p.canonical_smiles
+  if (p.inchi && !form.inchi) form.inchi = p.inchi
+  if (p.molecular_formula && !form.formula) form.formula = p.molecular_formula
+  if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
+  if (chem.cas_resolved && !form.cas) form.cas = chem.cas_resolved
 }
 
 // Lipinski badge class helper
@@ -1278,9 +1293,29 @@ function ensureSlug(payload) {
   return payload
 }
 
+function formatSaveError(e) {
+  // 兼容后端两种错误信封：
+  // 1) 业务错误（EnvelopeMixin）：{success:false, data:null, meta:{error:{message}}}
+  // 2) DRF 校验错误（默认异常处理器）：{detail:'...'} 或 {field:['msg',...]}
+  const resp = e?.response
+  if (!resp) return e?.message || 'Unknown error'
+  const status = resp.status
+  const bd = resp.data || {}
+  const envMsg = bd?.meta?.error?.message
+  if (envMsg) return `HTTP ${status} — ${envMsg}`
+  if (bd?.detail) return `HTTP ${status} — ${bd.detail}`
+  const fieldParts = Object.entries(bd)
+    .filter(([k]) => k !== 'success' && k !== 'data' && k !== 'meta')
+    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : (typeof v === 'object' ? JSON.stringify(v) : v)}`)
+  if (fieldParts.length) return `HTTP ${status} — ${fieldParts.join('; ')}`
+  return `HTTP ${status} — ${e.message}`
+}
+
 async function saveDraft(isPublish = false) {
   // 告知模式（CLAUDE.md 规则5：研究员是最终权威，发布检查是告知不是硬阻断）：
   // 缺失必填字段仅标红提示，不阻止保存/发布。后端草稿允许不完整。
+  // #170B: 保存前若已 verified 化学身份，先把化学属性套入表单（仅填空字段，不覆盖人工录入）
+  applyVerifiedChemicalToForm()
   const missing = collectMissing()
   missingFields.value = missing.map(m => m.key)
   if (missing.length) {
@@ -1321,7 +1356,8 @@ async function saveDraft(isPublish = false) {
       const resp = await http.post('/products/', payload)
       // 新建保存后同样回填后端派生字段（POST 路径也会触发 _auto_seo_on_publish）
       const d = resp?.data
-      const newId = d?.id || resp?.id
+      // #170A: 健壮提取 newId（兼容 envelope.data.id / 直接 id / pk）
+      const newId = d?.id || resp?.id || d?.pk || (resp?.data && resp.data.id)
       if (d) {
         if (d.seo_title) form.seo_title = d.seo_title
         if (d.seo_description) form.seo_description = d.seo_description
@@ -1336,7 +1372,8 @@ async function saveDraft(isPublish = false) {
       }
     }
   } catch (e) {
-    setFeedback('error', 'Save failed: ' + (e.response?.data?.meta?.error?.message || e.message))
+    // #170A: 显式抛出后端真实错误（唯一约束/字段校验等），不再吞掉原因
+    setFeedback('error', 'Save failed: ' + formatSaveError(e))
   } finally {
     saving.value = false
   }
@@ -2362,4 +2399,10 @@ html.dark .source-pubchem { color: #fff; }
 details.ai-advanced { margin: 10px 0; border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 10px; background: #fff; }
 details.ai-advanced > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); user-select: none; }
 details.ai-advanced[open] > summary { margin-bottom: 8px; }
+
+/* 深色模式对比度修复：Knowledge Chain 关键词/标签在深色容器上对比度不足
+   .km-keyword 原用 --color-text-tertiary(#64748B) 在深绿底上约 2.8:1；
+   .km-chip 原用 --color-amber-800(#92400E) 在深棕底上同色不可见。深色模式改浅色。 */
+html.dark .km-keyword { color: var(--color-text-secondary); }
+html.dark .km-chip { color: var(--color-amber-200); }
 </style>

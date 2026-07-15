@@ -178,4 +178,9 @@ html.dark .equiv-badge { color: #fff; }
 .bioz-more { font-size: 11px; color: var(--color-text-secondary); margin: 6px 0 0 0; font-style: italic; }
 .bioz-empty { font-size: 12px; color: var(--color-text-secondary); font-style: italic; margin: 0; }
 .bioz-nosave-hint { font-size: 11px; color: var(--color-amber-800); margin: 6px 0 0 0; font-style: italic; }
+/* 深色模式对比度修复：warning 类文字在深棕底（--color-warning-light=#92400E）上
+   与文字色（--color-amber-800=#92400E）同色，1:1 不可见。深色模式改浅色字。 */
+html.dark .bioz-warn { color: var(--color-amber-200); }
+html.dark .bioz-nosave-hint { color: var(--color-amber-200); }
+html.dark .bioz-if { color: var(--color-amber-200); }
 </style>
