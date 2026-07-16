@@ -788,27 +788,16 @@ function lipinskiClass(val) {
   return 'lipinski-unknown'
 }
 
-// Apply All: chemical properties + knowledge links + protocols
-async function applyAllEnrichResults() {
+// #172: 抽出 Knowledge Chain 关联逻辑（methods / apps 级联 / protocols），
+// 供 Apply All 与 Save Draft 自动套用共用（与 Apply All 行为一致）。
+async function applyEnrichKnowledgeLinks() {
   const data = pubchemEnrichResult.value
-  if (!data) return
-  const chem = data?.chemical || data
-
-  // 1. Chemical properties — 仅当后端已验证才自动套用；否则跳过并提示人工确认
-  if (chem?.properties && chemAutoVerified.value) {
-    const p = chem.properties
-    if (p.canonical_smiles && !form.smiles) form.smiles = p.canonical_smiles
-    if (p.inchi && !form.inchi) form.inchi = p.inchi
-    if (p.molecular_formula && !form.formula) form.formula = p.molecular_formula
-    if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
-    if (chem.cas_resolved && !form.cas) form.cas = chem.cas_resolved
-  } else if (chem?.found && !chemAutoVerified.value) {
-    setFeedback('warn', '化学属性未经验证，未自动套用 — 请从候选中选择或手动填写')
-  }
+  if (!data || data.error) return { methodCount: 0, protoCount: 0 }
+  let methodCount = 0
+  let protoCount = 0
 
   // 2. Knowledge chain — matched methods
   const matchedMethods = enrichMatchedMethods.value
-  let methodCount = 0
   for (const mm of matchedMethods) {
     for (const m of mm.matches) {
       if (!methodIds.value.includes(m.id)) {
@@ -820,11 +809,8 @@ async function applyAllEnrichResults() {
 
   // 3. Knowledge chain — matched apps (cascade to their methods)
   const matchedApps = enrichMatchedApps.value
-  let appCount = 0
   for (const ma of matchedApps) {
     for (const a of ma.matches) {
-      appCount++
-      // Synchronously add app's methods via knowledgeList
       const appMethods = knowledgeList.value.methods.filter(m => m.application_id === a.id)
       for (const m of appMethods) {
         if (!methodIds.value.includes(m.id)) {
@@ -836,14 +822,12 @@ async function applyAllEnrichResults() {
   }
 
   // 4. Protocols — 数字 DB id 直接链；BioProCorpus 字符串 id 先导入知识库再链
-  let protoCount = 0
   const protos = enrichProtocols.value || []
   for (const p of protos) {
     if (Number.isInteger(p.id)) {
       if (!protocolIds.value.includes(p.id)) { protocolIds.value.push(p.id); protoCount++ }
       continue
     }
-    // BioProCorpus 检索结果（id 为字符串）：导入生成 DB Protocol 后链入
     try {
       const r = await importProtocol({
         method_name: p.method_hint || p.title || '',
@@ -863,6 +847,30 @@ async function applyAllEnrichResults() {
       }
     } catch { /* 单个协议导入失败不影响其余 */ }
   }
+
+  return { methodCount, protoCount }
+}
+
+// Apply All: chemical properties + knowledge links + protocols + jena
+async function applyAllEnrichResults() {
+  const data = pubchemEnrichResult.value
+  if (!data) return
+  const chem = data?.chemical || data
+
+  // 1. Chemical properties — 仅当后端已验证才自动套用；否则跳过并提示人工确认
+  if (chem?.properties && chemAutoVerified.value) {
+    const p = chem.properties
+    if (p.canonical_smiles && !form.smiles) form.smiles = p.canonical_smiles
+    if (p.inchi && !form.inchi) form.inchi = p.inchi
+    if (p.molecular_formula && !form.formula) form.formula = p.molecular_formula
+    if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
+    if (chem.cas_resolved && !form.cas) form.cas = chem.cas_resolved
+  } else if (chem?.found && !chemAutoVerified.value) {
+    setFeedback('warn', '化学属性未经验证，未自动套用 — 请从候选中选择或手动填写')
+  }
+
+  // 2-4. Knowledge chain（methods / apps / protocols）— 共用抽取函数
+  const { methodCount, protoCount } = await applyEnrichKnowledgeLinks()
 
   // 5. Jena 归一化规格（仅填空字段，不覆盖已填）
   let jenaCount = 0
@@ -1316,6 +1324,11 @@ async function saveDraft(isPublish = false) {
   // 缺失必填字段仅标红提示，不阻止保存/发布。后端草稿允许不完整。
   // #170B: 保存前若已 verified 化学身份，先把化学属性套入表单（仅填空字段，不覆盖人工录入）
   applyVerifiedChemicalToForm()
+  // #172: 已有 enrich 结果则自动关联 Knowledge Links（与 Apply All 行为一致），
+  // 使「AI AUTO MATCH → Save Draft」无需手动点 Apply All 也能自动关联方法/协议。
+  if (pubchemEnrichResult.value && !pubchemEnrichResult.value.error) {
+    await applyEnrichKnowledgeLinks()
+  }
   const missing = collectMissing()
   missingFields.value = missing.map(m => m.key)
   if (missing.length) {
@@ -2196,7 +2209,7 @@ watch(
 .form-hint { font-size: 12px; color: var(--color-text-secondary); margin-top: 8px; }
 .field-error { font-size: 12px; color: var(--color-red-500); }
 .custom-under { margin-top: 4px; }
-.toast { position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 .toast-success { background: var(--color-success-light); color: var(--color-primary-active); }
 .toast-error { background: var(--color-danger-light); color: var(--color-red-700); }
 .toast-warn { background: var(--color-warning-light); color: var(--color-warning); }
@@ -2226,6 +2239,10 @@ watch(
 .source-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-bottom: 6px; }
 .source-pubchem { background: var(--color-info-light); color: var(--color-blue-700); }
 html.dark .source-pubchem { color: #fff; }
+/* #172: 深色模式下 Toast / Completeness 条文字改浅色，避免深绿底+中绿字糊在一起 */
+html.dark .toast-success, html.dark .completeness-ok { color: #D1FAE5; }
+html.dark .toast-warn { color: #FDE68A; }
+html.dark .toast-error { color: #FECACA; }
 .source-chembl { background: var(--color-warning-light); color: var(--color-warning); }
 .pubchem-notfound { background: var(--color-warning-bg); border: 1px solid var(--color-amber-200); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
 .pubchem-notfound .form-hint { margin-top: 0; color: var(--color-amber-800); }
