@@ -9,6 +9,7 @@ jena 数据**永不落库成 Product**（策略 B，与 BioProCorpus 同构）�
 详见 docs/FIVE_DATASOURCES.md §3.5、docs/DATASOURCE_RELIABILITY.md §8。
 """
 import json
+import re
 import logging
 import os
 import threading
@@ -26,6 +27,10 @@ JENA_DATA_DIR = os.environ.get(
     ),
 )
 JENA_JSONL_FILENAME = "jena_products_v2.jsonl"
+
+# catalog 形态快速识别（L10：name 命名空间下若标识符形如 catalog 号，优先精确 catalog 匹配）。
+# 宽松前缀：2+ 大写字母后接可选连字符与数字即可触发（NU-1001 / CLK-084 / SP-25L / NU-851-680 均命中）。
+_CATALOG_RE = re.compile(r'^[A-Z]{2,}-?\d')
 
 
 @dataclass
@@ -69,7 +74,8 @@ class JenaIndex:
         self.jsonl_filename = jsonl_filename
         self._records: list[JenaRecord] = []
         self._by_catalog_no: dict[str, JenaRecord] = {}
-        self._by_cas: dict[str, JenaRecord] = {}
+        # P1-5：CAS 可能对应多个记录（同化合物不同盐型），改为 list 防止后者覆盖前者
+        self._by_cas: dict[str, list[JenaRecord]] = {}
 
     def build(self) -> None:
         """从 JSONL 构建索引。文件不存在时静默（索引为空），不抛异常。"""
@@ -97,7 +103,8 @@ class JenaIndex:
                     if record.catalog_no:
                         self._by_catalog_no[record.catalog_no.upper()] = record
                     if record.cas_number:
-                        self._by_cas[record.cas_number.upper()] = record
+                        # P1-5：同 CAS 多记录追加，不覆盖
+                        self._by_cas.setdefault(record.cas_number.upper(), []).append(record)
         except Exception as e:
             logger.warning(f"jena index build failed: {e}")
         logger.info(f"jena index built: {len(self._records)} records from {path}")
@@ -166,24 +173,50 @@ class JenaIndex:
         return self._by_catalog_no.get(catalog_no.strip().upper())
 
     def lookup_by_cas(self, cas: Optional[str]) -> Optional[JenaRecord]:
-        """精确匹配 CAS 号（大小写不敏感）"""
+        """精确匹配 CAS 号（大小写不敏感）。同 CAS 多记录时返回首选（list 首条），
+        P1-5：全部候选取 self.get_cas_records(cas)。"""
         if not cas:
             return None
-        return self._by_cas.get(cas.strip().upper())
+        recs = self._by_cas.get(cas.strip().upper())
+        return recs[0] if recs else None
+
+    def get_cas_records(self, cas: Optional[str]) -> list[JenaRecord]:
+        """同 CAS 的全部记录（P1-5：防止覆盖导致的静默丢失）。"""
+        if not cas:
+            return []
+        return list(self._by_cas.get(cas.strip().upper(), []))
+
+    @staticmethod
+    def _name_match_score(pn: str, q: str) -> int:
+        """partial 排序评分：越低越优。
+
+        - 词边界命中（query 是名字中的独立 token，如 "atp" ∈ "atp, disodium salt"）
+          优先于任意子串命中；
+        - 同组内短名优先（短名更可能是规范名，避免 ATP→2'-MeSe-ATP 长名错配）。
+        L10 修正核心：用此评分替代旧的「JSONL 迭代顺序取首条」。
+        """
+        tokens = re.split(r'[^a-z0-9]+', pn)
+        if q in tokens:
+            return len(pn)        # token 命中组：短名优先
+        return 10000 + len(pn)    # 非 token 子串：靠后，且短名优先
 
     def find_by_name(self, name: Optional[str], limit: int = 5) -> list[JenaRecord]:
-        """按 product_name 查找：精确匹配优先，其次包含关系。返回有序列表（精确在前）。"""
+        """按 product_name 查找（L10 修正：精确优先 + 子串歧义排序，不盲取首条）。
+
+        排序：精确匹配（大小写不敏感）恒排最前；部分匹配按 _name_match_score 升序
+        （词边界命中 > 短名）。返回前 `limit` 条，精确匹配不占 limit 额度。
+        """
         if not name:
             return []
-        name_lower = name.strip().lower()
+        q = name.strip().lower()
         exact, partial = [], []
         for r in self._records:
-            pn = r.product_name.lower()
-            if pn == name_lower:
+            pn = (r.product_name or "").lower()
+            if pn == q:
                 exact.append(r)
-            elif name_lower in pn or pn in name_lower:
+            elif q in pn or pn in q:
                 partial.append(r)
-        # 精确优先，部分限 limit
+        partial.sort(key=lambda r: self._name_match_score((r.product_name or "").lower(), q))
         return exact + partial[:max(0, limit - len(exact))]
 
     def lookup(self, identifier: Optional[str], namespace: str = "name") -> Optional[JenaRecord]:
@@ -194,7 +227,11 @@ class JenaIndex:
             namespace: cas / catalog_no / name（默认 name）
 
         Returns:
-            匹配到的首条 JenaRecord，或 None。name 模式下精确匹配优先于部分匹配。
+            匹配到的 JenaRecord，或 None。
+            L10 修正：
+              - catalog 精确匹配优先：identifier 形如 catalog 号时先精确查 catalog；
+              - name 模式歧义检测：精确匹配或唯一部分匹配才返回；多条部分匹配视为
+                歧义，不盲取首条，返回 None 交由 synonyms / 研究员裁决。
         """
         if not identifier:
             return None
@@ -202,9 +239,21 @@ class JenaIndex:
             return self.lookup_by_cas(identifier)
         if namespace == "catalog_no":
             return self.lookup_by_catalog_no(identifier)
-        # name: find_by_name 取首条（精确优先）
-        results = self.find_by_name(identifier, limit=1)
-        return results[0] if results else None
+        # name 模式
+        q = identifier.strip().lower()
+        # catalog 形态优先精确 catalog 匹配（防御：调用方误把 catalog 当 name 传入）
+        if _CATALOG_RE.match(identifier.strip()):
+            cat_rec = self.lookup_by_catalog_no(identifier)
+            if cat_rec:
+                return cat_rec
+        results = self.find_by_name(identifier, limit=100)
+        exact = [r for r in results if (r.product_name or "").lower() == q]
+        if exact:
+            return exact[0]
+        partial = [r for r in results if r not in exact]
+        if len(partial) == 1:
+            return partial[0]
+        return None  # 歧义：候选不唯一，不盲取首条
 
 
 # ── 进程级共享单例（惰性构建，线程安全）──────────────────────────────────────
@@ -213,24 +262,51 @@ class JenaIndex:
 # 测试请直接 new JenaIndex(data_dir=...) 注入独立实例，不用单例。
 # 详见 docs/DATASOURCE_RELIABILITY.md §8
 _shared_index: Optional[JenaIndex] = None
+_shared_index_meta: Optional[tuple] = None  # (path, mtime, size) —— P1-4 失效校验
 _shared_index_lock = threading.Lock()
+
+
+def _build_shared_index() -> None:
+    """（重）构建共享索引并记录文件指纹。"""
+    global _shared_index, _shared_index_meta
+    index = JenaIndex()
+    index.build()
+    _shared_index = index
+    path = os.path.join(JENA_DATA_DIR, JENA_JSONL_FILENAME)
+    try:
+        _shared_index_meta = (path, os.path.getmtime(path), os.path.getsize(path))
+    except OSError:
+        _shared_index_meta = None
+    logger.info(f"jena shared index ready: {index.size()} records")
 
 
 def get_shared_jena_index() -> JenaIndex:
     """获取进程级共享 JenaIndex 单例（惰性、线程安全、双检锁）。
 
     首次调用时构建索引（读取并解析 jena JSONL），之后全进程复用。
-    AI AUTO MATCH 的 jena 查询应通过此函数获取索引。
+    P1-4：每次调用校验 JSONL 文件指纹（mtime+size），重爬后线上自动刷新，
+    避免长驻 worker 一直服务旧索引。
     """
     global _shared_index
     if _shared_index is None:
         with _shared_index_lock:
             if _shared_index is None:
-                logger.info("Building jena shared index (one-time, process-level)...")
-                index = JenaIndex()
-                index.build()
-                logger.info(f"jena shared index ready: {index.size()} records")
-                _shared_index = index
+                _build_shared_index()
+        return _shared_index
+    # 已有索引：检查文件是否变更
+    path = os.path.join(JENA_DATA_DIR, JENA_JSONL_FILENAME)
+    changed = False
+    try:
+        if _shared_index_meta is None or _shared_index_meta[0] != path:
+            changed = True
+        else:
+            changed = (os.path.getmtime(path) != _shared_index_meta[1]
+                       or os.path.getsize(path) != _shared_index_meta[2])
+    except OSError:
+        changed = False
+    if changed:
+        with _shared_index_lock:
+            _build_shared_index()
     return _shared_index
 
 
@@ -242,15 +318,26 @@ import re as _re
 from apps.commerce.models import Product as _Product
 
 # jena 产品线 L1 → 平台 CategoryL1 映射（v1 只保留 3 个采纳 L1）
+#
+# P1-3 决策记录（勿轻易扩这张表）：
+#   平台分类权威是 ProductClass 自引用树（setup_categories.CATEGORY_TREE v1），
+#   刻意只采纳 3 条 L1；CategoryL1 枚举同样只有这 3 个值。其余 5 条 jena 产品线
+#   （proteins / probes & epigenetics / rna technologies / crystallography & cryo-em /
+#    LEXSY expression）平台 v1 不采纳 —— 这是产品/目录决策，不是映射器缺陷。
+#   ⚠ 绝不可在此把它们映射到 'proteins_...' / 'probes_epigenetics' 等不存在的 slug：
+#     那正是 jena_matcher.MAPPER_VERSION 记载的 SC8001 幻影 slug bug（映射到分类树
+#     里不存在的 'probes_epigenetics'，污染了 L1 缓存）。
+#   真要采纳某条线：先在 setup_categories.CATEGORY_TREE 加 L1 节点 + CategoryL1 枚举加值，
+#     再回来这里加一行；顺序反了就会再造幻影 slug。
 _CATEGORY_L1_MAP = [
     ('nucleotides', 'nucleotides_nucleosides'),
     ('click chemistry', 'click_chemistry'),
     ('molecular biology', 'molecular_biology'),
-    # 以下 jena 产品线平台暂不采纳，映射返回空字符串
-    # ('proteins', ...), ('probes', ...), ('epigenetics', ...),
-    # ('rna', ...), ('crystallography', ...), ('cryo-em', ...),
-    # LEXSY Expression 等无对应平台分类 → 留空
 ]
+
+# 平台已采纳 L1 全集（与 CategoryL1 枚举同源）。map_category_l1 的输出必须 ∈ 此集合或 ''，
+# 作为杜绝幻影 slug 回归的 fail-safe 边界。
+_ADOPTED_L1 = set(_Product.CategoryL1.values)
 
 _PURITY_CHOICES = set(_Product.PurityLevel.values)
 
@@ -268,23 +355,35 @@ def normalize_purity(raw) -> str:
     return s if s in _PURITY_CHOICES else s  # 保留归一化值
 
 
+# P2-2：concentration 合法性判定的单位/稀释比正则，与清洗程序
+# verify_jena_products.concentration_has_unit（canonical，单一真相源）逐字对齐。
+# 后端无法跨项目 import 桌面爬虫模块，故在此复刻同一份正则——三处
+# （scraper_v3.clean_concentration / verify_jena_products.concentration_has_unit /
+#   本函数）须同步维护；任一改动务必三处一起改，避免校验器再度漂移。
+_CONC_UNIT_RE = _re.compile(
+    r'\d[\d.,]*\s*(?:mm|µm|um|nm|pm|mg|µg|ug|ng|g|ml|µl|ul|l|units?|u|m|%|×|x)\b', _re.I)
+_CONC_DILUTION_RE = _re.compile(r'\d+\s*:\s*\d+')  # 1:1000 稀释比也算有效浓度表达
+
+
 def classify_concentration(raw) -> str:
     """浓度语义分类（FIVE_DATASOURCES.md §4.3）。
 
-    - 小分子浓度（mM/M/%/w/v 等）：保留
-    - 酶活（units/μl）、浓缩倍数（x）：保留
-    - 污染（photometrically 等无量纲描述）：丢弃（返回空）
+    合法性判定与清洗程序 concentration_has_unit（canonical）完全对齐：
+    - 含单位（mM/M/µg/ml/%/x/units/µl…）的数值表达：保留
+    - 稀释比（1:1000）：保留
+    - 无单位散文（photometrically 等无量纲描述）：视为污染，丢弃（返回空）
+
+    注：原实现是第三套独立正则且额外显式丢弃 photometrically，与 canonical 漂移；
+    现改为复用同一份 _CONC_UNIT_RE/_CONC_DILUTION_RE。纯散文（如 "determined
+    photometrically"）本就无单位 → 仍丢弃；而 "5 mg/ml (photometrically)" 含单位
+    → 按 canonical 保留（旧实现会误丢，此为对齐后的正确行为）。
     """
     if not raw:
         return ''
     s = str(raw).strip()
-    if _re.search(r'photometrically|spectrophotometric', s, _re.I):
-        return ''
-    if _re.search(r'\d', s) and _re.search(
-        r'mM|μM|µM|nM|pM|\bM\b|%|w/v|mg/m|units|ul|μl|x\s*conc|x$', s, _re.I
-    ):
+    if _CONC_UNIT_RE.search(s) or _CONC_DILUTION_RE.search(s):
         return s
-    return ''  # 无量纲无数字 → 丢弃
+    return ''  # 无单位、无稀释比 → 污染散文，丢弃
 
 
 def normalize_storage(raw) -> str:
@@ -350,6 +449,11 @@ def map_category_l1(category_path) -> str:
     'Probes & Epigenetics | … | Amine-modified Nucleotides' 这类
     正确 L1 藏在深层段的记录（SC8001 真实案例：L1=nucleotides_nucleosides
     在第四段，旧实现只取第一段 → 漏匹配 → Category 空）。
+
+    P1-3 fail-safe：命中的映射值必须 ∈ 平台已采纳 L1 全集（_ADOPTED_L1），否则
+    返回 ''。这保证本函数永远不会吐出分类树里不存在的幻影 slug —— 即使日后有人
+    误在 _CATEGORY_L1_MAP 加了一条指向未采纳枚举的映射（SC8001 幻影 slug bug 的根因），
+    也会被这道边界拦成 ''，不会再污染 L1 缓存。
     """
     if not category_path:
         return ''
@@ -357,5 +461,6 @@ def map_category_l1(category_path) -> str:
     for keyword, l1_value in _CATEGORY_L1_MAP:
         for seg in segments:
             if keyword in seg:
-                return l1_value
+                # 幻影 slug 边界：只放行平台真实存在的 L1，否则 fail-safe 到 ''。
+                return l1_value if l1_value in _ADOPTED_L1 else ''
     return ''

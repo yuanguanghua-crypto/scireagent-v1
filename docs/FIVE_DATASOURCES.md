@@ -6,6 +6,8 @@
 >
 > **文档版本**：2026-07-02 | 基于实测与代码核查（P1~P4 全部完成，1197 passed / 10 skipped / 0 failed）
 >
+> **2026-07-16 修订说明**：AI AUTO MATCH 数据链调查（Phase 1~4）对 jena 源做了系统性污染测绘与代码溯源，本次据此定点修订两处：① **附录 B**「无需二次爬虫」结论**已被推翻**（详见附录 B 顶部横幅）；② **§4.5 / §5.1** 澄清 **`catalog_no` 才是 Bioz 查询与精确匹配的硬锚点**，`systematic_name` 是展示 + 理论锚点（代码实测：Bioz 用 `search_by_sku(catalog_no)`）。完整依据见 `verification/jena_field_extractability_contract.md` 及配套审计报告。
+>
 > **核心命题**：平台的数据由「五数据源获取 + 研究员标注」共同形成。研究员工作流只有两条产品创建路径——**从 Word 文档导入新建**（部分属性已具备，AUTO MATCH 补齐）或**手动新建**（输入 CAS/name 等唯一标识，AUTO MATCH 推导其余）。五数据源（PubChem / ChEMBL / PubMed / BioProCorpus / jena / Bioz）均通过 AUTO MATCH 统一接入，研究员不直接从任何数据源选择导入。
 
 ---
@@ -273,7 +275,7 @@ COA / SDS 生成（依赖已落库的完整数据）
 
 | 维度 | 说明 |
 |------|------|
-| 角色 | AUTO MATCH 的**跨源查询锚点供给者**（systematic_name）+ 规格副产品 |
+| 角色 | AUTO MATCH 的**跨源查询锚点供给者**（硬锚点 `catalog_no` 驱动 Bioz `search_by_sku`；`systematic_name` 为展示/理论锚点）+ 规格副产品 |
 | 类型 | 供应商爬虫产出（JSONL，本地静态数据集，项目外工作区） |
 | 产出 | `jena_products_v2.jsonl`（2098 条，31 字段） |
 | 索引 | **进程级单例**（`get_shared_jena_index`），惰性构建 |
@@ -290,9 +292,9 @@ COA / SDS 生成（依赖已落库的完整数据）
 {
   "matched": true,
   "match_key": "name",           // cas / name / synonym:xxx
-  "catalog_no": "ATPNU-250",
+  "catalog_no": "ATPNU-250",     // 硬锚点：驱动 Bioz search_by_sku
   "product_name": "...",
-  "systematic_name": "...",      // 核心锚点
+  "systematic_name": "...",      // 展示 + 理论锚点（非 Bioz 查询入参）
   "cas_number": "1927-31-7",     // 可能为 null（jena CAS 覆盖仅 15.8%）
   "normalized": {
     "purity": "≥ 95% (HPLC)",
@@ -305,7 +307,13 @@ COA / SDS 生成（依赖已落库的完整数据）
 }
 ```
 
-**核心价值 = systematic_name 锚点**：它是打开 Bioz 文献宇宙的钥匙。CAS 查不了 Bioz（实测），product_name 命中率低，只有 jena 的 systematic_name 与 Bioz 索引对齐。1 个 systematic_name 撬动 1 个跨厂家文献池（dATP 一次返回 514 snippets）。
+**核心价值 = 双锚点，且 `catalog_no` 才是硬锚点**（2026-07-16 修订）：
+
+- **`catalog_no`（硬锚点，代码实测的真实驱动键）**：Bioz 消费链路实际调用 `search_by_sku(catalog_no)`（如 `ATPNU-250`）驱动查询与精确匹配——这是**代码里真正跑通的锚点**。因此 `catalog_no` 的抽取正确性 = jena 独占价值的**闸门**，一旦被污染（如与其它字段粘连）就直接击穿整条 Bioz 链路。
+- **`systematic_name`（展示 + 理论锚点）**：作为可读的规范化学名用于呈现，并在理论上可与文献命名对齐；但它**不是** Bioz 查询的实际入参。此前本节「核心价值 = systematic_name 锚点」的表述**已被推翻**——真实链路以 SKU（catalog_no）驱动。
+- CAS 查不了 Bioz（实测），product_name 命中率低；1 个正确的 `catalog_no` 撬动 1 个跨厂家文献池（如 dATP 一次返回 514 snippets）。
+
+> 依据：`verification/jena_field_extractability_contract.md` §4.5/§5.1 冲突勘误；bioz_pipeline 代码走 `search_by_sku`。
 
 **关键共识（§8 详述）**：
 - jena **不是产品创建入口**——研究员不会从 jena 选择新建产品
@@ -379,19 +387,28 @@ jena_result（必须有 catalog_no）
 
 ## 5. 数据流：传递 · 校验 · 兜底
 
-### 5.1 systematic_name 跨源锚点链
+### 5.1 jena 跨源锚点链（2026-07-16 勘误）
 
-这是整个数据源体系的**核心设计**——jena 的 systematic_name 是连接五源的「主键」：
+> **重要勘误**：本节旧标题为「systematic_name 跨源锚点链」，并称 systematic_name 是连接五源的「主键」。经 Phase 1~4 代码溯源，这一表述**不准确**——Bioz 链路实际以 **`catalog_no`** 驱动（`search_by_sku`，见下方「实际查询链」第 417 行），systematic_name 承担的是**跨源命名对齐（PubChem 方向）+ 展示**职责。下图与下文已按真实链路修正。
+
+jena 向不同下游提供**不同的锚点**，需分开看，切勿混为单一「主键」：
 
 ```
-        systematic_name（jena 提供，96.6% 覆盖）
-              ┌─────────┼─────────┐
-              ▼         ▼         ▼
-          PubChem     Bioz      jena 自身
-        (化学结构)  (跨厂家文献)  (产品规格副产品)
+                    jena 匹配记录
+        ┌──────────────────────┼──────────────────────┐
+        ▼                      ▼                        ▼
+    catalog_no            systematic_name           规格字段
+  （硬锚点，SKU）      （展示 / 命名对齐锚点）       （副产品）
+        │                      │                        │
+        ▼                      ▼                        ▼
+      Bioz                  PubChem                  jena 自身
+ search_by_sku          （化学名对齐辅助）         （COA/SDS 用）
+ （真实驱动键）
 ```
 
-**为什么用 systematic_name 而非 product_name**：systematic_name 是系统命名（如 `2'-Deoxyadenosine-5'-triphosphate, Sodium salt`），比商品简称（`dATP - Solution`）在 PubChem/Bioz 命中率高得多。
+**为什么 Bioz 用 catalog_no 而非 systematic_name**：代码实测 Bioz 走 `search_by_sku(jena.catalog_no)`，SKU 是供应商目录里的唯一编号，命中稳定；systematic_name 是理论上可对齐文献命名的候选，但**不是** Bioz 的实际入参。因此 catalog_no 的抽取正确性是 jena 独占价值的闸门。
+
+**systematic_name 的真实用途**：系统命名（如 `2'-Deoxyadenosine-5'-triphosphate, Sodium salt`）在 PubChem 方向的命名对齐与前端展示上优于商品简称（`dATP - Solution`）。
 
 **为什么不用 CAS**：Bioz 不索引 CAS（实测）；jena CAS 覆盖仅 15.8%。
 
@@ -720,6 +737,14 @@ bioz/literature references 中已落库的（`ref_id` 非空）：
 
 ## 附录 B：jena 数据质量审计（2026-06-28）
 
+> **⚠️ 2026-07-16 重大勘误**：本附录（含下方「无需二次爬虫」结论）的**覆盖率视角已被推翻**。
+> 2026-06-28 的审计只统计了字段的**填充率（有值 = 达标）**，未校验值的**正确性**。Phase 1~4 污染测绘发现：
+> - 身份字段仅 **91% 干净**，9% 污染（catalog 与其它字段粘连 173 条等），而 `catalog_no` 是 Bioz 硬锚点——污染即击穿链路；
+> - 规格字段（form/purity/concentration…）的高覆盖率**大量来自全页 fallback 正则误抓**（scraper_v3.py 第 870-896 行），值不可信；
+> - matcher 双向子串匹配歧义率 **43%**（取首条错配，如 ATP→2'MeSe-ATP）。
+> **正确结论**：现有 jsonl **不满足**「值正确」标准，**需要**按根因（R1~R6）重爬产出干净数据集。原则：**字段和值只有正确才有价值，数据量本身没有价值，可能只是污染。**
+> 权威依据：`verification/jena_field_extractability_contract.md`（重爬契约）+ 配套 identity/spec/ambiguity 审计报告。下表覆盖率数字仅作历史留存，**不得再作为「无需重爬」的论据**。
+
 核心三线（Nucleotides 1281 + Molecular Biology 297 + Click Chemistry 78）：1656 条（78.9%）
 
 | 独占价值字段 | 覆盖率 | 备注 |
@@ -735,7 +760,7 @@ bioz/literature references 中已落库的（`ref_id` 非空）：
 | datasheet / msds URL | 96–99% | — |
 | cas_number | 15.8% | 走 PubChem，无所谓（独占性=0） |
 
-**结论**：现有 jsonl 数据已满足 jena 的独占价值定位，无需二次爬虫。
+**结论（已于 2026-07-16 被推翻，见本附录顶部横幅）**：~~现有 jsonl 数据已满足 jena 的独占价值定位，无需二次爬虫。~~ → 修正为：现有 jsonl 只满足「有值」不满足「值正确」，**需按 R1~R6 根因重爬**产出干净数据集。
 
 ---
 

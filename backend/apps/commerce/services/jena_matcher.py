@@ -16,10 +16,12 @@ logger = logging.getLogger(__name__)
 # jena 数据静态，L1 TTL 30 天（同 PubChem）
 JENA_MATCH_TTL = 60 * 60 * 24 * 30
 
-# 映射器版本：随 map_category_l1 等归一化逻辑变更而递增。
+# 映射器版本：随 map_category_l1 / classify_concentration 等归一化逻辑变更而递增。
 # 缓存命中时校验此版本——缺版本或版本不符的旧缓存（可能带错误 slug，
 # 如预修复把 SC8001 映射成不存在的 'probes_epigenetics'）必须被忽略并重查。
-MAPPER_VERSION = "2"
+# v3（P2-2）：classify_concentration 对齐 canonical 正则（稀释比 1:1000 现保留、
+# "5 mg/ml (photometrically)" 现保留），旧缓存的 concentration 归一化值须失效重查。
+MAPPER_VERSION = "3"
 
 
 def _looks_like_cas(s: str) -> bool:

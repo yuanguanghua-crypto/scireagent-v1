@@ -12,6 +12,7 @@ from django.test import TestCase
 
 from apps.commerce.services.jena_index import (
     JenaIndex, JenaRecord, get_shared_jena_index, map_category_l1,
+    classify_concentration, _ADOPTED_L1,
 )
 
 
@@ -54,6 +55,25 @@ FIXTURE_RECORDS = [
         "systematic_name": "5-Azidomethyl-2'-deoxyuridine",
         "category_path": "Click Chemistry|Nucleosides",
     },
+    # ── L10 歧义复现 fixture ──
+    {
+        "jena_catalog_no": "NU-2001",
+        "product_name": "ATP",                         # 规范名（精确匹配）
+        "systematic_name": "Adenosine 5'-triphosphate",
+        "category_path": "Nucleotides & Nucleosides|Nucleotides by Structure|NTPs",
+    },
+    {
+        "jena_catalog_no": "NU-2002",
+        "product_name": "2'-MeSe-ATP",                 # 衍生物（子串命中 ATP）
+        "systematic_name": "2'-Methylseleno-ATP",
+        "category_path": "Nucleotides & Nucleosides|Modified Nucleotides",
+    },
+    {
+        "jena_catalog_no": "NU-2003",
+        "product_name": "ATP, disodium salt",          # 另一 ATP 子串命中
+        "systematic_name": "Adenosine 5'-triphosphate disodium salt",
+        "category_path": "Nucleotides & Nucleosides|Nucleotides by Structure|NTPs",
+    },
 ]
 
 
@@ -66,7 +86,7 @@ class JenaIndexBuildTest(TestCase):
         try:
             index = JenaIndex(data_dir=tmpdir)
             index.build()
-            self.assertEqual(index.size(), 3)
+            self.assertEqual(index.size(), 6)  # 3 原 fixture + 3 L10 歧义 fixture
         finally:
             import shutil
             shutil.rmtree(tmpdir)
@@ -82,7 +102,7 @@ class JenaIndexBuildTest(TestCase):
         try:
             index = JenaIndex(data_dir=tmpdir)
             index.build()
-            self.assertEqual(index.size(), 4)  # 3 fixture + 1 Valid
+            self.assertEqual(index.size(), 7)  # 6 fixture + 1 Valid
         finally:
             import shutil
             shutil.rmtree(tmpdir)
@@ -186,6 +206,69 @@ class JenaIndexLookupTest(TestCase):
         self.assertEqual(r.systematic_name, "2'-Deoxyadenosine-5'-triphosphate, Sodium salt")
 
 
+class JenaMatcherL10Test(TestCase):
+    """L10 修正：catalog 精确优先 + name 子串歧义检测（不盲取首条）。
+
+    复现今天账本的 ATP→2'-MeSe-ATP 错配：旧实现按 JSONL 迭代顺序取首条部分匹配，
+    查 "ATP" 可能返回衍生物 2'-MeSe-ATP。修正后应精确优先、歧义返回 None。
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.tmpdir = _write_jsonl(FIXTURE_RECORDS)
+        cls.index = JenaIndex(data_dir=cls.tmpdir)
+        cls.index.build()
+
+    @classmethod
+    def tearDownClass(cls):
+        import shutil
+        shutil.rmtree(cls.tmpdir)
+        super().tearDownClass()
+
+    def test_exact_name_beats_partial_substring(self):
+        """查询 'ATP' 应返回精确名 'ATP'（NU-2001），而非衍生物 2'-MeSe-ATP"""
+        r = self.index.lookup("ATP", namespace="name")
+        self.assertIsNotNone(r)
+        self.assertEqual(r.catalog_no, "NU-2001")
+
+    def test_ambiguous_substring_returns_none(self):
+        """无精确名、仅多条子串命中 → 歧义，返回 None（不盲取首条）"""
+        slim = [rec for rec in FIXTURE_RECORDS if rec["jena_catalog_no"] != "NU-2001"]
+        slim_dir = _write_jsonl(slim, filename="slim.jsonl")
+        try:
+            idx = JenaIndex(data_dir=slim_dir, jsonl_filename="slim.jsonl")
+            idx.build()
+            # 'ATP' 仍子串命中 NU-2002 / NU-2003 / NU-1001（dATP 含 'atp'），无精确 → 歧义
+            self.assertIsNone(idx.lookup("ATP", namespace="name"))
+        finally:
+            import shutil
+            shutil.rmtree(slim_dir)
+
+    def test_catalog_like_identifier_prefers_catalog_lookup(self):
+        """name 命名空间下传入 catalog 形态标识符，应精确命中 catalog"""
+        r = self.index.lookup("NU-1001", namespace="name")
+        self.assertIsNotNone(r)
+        self.assertEqual(r.catalog_no, "NU-1001")
+        self.assertEqual(r.product_name, "dATP - Solution")
+
+    def test_single_partial_still_matches(self):
+        """唯一子串命中仍返回（低歧义）"""
+        r = self.index.lookup("Azidomethyl", namespace="name")
+        self.assertIsNotNone(r)
+        self.assertEqual(r.catalog_no, "CLK-084")
+
+    def test_ranking_canonical_before_derivative(self):
+        """find_by_name 列表：规范短名应排在衍生物之前（词边界+短名）"""
+        results = self.index.find_by_name("ATP", limit=10)
+        names = [r.product_name for r in results]
+        # 精确 'ATP' 必在第一
+        self.assertEqual(names[0], "ATP")
+        # 衍生物 2'-MeSe-ATP 与 ATP, disodium salt 均在列表中
+        self.assertIn("2'-MeSe-ATP", names)
+        self.assertIn("ATP, disodium salt", names)
+
+
 class JenaSharedSingletonTest(TestCase):
     """进程级单例"""
 
@@ -202,7 +285,7 @@ class JenaSharedSingletonTest(TestCase):
                 i1 = get_shared_jena_index()
                 i2 = get_shared_jena_index()
                 self.assertIs(i1, i2)
-                self.assertEqual(i1.size(), 3)
+                self.assertEqual(i1.size(), 6)
             mod._shared_index = old
         finally:
             import shutil
@@ -240,6 +323,76 @@ class MapCategoryL1Test(TestCase):
     def test_map_empty_path_returns_empty(self):
         self.assertEqual(map_category_l1(""), "")
         self.assertEqual(map_category_l1(None), "")
+
+    # ── P1-3：未采纳产品线 + 幻影 slug fail-safe ──
+    def test_map_unadopted_lines_return_empty(self):
+        """5 条平台 v1 未采纳的 jena 产品线一律归空（产品决策，非缺陷）。
+
+        绝不可映射到 CATEGORY_TREE 里不存在的 slug（SC8001 幻影 slug bug）。
+        """
+        for path in (
+            "Proteins | Recombinant Enzymes",
+            "Probes & Epigenetics | DNA Methylation",
+            "RNA Technologies | mRNA",
+            "Crystallography & Cryo-EM | Screens",
+            "LEXSY Expression | Cell Lines",
+        ):
+            self.assertEqual(map_category_l1(path), "", f"未采纳线应归空: {path}")
+
+    def test_map_output_always_in_adopted_set(self):
+        """map_category_l1 的任何非空输出必须 ∈ 平台已采纳 L1 全集（幻影 slug 边界）。"""
+        for path in (
+            "Nucleotides & Nucleosides|dNTPs",
+            "Probes & Epigenetics | Click Chemistry | Nucleosides",
+            "X | Y | Molecular Biology Reagents",
+            "Proteins | Enzymes",          # 未采纳 → ''
+            "Totally Unknown | Foo",        # 无关键词 → ''
+        ):
+            out = map_category_l1(path)
+            self.assertTrue(out == "" or out in _ADOPTED_L1,
+                            f"输出必须为空或已采纳 L1，得到: {out!r}")
+
+    def test_failsafe_filters_phantom_slug(self):
+        """即使 _CATEGORY_L1_MAP 被误加一条指向未采纳枚举的映射，
+        fail-safe 边界也会把它拦成 ''（防 SC8001 幻影 slug 回归）。"""
+        from unittest.mock import patch
+        import apps.commerce.services.jena_index as ji
+        phantom = ji._CATEGORY_L1_MAP + [("proteins", "probes_epigenetics")]
+        with patch.object(ji, "_CATEGORY_L1_MAP", phantom):
+            # 'probes_epigenetics' 不在 _ADOPTED_L1 → 被拦成 ''
+            self.assertEqual(ji.map_category_l1("Proteins | Enzymes"), "")
+            # 真实 L1 不受影响
+            self.assertEqual(ji.map_category_l1("Nucleotides|X"), "nucleotides_nucleosides")
+
+
+class ClassifyConcentrationTest(TestCase):
+    """classify_concentration：P2-2 与清洗程序 concentration_has_unit（canonical）对齐。
+
+    合法性判据 = 含单位的数值 or 稀释比（1:1000）；无单位散文丢弃。
+    """
+
+    def test_keeps_value_with_unit(self):
+        self.assertEqual(classify_concentration("100 mM"), "100 mM")
+        self.assertEqual(classify_concentration("100 mM - 110 mM"), "100 mM - 110 mM")
+        self.assertEqual(classify_concentration("5 mg/ml"), "5 mg/ml")
+
+    def test_keeps_dilution_ratio(self):
+        """canonical 对齐后：稀释比 1:1000 视为有效浓度表达（旧实现会误丢）。"""
+        self.assertEqual(classify_concentration("1:1000"), "1:1000")
+
+    def test_keeps_unit_even_with_photometrically(self):
+        """含单位则保留，即使句中提到 photometrically（旧实现会误丢）。"""
+        self.assertEqual(
+            classify_concentration("5 mg/ml (photometrically)"),
+            "5 mg/ml (photometrically)")
+
+    def test_drops_unitless_prose(self):
+        self.assertEqual(classify_concentration("determined photometrically"), "")
+        self.assertEqual(classify_concentration("high purity"), "")
+
+    def test_empty_and_none(self):
+        self.assertEqual(classify_concentration(""), "")
+        self.assertEqual(classify_concentration(None), "")
 
 
 class JenaDataAvailabilityTest(TestCase):
