@@ -9,7 +9,6 @@ import { createProduct, updateProduct, getProduct, getCategories } from '@/api/p
 import { useAuthStore } from '@/stores/auth'
 import http from '@/utils/http'
 import { LoadingSpinner } from '@/components/common'
-import AiToolsPanel from './components/AiToolsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -441,15 +440,6 @@ onMounted(async () => {
       </div>
     </form>
 
-    <!-- AI Tools Panel (edit mode only) -->
-    <div v-if="isEdit" class="form-card ai-tools-section">
-      <AiToolsPanel
-        :product-id="route.params.id"
-        :product-name="form.name"
-        :product-cas="form.cas"
-        :product-smiles="form.smiles"
-      />
-    </div>
   </div>
 
   <!-- Access Denied -->

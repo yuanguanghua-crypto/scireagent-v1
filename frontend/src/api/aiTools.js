@@ -1,40 +1,15 @@
 /**
- * AI Tools API
+ * Product AI endpoints (AUTO MATCH)
  *
- * Product validation, protocol recommendation, literature recommendation,
- * and PubChem data enrichment endpoints for the admin AI tools panel.
+ * One-stop enrich (chemical + jena + bioz + literature + protocols),
+ * PubChem enrichment, protocol import, bioz adoption, structure render,
+ * and admin batch endpoints. The former per-field AI Tools panel
+ * (Validate / Recommend Protocols / Literature) has been merged into
+ * the one-stop enrich — see `enrichProduct`'s `chemical.mismatches`
+ * and `chemical.similar_compounds`.
  */
 import http from '@/utils/http'
 
-/** Validate a product against PubChem and BioProCorpus. */
-export function validateProduct(id) {
-  return http.post(`/products/${id}/validate/`)
-}
-
-/** Recommend protocols from BioProCorpus for a product. */
-export function recommendProtocols(id, topK = 5) {
-  return http.post(`/products/${id}/recommend-protocols/`, { top_k: topK })
-}
-
-/** Recommend literature from PubMed for a product. */
-export function recommendLiterature(id, topK = 5) {
-  return http.post(`/products/${id}/recommend-literature/`, { top_k: topK })
-}
-
-/** Validate an unsaved product (new product page, no productId). */
-export function validateUnsavedProduct(name, cas, smiles) {
-  return http.post('/products/validate-unsaved/', { name, cas, smiles })
-}
-
-/** Recommend protocols for an unsaved product (new product page). */
-export function recommendProtocolsUnsaved(name, topK = 5) {
-  return http.post('/products/recommend-protocols-unsaved/', { name, top_k: topK })
-}
-
-/** Recommend literature for an unsaved product (new product page). */
-export function recommendLiteratureUnsaved(name, cas, topK = 5) {
-  return http.post('/products/recommend-literature-unsaved/', { name, cas, top_k: topK })
-}
 
 /** Batch validate multiple products at once. */
 export function batchValidate(productIds) {

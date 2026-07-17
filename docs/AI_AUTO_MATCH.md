@@ -11,6 +11,8 @@
 > 文档版本：2026-06-25（jena/bioz 接入前）　|　对应提交：`2c9fd08`、`112db9a`
 >
 > 适用对象：研究员工作台 ProductEditPage.vue 中 `🤖 AI AUTO MATCH` 面板
+>
+> **2026-07-17 更新**：原独立的「AI Tools」面板（`AiToolsPanel.vue`，Validate/Protocols/Literature 三标签）及其 6 个分字段端点已删除，能力合并进 AUTO MATCH——`enrich` 的 `chemical` 段现额外返回 `mismatches` 与 `similar_compounds`（见 `AI_FEATURES_USER_GUIDE.md` §1.5）。
 
 ---
 

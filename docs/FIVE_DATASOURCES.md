@@ -277,7 +277,7 @@ COA / SDS 生成（依赖已落库的完整数据）
 |------|------|
 | 角色 | AUTO MATCH 的**跨源查询锚点供给者**（硬锚点 `catalog_no` 驱动 Bioz `search_by_sku`；`systematic_name` 为展示/理论锚点）+ 规格副产品 |
 | 类型 | 供应商爬虫产出（JSONL，本地静态数据集，项目外工作区） |
-| 产出 | `jena_products_v2.jsonl`（2098 条，31 字段） |
+| 产出 | `jena_products_v2.jsonl`（**1998 条**，新旧混合字段；2026-07-17 全量重爬 1318 + 旧合法缺失 680 合并） |
 | 索引 | **进程级单例**（`get_shared_jena_index`），惰性构建 |
 | 落库 | ❌ **永不落库成 Product**（策略 B，与 BioProCorpus 同构） |
 | 缓存 | L1 DataSourceCache（`jena_match` 桶，TTL 30 天，jena 数据静态） |

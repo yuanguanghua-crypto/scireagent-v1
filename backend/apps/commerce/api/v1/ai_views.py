@@ -1,13 +1,18 @@
 """AI Tool API Views
 
-DRF views exposing the three AI tools to the admin UI:
-- ProductValidateView: PubChem + BioProCorpus validation
-- ProductRecommendProtocolsView: BioProCorpus protocol recommendations
-- ProductRecommendLiteratureView: PubMed literature recommendations
-- BatchValidateView: batch product validation
-- BatchRecommendLiteratureView: batch literature recommendations
-- ValidateUnsavedView / RecommendProtocolsUnsavedView / RecommendLiteratureUnsavedView:
-  新建页无 productId 时用 payload 直接调用服务
+AI TOOLS (per-field Validate / Protocols / Literature) 已合并进一站式
+ProductEnrichView（AUTO MATCH）：enrich 的 chemical 段现额外返回
+`mismatches`（cas/smiles 跨字段一致性）与 `similar_compounds`（相似化合物），
+即原 AI Tools Validate 标签的独有能力。
+
+保留的独立端点（AUTO MATCH 不重复覆盖）：
+- ProductEnrichView            : 一站式 enrich（chemical+jena+bioz+literature+protocols）
+- BatchValidateView            : 批量校验
+- BatchRecommendLiteratureView : 批量文献推荐
+- PubChemEnrichView            : 仅 PubChem 化学属性补全（单+批量）
+- ProductRenderStructureView   : RDKit SMILES → SVG 结构图
+- ProductImportProtocolView    : BioProCorpus 协议落库
+- ProductAdoptBiozRefsView     : Bioz 文献落库
 """
 import logging
 from types import SimpleNamespace
@@ -23,92 +28,6 @@ from apps.knowledge.services.protocol_recommender import get_shared_recommender
 from apps.knowledge.services.literature_recommender import LiteratureRecommender
 
 logger = logging.getLogger(__name__)
-
-
-# ── Serialization helper ──────────────────────────────────────────────
-
-def serialize_validation_report(report, product):
-    """Convert ValidationReport dataclass + Product info to JSON-safe dict."""
-    result = {
-        "status": report.status,
-        "product": {
-            "id": product.id,
-            "name": product.name,
-            "cas": product.cas or "",
-            "smiles": product.smiles or "",
-        },
-        "pubchem": {
-            "match": report.pubchem_match,
-            "cid": report.pubchem_cid,
-            "result": report.pubchem_result,
-        },
-        "mismatches": report.mismatches,
-        "bioprocorpus": {
-            "match_count": len(report.matched_protocols),
-            "result": report.bioprocorpus_result,
-        },
-        "matched_protocols": report.matched_protocols,
-        "overall_match": report.overall_match,
-        "timestamp": report.timestamp,
-    }
-    # ── PubChemEnhancer 新增字段 ──
-    if hasattr(report, 'molecular_properties') and report.molecular_properties:
-        result['pubchem']['molecular_properties'] = report.molecular_properties
-    if hasattr(report, 'lipinski') and report.lipinski:
-        result['pubchem']['lipinski'] = report.lipinski
-    if hasattr(report, 'similar_compounds') and report.similar_compounds:
-        result['pubchem']['similar_compounds'] = report.similar_compounds
-
-    return result
-
-
-# ── Single-Product Views ──────────────────────────────────────────────
-
-class ProductValidateView(EnvelopeMixin, APIView):
-    """POST /api/v1/products/<pk>/validate/
-
-    Validate a product's structural data against PubChem and BioProCorpus.
-    """
-    permission_classes = [IsAdminUser]
-
-    def post(self, request, pk):
-        product = get_object_or_404(Product, pk=pk)
-        logger.info(f"Running ProductValidator for product {pk}: {product.name}")
-        validator = ProductValidator()
-        report = validator.validate(product)
-        return self.success_response(serialize_validation_report(report, product))
-
-
-class ProductRecommendProtocolsView(EnvelopeMixin, APIView):
-    """POST /api/v1/products/<pk>/recommend-protocols/
-
-    Recommend experimental protocols from BioProCorpus based on product name.
-    """
-    permission_classes = [IsAdminUser]
-
-    def post(self, request, pk):
-        product = get_object_or_404(Product, pk=pk)
-        top_k = int(request.data.get("top_k", 5)) if request.data else 5
-        logger.info(f"Running ProtocolRecommender for product {pk}: {product.name}")
-        recommender = get_shared_recommender()
-        recommendations = recommender.recommend(product.name, top_k=top_k)
-        return self.success_response(recommendations)
-
-
-class ProductRecommendLiteratureView(EnvelopeMixin, APIView):
-    """POST /api/v1/products/<pk>/recommend-literature/
-
-    Search PubMed for product-related literature and extract knowledge chain.
-    """
-    permission_classes = [IsAdminUser]
-
-    def post(self, request, pk):
-        product = get_object_or_404(Product, pk=pk)
-        top_k = int(request.data.get("top_k", 5)) if request.data else 5
-        logger.info(f"Running LiteratureRecommender for product {pk}: {product.name}")
-        recommender = LiteratureRecommender()
-        result = recommender.recommend(product, top_k=top_k)
-        return self.success_response(result)
 
 
 # ── Batch Views ───────────────────────────────────────────────────────
@@ -134,7 +53,13 @@ class BatchValidateView(EnvelopeMixin, APIView):
             results.append({
                 "product_id": product.id,
                 "product_name": product.name,
-                "validation": serialize_validation_report(report, product),
+                "validation": {
+                    "status": report.status,
+                    "mismatches": report.mismatches,
+                    "similar_compounds": report.similar_compounds,
+                    "pubchem_cid": report.pubchem_cid,
+                    "overall_match": report.overall_match,
+                },
             })
         logger.info(f"Batch validate: {len(results)} products processed")
         return self.success_response(results)
@@ -282,8 +207,12 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
 class ProductEnrichView(EnvelopeMixin, APIView):
     """POST /api/v1/products/enrich/
 
-    一站式 enrich：一次调用返回化学属性 + 文献推荐 + 协议推荐。
-    用于产品编辑页的"一键补全"按钮，研究员无需分三次调用。
+    一站式 enrich：一次调用返回化学属性 + 文献推荐 + 协议推荐 + jena 规格 + Bioz 文献。
+    用于产品编辑页的"一键补全"按钮（AI AUTO MATCH）。
+
+    化学段（chemical）现额外包含原 AI Tools Validate 标签的独有校验能力：
+    - mismatches         : 跨字段一致性（cas 与 smiles 是否指向同一物质）
+    - similar_compounds  : PubChem 相似化合物列表
     """
     permission_classes = [IsAdminUser]
 
@@ -353,6 +282,24 @@ class ProductEnrichView(EnvelopeMixin, APIView):
                     logger.warning(f"Lipinski check failed: {e}")
                     chemical["lipinski"] = None
 
+            # ── 跨字段一致性校验（原 AI Tools Validate 标签能力合并进 AUTO MATCH）──
+            # mismatches = cas/smiles 是否指向同一物质；similar_compounds = PubChem 相似化合物。
+            # 复用 ProductValidator，与旧 Validate 端点逻辑完全一致；失败不阻断 enrich 主流程。
+            try:
+                _fake = SimpleNamespace(
+                    id=None,
+                    name=product_name or identifier or "",
+                    cas=cas or "",
+                    smiles=smiles or "",
+                )
+                _vreport = ProductValidator().validate(_fake)
+                chemical["mismatches"] = list(getattr(_vreport, "mismatches", []) or [])
+                chemical["similar_compounds"] = list(getattr(_vreport, "similar_compounds", []) or [])
+            except Exception as e:
+                logger.warning(f"cross-field validation (merged from AI Tools) failed: {e}")
+                chemical.setdefault("mismatches", [])
+                chemical.setdefault("similar_compounds", [])
+
         # ── jena 匹配：规格预填草案（cas→name→synonyms 真级联）──
         jena = {"matched": False}
         try:
@@ -388,7 +335,6 @@ class ProductEnrichView(EnvelopeMixin, APIView):
                       "matched_apps": [], "matched_methods": [], "unmatched_app_keywords": [],
                       "unmatched_method_keywords": []}
         try:
-            from apps.knowledge.services.literature_recommender import LiteratureRecommender
             lit_recommender = LiteratureRecommender()
             lit_name = product_name or identifier or ""
             if lit_name:
@@ -697,65 +643,3 @@ class ProductRenderStructureView(EnvelopeMixin, APIView):
         canonical = validated.get("canonical", "") if validated.get("valid") else ""
 
         return self.success_response({"svg": svg, "format": "svg", "canonical_smiles": canonical})
-
-
-# ── Unsaved-product Views (新建页无 productId 时使用) ────────────────
-
-def _build_fake_product(name, cas='', smiles=''):
-    """用 SimpleNamespace 包装 payload — 三个 AI 服务只访问 name/cas/smiles/id。"""
-    return SimpleNamespace(id=None, name=name, cas=cas or '', smiles=smiles or '')
-
-
-class ValidateUnsavedView(EnvelopeMixin, APIView):
-    """POST /api/v1/products/validate-unsaved/  body: {name, cas?, smiles?}
-
-    新建产品页（未保存）的 AI 校验。三个服务不依赖持久化对象，
-    只读取 name/cas/smiles 字段（id 仅用于日志）。
-    """
-    permission_classes = [IsAdminUser]
-
-    def post(self, request):
-        data = request.data or {}
-        name = (data.get('name') or '').strip()
-        if not name:
-            return self.error_response('name is required')
-        fake = _build_fake_product(
-            name=name,
-            cas=(data.get('cas') or '').strip(),
-            smiles=(data.get('smiles') or '').strip(),
-        )
-        validator = ProductValidator()
-        report = validator.validate(fake)
-        return self.success_response(serialize_validation_report(report, fake))
-
-
-class RecommendProtocolsUnsavedView(EnvelopeMixin, APIView):
-    """POST /api/v1/products/recommend-protocols-unsaved/  body: {name, top_k?}"""
-    permission_classes = [IsAdminUser]
-
-    def post(self, request):
-        data = request.data or {}
-        name = (data.get('name') or '').strip()
-        if not name:
-            return self.error_response('name is required')
-        top_k = int(data.get('top_k', 5))
-        recommender = get_shared_recommender()
-        return self.success_response(recommender.recommend(name, top_k=top_k))
-
-
-class RecommendLiteratureUnsavedView(EnvelopeMixin, APIView):
-    """POST /api/v1/products/recommend-literature-unsaved/  body: {name, cas?, top_k?}"""
-    permission_classes = [IsAdminUser]
-
-    def post(self, request):
-        data = request.data or {}
-        name = (data.get('name') or '').strip()
-        if not name:
-            return self.error_response('name is required')
-        top_k = int(data.get('top_k', 5))
-        fake = _build_fake_product(
-            name=name,
-            cas=(data.get('cas') or '').strip(),
-        )
-        recommender = LiteratureRecommender()
-        return self.success_response(recommender.recommend(fake, top_k=top_k))

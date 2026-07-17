@@ -428,45 +428,11 @@ async function saveInlineEntity() {
   }
 }
 
-// ── AI adopt handlers ───────────────────────────────
-// P0-1: link-method / link-app from AiToolsPanel matched results
-async function handleLinkMethod(methodData) {
-  const mId = methodData.id
-  if (!mId) return
-  toggleMethodId(mId)
-  if (!knowledgeList.value.methods.find(m => m.id === mId)) {
-    await loadKnowledge()
-  }
-  setFeedback('success', `Linked Method: ${methodData.name}`)
-}
-
-async function handleLinkApp(appData) {
-  const aId = appData.id
-  if (!aId) return
-  // Load the app's methods and link them all
-  try {
-    const resp = await http.get(`/applications/${aId}/`)
-    const methods = resp.data?.methods || []
-    for (const m of methods) {
-      toggleMethodId(m.id)
-    }
-    setFeedback('success', `Linked Application "${appData.name}" → ${methods.length} methods`)
-  } catch {
-    setFeedback('error', 'Failed to load application methods')
-  }
-}
-
 // ── One-stop Enrich (PubChem + ChEMBL + Literature + Protocols) ──
 import {
   enrichProduct,
   importProtocol,
   adoptBiozRefs,
-  validateProduct,
-  recommendProtocols,
-  recommendLiterature,
-  validateUnsavedProduct,
-  recommendProtocolsUnsaved,
-  recommendLiteratureUnsaved,
 } from '@/api/aiTools'
 const pubchemEnriching = ref(false)
 const pubchemEnrichResult = ref(null)
@@ -592,103 +558,6 @@ async function runPubchemEnrich() {
     pubchemEnriching.value = false
   }
 }
-
-// ── AI Tools: Validate / Recommend Protocols / Recommend Literature ──
-const aiBusy = ref(null)            // 'validate' | 'protocols' | 'literature' | null
-const aiValidate = ref(null)
-const aiProtocols = ref([])
-const aiLiterature = ref([])
-const aiError = ref('')
-
-// 响应拦截器返回整个信封 {success, data, meta}，这里取出内层 data 载荷；
-// 若接口直接返回内层数组/对象（无 success 字段）则原样返回，保证两种结构都兼容。
-function unwrapResp(res) {
-  if (res && typeof res === 'object' && 'data' in res && res.data !== undefined) return res.data
-  return res
-}
-
-// Validate：编辑态用产品 id，新建未保存态用 name/cas/smiles
-async function runValidate() {
-  if (aiBusy.value) return
-  aiBusy.value = 'validate'
-  aiError.value = ''
-  try {
-    const res = isEdit.value
-      ? await validateProduct(productId.value)
-      : await validateUnsavedProduct((form.name || '').trim(), (form.cas || '').trim(), (form.smiles || '').trim())
-    aiValidate.value = unwrapResp(res)
-  } catch (e) {
-    aiError.value = e?.response?.data?.meta?.error?.message || e.message || 'Validate failed'
-  } finally {
-    aiBusy.value = null
-  }
-}
-
-async function runRecommendProtocols() {
-  if (aiBusy.value) return
-  aiBusy.value = 'protocols'
-  aiError.value = ''
-  try {
-    const res = isEdit.value
-      ? await recommendProtocols(productId.value)
-      : await recommendProtocolsUnsaved((form.name || '').trim())
-    const data = unwrapResp(res)
-    aiProtocols.value = Array.isArray(data) ? data : (data?.protocols || [])
-  } catch (e) {
-    aiError.value = e?.response?.data?.meta?.error?.message || e.message || 'Recommend protocols failed'
-  } finally {
-    aiBusy.value = null
-  }
-}
-
-async function runRecommendLiterature() {
-  if (aiBusy.value) return
-  aiBusy.value = 'literature'
-  aiError.value = ''
-  try {
-    const res = isEdit.value
-      ? await recommendLiterature(productId.value)
-      : await recommendLiteratureUnsaved((form.name || '').trim(), (form.cas || '').trim())
-    const data = unwrapResp(res)
-    aiLiterature.value = Array.isArray(data) ? data : (data?.literature || [])
-  } catch (e) {
-    aiError.value = e?.response?.data?.meta?.error?.message || e.message || 'Recommend literature failed'
-  } finally {
-    aiBusy.value = null
-  }
-}
-
-function formatOverallMatch(v) {
-  if (v === undefined || v === null || v === '') return 'N/A'
-  if (typeof v === 'boolean') return v ? 'MATCH' : 'MISMATCH'
-  return String(v)
-}
-
-function formatHit(h) {
-  if (typeof h === 'string') return h
-  if (h && typeof h === 'object') {
-    return [h.title || h.name, h.score !== undefined ? 'score=' + h.score : '', h.source ? '[' + h.source + ']' : '']
-      .filter(Boolean).join(' ')
-  }
-  return String(h)
-}
-
-function getProtocolTitle(p) {
-  if (!p) return 'Untitled'
-  return p.protocol?.title || p.protocol?.name || p.title || p.name || 'Untitled'
-}
-
-const overallMatchClass = computed(() => {
-  const v = aiValidate.value?.overall_match
-  if (v === true) return 'ai-badge-ok'
-  if (v === false) return 'ai-badge-ng'
-  if (typeof v === 'string') {
-    const s = v.toLowerCase()
-    if (s.includes('match')) return 'ai-badge-ok'
-    if (s.includes('mismatch')) return 'ai-badge-ng'
-  }
-  return 'ai-badge-muted'
-})
 
 // Link all methods under an Application (cascade from knowledge chain)
 async function linkAppMethods(appData) {
@@ -1599,6 +1468,24 @@ watch(
       </div>
 
       <!-- Jena 规格匹配 -->
+      <!-- 跨字段一致性校验（原 AI Tools Validate 已合并进 AUTO MATCH） -->
+      <div v-if="enrichChemical?.mismatches?.length && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top:8px">
+        <h4 style="margin:0 0 6px 0;font-size:13px">⚠ Cross-field Mismatches ({{ enrichChemical.mismatches.length }})</h4>
+        <div v-for="(m, i) in enrichChemical.mismatches" :key="i" class="ai-mismatch-item">
+          <strong v-if="m.field">{{ m.field }}</strong>
+          <span v-if="m.expected !== undefined"> expected: <code>{{ m.expected }}</code></span>
+          <span v-if="m.actual !== undefined"> actual: <code>{{ m.actual }}</code></span>
+          <span v-if="m.message"> — {{ m.message }}</span>
+        </div>
+      </div>
+      <!-- 相似化合物（原 AI Tools Validate 已合并进 AUTO MATCH） -->
+      <div v-if="enrichChemical?.similar_compounds?.length && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top:8px">
+        <h4 style="margin:0 0 6px 0;font-size:13px">🔗 Similar Compounds ({{ enrichChemical.similar_compounds.length }})</h4>
+        <div v-for="(s, i) in enrichChemical.similar_compounds" :key="i" class="ai-rec-item">
+          <div class="ai-rec-title">{{ s.name || ('CID ' + s.cid) || 'Untitled' }}</div>
+          <div class="ai-rec-meta" v-if="s.cid">CID: {{ s.cid }}</div>
+        </div>
+      </div>
       <JenaMatchSection
         v-if="pubchemEnrichResult && !pubchemEnrichResult.applied"
         :jena="enrichJena"
@@ -1713,93 +1600,6 @@ watch(
     </section>
 
     <!-- AI Tools: Validate / Recommend Protocols / Recommend Literature (gap ④) -->
-    <section class="form-section ai-tools-section">
-      <h3>🧠 AI Tools</h3>
-      <div class="ai-tools-row">
-        <button type="button" class="file-upload-btn" @click="runValidate"
-          :disabled="aiBusy !== null || (!isEdit && !form.name)">
-          {{ aiBusy === 'validate' ? 'Validating…' : 'Validate' }}
-        </button>
-        <span v-if="aiBusy === 'validate'" class="ai-loading-spinner"><span class="spinner-ring"></span></span>
-
-        <button type="button" class="file-upload-btn" @click="runRecommendProtocols"
-          :disabled="aiBusy !== null || (!isEdit && !form.name)">
-          {{ aiBusy === 'protocols' ? 'Recommending…' : 'Recommend Protocols' }}
-        </button>
-        <span v-if="aiBusy === 'protocols'" class="ai-loading-spinner"><span class="spinner-ring"></span></span>
-
-        <button type="button" class="file-upload-btn" @click="runRecommendLiterature"
-          :disabled="aiBusy !== null || (!isEdit && !form.name)">
-          {{ aiBusy === 'literature' ? 'Recommending…' : 'Recommend Literature' }}
-        </button>
-        <span v-if="aiBusy === 'literature'" class="ai-loading-spinner"><span class="spinner-ring"></span></span>
-      </div>
-
-      <p v-if="aiError" class="word-status word-err">{{ aiError }}</p>
-
-      <!-- Validate result -->
-      <div v-if="aiValidate" class="ai-result-block">
-        <h4 style="margin:8px 0 4px;font-size:13px">✅ Validation Result</h4>
-        <div class="ai-validate-summary">
-          <span class="ai-badge" :class="overallMatchClass">Overall Match: {{ formatOverallMatch(aiValidate.overall_match) }}</span>
-          <span v-if="aiValidate.status" class="ai-badge ai-badge-muted">Status: {{ aiValidate.status }}</span>
-        </div>
-        <div v-if="aiValidate.mismatches && aiValidate.mismatches.length" class="ai-sub-block">
-          <div class="ai-sub-title">⚠ Mismatches ({{ aiValidate.mismatches.length }})</div>
-          <div v-for="(m, i) in aiValidate.mismatches" :key="i" class="ai-mismatch-item">
-            <strong v-if="m.field">{{ m.field }}</strong>
-            <span v-if="m.expected !== undefined"> expected: <code>{{ m.expected }}</code></span>
-            <span v-if="m.actual !== undefined"> actual: <code>{{ m.actual }}</code></span>
-            <span v-if="m.message"> — {{ m.message }}</span>
-          </div>
-        </div>
-        <div v-if="aiValidate.bioprocorpus" class="ai-sub-block">
-          <div class="ai-sub-title">🧬 BioProCorpus</div>
-          <span v-if="typeof aiValidate.bioprocorpus === 'string'">{{ aiValidate.bioprocorpus }}</span>
-          <template v-else>
-            <span v-if="aiValidate.bioprocorpus.found !== undefined" class="ai-badge ai-badge-muted">Found: {{ aiValidate.bioprocorpus.found }}</span>
-            <span v-if="aiValidate.bioprocorpus.count !== undefined" class="ai-badge ai-badge-muted">Hits: {{ aiValidate.bioprocorpus.count }}</span>
-            <div v-if="aiValidate.bioprocorpus.hits && aiValidate.bioprocorpus.hits.length">
-              <div v-for="(h, i) in aiValidate.bioprocorpus.hits" :key="i" class="ai-hit-item">{{ formatHit(h) }}</div>
-            </div>
-          </template>
-        </div>
-        <div v-if="aiValidate.matched_protocols && aiValidate.matched_protocols.length" class="ai-sub-block">
-          <div class="ai-sub-title">🔗 Matched Protocols ({{ aiValidate.matched_protocols.length }})</div>
-          <div v-for="(p, i) in aiValidate.matched_protocols" :key="i" class="ai-hit-item">
-            {{ typeof p === 'string' ? p : (p.title || p.name || formatHit(p)) }}
-          </div>
-        </div>
-      </div>
-
-      <!-- Recommend Protocols result -->
-      <div v-if="aiProtocols.length" class="ai-result-block">
-        <h4 style="margin:8px 0 4px;font-size:13px">🧪 Recommended Protocols ({{ aiProtocols.length }})</h4>
-        <div v-for="(p, i) in aiProtocols" :key="i" class="ai-rec-item">
-          <div class="ai-rec-title">{{ getProtocolTitle(p) }}</div>
-          <div class="ai-rec-meta">
-            <span class="ai-badge" v-if="p.relevance_score !== undefined">Relevance: {{ p.relevance_score }}</span>
-          </div>
-          <div v-if="p.match_reason" class="ai-rec-reason">{{ p.match_reason }}</div>
-        </div>
-      </div>
-
-      <!-- Recommend Literature result -->
-      <div v-if="aiLiterature.length" class="ai-result-block">
-        <h4 style="margin:8px 0 4px;font-size:13px">📚 Recommended Literature ({{ aiLiterature.length }})</h4>
-        <div v-for="(r, i) in aiLiterature" :key="i" class="ai-rec-item">
-          <div class="ai-rec-title">{{ r.title || r.citation || 'Untitled' }}</div>
-          <div class="ai-rec-meta">
-            <span v-if="r.authors">{{ r.authors }}</span>
-            <span v-if="r.journal"> · {{ r.journal }}</span>
-            <span v-if="r.year"> · {{ r.year }}</span>
-            <span v-if="r.pmid"> · PMID: {{ r.pmid }}</span>
-          </div>
-        </div>
-      </div>
-
-      <p class="form-hint">Validate checks the product against PubChem &amp; BioProCorpus; the recommend endpoints suggest related protocols and literature.</p>
-    </section>
 
     <form @submit.prevent="saveDraft" class="edit-form">
       <!-- 1. Basic Info -->
