@@ -248,6 +248,49 @@ class ProductEnrichAPITest(TestCase):
         self.assertEqual(chem["similar_compounds"][0]["cid"], 123)
 
     @patch("apps.commerce.services.validators.product_validator.ProductValidator.validate")
+    @patch("apps.commerce.services.validators.pubchem_enhancer.PubChemEnhancer.resolve_to_properties")
+    @patch("apps.knowledge.services.literature_recommender.LiteratureRecommender.recommend")
+    @patch("apps.knowledge.services.protocol_recommender.ProtocolRecommender.recommend_expanded")
+    def test_enrich_jena_matches_by_name_not_hijacked_by_cas_resolved(
+        self, mock_proto, mock_lit, mock_chem, mock_validate
+    ):
+        """回归：仅填 name（无用户 CAS）时，jena 必须按名字匹配，绝不能用
+        PubChem 误解析的 cas_resolved 当主键。
+
+        生产 bug：N6-Benzyl-ATPγS 被 PubChem 误解为 toluene（CAS 2154-56-5，
+        不在 jena 中），旧逻辑用该错误 CAS 当 jena 主键 → 永远 not matched，
+        而真正能命中 NU-241 的名字反而轮不到。修复后应按名匹配到 NU-241。
+        """
+        mock_validate.return_value = _fake_validation_report()
+        # PubChem 把 N6-Benzyl-ATPγS 误解析成 toluene（CAS 2154-56-5）
+        mock_chem.return_value = {
+            "source": "pubchem", "found": True, "cid": 123147,
+            "properties": {"synonyms": ["N6-Benzyl-ATP-gamma-S"]},
+            "cas_resolved": "2154-56-5",   # 错误 CAS，不能用于 jena 主键
+            "candidates": [{"cid": 123147, "cas": "2154-56-5"}],
+        }
+        mock_lit.return_value = {
+            "applications": [], "methods": [], "references": [], "protocols": [],
+            "matched_apps": [], "matched_methods": [],
+            "unmatched_app_keywords": [], "unmatched_method_keywords": [],
+        }
+        mock_proto.return_value = []
+
+        resp = self.client.post(
+            "/api/v1/products/enrich/",
+            {"product_name": "N6-Benzyl-ATPγS"}, format="json"  # 仅 name，无 cas
+        )
+        data = resp.json()
+        self.assertTrue(data["success"])
+        jena = data["data"]["jena"]
+        self.assertTrue(
+            jena["matched"],
+            "jena 应按名字 N6-Benzyl-ATPγS 匹配到 NU-241，而非被 toluene CAS 劫持",
+        )
+        self.assertEqual(jena["catalog_no"], "NU-241")
+        self.assertEqual(jena["cas_number"], "944834-42-8")
+
+    @patch("apps.commerce.services.validators.product_validator.ProductValidator.validate")
     def test_enrich_empty_name_returns_graceful(self, mock_validate):
         """空 product_name 不报错，返回空结果（且不触发 validator）"""
         resp = self.client.post(

@@ -584,6 +584,8 @@ function applyJenaNormalized() {
   const jena = enrichJena.value
   if (!jena?.matched || !jena.normalized) return
   const n = jena.normalized
+  // jena 是最终权威：匹配到则把其 CAS 回填（修复 CAS 字段为空）
+  if (jena.cas_number && !form.cas) form.cas = jena.cas_number
   if (n.purity && !form.purity) form.purity = n.purity
   if (n.storage_condition && !form.storage) form.storage = normalizeStorage(n.storage_condition)
   if (n.shipping_condition && !form.shipping) form.shipping = normalizeShipping(n.shipping_condition)
@@ -630,7 +632,10 @@ function applyPubchemProperties() {
   if (p.inchi && !form.inchi) form.inchi = p.inchi
   if (p.molecular_formula && !form.formula) form.formula = p.molecular_formula
   if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
-  if (chem.cas_resolved && !form.cas) form.cas = chem.cas_resolved
+  // jena 是最终权威：匹配到则优先用其 CAS，否则用 PubChem 解析的 CAS
+  const jena = enrichJena.value
+  const casToUse = (jena?.matched && jena.cas_number) ? jena.cas_number : (chem.cas_resolved || '')
+  if (casToUse && !form.cas) form.cas = casToUse
   pubchemEnrichResult.value = { ...data, applied: true }
   setFeedback('success', 'Chemical properties applied to form')
 }
@@ -647,7 +652,10 @@ function applyVerifiedChemicalToForm() {
   if (p.inchi && !form.inchi) form.inchi = p.inchi
   if (p.molecular_formula && !form.formula) form.formula = p.molecular_formula
   if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
-  if (chem.cas_resolved && !form.cas) form.cas = chem.cas_resolved
+  // jena 是最终权威：匹配到则优先用其 CAS，否则用 PubChem 解析的 CAS
+  const jena = enrichJena.value
+  const casToUse = (jena?.matched && jena.cas_number) ? jena.cas_number : (chem.cas_resolved || '')
+  if (casToUse && !form.cas) form.cas = casToUse
 }
 
 // Lipinski badge class helper

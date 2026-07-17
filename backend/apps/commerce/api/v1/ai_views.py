@@ -304,18 +304,32 @@ class ProductEnrichView(EnvelopeMixin, APIView):
         jena = {"matched": False}
         try:
             from apps.commerce.services.jena_matcher import match_jena, _looks_like_cas
-            input_cas = cas or chemical.get("cas_resolved") or ""
+            # 研究者意图优先：jena 匹配以「用户显式输入的 CAS / 名字」为准。
+            # ⚠ 绝不能用 PubChem 的 cas_resolved 当主键：多候选场景下它是歧义首条
+            # （如 N6-Benzyl-ATPγS 被 PubChem 误解为 toluene → 2154-56-5），会劫持
+            # jena 匹配；且 PubChem synonyms 是核苷酸的错名（如 "N6-Benzyl-ATP-gamma-S"），
+            # 经 find_by_name 子串匹配会误中 NU-1196（缺 γS 的变体）。两者都导致
+            # 正确名字 N6-Benzyl-ATPγS→NU-241 永远轮不到（见 TDD 回归测试）。
+            user_cas = cas or ""
             synonyms = (chemical.get("properties") or {}).get("synonyms", []) or []
             search_name = product_name or (identifier if namespace == "name" else "") or ""
-            # 优先用 CAS 查（更精确）；无 CAS 则用 name
-            jena_input = input_cas or search_name
-            jena_ns = "cas" if (input_cas and _looks_like_cas(input_cas)) else "name"
+            jena_input = user_cas or search_name
+            jena_ns = "cas" if (user_cas and _looks_like_cas(user_cas)) else "name"
             if jena_input or synonyms:
                 jena = match_jena(
                     identifier=jena_input,
                     namespace=jena_ns,
                     synonyms=synonyms,
                 )
+            # 名字没命中、且 PubChem 解析出干净单 CAS（非用户所填）→ 用该 CAS 二次尝试
+            # （不再带 PubChem synonyms，避免错名子串误匹配）
+            if not jena.get("matched"):
+                resolved_cas = (chemical.get("cas_resolved") or "").strip()
+                if resolved_cas and resolved_cas != user_cas and _looks_like_cas(resolved_cas):
+                    try:
+                        jena = match_jena(identifier=resolved_cas, namespace="cas")
+                    except Exception:
+                        pass
         except Exception as e:
             logger.warning(f"jena match failed: {e}")
             jena = {"matched": False}
