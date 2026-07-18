@@ -445,6 +445,50 @@ def normalize_shelf_life(raw) -> str:
     return ''
 
 
+# ── 核苷酸糖型/碱基签名（matcher 化学一致性约束，铁律②）───────────────────
+# A 修复：name / synonym 松匹配不得把不同碱基或不同糖型（脱氧/核糖）的化合物错配。
+# 例：请求 dTTP（碱基 T、脱氧）经 synonym token 命中 jena 的 6-Thio-dGTP
+# （碱基 G、脱氧）→ 化学错配，必须拒绝（宁可 FAIL，不采信不确定数据）。
+# 签名 = {(base, deoxy)} 集合；请求与候选均非空且无交集 → 冲突 → 拒收。
+# 无法识别糖型时返回空集合（调用方据此跳过约束，保持保守，不误杀有效匹配）。
+_NT_TOKEN_RE = _re.compile(r'(?P<d>d?)(?P<b>[agctu])(?:tp|dp|mp|gp|cp|up)', _re.I)
+_NT_BASE_WORD = {
+    'adenine': 'a', 'adenosine': 'a', 'guanine': 'g', 'guanosine': 'g',
+    'cytosine': 'c', 'cytidine': 'c', 'thymine': 't', 'thymidine': 't',
+    'uracil': 'u', 'uridine': 'u',
+}
+
+
+def extract_nucleotide_signature(name: str) -> set:
+    """从产品名抽取核苷酸 (base, deoxy) 签名集合。
+
+    仅用于 matcher 化学一致性约束——当请求与候选签名均非空且互斥时判冲突。
+    覆盖两种命名：NTP token（dATC…tp 段，d 前缀=脱氧）与核苷词（2'-deoxy…）。
+    """
+    if not name:
+        return set()
+    n = str(name).lower()
+    sigs = set()
+    for m in _NT_TOKEN_RE.finditer(n):
+        sigs.add((m.group('b').lower(), bool(m.group('d'))))
+    if 'deoxy' in n:
+        for word, b in _NT_BASE_WORD.items():
+            if word in n:
+                sigs.add((b, True))
+    else:
+        for word, b in _NT_BASE_WORD.items():
+            if word in n:
+                sigs.add((b, False))
+    return sigs
+
+
+def signatures_conflict(req_sig: set, cand_sig: set) -> bool:
+    """请求与候选糖型签名冲突（均非空且无交集）→ True。"""
+    if not req_sig or not cand_sig:
+        return False
+    return req_sig.isdisjoint(cand_sig)
+
+
 def map_category_l1(category_path) -> str:
     """jena category_path 任意段 → 平台 CategoryL1 枚举值。匹配不上返回空。
 

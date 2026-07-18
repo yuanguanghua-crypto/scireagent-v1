@@ -21,7 +21,10 @@ JENA_MATCH_TTL = 60 * 60 * 24 * 30
 # 如预修复把 SC8001 映射成不存在的 'probes_epigenetics'）必须被忽略并重查。
 # v3（P2-2）：classify_concentration 对齐 canonical 正则（稀释比 1:1000 现保留、
 # "5 mg/ml (photometrically)" 现保留），旧缓存的 concentration 归一化值须失效重查。
-MAPPER_VERSION = "3"
+# v4（A 修复，铁律②）：name/synonym 松匹配加糖型一致性约束（碱基/脱氧-核糖冲突
+#   即拒收，杜绝 dTTP→dGTP 类化学错配）。bump 以强制失效旧 L1 缓存（旧缓存曾把
+#   SC8068/8069 错配为 PASS，须忽略重查）。
+MAPPER_VERSION = "4"
 
 
 def _looks_like_cas(s: str) -> bool:
@@ -39,21 +42,32 @@ def _get_index():
         return None
 
 
-def _match_jena_no_cache(identifier: str, synonyms: list) -> dict:
+def _match_jena_no_cache(identifier: str, synonyms: list, request_name: str = None) -> dict:
     """核心匹配逻辑（无缓存包裹）：cas→name→synonyms 真级联。
 
     identifier 优先当 CAS 查，miss 后当 name 查，再 miss 走 synonyms 模糊。
     CAS 与 name 的语义从调用方（enrich view）传入的 namespace 推断：
     若 identifier 形如 CAS 号 → 先 CAS 再 name；否则直接 name。
+
+    request_name：研究者原始产品名（权威身份），用于 name/synonym 路径的
+    糖型一致性约束（铁律②）。取自 SC 产品名，不取自 synonyms——synonyms
+    来自 PubChem 且可能含与候选相同的修饰词，会反向污染请求侧签名。
     """
     index = _get_index()
     if index is None or index.size() == 0:
         return {"matched": False}
 
+    from apps.commerce.services.jena_index import (
+        extract_nucleotide_signature,
+        signatures_conflict,
+    )
+
     match_key = None
     record = None
+    req_sig = extract_nucleotide_signature(request_name or identifier)
 
-    # 优先级 1: CAS 精确匹配（仅当 identifier 看起来像 CAS 号）
+    # 优先级 1: CAS 精确匹配（仅当 identifier 看起来像 CAS 号）。CAS 精确命中即同化合物，
+    # 糖型必然一致，不经糖型约束。
     if identifier and _looks_like_cas(identifier):
         record = index.lookup_by_cas(identifier)
         if record:
@@ -61,16 +75,19 @@ def _match_jena_no_cache(identifier: str, synonyms: list) -> dict:
 
     # 优先级 2: name 精确/模糊匹配（CAS miss 或 identifier 非 CAS）
     if record is None and identifier:
-        record = index.lookup(identifier, namespace="name")
-        if record:
+        cand = index.lookup(identifier, namespace="name")
+        if cand and not signatures_conflict(req_sig, extract_nucleotide_signature(cand.product_name)):
+            record = cand
             match_key = "name"
 
-    # 优先级 3: synonyms 逐条模糊匹配
+    # 优先级 3: synonyms 逐条模糊匹配（糖型约束以 request_name 为准，不与 synonym 自身比较）
     if record is None and synonyms:
         for syn in synonyms[:20]:  # 限制 20 条，避免超长查询
-            rec = index.lookup(syn.strip(), namespace="name")
-            if rec is not None:
-                record = rec
+            cand = index.lookup(syn.strip(), namespace="name")
+            if cand is not None and not signatures_conflict(
+                req_sig, extract_nucleotide_signature(cand.product_name)
+            ):
+                record = cand
                 match_key = f"synonym:{syn}"
                 break
 
@@ -107,7 +124,8 @@ def _match_jena_no_cache(identifier: str, synonyms: list) -> dict:
     }
 
 
-def match_jena(identifier: str, namespace: str = "name", synonyms: list | None = None) -> dict:
+def match_jena(identifier: str, namespace: str = "name", synonyms: list | None = None,
+                request_name: str = None) -> dict:
     """jena 匹配入口（L1 缓存包裹，TTL 30 天）。
 
     内部真级联：identifier 先按 CAS 查，miss 后按 name 查，再 miss 走 synonyms。
@@ -118,6 +136,8 @@ def match_jena(identifier: str, namespace: str = "name", synonyms: list | None =
         identifier: 主标识符（CAS 或 name）
         namespace: 缓存分桶标识（cas / name）
         synonyms: PubChem 提供的同义词列表（增量命中关键）
+        request_name: 研究者原始产品名（权威身份），供 name/synonym 路径做糖型一致性
+            约束（铁律②）。务必传 SC 产品名，勿传 synonyms（会反带偏请求侧签名）。
 
     Returns:
         {matched: bool, ...}。异常时降级 {matched: False, error: str}。
@@ -151,7 +171,7 @@ def match_jena(identifier: str, namespace: str = "name", synonyms: list | None =
 
     # 实际查询
     try:
-        result = _match_jena_no_cache(identifier, synonyms)
+        result = _match_jena_no_cache(identifier, synonyms, request_name)
     except Exception as e:
         logger.warning(f"jena match failed for {cache_key}: {e}")
         return {"matched": False, "error": str(e)}

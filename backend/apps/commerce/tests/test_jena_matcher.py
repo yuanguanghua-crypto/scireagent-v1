@@ -5,6 +5,7 @@
 """
 import json
 import os
+import shutil
 import tempfile
 from unittest.mock import patch
 
@@ -97,6 +98,37 @@ class JenaMatcherTest(TestCase):
         r = jena_matcher.match_jena("dATP - Solution", namespace="name")
         self.assertTrue(r["matched"])
         self.assertEqual(r["match_key"], "name")
+
+    def test_sugar_type_conflict_rejects_cross_base_synonym(self):
+        """铁律②/A：name/synonym 松匹配加糖型一致性约束。
+
+        请求 dTTP（碱基 T）经 synonym token 命中 jena 6-Thio-dGTP（碱基 G）属化学
+        错配，必须拒绝（matched=False），不退化为假阳性 PASS。同化合物 CAS 精确命中
+        与同碱基同糖型 name 命中不受约束，仍应通过。
+        """
+        records = [
+            {"jena_catalog_no": "NU-1213", "product_name": "6-Thio-dGTP",
+             "category_path": "Nucleotides & Nucleosides|Modified Nucleotides"},
+            {"jena_catalog_no": "NU-1001", "product_name": "dATP - Solution",
+             "cas_number": "1927-31-7", "category_path": "Nucleotides & Nucleosides|dNTPs"},
+        ]
+        idx, tmp = _build_index(records)
+        with patch.object(jena_matcher, "_get_index", return_value=idx):
+            # 跨碱基 synonym 错配：请求 dTTP 命中 6-Thio-dGTP(G) → 拒
+            r = jena_matcher.match_jena(
+                "2-Thio-dTTP", namespace="name",
+                synonyms=["6-Thio-dG"], request_name="2-Thio-dTTP",
+            )
+            self.assertFalse(r["matched"])
+            # 同化合物 CAS 精确命中仍通过（不经糖型约束）
+            r2 = jena_matcher.match_jena("1927-31-7", namespace="cas")
+            self.assertTrue(r2["matched"])
+            self.assertEqual(r2["catalog_no"], "NU-1001")
+            # 同碱基同糖型 name 命中仍通过
+            r3 = jena_matcher.match_jena(
+                "dATP - Solution", namespace="name", request_name="dATP - Solution")
+            self.assertTrue(r3["matched"])
+        shutil.rmtree(tmp, ignore_errors=True)
 
     def test_synonym_incremental_hit(self):
         """name miss 但 synonyms 增量命中（撬动覆盖率的关键路径）"""

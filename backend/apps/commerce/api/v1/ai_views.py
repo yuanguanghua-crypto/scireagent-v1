@@ -320,6 +320,7 @@ class ProductEnrichView(EnvelopeMixin, APIView):
                     identifier=jena_input,
                     namespace=jena_ns,
                     synonyms=synonyms,
+                    request_name=product_name,
                 )
             # 名字没命中、且 PubChem 解析出干净单 CAS（非用户所填）→ 用该 CAS 二次尝试
             # （不再带 PubChem synonyms，避免错名子串误匹配）
@@ -327,7 +328,11 @@ class ProductEnrichView(EnvelopeMixin, APIView):
                 resolved_cas = (chemical.get("cas_resolved") or "").strip()
                 if resolved_cas and resolved_cas != user_cas and _looks_like_cas(resolved_cas):
                     try:
-                        jena = match_jena(identifier=resolved_cas, namespace="cas")
+                        jena = match_jena(
+                            identifier=resolved_cas,
+                            namespace="cas",
+                            request_name=product_name,
+                        )
                     except Exception:
                         pass
         except Exception as e:
