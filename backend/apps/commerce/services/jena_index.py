@@ -29,8 +29,11 @@ JENA_DATA_DIR = os.environ.get(
 JENA_JSONL_FILENAME = "jena_products_v2.jsonl"
 
 # catalog 形态快速识别（L10：name 命名空间下若标识符形如 catalog 号，优先精确 catalog 匹配）。
-# 宽松前缀：2+ 大写字母后接可选连字符与数字即可触发（NU-1001 / CLK-084 / SP-25L / NU-851-680 均命中）。
-_CATALOG_RE = re.compile(r'^[A-Z]{2,}-?\d')
+# CANONICAL Jena 货号语法（与 build_safe_clean.CAT_RE / validate_clean.CAT_RE 三处同步）：
+#   1~4 字母前缀 + 段内字母数字混排 + 多段后缀，容纳单字母前缀(X-/C-)、字母数字混排
+#   (PR-BA120VS8 / EN-E2006-01)、多段染料货号(CLK-1277-AZ-5 / NU-821-BIOX-HC)。
+#   CAS(纯数字段)与产品名(含空格/小写)均不命中，避免误分类。
+_CATALOG_RE = re.compile(r'^[A-Z]{1,4}-[A-Z0-9]+(?:-[A-Z0-9]+)*$')
 
 
 @dataclass
