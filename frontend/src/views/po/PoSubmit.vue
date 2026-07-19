@@ -11,6 +11,9 @@ const route = useRoute()
 const submitting = ref(false)
 const successOrderNo = ref('')
 const reorderSourceId = ref('')
+// 交付日期下限：本地时区的今天（YYYY-MM-DD）。
+// 用 toLocaleDateString('en-CA') 取本地时区日期，规避 toISOString() 的 UTC 偏移导致少一天。
+const minDeliveryDate = ref(new Date().toLocaleDateString('en-CA'))
 
 onMounted(() => {
   if (route.query.reorder) {
@@ -138,6 +141,10 @@ async function handleSubmit() {
     alert('Each line item requires a SKU, quantity and unit price.')
     return
   }
+  if (form.requested_delivery_date && form.requested_delivery_date < minDeliveryDate.value) {
+    alert('Requested delivery date cannot be in the past.')
+    return
+  }
   submitting.value = true
   try {
     const payload = {
@@ -201,7 +208,7 @@ async function handleSubmit() {
         </div>
         <div class="po-field">
           <label class="po-label">Requested Delivery Date</label>
-          <input v-model="form.requested_delivery_date" type="date" class="po-input" />
+          <input v-model="form.requested_delivery_date" type="date" class="po-input" :min="minDeliveryDate" />
         </div>
       </div>
 

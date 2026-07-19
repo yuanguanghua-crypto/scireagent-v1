@@ -22,6 +22,14 @@ class ResearchGoalViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     search_fields = ['name', 'summary']
     ordering_fields = ['priority', 'name']
 
+    def get_queryset(self):
+        """公开端点（匿名/普通用户）仅返回已发布(ACTIVE)记录，规避草稿/测试数据外泄；
+        staff 可访问全量（含草稿/归档），便于后台管理。"""
+        qs = selectors.get_research_goals_with_applications()
+        if self.request.user.is_authenticated and self.request.user.is_staff:
+            return qs
+        return qs.filter(status=ResearchGoal.Status.ACTIVE)
+
 
 class ApplicationViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Application.objects.select_related('research_goal').all()
@@ -30,6 +38,13 @@ class ApplicationViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     search_fields = ['name', 'summary']
     ordering_fields = ['sort_order', 'name']
     filterset_fields = ['research_goal_id', 'status']
+
+    def get_queryset(self):
+        """公开端点仅返回已发布(ACTIVE)记录；staff 可访问全量。"""
+        qs = Application.objects.select_related('research_goal').all()
+        if self.request.user.is_authenticated and self.request.user.is_staff:
+            return qs
+        return qs.filter(status=Application.Status.ACTIVE)
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -44,6 +59,13 @@ class MethodViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     search_fields = ['name', 'purpose', 'advantages', 'limitations']
     ordering_fields = ['name', 'cost_band']
     filterset_fields = ['application_id', 'status']
+
+    def get_queryset(self):
+        """公开端点仅返回已发布(ACTIVE)记录；staff 可访问全量。"""
+        qs = Method.objects.select_related('application').all()
+        if self.request.user.is_authenticated and self.request.user.is_staff:
+            return qs
+        return qs.filter(status=Method.Status.ACTIVE)
 
     def get_serializer_class(self):
         if self.action == 'retrieve':

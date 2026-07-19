@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 from rest_framework import serializers
@@ -241,6 +242,15 @@ class PoSubmitSerializer(serializers.Serializer):
     billing_address_ref_id = serializers.IntegerField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
     items = PoSubmitItemSerializer(many=True)
+
+    def validate_requested_delivery_date(self, value):
+        """交付日期不得早于今天（运行时校验，避免迁移/时区硬编码带来的下限漂移）。
+        value 为 None 时跳过（该字段 required=False, allow_null=True）。"""
+        if value is not None and value < date.today():
+            raise serializers.ValidationError(
+                'Requested delivery date cannot be in the past.'
+            )
+        return value
 
 
 
