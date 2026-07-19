@@ -8,6 +8,7 @@ from apps.knowledge.tests.factories import (
     MethodFactory, ProtocolFactory, ProtocolStepFactory, ReferenceFactory
 )
 from apps.commerce.tests.factories import ProductFactory
+from apps.accounts.tests.factories import UserFactory
 
 
 class ProductJsonLdTest(TestCase):
@@ -72,6 +73,9 @@ class ProductJsonLdTest(TestCase):
 class MethodJsonLdTest(TestCase):
     def setUp(self):
         self.client = APIClient()
+        # BUG-2a 修复后，Method 公开端点对匿名仅返回 ACTIVE；json-ld 结构测试以
+        # staff 身份验证"能看到创建的（含草稿）方法"这一原有假设。
+        self.client.force_authenticate(user=UserFactory(is_staff=True))
 
     def test_method_jsonld_structure(self):
         method = MethodFactory(name='Sanger Sequencing')

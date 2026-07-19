@@ -4,6 +4,7 @@ from apps.knowledge.tests.factories import (
     ResearchGoalFactory, ApplicationFactory, MethodFactory,
     ProtocolFactory, ProtocolStepFactory, ReferenceFactory, CompatibilityFactory
 )
+from apps.knowledge.models import ResearchGoal, Application, Method
 from apps.bridges.tests.factories import ProductMethodFactory, MethodProtocolFactory
 from apps.accounts.tests.factories import UserFactory
 
@@ -11,6 +12,10 @@ from apps.accounts.tests.factories import UserFactory
 class ResearchGoalAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
+        # BUG-2a 修复后，公开端点对匿名/普通用户仅返回 ACTIVE 记录。
+        # 这些通用 API 测试以 staff 身份验证"能看到创建的全量数据"
+        # （含草稿/归档）这一原有假设，恢复修复前的行为预期。
+        self.client.force_authenticate(user=UserFactory(is_staff=True))
 
     def test_list_empty(self):
         resp = self.client.get('/api/v1/research-goals/')
@@ -71,6 +76,8 @@ class ResearchGoalAPITest(TestCase):
 class ApplicationAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
+        # 同 ResearchGoalAPITest：以 staff 身份查看全量数据。
+        self.client.force_authenticate(user=UserFactory(is_staff=True))
 
     def test_list(self):
         ApplicationFactory.create_batch(2)
@@ -134,6 +141,8 @@ class ApplicationAPITest(TestCase):
 class MethodAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
+        # 同 ResearchGoalAPITest：以 staff 身份查看全量数据。
+        self.client.force_authenticate(user=UserFactory(is_staff=True))
 
     def test_list(self):
         MethodFactory.create_batch(2)
@@ -203,6 +212,42 @@ class MethodAPITest(TestCase):
         jsonld = data.get('data', data)
         self.assertIn('@context', jsonld)
         self.assertIn('@type', jsonld)
+
+
+class KnowledgePublicVisibilityTest(TestCase):
+    """BUG-2a 回归测试：公开端点（匿名）仅返回已发布(ACTIVE)记录，草稿对匿名不可见。
+
+    对应源码修复：ResearchGoal/Application/Method 三个 ViewSet 的 get_queryset
+    对匿名及普通用户过滤 status=ACTIVE，仅 staff 可访问全量（含草稿/归档）。
+    这些用例刻意以匿名客户端发起，锁定该安全行为不被回退。
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def test_research_goal_anonymous_sees_only_active(self):
+        ResearchGoalFactory(status=ResearchGoal.Status.DRAFT)
+        ResearchGoalFactory(status=ResearchGoal.Status.ACTIVE)
+        resp = self.client.get('/api/v1/research-goals/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(resp.json()['data']), 1)
+
+    def test_research_goal_draft_invisible_to_anonymous(self):
+        goal = ResearchGoalFactory(status=ResearchGoal.Status.DRAFT)
+        resp = self.client.get(f'/api/v1/research-goals/{goal.id}/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_application_anonymous_sees_only_active(self):
+        ApplicationFactory(status=Application.Status.DRAFT)
+        ApplicationFactory(status=Application.Status.ACTIVE)
+        resp = self.client.get('/api/v1/applications/')
+        self.assertEqual(len(resp.json()['data']), 1)
+
+    def test_method_anonymous_sees_only_active(self):
+        MethodFactory(status=Method.Status.DRAFT)
+        MethodFactory(status=Method.Status.ACTIVE)
+        resp = self.client.get('/api/v1/methods/')
+        self.assertEqual(len(resp.json()['data']), 1)
 
 
 class ProtocolAPITest(TestCase):
