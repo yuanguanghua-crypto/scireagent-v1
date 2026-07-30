@@ -86,7 +86,7 @@ defineExpose({
         <span class="bioz-total">{{ bioz.total ?? 0 }} references total</span>
       </div>
       <div v-if="bioz.needs_review" class="bioz-warn">
-        ⚠ This evidence requires manual review — queried by vendor + catalog no.; CAS unavailable, vendor/lot variance possible
+        ⚠ This evidence requires manual review — queried by vendor "{{ bioz.vendor || 'Jena Bioscience' }}" catalog "{{ bioz.catalog_no || '?' }}"; CAS unavailable, vendor/lot variance possible
       </div>
       <p v-if="bioz.disclaimer" class="bioz-disclaimer">{{ bioz.disclaimer }}</p>
 
@@ -143,19 +143,19 @@ defineExpose({
 </template>
 
 <style scoped>
-.bioz-section { background: var(--color-warning-bg); border: 1px solid var(--color-amber-200); }
+.bioz-section { background: var(--color-surface, #fff); border: 1px solid var(--color-border, #CBD5E1); border-radius: 8px; padding: 12px 14px; }
 .bioz-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-.bioz-title { margin: 0; font-size: 13px; }
-.bioz-adopt-all { font-size: 11px; padding: 3px 10px; }
+.bioz-title { margin: 0; font-size: 14px; font-weight: 500; color: var(--color-text, #0F172A); }
+.bioz-adopt-all { font-size: 11px; padding: 4px 12px; }
 .bioz-err { font-size: 12px; color: var(--color-danger); margin: 0; }
 .bioz-meta { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
-.equiv-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; }
-.equiv-strong { background: var(--color-success-light); color: var(--color-emerald-800); }
-.equiv-moderate { background: var(--color-warning-light); color: var(--color-amber-800); }
-.equiv-weak { background: var(--color-danger-light); color: var(--color-red-700); }
+.equiv-badge { font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 12px; }
+.equiv-strong { background: var(--color-success-bg); color: var(--color-emerald-700); border: 1px solid var(--color-emerald-200); }
+.equiv-moderate { background: var(--color-warning-bg); color: var(--color-amber-800); border: 1px solid var(--color-amber-200); }
+.equiv-weak { background: var(--color-bg, #F1F5F9); color: var(--color-text-tertiary, #94A3B8); border: 1px solid var(--color-border, #CBD5E1); }
 html.dark .equiv-badge { color: #fff; }
 .bioz-total { font-size: 12px; color: var(--color-text-secondary); }
-.bioz-warn { background: var(--color-warning-light); border: 1px solid var(--color-amber-500); border-radius: 6px; padding: 6px 10px; font-size: 11px; color: var(--color-amber-800); margin-bottom: 6px; }
+.bioz-warn { background: var(--color-bg, #F1F5F9); border: 1px solid var(--color-border, #CBD5E1); border-radius: 6px; padding: 6px 10px; font-size: 11px; color: var(--color-text-secondary, #475569); margin-bottom: 6px; }
 .bioz-disclaimer { font-size: 11px; color: var(--color-text-secondary); margin: 0 0 8px 0; font-style: italic; }
 .bioz-refs { margin-top: 4px; }
 .bioz-ref-card { border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 6px; overflow: hidden; background: var(--color-surface); }
@@ -178,9 +178,7 @@ html.dark .equiv-badge { color: #fff; }
 .bioz-more { font-size: 11px; color: var(--color-text-secondary); margin: 6px 0 0 0; font-style: italic; }
 .bioz-empty { font-size: 12px; color: var(--color-text-secondary); font-style: italic; margin: 0; }
 .bioz-nosave-hint { font-size: 11px; color: var(--color-amber-800); margin: 6px 0 0 0; font-style: italic; }
-/* 深色模式对比度修复：warning 类文字在深棕底（--color-warning-light=#92400E）上
-   与文字色（--color-amber-800=#92400E）同色，1:1 不可见。深色模式改浅色字。 */
-html.dark .bioz-warn { color: var(--color-amber-200); }
+html.dark .bioz-warn { color: var(--color-text-secondary); }
 html.dark .bioz-nosave-hint { color: var(--color-amber-200); }
 html.dark .bioz-if { color: var(--color-amber-200); }
 </style>

@@ -7,18 +7,23 @@ jena JSONL 作为本地静态数据集，进程级单例索引常驻。AI AUTO M
 
 jena 数据**永不落库成 Product**（策略 B，与 BioProCorpus 同构）。
 详见 docs/FIVE_DATASOURCES.md §3.5、docs/DATASOURCE_RELIABILITY.md §8。
+
+多供应商扩展（v2.0）：
+  JenaIndex 仍加载单 JSONL 文件。新增 MultiVendorIndex 从 data/suppliers/ 目录
+  加载全部供应商 JSONL，统一查询接口。get_shared_jena_index() 现返回 MultiVendorIndex。
 """
+import glob
 import json
-import re
 import logging
 import os
+import re
 import threading
 from dataclasses import dataclass, field
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# 数据路径：默认项目内 backend/data/jena/，JENA_DATA_DIR 环境变量可指向项目外工作区
+# ── 单供应商路径（旧版兼容）─────────────────────────────────────────────
 JENA_DATA_DIR = os.environ.get(
     "JENA_DATA_DIR",
     os.path.join(
@@ -28,6 +33,16 @@ JENA_DATA_DIR = os.environ.get(
 )
 JENA_JSONL_FILENAME = "jena_products_v2.jsonl"
 
+# ── 多供应商路径（v2.0，优先加载）────────────────────────────────────────
+# 优先级：SUPPLIER_DATA_DIR 环境变量 > data/suppliers/ 目录
+_SUPPLIER_DIR = os.environ.get(
+    "SUPPLIER_DATA_DIR",
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+        "data", "suppliers",
+    ),
+)
+
 # catalog 形态快速识别（L10：name 命名空间下若标识符形如 catalog 号，优先精确 catalog 匹配）。
 # CANONICAL Jena 货号语法（与 build_safe_clean.CAT_RE / validate_clean.CAT_RE 三处同步）：
 #   1~4 字母前缀 + 段内字母数字混排 + 多段后缀，容纳单字母前缀(X-/C-)、字母数字混排
@@ -36,19 +51,42 @@ JENA_JSONL_FILENAME = "jena_products_v2.jsonl"
 _CATALOG_RE = re.compile(r'^[A-Z]{1,4}-[A-Z0-9]+(?:-[A-Z0-9]+)*$')
 
 
+def parse_ex_em(s):
+    """解析 Ex/Em 光谱串 → (ex, em) 整数对；无法解析返回 None。
+
+    接受 "484/504 纳米" / "484/504 nm" / "484 / 504" 等形态。
+    仅取首个 '数字/数字' 模式，容错空格与单位后缀。
+    Biotium 接入（本方案 D2）：Ex/Em 作为 Biotium 专属次级匹配键。
+    """
+    if not s:
+        return None
+    m = re.search(r'(\d{2,4})\s*/\s*(\d{2,4})', str(s))
+    if not m:
+        return None
+    try:
+        return int(m.group(1)), int(m.group(2))
+    except ValueError:
+        return None
+
+
 @dataclass
 class JenaRecord:
-    """jena 产品记录（索引后的结构化形式）。
+    """多供应商产品记录（索引后的结构化形式）。
 
     systematic_name 是核心字段（跨源查询锚点），其余规格字段为副产品。
-    字段值保留原始形态，消费方（AI AUTO MATCH）按需清洗（如 concentration 语义分类）。
+    vendor 标记数据来源（jena / cayman / trilink / biotium）。
+    字段值保留原始形态，消费方（AI AUTO MATCH）按需清洗。
     """
     catalog_no: str
     product_name: str
+    vendor: str = "jena"  # 多供应商标记
     systematic_name: Optional[str] = None  # 核心：跨源查询锚点
     cas_number: Optional[str] = None
+    smiles: Optional[str] = None          # Cayman 专有
+    inchi: Optional[str] = None           # Cayman 专有
+    inchi_key: Optional[str] = None       # Cayman 专有
     purity: Optional[str] = None
-    concentration: Optional[str] = None  # 原始值，消费方按 §4.3 语义分类
+    concentration: Optional[str] = None
     storage_condition: Optional[str] = None
     shipping_condition: Optional[str] = None
     shelf_life: Optional[str] = None
@@ -62,7 +100,11 @@ class JenaRecord:
     datasheet_pdf_url: Optional[str] = None
     msds_pdf_url: Optional[str] = None
     structural_formula_url: Optional[str] = None
-    extras: dict = field(default_factory=dict)  # 其余未显式映射的字段
+    # Biotium 接入新增（本方案）：向后兼容，jena/cayman/trilink 无此字段则为 None
+    ex_em: Optional[str] = None                  # Ex/Em 光谱（格式 "484/504 纳米"）
+    cas_source: Optional[str] = None             # CAS 来源：detail_page / sds_pdf / pi_pdf
+    product_type: Optional[str] = None           # 候选分层：discrete_dye/conjugate/mixture/biologic/kit/catalog_only
+    extras: dict = field(default_factory=dict)
 
 
 class JenaIndex:
@@ -79,12 +121,15 @@ class JenaIndex:
         self._by_catalog_no: dict[str, JenaRecord] = {}
         # P1-5：CAS 可能对应多个记录（同化合物不同盐型），改为 list 防止后者覆盖前者
         self._by_cas: dict[str, list[JenaRecord]] = {}
+        # Biotium 接入（D2）：带 Ex/Em 光谱的记录（仅 biotium 有），供光谱近似匹配
+        self._ex_em_records: list[tuple[JenaRecord, int, int]] = []
 
     def build(self) -> None:
         """从 JSONL 构建索引。文件不存在时静默（索引为空），不抛异常。"""
         self._records = []
         self._by_catalog_no = {}
         self._by_cas = {}
+        self._ex_em_records = []
         path = os.path.join(self.data_dir, self.jsonl_filename)
         if not os.path.exists(path):
             logger.warning(f"jena JSONL not found, index empty: {path}")
@@ -108,6 +153,11 @@ class JenaIndex:
                     if record.cas_number:
                         # P1-5：同 CAS 多记录追加，不覆盖
                         self._by_cas.setdefault(record.cas_number.upper(), []).append(record)
+                    # Biotium 接入（D2）：登记带光谱记录供 Ex/Em 近似匹配
+                    if record.ex_em:
+                        parsed = parse_ex_em(record.ex_em)
+                        if parsed:
+                            self._ex_em_records.append((record, parsed[0], parsed[1]))
         except Exception as e:
             logger.warning(f"jena index build failed: {e}")
         logger.info(f"jena index built: {len(self._records)} records from {path}")
@@ -119,17 +169,20 @@ class JenaIndex:
             s = (v or "").strip() if isinstance(v, str) else v
             return s if s not in ("", None) else None
 
-        catalog_no = clean(rec.get("jena_catalog_no"))
+        catalog_no = clean(rec.get("jena_catalog_no") or rec.get("catalog_no"))
         name = clean(rec.get("product_name"))
         if not catalog_no or not name:
             return None
 
-        # 已显式映射的字段
         mapped = {
             "catalog_no": catalog_no,
             "product_name": name,
+            "vendor": str(rec.get("vendor", "jena")),
             "systematic_name": clean(rec.get("systematic_name")),
             "cas_number": clean(rec.get("cas_number")),
+            "smiles": clean(rec.get("smiles")),
+            "inchi": clean(rec.get("inchi")),
+            "inchi_key": clean(rec.get("inchi_key")),
             "purity": clean(rec.get("purity")),
             "concentration": clean(rec.get("concentration")),
             "storage_condition": clean(rec.get("storage_condition")),
@@ -145,21 +198,28 @@ class JenaIndex:
             "datasheet_pdf_url": clean(rec.get("datasheet_pdf_url")),
             "msds_pdf_url": clean(rec.get("msds_pdf_url")),
             "structural_formula_url": clean(rec.get("structural_formula_url")),
+            "ex_em": clean(rec.get("ex_em")),
+            "cas_source": clean(rec.get("cas_source")),
+            "product_type": clean(rec.get("product_type")),
         }
-        # 其余字段进 extras
         known_keys = {
-            "jena_catalog_no", "product_name", "systematic_name", "cas_number",
+            "jena_catalog_no", "catalog_no", "vendor", "product_name",
+            "systematic_name", "cas_number", "smiles", "inchi", "inchi_key",
             "purity", "concentration", "storage_condition", "shipping_condition",
             "shelf_life", "form", "color", "ph", "category_path", "application_tags",
             "description", "source_url", "datasheet_pdf_url", "msds_pdf_url",
-            "structural_formula_url",
+            "structural_formula_url", "ex_em", "cas_source", "product_type",
         }
-        extras = {k: v for k, v in rec.items() if k not in known_keys and not k.startswith("jena_catalog_no")}
+        extras = {k: v for k, v in rec.items() if k not in known_keys}
         mapped["extras"] = extras
         return JenaRecord(**mapped)
 
     def size(self) -> int:
         return len(self._records)
+
+    @property
+    def raw_records(self) -> list[JenaRecord]:
+        return self._records
 
     def list_sources(self) -> list:
         """列出所有产品线（category_path L1 去重）"""
@@ -188,6 +248,25 @@ class JenaIndex:
         if not cas:
             return []
         return list(self._by_cas.get(cas.strip().upper(), []))
+
+    def lookup_by_ex_em(self, ex_em_str: Optional[str], tol: int = 10) -> Optional[JenaRecord]:
+        """Ex/Em 光谱近似匹配（Biotium 专属次级键，D2）。
+
+        给定请求的 Ex/Em 串（如 "484/504"），在带光谱记录中找激发/发射均
+        在 ±tol nm 内的记录，取最接近者（距离 = |Δex|+|Δem|）。无匹配返回 None。
+        仅 biotium 记录含 ex_em，故本方法天然不污染 jena/cayman/trilink 等核酸源。
+        """
+        req = parse_ex_em(ex_em_str)
+        if not req:
+            return None
+        rex, rem = req
+        best, best_dist = None, None
+        for rec, ex, em in self._ex_em_records:
+            if abs(ex - rex) <= tol and abs(em - rem) <= tol:
+                dist = abs(ex - rex) + abs(em - rem)
+                if best_dist is None or dist < best_dist:
+                    best, best_dist = rec, dist
+        return best
 
     @staticmethod
     def _name_match_score(pn: str, q: str) -> int:
@@ -262,33 +341,44 @@ class JenaIndex:
 # ── 进程级共享单例（惰性构建，线程安全）──────────────────────────────────────
 # 仿 BioProCorpus get_shared_retriever 模式（见 protocol_recommender.py:251）。
 # 索引在首次调用时构建一次，之后全进程复用。生产调用点（AI AUTO MATCH）用此函数。
+# v2.0：现加载 MultiVendorIndex（data/suppliers/ 全部 JSONL），回退单供应商。
 # 测试请直接 new JenaIndex(data_dir=...) 注入独立实例，不用单例。
-# 详见 docs/DATASOURCE_RELIABILITY.md §8
-_shared_index: Optional[JenaIndex] = None
+_shared_index: Optional['MultiVendorIndex'] = None
 _shared_index_meta: Optional[tuple] = None  # (path, mtime, size) —— P1-4 失效校验
 _shared_index_lock = threading.Lock()
 
 
 def _build_shared_index() -> None:
-    """（重）构建共享索引并记录文件指纹。"""
+    """（重）构建共享多供应商索引。"""
     global _shared_index, _shared_index_meta
-    index = JenaIndex()
+    index = MultiVendorIndex()
     index.build()
+    # 多供应商文件为空时，回退单供应商
+    if index.vendor_count() == 0:
+        logger.info("multi-vendor empty, falling back to single jena index")
+        jena_idx = JenaIndex()
+        jena_idx.build()
+        if jena_idx.size() > 0:
+            index._vendors["jena"] = jena_idx
+            index._records_by_vendor["jena"] = jena_idx.raw_records
     _shared_index = index
-    path = os.path.join(JENA_DATA_DIR, JENA_JSONL_FILENAME)
+    path = os.path.join(_SUPPLIER_DIR)
     try:
-        _shared_index_meta = (path, os.path.getmtime(path), os.path.getsize(path))
+        # 取 suppliers 目录整体 mtime + 文件列表 hash 做指纹
+        meta = [path, str(os.path.getmtime(path))]
+        for f in sorted(glob.glob(os.path.join(path, "*.jsonl"))):
+            meta.append(f"{os.path.getmtime(f)}_{os.path.getsize(f)}")
+        _shared_index_meta = (path, hash(tuple(meta)), 0)
     except OSError:
         _shared_index_meta = None
-    logger.info(f"jena shared index ready: {index.size()} records")
+    logger.info(f"shared index ready: {index.vendor_count()} vendors, {index.total_size()} records")
 
 
-def get_shared_jena_index() -> JenaIndex:
-    """获取进程级共享 JenaIndex 单例（惰性、线程安全、双检锁）。
+def get_shared_jena_index() -> 'MultiVendorIndex':
+    """获取进程级共享 MultiVendorIndex 单例（惰性、线程安全、双检锁）。
 
-    首次调用时构建索引（读取并解析 jena JSONL），之后全进程复用。
-    P1-4：每次调用校验 JSONL 文件指纹（mtime+size），重爬后线上自动刷新，
-    避免长驻 worker 一直服务旧索引。
+    首次调用时构建索引（扫描 suppliers/ 目录加载全部 JSONL），之后全进程复用。
+    P1-4：每次调用校验 JSONL 文件指纹（mtime+size），重爬后线上自动刷新。
     """
     global _shared_index
     if _shared_index is None:
@@ -297,20 +387,143 @@ def get_shared_jena_index() -> JenaIndex:
                 _build_shared_index()
         return _shared_index
     # 已有索引：检查文件是否变更
-    path = os.path.join(JENA_DATA_DIR, JENA_JSONL_FILENAME)
+    path = _SUPPLIER_DIR
     changed = False
     try:
         if _shared_index_meta is None or _shared_index_meta[0] != path:
             changed = True
         else:
-            changed = (os.path.getmtime(path) != _shared_index_meta[1]
-                       or os.path.getsize(path) != _shared_index_meta[2])
+            meta = [path, str(os.path.getmtime(path))]
+            for f in sorted(glob.glob(os.path.join(path, "*.jsonl"))):
+                meta.append(f"{os.path.getmtime(f)}_{os.path.getsize(f)}")
+            new_hash = hash(tuple(meta))
+            changed = (new_hash != _shared_index_meta[1])
     except OSError:
         changed = False
     if changed:
         with _shared_index_lock:
             _build_shared_index()
     return _shared_index
+
+
+# ── 多供应商索引（v2.0：加载 data/suppliers/ 下全部 JSONL）─────────────
+
+
+class MultiVendorIndex:
+    """多供应商产品索引：从 data/suppliers/ 目录加载全部供应商 JSONL。
+
+    每个供应商一个 JSONL 文件，每行含 vendor 字段。索引构建后可通过
+    lookup_by_cas / lookup_by_name 跨供应商查询，结果按 vendor 分组返回。
+    """
+
+    def __init__(self, data_dir: Optional[str] = None):
+        self.data_dir = data_dir or _SUPPLIER_DIR
+        self._vendors: dict[str, JenaIndex] = {}  # vendor_name → JenaIndex
+        self._records_by_vendor: dict[str, list[JenaRecord]] = {}
+
+    def build(self) -> None:
+        """扫描 data_dir 下所有 *.jsonl 文件，按 vendor 分组构建索引。"""
+        self._vendors = {}
+        self._records_by_vendor = {}
+        pattern = os.path.join(self.data_dir, "*.jsonl")
+        files = sorted(glob.glob(pattern))
+        if not files:
+            logger.warning(f"no supplier JSONL files found in {self.data_dir}, "
+                           f"falling back to {JENA_DATA_DIR}/{JENA_JSONL_FILENAME}")
+            return
+
+        for fpath in files:
+            fname = os.path.basename(fpath)
+            idx = JenaIndex(data_dir=self.data_dir, jsonl_filename=fname)
+            idx.build()
+            if idx.size() == 0:
+                continue
+            # 从第一条记录提取 vendor 名
+            first = idx.raw_records[0] if hasattr(idx, 'raw_records') and idx.raw_records else None
+            vendor = getattr(first, 'vendor', None) or fname.replace("_products_v1.jsonl", "").replace("_products_v2.jsonl", "")
+            self._vendors[vendor] = idx
+            self._records_by_vendor[vendor] = idx.raw_records if hasattr(idx, 'raw_records') else []
+            logger.info(f"multi-vendor loaded: {vendor} ({idx.size()} records from {fname})")
+
+        logger.info(f"multi-vendor index built: {self.vendor_count()} vendors, "
+                    f"{self.total_size()} total records")
+
+    def vendor_count(self) -> int:
+        return len(self._vendors)
+
+    def total_size(self) -> int:
+        return sum(idx.size() for idx in self._vendors.values())
+
+    def size(self) -> int:
+        """别名，兼容旧代码 JenaIndex.size() 调用"""
+        return self.total_size()
+
+    def get_vendors(self) -> list[str]:
+        return sorted(self._vendors.keys())
+
+    def lookup_by_cas(self, cas: Optional[str]) -> dict[str, JenaRecord]:
+        """跨供应商 CAS 查询。返回 {vendor: JenaRecord}。"""
+        result = {}
+        if not cas:
+            return result
+        for vendor, idx in self._vendors.items():
+            rec = idx.lookup_by_cas(cas)
+            if rec:
+                result[vendor] = rec
+        return result
+
+    def lookup_by_catalog_no(self, catalog_no: Optional[str]) -> dict[str, JenaRecord]:
+        """跨供应商 catalog_no 查询。"""
+        result = {}
+        if not catalog_no:
+            return result
+        for vendor, idx in self._vendors.items():
+            rec = idx.lookup_by_catalog_no(catalog_no)
+            if rec:
+                result[vendor] = rec
+        return result
+
+    def find_by_name(self, name: Optional[str], limit: int = 5) -> dict[str, list[JenaRecord]]:
+        """跨供应商 name 查找。返回 {vendor: [JenaRecord]}。"""
+        result = {}
+        if not name:
+            return result
+        for vendor, idx in self._vendors.items():
+            recs = idx.find_by_name(name, limit=limit)
+            if recs:
+                result[vendor] = recs
+        return result
+
+    def lookup(self, identifier: Optional[str], namespace: str = "name") -> dict[str, JenaRecord]:
+        """跨供应商统一查询。返回 {vendor: JenaRecord}（每个供应商取最优匹配）。"""
+        result = {}
+        if not identifier:
+            return result
+        for vendor, idx in self._vendors.items():
+            rec = idx.lookup(identifier, namespace=namespace)
+            if rec:
+                result[vendor] = rec
+        return result
+
+    def lookup_by_ex_em(self, ex_em_str: Optional[str], tol: int = 10) -> dict[str, JenaRecord]:
+        """跨供应商 Ex/Em 查找（Biotium 专属次级键，D2）。返回 {vendor: JenaRecord}。"""
+        result = {}
+        if not ex_em_str:
+            return result
+        for vendor, idx in self._vendors.items():
+            rec = idx.lookup_by_ex_em(ex_em_str, tol=tol)
+            if rec:
+                result[vendor] = rec
+        return result
+
+    def list_sources(self) -> list:
+        """列出所有供应商的 L1 产品线。"""
+        all_sources = {}
+        for vendor, idx in self._vendors.items():
+            for r in idx.raw_records if hasattr(idx, 'raw_records') else []:
+                if r.category_path:
+                    all_sources[f"{vendor}|{r.category_path.split('|')[0].strip()}"] = True
+        return sorted(all_sources.keys())
 
 
 # ── 归一化函数（jena 原始值 → Product choices）──────────────────────────────
@@ -483,8 +696,19 @@ def extract_nucleotide_signature(name: str) -> set:
 
 
 def signatures_conflict(req_sig: set, cand_sig: set) -> bool:
-    """请求与候选糖型签名冲突（均非空且无交集）→ True。"""
-    if not req_sig or not cand_sig:
+    """请求与候选糖型签名冲突 → True。
+
+    规则：
+      1. 双方都无签名 → 无法判断，不冲突
+      2. 请求有签名但候选没有 → 冲突（候选缺少核苷酸部分，如 Cy3 匹配 Cy3-dUTP）
+      3. 请求无签名但候选有 → 不冲突（候选信息更丰富）
+      4. 双方都有签名 → 互斥（无交集）→ 冲突
+    """
+    if not req_sig and not cand_sig:
+        return False
+    if req_sig and not cand_sig:
+        return True
+    if not req_sig and cand_sig:
         return False
     return req_sig.isdisjoint(cand_sig)
 

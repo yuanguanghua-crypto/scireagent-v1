@@ -10,7 +10,7 @@ import { AppInput, AppSelect, LoadingSpinner } from '@/components/common'
 
 import StructureViewer from './components/StructureViewer.vue'
 
-import JenaMatchSection from './components/JenaMatchSection.vue'
+import MultiSourceMatchSection from './components/MultiSourceMatchSection.vue'
 import BiozEvidenceSection from './components/BiozEvidenceSection.vue'
 
 const route = useRoute()
@@ -439,6 +439,8 @@ const pubchemEnrichResult = ref(null)
 const protocolExpanded = ref({})
 const protocolImported = ref({})
 const protocolImportingId = ref(null)
+const literatureImported = ref({})
+const literatureImportingId = ref(null)
 const adoptedRefs = ref(new Set())  // 本地标记已 adopt 的 ref index（bioz）
 
 function toggleProtocolExpand(i) {
@@ -579,19 +581,20 @@ async function linkAppMethods(appData) {
   }
 }
 
-// Apply jena 归一化规格（仅填空字段）
-function applyJenaNormalized() {
-  const jena = enrichJena.value
+// Apply jena 归一化规格（仅填空字段）。支持多供应商：接收 source 参数
+function applyJenaNormalized(source) {
+  // 兼容：旧格式单源 @apply 不带参数
+  const jena = source || enrichJena.value
   if (!jena?.matched || !jena.normalized) return
   const n = jena.normalized
-  // jena 是最终权威：匹配到则把其 CAS 回填（修复 CAS 字段为空）
+  const vendorLabel = jena.vendor || 'jena'
   if (jena.cas_number && !form.cas) form.cas = jena.cas_number
   if (n.purity && !form.purity) form.purity = n.purity
   if (n.storage_condition && !form.storage) form.storage = normalizeStorage(n.storage_condition)
   if (n.shipping_condition && !form.shipping) form.shipping = normalizeShipping(n.shipping_condition)
   if (n.shelf_life && !form.shelf_life) form.shelf_life = n.shelf_life
   if (n.category_l1 && !form.product_class_id) applyJenaCategoryL1(n.category_l1)
-  setFeedback('success', 'Jena specs filled into form')
+  setFeedback('success', `${vendorLabel} specs filled into form`)
 }
 
 // Map jena category_l1 slug → cascader L1 selection
@@ -802,7 +805,6 @@ function _toSnakeRef(r) {
 }
 
 async function handleAdoptBiozRef({ ref, index }) {
-  if (!isEdit.value) return
   wrapRef.value?.setAdoptingAll?.(true)
   try {
     const resp = await adoptBiozRefs(productId.value, [_toSnakeRef(ref)])
@@ -822,7 +824,7 @@ async function handleAdoptBiozRef({ ref, index }) {
 }
 
 async function handleAdoptAllBioz({ refs }) {
-  if (!isEdit.value || !refs?.length) return
+  if (!refs?.length) return
   wrapRef.value?.setAdoptingAll?.(true)
   try {
     const resp = await adoptBiozRefs(productId.value, refs.map(_toSnakeRef))
@@ -837,6 +839,26 @@ async function handleAdoptAllBioz({ refs }) {
     setFeedback('error', `Batch store failed: ${e?.response?.data?.meta?.error?.message || e.message}`)
   } finally {
     wrapRef.value?.setAdoptingAll?.(false)
+  }
+}
+
+// ── Literature Import ──────────────────────────────────
+async function importLiteratureRef(i, ref) {
+  if (!productId.value) { setFeedback('error', 'Save the product first'); return }
+  literatureImportingId.value = i
+  try {
+    const resp = await adoptBiozRefs(productId.value, [_toSnakeRef(ref)])
+    const d = resp.data
+    if (d?.adopted >= 1 || d?.skipped > 0) {
+      literatureImported.value[i] = true
+      setFeedback('success', 'Reference imported')
+    } else {
+      setFeedback('warn', `Skipped (${d?.skipped || 0})`)
+    }
+  } catch (e) {
+    setFeedback('error', `Import failed: ${e?.response?.data?.meta?.error?.message || e.message}`)
+  } finally {
+    literatureImportingId.value = null
   }
 }
 
@@ -1376,12 +1398,12 @@ watch(
         ⚠ 化学身份未验证，化学属性不会自动写入表单。请核对 CAS / 分子式无误后点 “Apply All”，或手动填写下方字段。
       </div>
       <div class="word-import-row">
-        <button type="button" class="file-upload-btn" @click="runPubchemEnrich" :disabled="pubchemEnriching || (!form.name && !form.cas && !form.smiles && !form.inchi)">
+        <button type="button" class="file-upload-btn" @click="runPubchemEnrich" :disabled="pubchemEnriching || (!form.name && !form.cas && !form.smiles && !form.inchi)" style="max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
           {{ pubchemEnriching ? 'Searching & matching…' : `AI AUTO MATCH "${form.name || form.cas || form.smiles || form.inchi}"` }}
         </button>
-        <!-- ② Apply All 移到顶部，删除底部重复块 -->
+        <!-- ② Apply All 移到顶部，删除底部重复块；rejected/disabled 时隐藏 -->
         <button
-          v-if="enrichChemical?.found && !pubchemEnrichResult?.applied && !enrichChemical.candidates?.length"
+          v-if="enrichChemical?.found && !pubchemEnrichResult?.applied && !enrichChemical.candidates?.length && enrichChemical.confidence !== 'rejected'"
           type="button"
           class="btn btn-primary btn-sm"
           style="margin-left:8px"
@@ -1390,11 +1412,11 @@ watch(
         <span v-if="pubchemEnriching" class="ai-loading-spinner" aria-label="loading">
           <span class="spinner-ring"></span>
         </span>
-        <span v-if="pubchemEnrichResult && enrichChemical?.found && !pubchemEnrichResult.applied && !enrichChemical.candidates?.length" class="word-status word-ok">
+        <span v-if="pubchemEnrichResult && enrichChemical?.found && !pubchemEnrichResult.applied && !enrichChemical.candidates?.length && enrichChemical.confidence !== 'rejected'" class="word-status word-ok">
           ✓ Found: {{ enrichChemical.source === 'chembl' ? 'ChEMBL' : 'PubChem' }} CID {{ enrichChemical.cid }} <template v-if="enrichChemical.fallback_used">(via fragment search)</template>
         </span>
-        <span v-if="enrichChemical?.confidence" class="word-status" :class="enrichChemical.identity_verified ? 'word-ok' : 'word-warn'">
-          {{ enrichChemical.identity_verified ? '✓ 身份已验证' : '⚠ 未验证' }} ({{ enrichChemical.confidence }})
+        <span v-if="enrichChemical?.confidence" class="word-status" :class="enrichChemical.identity_verified ? 'word-ok' : 'word-neutral'">
+          {{ enrichChemical.identity_verified ? '✓ 身份已验证' : '⚠ 未标记' }} ({{ enrichChemical.confidence }})
         </span>
         <span v-if="enrichChemical?.doc_value_mismatch" class="word-status word-warn">
           ⚠ 文档 Formula/MW 与库值不一致，请核对文档是否有误
@@ -1453,12 +1475,12 @@ watch(
           </div>
         </div>
       </div>
-      <!-- ⑥ 高级匹配区默认折叠，核心化学预览表常显 -->
-      <details class="ai-advanced">
+      <!-- ⑥ 高级匹配区：enrich 完成后自动展开 -->
+      <details class="ai-advanced" :open="!!pubchemEnrichResult">
         <summary>高级匹配详情（Lipinski / Jena / 文献 / 协议）</summary>
       <!-- Lipinski rules (from Validate integration) -->
       <div v-if="enrichChemical?.lipinski && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
-        <h4 style="margin:0 0 6px 0;font-size:13px">💊 Lipinski Rule of Five</h4>
+        <h4 style="margin:0 0 6px 0;font-size:14px">💊 Lipinski Rule of Five</h4>
         <p class="lipinski-help">Rule of Five predicts oral-drug-likeness of small molecules (MW≤500, LogP≤5, HBD≤5, HBA≤10, RotB≤10). Bioreagents/oligonucleotides (e.g. Jena SC8001) typically fail — this is expected.</p>
         <span :class="enrichChemical.lipinski.passed ? 'lipinski-pass' : 'lipinski-fail'" style="font-size:12px;font-weight:600">
           {{ enrichChemical.lipinski.passed ? '✓ PASS' : '✗ FAIL' }}
@@ -1467,11 +1489,11 @@ watch(
           {{ enrichChemical.lipinski.violations.join('; ') }}
         </div>
         <div class="lipinski-grid">
-          <span :class="lipinskiClass(enrichChemical.lipinski.details?.mw_ok)">MW ≤ 500</span>
-          <span :class="lipinskiClass(enrichChemical.lipinski.details?.logp_ok)">LogP ≤ 5</span>
-          <span :class="lipinskiClass(enrichChemical.lipinski.details?.hbd_ok)">HBD ≤ 5</span>
-          <span :class="lipinskiClass(enrichChemical.lipinski.details?.hba_ok)">HBA ≤ 10</span>
-          <span :class="lipinskiClass(enrichChemical.lipinski.details?.rot_ok)">RotB ≤ 10</span>
+          <span :class="enrichChemical?.lipinski?.details?.mw_ok === true ? 'lipinski-ok' : enrichChemical?.lipinski?.details?.mw_ok === false ? 'lipinski-ng' : 'lipinski-unknown'">MW ≤ 500</span>
+          <span :class="enrichChemical?.lipinski?.details?.logp_ok === true ? 'lipinski-ok' : enrichChemical?.lipinski?.details?.logp_ok === false ? 'lipinski-ng' : 'lipinski-unknown'">LogP ≤ 5</span>
+          <span :class="enrichChemical?.lipinski?.details?.hbd_ok === true ? 'lipinski-ok' : enrichChemical?.lipinski?.details?.hbd_ok === false ? 'lipinski-ng' : 'lipinski-unknown'">HBD ≤ 5</span>
+          <span :class="enrichChemical?.lipinski?.details?.hba_ok === true ? 'lipinski-ok' : enrichChemical?.lipinski?.details?.hba_ok === false ? 'lipinski-ng' : 'lipinski-unknown'">HBA ≤ 10</span>
+          <span :class="enrichChemical?.lipinski?.details?.rot_ok === true ? 'lipinski-ok' : enrichChemical?.lipinski?.details?.rot_ok === false ? 'lipinski-ng' : 'lipinski-unknown'">RotB ≤ 10</span>
         </div>
       </div>
 
@@ -1488,13 +1510,13 @@ watch(
       </div>
       <!-- 相似化合物（原 AI Tools Validate 已合并进 AUTO MATCH） -->
       <div v-if="enrichChemical?.similar_compounds?.length && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top:8px">
-        <h4 style="margin:0 0 6px 0;font-size:13px">🔗 Similar Compounds ({{ enrichChemical.similar_compounds.length }})</h4>
+        <h4 style="margin:0 0 6px 0;font-size:14px">🔗 Similar Compounds ({{ enrichChemical.similar_compounds.length }})</h4>
         <div v-for="(s, i) in enrichChemical.similar_compounds" :key="i" class="ai-rec-item">
           <div class="ai-rec-title">{{ s.name || ('CID ' + s.cid) || 'Untitled' }}</div>
           <div class="ai-rec-meta" v-if="s.cid">CID: {{ s.cid }}</div>
         </div>
       </div>
-      <JenaMatchSection
+      <MultiSourceMatchSection
         v-if="pubchemEnrichResult && !pubchemEnrichResult.applied"
         :jena="enrichJena"
         style="margin-top: 8px"
@@ -1505,7 +1527,7 @@ watch(
         v-if="pubchemEnrichResult && !pubchemEnrichResult.applied"
         ref="wrapRef"
         :bioz="enrichBioz"
-        :can-adopt="isEdit"
+        :can-adopt="true"
         style="margin-top: 8px"
         @adopt="handleAdoptBiozRef"
         @adopt-all="handleAdoptAllBioz"
@@ -1547,12 +1569,21 @@ watch(
       <div v-if="enrichLiterature && enrichLiterature.references?.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
         <h4 style="margin:0 0 4px 0;font-size:13px">📚 Literature ({{ enrichLiterature.references.length }} references)</h4>
         <div v-for="(ref, i) in enrichLiterature.references.slice(0, 3)" :key="i" style="font-size:11px;margin-bottom:4px;color:var(--color-text-secondary)">
-          <a v-if="ref.ref_id" :href="`/references/${ref.ref_id}`" target="_blank" style="color:var(--color-info);text-decoration:none;font-weight:600">✓ #{{ ref.ref_id }}</a>
+          <template v-if="ref.ref_id">
+            <a :href="`/references/${ref.ref_id}`" target="_blank" style="color:var(--color-info);text-decoration:none;font-weight:600">✓ #{{ ref.ref_id }}</a>
+          </template>
           {{ ref.citation?.substring(0, 120) }}{{ ref.citation?.length > 120 ? '...' : '' }}
+          <template v-if="!ref.ref_id">
+            <button type="button" class="btn btn-ghost btn-sm" style="font-size:10px;padding:1px 6px;margin-left:4px"
+              :disabled="literatureImportingId === i"
+              @click="importLiteratureRef(i, ref)"
+            >{{ literatureImportingId === i ? 'Importing...' : '📥 Import' }}</button>
+            <span v-if="literatureImported[i]" style="font-size:10px;color:var(--color-success);margin-left:4px">✓ Imported</span>
+          </template>
         </div>
       </div>
       <div v-if="enrichProtocols && enrichProtocols.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
-        <h4 style="margin:0 0 8px 0;font-size:13px">🧪 Protocols ({{ enrichProtocols.length }} found)</h4>
+        <h4 style="margin:0 0 8px 0;font-size:14px">🧪 Protocols ({{ enrichProtocols.length }} found)</h4>
         <div v-for="(p, i) in enrichProtocols.slice(0, 5)" :key="i" class="protocol-card">
           <div class="protocol-card-header" @click="toggleProtocolExpand(i)">
             <span style="font-weight:600;font-size:12px">{{ p.title || 'Untitled' }}</span>
@@ -1587,7 +1618,7 @@ watch(
         <p class="form-hint">⚠ 自动匹配未经验证（{{ enrichChemical.confidence }}）— 必须手动选择正确的化合物，请勿直接 Apply All。</p>
         <div v-for="c in enrichChemical.candidates" :key="c.cid" class="candidate-item">
           <div style="flex:1;min-width:0">
-            <strong>{{ c.iupac_name || '—' }}</strong>
+            <strong style="word-break:break-word;display:block;line-height:1.4;margin-bottom:4px">{{ c.iupac_name || '—' }}</strong>
             <span>CID: {{ c.cid }}, MW: {{ c.molecular_weight }}</span>
             <span v-if="c.cas">, CAS: {{ c.cas }}</span>
             <span v-if="c.canonical_smiles" class="mono-wrap" style="display:block;font-size:10px;color:var(--color-text-secondary);word-break:break-all">{{ c.canonical_smiles }}</span>
@@ -1595,8 +1626,6 @@ watch(
             <span v-if="c.formula_mismatch || c.mw_mismatch" class="field-error" style="display:block">⚠ 与文档 Formula/MW 不一致</span>
           </div>
           <button type="button" class="btn btn-sm btn-primary" style="font-size:11px;white-space:nowrap"
-            :disabled="c.formula_mismatch || c.mw_mismatch || c.confidence === 'rejected'"
-            :title="(c.formula_mismatch || c.mw_mismatch) ? '分子式/分子量与文档不符，疑似错误化合物，已禁用' : ''"
             @click="applyCandidate(c)">Use this</button>
         </div>
       </div>
@@ -2023,7 +2052,7 @@ watch(
 .toast-warn { background: var(--color-warning-light); color: var(--color-warning); }
 
 /* Word Import */
-.word-import-section { background: var(--color-bg); border-style: dashed; }
+.word-import-section { background: var(--color-surface, #fff); border-style: dashed; }
 .word-import-row { display: flex; align-items: center; gap: 12px; }
 .file-upload-btn { display: inline-block; padding: 8px 16px; border: 1.5px solid var(--color-primary); border-radius: 6px; color: var(--color-primary); font-size: 13px; font-weight: 500; cursor: pointer; background: white; }
 .file-upload-btn:hover { background: var(--color-primary-light); }
@@ -2031,14 +2060,15 @@ watch(
 .word-status { font-size: 13px; }
 .word-ok { color: var(--color-success); font-weight: 500; }
 .word-err { color: var(--color-danger); }
-.word-warn { color: var(--color-warning); font-weight: 500; }
+.word-neutral { color: var(--color-text-secondary, #475569); background: var(--color-bg, #F1F5F9); border-radius: 4px; padding: 2px 6px; }
+.word-warn { color: var(--color-text-secondary, #475569); background: var(--color-bg, #F1F5F9); padding: 2px 8px; border-radius: 4px; }
 
 /* PubChem Enrich */
 .pubchem-enrich-section { background: var(--color-bg); border-style: dashed; }
-.pubchem-preview { background: var(--color-success-bg); border: 1px solid var(--color-success-light); border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 13px; }
+.pubchem-preview { background: var(--color-surface, #fff); border: 1px solid var(--color-border, #CBD5E1); border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 13px; }
 .pubchem-preview table { width: 100%; border-collapse: collapse; }
-.pubchem-preview td { padding: 4px 8px; border-bottom: 1px solid var(--color-success-light); font-size: 12px; }
-.pubchem-preview td:first-child { color: var(--color-text-secondary); width: 120px; }
+.pubchem-preview td { padding: 4px 8px; border-bottom: 1px solid var(--color-border-light, #E2E8F0); font-size: 12px; }
+.pubchem-preview td:first-child { color: var(--color-text-secondary, #475569); width: 120px; }
 .prop-highlight { color: var(--color-success); font-weight: 600; font-family: var(--font-mono); }
 .prop-missing { color: var(--color-text-secondary); font-style: italic; }
 .mono-wrap { font-family: var(--font-mono); font-size: 11px; word-break: break-all; }
@@ -2052,17 +2082,17 @@ html.dark .toast-success, html.dark .completeness-ok { color: #D1FAE5; }
 html.dark .toast-warn { color: #FDE68A; }
 html.dark .toast-error { color: #FECACA; }
 .source-chembl { background: var(--color-warning-light); color: var(--color-warning); }
-.pubchem-notfound { background: var(--color-warning-bg); border: 1px solid var(--color-amber-200); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
-.pubchem-notfound .form-hint { margin-top: 0; color: var(--color-amber-800); }
+.pubchem-notfound { background: var(--color-bg, #F1F5F9); border: 1px solid var(--color-border, #CBD5E1); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
+.pubchem-notfound .form-hint { margin-top: 0; color: var(--color-text-secondary, #475569); }
 
 /* Fallback warning */
-.fallback-warning { background: var(--color-warning-bg); border: 1px solid var(--color-amber-400); border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; font-size: 12px; color: var(--color-amber-800); }
+.fallback-warning { background: var(--color-bg, #F1F5F9); border: 1px solid var(--color-border, #CBD5E1); border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; font-size: 12px; color: var(--color-text-secondary, #475569); }
 
 /* CAS 冲突警示（P3-2） */
-.cas-conflict { margin-top: 8px; background: var(--color-warning-light); border: 1px solid var(--color-amber-500); border-radius: 6px; padding: 6px 10px; }
-.cas-conflict-title { font-size: 12px; font-weight: 600; color: var(--color-amber-800); margin-bottom: 3px; }
+.cas-conflict { margin-top: 8px; background: var(--color-bg, #F1F5F9); border: 1px solid var(--color-border, #CBD5E1); border-radius: 6px; padding: 6px 10px; }
+.cas-conflict-title { font-size: 12px; font-weight: 500; color: var(--color-text, #0F172A); margin-bottom: 3px; }
 .cas-conflict-body { display: flex; flex-wrap: wrap; gap: 10px; }
-.cas-conflict-src { font-size: 11px; color: var(--color-amber-800); }
+.cas-conflict-src { font-size: 11px; color: var(--color-text-secondary, #475569); }
 
 /* Knowledge chain match styles */
 .knowledge-match-group { margin-bottom: 8px; }
@@ -2086,6 +2116,10 @@ html.dark .toast-error { color: #FECACA; }
 .lipinski-ok { font-size: 11px; background: var(--color-success-light); color: var(--color-emerald-800); border: 1px solid var(--color-success-light); border-radius: 4px; padding: 2px 8px; }
 .lipinski-ng { font-size: 11px; background: var(--color-danger-light); color: var(--color-red-700); border: 1px solid var(--color-danger-light); border-radius: 4px; padding: 2px 8px; }
 .lipinski-unknown { font-size: 11px; background: var(--color-bg-alt); color: var(--color-text-tertiary); border: 1px solid var(--color-border-hover); border-radius: 4px; padding: 2px 8px; }
+/* dark mode 修复：chip 文字变浅色，避免深色背景+深色文字不可见 */
+html.dark .lipinski-ok { background: #064e3b; color: #a7f3d0; border-color: #065f46; }
+html.dark .lipinski-ng { background: #7b1d1d; color: #fecaca; border-color: #991b1b; }
+html.dark .lipinski-unknown { background: #1e293b; color: #94a3b8; border-color: #334155; }
 
 
 
@@ -2218,12 +2252,13 @@ html.dark .toast-error { color: #FECACA; }
 .page-identity-status.status-active { background: #d1fae5; color: #065f46; }
 
 /* ① 未验证警告横条 */
-.ai-warn-banner { margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; font-size: 13px; line-height: 1.5; }
+.ai-warn-banner { margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; background: var(--color-bg, #F1F5F9); border: 1px solid var(--color-border, #CBD5E1); color: var(--color-text-secondary, #475569); font-size: 13px; line-height: 1.5; }
 
-/* ⑥ AI 高级区折叠 */
-details.ai-advanced { margin: 10px 0; border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 10px; background: #fff; }
-details.ai-advanced > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); user-select: none; }
-details.ai-advanced[open] > summary { margin-bottom: 8px; }
+/* ⑥ AI 高级区折叠 — 品牌色统一 */
+details.ai-advanced { margin: 10px 0; border: 1px solid var(--color-border, #CBD5E1); border-radius: 8px; padding: 8px 12px; background: var(--color-surface, #fff); }
+details.ai-advanced > summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--color-text, #0F172A); user-select: none; padding: 2px 0; }
+details.ai-advanced > summary:hover { color: var(--color-primary, #047857); }
+details.ai-advanced[open] > summary { margin-bottom: 10px; border-bottom: 1px solid var(--color-border, #CBD5E1); padding-bottom: 6px; }
 
 /* 深色模式对比度修复：Knowledge Chain 关键词/标签在深色容器上对比度不足
    .km-keyword 原用 --color-text-tertiary(#64748B) 在深绿底上约 2.8:1；

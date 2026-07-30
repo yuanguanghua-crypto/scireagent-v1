@@ -13,6 +13,9 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+import html as html_lib
+
+
 BIOPROCORPUS_DIR = os.environ.get(
     "BIOPROCORPUS_DIR",
     os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
@@ -40,11 +43,11 @@ class BioProCorpusIndexer:
                     for item in data:
                         self._entries.append({
                             "id": item.get("id", ""),
-                            "title": item.get("title", ""),
+                            "title": html_lib.unescape(item.get("title", "")),
                             "source": source_name,
                             "text": item.get("input", ""),
                             "keywords": item.get("keywords", ""),
-                            "abstract": item.get("abstract", ""),
+                            "abstract": html_lib.unescape(item.get("abstract", "")),
                             "url": item.get("url", ""),
                             "hierarchical_protocol": item.get("hierarchical_protocol", {}),
                             "method": item.get("method", ""),

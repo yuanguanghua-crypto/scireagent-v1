@@ -300,30 +300,36 @@ class ProductEnrichView(EnvelopeMixin, APIView):
                 chemical.setdefault("mismatches", [])
                 chemical.setdefault("similar_compounds", [])
 
-        # ── jena 匹配：规格预填草案（cas→name→synonyms 真级联）──
-        jena = {"matched": False}
+        # ── jena 匹配：规格预填草案（cas→name→synonyms 真级联，多供应商）──
+        jena = {"matched": False, "sources": []}
         try:
             from apps.commerce.services.jena_matcher import match_jena, _looks_like_cas
-            # 研究者意图优先：jena 匹配以「用户显式输入的 CAS / 名字」为准。
-            # ⚠ 绝不能用 PubChem 的 cas_resolved 当主键：多候选场景下它是歧义首条
-            # （如 N6-Benzyl-ATPγS 被 PubChem 误解为 toluene → 2154-56-5），会劫持
-            # jena 匹配；且 PubChem synonyms 是核苷酸的错名（如 "N6-Benzyl-ATP-gamma-S"），
-            # 经 find_by_name 子串匹配会误中 NU-1196（缺 γS 的变体）。两者都导致
-            # 正确名字 N6-Benzyl-ATPγS→NU-241 永远轮不到（见 TDD 回归测试）。
             user_cas = cas or ""
             synonyms = (chemical.get("properties") or {}).get("synonyms", []) or []
             search_name = product_name or (identifier if namespace == "name" else "") or ""
             jena_input = user_cas or search_name
             jena_ns = "cas" if (user_cas and _looks_like_cas(user_cas)) else "name"
+            # Biotium 光谱近似匹配（D2）：研究者可附带 Ex/Em 光谱，仅对 biotium 候选生效
+            ex_em = (request.data.get("ex_em") or "").strip()
             if jena_input or synonyms:
                 jena = match_jena(
                     identifier=jena_input,
                     namespace=jena_ns,
                     synonyms=synonyms,
                     request_name=product_name,
+                    ex_em=ex_em,
                 )
-            # 名字没命中、且 PubChem 解析出干净单 CAS（非用户所填）→ 用该 CAS 二次尝试
-            # （不再带 PubChem synonyms，避免错名子串误匹配）
+            # CAS 匹配失败 → 用 name 降级（修复 Word 导入自动填入错误 CAS 的情况）
+            if not jena.get("matched"):
+                if jena_ns == "cas" and search_name:
+                    jena = match_jena(
+                        identifier=search_name,
+                        namespace="name",
+                        synonyms=synonyms,
+                        request_name=product_name,
+                        ex_em=ex_em,
+                    )
+            # name 也没命中、且 PubChem 解析出不同 CAS → 用该 CAS 二次尝试
             if not jena.get("matched"):
                 resolved_cas = (chemical.get("cas_resolved") or "").strip()
                 if resolved_cas and resolved_cas != user_cas and _looks_like_cas(resolved_cas):
@@ -332,19 +338,46 @@ class ProductEnrichView(EnvelopeMixin, APIView):
                             identifier=resolved_cas,
                             namespace="cas",
                             request_name=product_name,
+                            ex_em=ex_em,
                         )
                     except Exception:
                         pass
         except Exception as e:
             logger.warning(f"jena match failed: {e}")
-            jena = {"matched": False}
+            jena = {"matched": False, "sources": []}
 
-        # ── Bioz 文献证据（依赖 jena 的 catalog_no 当查询凭证）──
+        # ── Bioz 文献证据（兼容新旧结果结构）──
         bioz = {"queried": False, "reason": "no_jena_match"}
         try:
             from apps.knowledge.services.bioz_pipeline import fetch_bioz_evidence
             platform_cas = cas or chemical.get("cas_resolved") or ""
-            bioz = fetch_bioz_evidence(jena, platform_cas=platform_cas)
+            # 兼容新旧结构：新结构优先取 jena 的 catalog_no（Bioz 只覆盖 jena）
+            jena_for_bioz = jena
+            if "sources" in jena and not jena.get("catalog_no"):
+                # 优先 jena，其次任一个命中 source
+                matched_sources = [s for s in jena.get("sources", []) if s.get("matched")]
+                jena_source = next((s for s in matched_sources if s.get("vendor") == "jena"), None)
+                s = jena_source or (matched_sources[0] if matched_sources else None)
+                if s:
+                    vendor_name = s.get("vendor", "")
+                    if vendor_name == "jena":
+                        vendor_for_bioz = "Jena Bioscience"
+                    elif vendor_name == "cayman":
+                        vendor_for_bioz = "Cayman Chemical"
+                    elif vendor_name == "trilink":
+                        vendor_for_bioz = "TriLink BioTechnologies"
+                    elif vendor_name == "biotium":
+                        vendor_for_bioz = "Biotium"
+                    else:
+                        vendor_for_bioz = vendor_name.capitalize() if vendor_name else "Unknown"
+                    jena_for_bioz = {
+                        "matched": True,
+                        "catalog_no": s.get("catalog_no", ""),
+                        "cas_number": s.get("cas_number"),
+                        "match_key": s.get("match_key"),
+                        "vendor": vendor_for_bioz,
+                    }
+            bioz = fetch_bioz_evidence(jena_for_bioz, platform_cas=platform_cas)
         except Exception as e:
             logger.warning(f"bioz pipeline failed: {e}")
             bioz = {"queried": False, "error": str(e)}

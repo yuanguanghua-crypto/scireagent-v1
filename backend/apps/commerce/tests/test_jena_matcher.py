@@ -73,23 +73,25 @@ class JenaMatcherTest(TestCase):
         """CAS 精确命中 + 规格归一化映射到 Product choices"""
         r = jena_matcher.match_jena("1927-31-7", namespace="cas")
         self.assertTrue(r["matched"])
-        self.assertEqual(r["match_key"], "cas")
-        self.assertEqual(r["catalog_no"], "NU-1001")
-        self.assertEqual(r["systematic_name"], "2'-Deoxyadenosine-5'-triphosphate, Sodium salt")
+        src = r["sources"][0]
+        self.assertEqual(src["match_key"], "cas")
+        self.assertEqual(src["catalog_no"], "NU-1001")
+        self.assertEqual(src["systematic_name"], "2'-Deoxyadenosine-5'-triphosphate, Sodium salt")
         # 归一化
-        self.assertEqual(r["normalized"]["purity"], "≥ 99% (HPLC)")
-        self.assertEqual(r["normalized"]["storage_condition"], "-20°C")
-        self.assertEqual(r["normalized"]["shipping_condition"], "Cold Pack")
-        self.assertEqual(r["normalized"]["shelf_life"], "P1Y")
-        self.assertEqual(r["normalized"]["concentration"], "100 mM - 110 mM")
-        self.assertEqual(r["normalized"]["category_l1"], "nucleotides_nucleosides")
+        self.assertEqual(src["normalized"]["purity"], "≥ 99% (HPLC)")
+        self.assertEqual(src["normalized"]["storage_condition"], "-20°C")
+        self.assertEqual(src["normalized"]["shipping_condition"], "Cold Pack")
+        self.assertEqual(src["normalized"]["shelf_life"], "P1Y")
+        self.assertEqual(src["normalized"]["concentration"], "100 mM - 110 mM")
+        self.assertEqual(src["normalized"]["category_l1"], "nucleotides_nucleosides")
 
     def test_name_hit(self):
         """name 命中（无 CAS 的记录）"""
         r = jena_matcher.match_jena("N1-Methylpseudo-UTP", namespace="name")
         self.assertTrue(r["matched"])
-        self.assertEqual(r["match_key"], "name")
-        self.assertEqual(r["catalog_no"], "NU-1138")
+        src = r["sources"][0]
+        self.assertEqual(src["match_key"], "name")
+        self.assertEqual(src["catalog_no"], "NU-1138")
 
     def test_cas_miss_falls_back_to_name(self):
         """CAS miss 后 name 兜底（真级联核心）：identifier 形如 CAS 但与 jena 记录不符时"""
@@ -97,7 +99,7 @@ class JenaMatcherTest(TestCase):
         # 这里直接测试：identifier 非 CAS 时（如产品名）用 name 查到
         r = jena_matcher.match_jena("dATP - Solution", namespace="name")
         self.assertTrue(r["matched"])
-        self.assertEqual(r["match_key"], "name")
+        self.assertEqual(r["sources"][0]["match_key"], "name")
 
     def test_sugar_type_conflict_rejects_cross_base_synonym(self):
         """铁律②/A：name/synonym 松匹配加糖型一致性约束。
@@ -123,7 +125,7 @@ class JenaMatcherTest(TestCase):
             # 同化合物 CAS 精确命中仍通过（不经糖型约束）
             r2 = jena_matcher.match_jena("1927-31-7", namespace="cas")
             self.assertTrue(r2["matched"])
-            self.assertEqual(r2["catalog_no"], "NU-1001")
+            self.assertEqual(r2["sources"][0]["catalog_no"], "NU-1001")
             # 同碱基同糖型 name 命中仍通过
             r3 = jena_matcher.match_jena(
                 "dATP - Solution", namespace="name", request_name="dATP - Solution")
@@ -134,8 +136,8 @@ class JenaMatcherTest(TestCase):
         """name miss 但 synonyms 增量命中（撬动覆盖率的关键路径）"""
         r = jena_matcher.match_jena("Random Product XYZ", namespace="name", synonyms=["dATP"])
         self.assertTrue(r["matched"])
-        self.assertTrue(r["match_key"].startswith("synonym:"))
-        self.assertEqual(r["catalog_no"], "NU-1001")
+        self.assertTrue(r["sources"][0]["match_key"].startswith("synonym:"))
+        self.assertEqual(r["sources"][0]["catalog_no"], "NU-1001")
 
     def test_all_miss(self):
         """全 miss 返回 {matched: False}"""
@@ -184,13 +186,13 @@ class JenaMatcherTest(TestCase):
         r = jena_matcher.match_jena("N1-Methylpseudo-UTP", namespace="cas")
         self.assertTrue(r["matched"])
         # 命中的 product_name 匹配（N1-Methylpseudo-UTP 没有 CAS 记录）
-        self.assertEqual(r["match_key"], "name")
+        self.assertEqual(r["sources"][0]["match_key"], "name")
 
     def test_category_path_returned_for_expansion(self):
         """match_jena 结果带 raw category_path（供协议查询扩展使用）"""
         r = jena_matcher.match_jena("1927-31-7", namespace="cas")
         self.assertTrue(r["matched"])
-        self.assertEqual(r["category_path"], "Nucleotides & Nucleosides|dNTPs")
+        self.assertEqual(r["sources"][0]["category_path"], "Nucleotides & Nucleosides|dNTPs")
 
     def test_stale_cache_without_mapper_version_is_ignored(self):
         """预修复缓存（无 mapper_version、带错误 slug）必须被忽略并重新查询。
@@ -210,6 +212,112 @@ class JenaMatcherTest(TestCase):
         set_cache("jena_match", "1927-31-7", "cas", stale)
         r = jena_matcher.match_jena("1927-31-7", namespace="cas")
         self.assertTrue(r["matched"])
-        self.assertEqual(r["normalized"]["category_l1"], "nucleotides_nucleosides")
+        self.assertEqual(r["sources"][0]["normalized"]["category_l1"], "nucleotides_nucleosides")
         # 新结果必须带 mapper_version，避免下次又被误判为旧缓存
         self.assertIn("mapper_version", r)
+
+
+class BiotiumExEmTest(TestCase):
+    """Biotium 接入（D2/D5）：Ex/Em 光谱近似匹配 + fuzzy_reference 标记。
+
+    用临时 fixture（含 biotium 带 ex_em 记录 + 一个 jena 记录）注入 MultiVendorIndex，
+    验证：① Ex/Em 仅对 biotium 触发、不污染 jena；② 命中标 fuzzy_reference；
+    ③ 无 ex_em 时不误命中；④ parse_ex_em 解析容错。
+    """
+
+    def setUp(self):
+        records = [
+            # biotium 荧光试剂（无 CAS，仅 Ex/Em）
+            {
+                "catalog_no": "BIOT-1001", "vendor": "biotium",
+                "product_name": "CF488A Goat Anti-Mouse IgG",
+                "ex_em": "490/525 纳米", "product_type": "conjugate",
+                "cas_source": None,
+            },
+            # jena 核苷酸（无 ex_em，验证不被 Ex/Em 污染）
+            {
+                "jena_catalog_no": "NU-1001", "product_name": "dATP - Solution",
+                "cas_number": "1927-31-7", "category_path": "Nucleotides & Nucleosides|dNTPs",
+            },
+        ]
+        tmpdir = tempfile.mkdtemp()
+        # 拆成两个供应商文件，模拟 data/suppliers/ 多文件
+        # 注意：jena 文件名须带 _products_v2 后缀，vendor 检测才得 "jena"
+        with open(os.path.join(tmpdir, "biotium.jsonl"), "w", encoding="utf-8") as f:
+            f.write(json.dumps(records[0], ensure_ascii=False) + "\n")
+        with open(os.path.join(tmpdir, "jena_products_v2.jsonl"), "w", encoding="utf-8") as f:
+            f.write(json.dumps(records[1], ensure_ascii=False) + "\n")
+        from apps.commerce.services.jena_index import MultiVendorIndex
+        idx = MultiVendorIndex(data_dir=tmpdir)
+        idx.build()
+        self.index = idx
+        self.tmpdir = tmpdir
+        self._patch = patch.object(jena_matcher, "_get_index", return_value=self.index)
+        self._patch.start()
+
+    def tearDown(self):
+        self._patch.stop()
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_parse_ex_em_tolerance(self):
+        from apps.commerce.services.jena_index import parse_ex_em
+        self.assertEqual(parse_ex_em("490/525 纳米"), (490, 525))
+        self.assertEqual(parse_ex_em("490 / 525 nm"), (490, 525))
+        self.assertEqual(parse_ex_em("484/504"), (484, 504))
+        self.assertIsNone(parse_ex_em("no spectrum"))
+        self.assertIsNone(parse_ex_em(None))
+
+    def test_ex_em_hit_biotium_fuzzy(self):
+        """请求 Ex/Em 490/525 → biotium 命中，match_key=ex_em，quality=fuzzy_reference"""
+        r = jena_matcher.match_jena("anything", namespace="name", ex_em="490/525")
+        self.assertTrue(r["matched"])
+        biot = next(s for s in r["sources"] if s["vendor"] == "biotium")
+        self.assertTrue(biot["matched"])
+        self.assertEqual(biot["match_key"], "ex_em")
+        self.assertEqual(biot["match_quality"], "fuzzy_reference")
+        self.assertEqual(biot["ex_em"], "490/525 纳米")
+
+    def test_ex_em_does_not_pollute_jena(self):
+        """Ex/Em 请求不应让无光谱的 jena 误命中"""
+        r = jena_matcher.match_jena("anything", namespace="name", ex_em="490/525")
+        jena_src = next(s for s in r["sources"] if s["vendor"] == "jena")
+        self.assertFalse(jena_src["matched"])
+
+    def test_ex_em_miss_returns_no_match(self):
+        """Ex/Em 偏差过大（超出 ±10nm）→ 不命中"""
+        r = jena_matcher.match_jena("anything", namespace="name", ex_em="350/450")
+        biot = next(s for s in r["sources"] if s["vendor"] == "biotium")
+        self.assertFalse(biot["matched"])
+
+    def test_no_ex_em_no_fuzzy_trigger(self):
+        """无 ex_em 入参时，biotium 无 CAS/无 name 命中 → 不触发 fuzzy（保持 miss）"""
+        r = jena_matcher.match_jena("NonExistentXYZ", namespace="name")
+        biot = next(s for s in r["sources"] if s["vendor"] == "biotium")
+        self.assertFalse(biot["matched"])
+
+    def test_stale_cache_old_version_missing_biotium_fields_is_recomputed(self):
+        """回归守卫（2026-07-29）：输出 schema 变更必须 bump MAPPER_VERSION。
+
+        曾因给 matched source 追加 ex_em/cas_source/product_type/match_quality
+        字段却未升 MAPPER_VERSION（保持 "4"），导致 Redis 中旧 v4 缺字段缓存被
+        继续命中返回。本测试注入 mapper_version="4" 且缺四字段的陈旧项，断言
+        match_jena 因版本不符（!= "5"）强制重查，返回含完整字段的结果。
+        """
+        from apps.documents.services.datasource_cache import set_cache
+        # 该 fixture 下 ex_em=490/525 命中 biotium（无 CAS，走第4级光谱近似）
+        stale = {
+            "matched": True,
+            "match_key": "ex_em",
+            "catalog_no": "BIOT-1001",
+            "normalized": {"category_l1": ""},
+            "mapper_version": "4",  # 旧版本，刻意缺 Biotium 接入四字段
+        }
+        set_cache("jena_match", "anything|ex_em:490/525", "name", stale)
+        r = jena_matcher.match_jena("anything", namespace="name", ex_em="490/525")
+        self.assertEqual(r["mapper_version"], "5")
+        biot = next(s for s in r["sources"] if s["vendor"] == "biotium")
+        self.assertTrue(biot["matched"])
+        # 重查后必须带 Biotium 接入新增的四字段
+        for field in ("ex_em", "cas_source", "product_type", "match_quality"):
+            self.assertIn(field, biot)
+        self.assertEqual(biot["match_quality"], "fuzzy_reference")
