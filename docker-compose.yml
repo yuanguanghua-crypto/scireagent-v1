@@ -52,6 +52,11 @@ services:
       # 改为卷挂载后，数据来自主机持久盘、rebuild 永不丢失；且 JENA_DATA_DIR 指向
       # /app/backend/data/jena 正好命中。
       - ./backend/data/jena:/app/backend/data/jena:ro
+      # 多供应商数据集（biotium/cayman/trilink 等）：与 jena 同构，绑定挂载进容器
+      # （只读、常驻主机持久盘）。rebuild 镜像时 COPY . . 会把数据放到错误路径且
+      # rebuild 丢失，故改为卷挂载，数据来自主机持久盘、rebuild 永不丢失。
+      # MultiVendorIndex 扫描 /app/backend/data/suppliers/*.jsonl 自动加载。
+      - ./backend/data/suppliers:/app/backend/data/suppliers:ro
     depends_on:
       db:
         condition: service_healthy
