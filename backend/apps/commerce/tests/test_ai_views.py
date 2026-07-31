@@ -287,8 +287,16 @@ class ProductEnrichAPITest(TestCase):
             jena["matched"],
             "jena 应按名字 N6-Benzyl-ATPγS 匹配到 NU-241，而非被 toluene CAS 劫持",
         )
-        self.assertEqual(jena["catalog_no"], "NU-241")
-        self.assertEqual(jena["cas_number"], "944834-42-8")
+        # v2.0 多供应商 schema：命中结果在 sources 列表（每供应商一项），
+        # 不再用旧的单供应商扁平 catalog_no/cas_number。取 jena 命中源校验身份。
+        jena_hits = [
+            s for s in jena.get("sources", [])
+            if s.get("vendor") == "jena" and s.get("matched")
+        ]
+        self.assertTrue(jena_hits, "jena 供应商应命中 NU-241（按名匹配，非 CAS 劫持）")
+        matched = jena_hits[0]
+        self.assertEqual(matched["catalog_no"], "NU-241")
+        self.assertEqual(matched["cas_number"], "944834-42-8")
 
     @patch("apps.commerce.services.validators.product_validator.ProductValidator.validate")
     def test_enrich_empty_name_returns_graceful(self, mock_validate):

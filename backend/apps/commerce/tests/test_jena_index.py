@@ -273,21 +273,28 @@ class JenaSharedSingletonTest(TestCase):
     """进程级单例"""
 
     def test_shared_index_is_singleton(self):
-        """get_shared_jena_index 多次调用返回同一实例"""
-        # 用 patch 让单例指向测试索引
+        """get_shared_jena_index 多次调用返回同一实例（进程级单例）。
+
+        v2.0 共享索引是 MultiVendorIndex，从模块级 _SUPPLIER_DIR 加载全部供应商
+        JSONL（而非旧的 JENA_DATA_DIR）。测试用 patch 把 _SUPPLIER_DIR 指向临时
+        fixture 目录，既验证单例身份，也验证其确实从配置目录构建了索引。
+        """
+        # 默认文件名 jena_products_v2.jsonl → vendor 解析为 "jena"，6 条记录
         tmpdir = _write_jsonl(FIXTURE_RECORDS)
+        import apps.commerce.services.jena_index as mod
+        old_index = mod._shared_index
+        old_dir = mod._SUPPLIER_DIR
+        mod._shared_index = None
+        mod._shared_index_meta = None
         try:
-            # 重置单例
-            import apps.commerce.services.jena_index as mod
-            old = mod._shared_index
-            mod._shared_index = None
-            with patch.object(mod, "JENA_DATA_DIR", tmpdir):
+            with patch.object(mod, "_SUPPLIER_DIR", tmpdir):
                 i1 = get_shared_jena_index()
                 i2 = get_shared_jena_index()
                 self.assertIs(i1, i2)
                 self.assertEqual(i1.size(), 6)
-            mod._shared_index = old
         finally:
+            mod._shared_index = old_index
+            mod._SUPPLIER_DIR = old_dir
             import shutil
             shutil.rmtree(tmpdir)
 
