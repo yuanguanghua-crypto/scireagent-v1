@@ -19,21 +19,23 @@ class DashboardStatsView(EnvelopeMixin, APIView):
     permission_classes = [IsStaffUser]
 
     def get(self, request):
+        # Plan B：软删（回收站）产品不计入工作台统计，避免删除后数字虚高。
+        live = Product.objects.filter(archived=False)
         # Product counts
-        total_products = Product.objects.count()
-        active_products = Product.objects.filter(status="active").count()
-        draft_products = Product.objects.filter(status="draft").count()
-        inactive_products = Product.objects.exclude(status__in=["active", "draft"]).count()
+        total_products = live.count()
+        active_products = live.filter(status="active").count()
+        draft_products = live.filter(status="draft").count()
+        inactive_products = live.exclude(status__in=["active", "draft"]).count()
 
         # Incomplete products (exclude active — those are already published)
         incomplete_count = 0
-        for p in Product.objects.exclude(status="active").select_related('product_class').iterator():
+        for p in live.exclude(status="active").select_related('product_class').iterator():
             if not (p.name and p.catalog_no and p.product_class_id and p.skus.filter(is_default=True).exists()):
                 incomplete_count += 1
 
         # Coverage
-        products_with_cas = Product.objects.exclude(cas="").count()
-        products_with_smiles = Product.objects.exclude(smiles="").count()
+        products_with_cas = live.exclude(cas="").count()
+        products_with_smiles = live.exclude(smiles="").count()
         products_with_knowledge = ProductMethod.objects.values("product_id").distinct().count()
 
         # Knowledge graph counts

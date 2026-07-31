@@ -44,26 +44,28 @@ class ProductArchiveTest(TestCase):
 
 
 class ProductDestroyTest(TestCase):
-    """删除动作"""
+    """删除动作（Plan B：默认软归档，不物理删除）"""
 
     def setUp(self):
         self.client = APIClient()
         self.staff = UserFactory(is_staff=True)
         self.product = ProductFactory(name='Delete Me', status='active')
 
-    def test_staff_can_delete_product(self):
-        """staff DELETE -> 200，产品消失"""
+    def test_staff_delete_soft_archives(self):
+        """staff DELETE -> 200，产品软归档（仍在 DB，archived=True）"""
         self.client.force_authenticate(user=self.staff)
         resp = self.client.delete(f'/api/v1/products/{self.product.pk}/')
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
-        self.assertFalse(Product.objects.filter(pk=self.product.pk).exists())
+        self.assertTrue(Product.objects.filter(pk=self.product.pk).exists())
+        self.product.refresh_from_db()
+        self.assertTrue(self.product.archived)
 
-    def test_delete_cascades_to_skus(self):
-        """删除产品连带删除其 SKU（CASCADE）"""
-        sku = SKUFactory(product=self.product, sku_code='TO-BE-CASCADED')
+    def test_soft_delete_keeps_skus(self):
+        """软删不级联物理删 SKU（行为变更：不再 CASCADE 硬删）"""
+        sku = SKUFactory(product=self.product, sku_code='KEPT-SKU')
         self.client.force_authenticate(user=self.staff)
         self.client.delete(f'/api/v1/products/{self.product.pk}/')
-        self.assertFalse(SKU.objects.filter(pk=sku.pk).exists())
+        self.assertTrue(SKU.objects.filter(pk=sku.pk).exists())
 
     def test_anonymous_cannot_delete(self):
         """匿名删除 -> 401/403"""

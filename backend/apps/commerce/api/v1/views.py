@@ -3,11 +3,25 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.permissions import BasePermission
 from rest_framework.views import APIView
 from core.mixins import EnvelopeMixin
 from core.permissions import IsAdminOrReadOnly
 from core.jsonld import build_product_jsonld
-from apps.commerce.models import Product, SKU, ProductClass, CatalogGroup, ProductDocument
+from apps.commerce.models import (
+    Product, SKU, ProductClass, CatalogGroup, ProductDocument, AuditLog,
+)
+
+
+class IsSuperUser(BasePermission):
+    """仅超管（is_superuser）可操作。区别于 IsAdminUser（=is_staff）。
+
+    用于 hard-delete：物理删除是破坏性操作，必须限制在超管，普通 staff 仅能软删。
+    """
+    def has_permission(self, request, view):
+        return bool(
+            request.user and request.user.is_authenticated and request.user.is_superuser
+        )
 from apps.commerce.api.v1.serializers import (
     ProductListSerializer, ProductDetailSerializer, ProductCreateUpdateSerializer,
     SKUSerializer, ProductClassSerializer, CatalogGroupSerializer, ProductDocumentSerializer,
@@ -49,6 +63,17 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        user = self.request.user
+        # ── Plan B：回收站默认隐藏软删产品（仅 list 过滤）──
+        # 详情类操作（retrieve/destroy/restore/hard-delete）必须能定位 archived 对象，
+        # 否则已软删产品无法恢复；staff 显式 ?archived=1 在 list 中可见回收站。
+        if self.action == 'list':
+            show_archived = (
+                self.request.query_params.get('archived') == '1'
+                and user and user.is_authenticated and user.is_staff
+            )
+            if not show_archived:
+                qs = qs.exclude(archived=True)
         query = self.request.query_params.get('search', '')
         if query:
             qs = selectors.filter_products(query)
@@ -69,7 +94,6 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
                     qs = qs.filter(product_class_id__in=ids)
         # 非 staff（匿名/普通用户）只看 active，下架/草稿不进公开列表，
         # 且忽略客户端传入的 status 过滤参数（防止绕过）。
-        user = self.request.user
         if not (user and user.is_authenticated and user.is_staff):
             qs = qs.filter(status=Product.Status.ACTIVE)
         return qs
@@ -83,9 +107,25 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(product)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    # ── Plan B：删除默认软归档 + 全程审计 ──────────────
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        AuditLog.log(self.request.user, AuditLog.ACTION_CREATE, instance)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        AuditLog.log(self.request.user, AuditLog.ACTION_UPDATE, instance)
+
     def perform_destroy(self, instance):
-        """物理删除：CASCADE 连带 SKU/文档/桥接；Basket 被清，订单历史因 SET_NULL 保留。"""
-        instance.delete()
+        """Plan B：默认软归档（archived=True），不物理删除，可恢复 + 审计。
+
+        注意：不调用 instance.delete()，故不会触发 post_delete 兜底信号，
+        避免产生 HARD_DELETE 噪声日志。
+        """
+        user = getattr(self.request, 'user', None)
+        AuditLog.log(user, AuditLog.ACTION_DELETE, instance)
+        instance.archived = True
+        instance.save(update_fields=['archived'])
 
     def destroy(self, request, *args, **kwargs):
         """覆盖 destroy 返回 200（避免 DRF 204 无 body + axios 兼容问题）。"""
@@ -93,7 +133,31 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         label = str(instance)
         self.perform_destroy(instance)
         return Response(
-            {'success': True, 'data': {'deleted': label}},
+            {'success': True, 'data': {'deleted': label, 'soft_archived': True}},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=['post'], url_path='restore')
+    def restore(self, request, pk=None):
+        """从回收站恢复：archived=False + 审计。"""
+        product = self.get_object()
+        AuditLog.log(request.user, AuditLog.ACTION_RESTORE, product)
+        product.archived = False
+        product.save(update_fields=['archived'])
+        serializer = self.get_serializer(product)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='hard-delete',
+            permission_classes=[IsSuperUser])
+    def hard_delete(self, request, pk=None):
+        """物理删除（仅超管 IsAdminUser）。仍写审计（带操作人）；
+        post_delete 兜底信号对同一对象不再重复记，避免噪声。"""
+        product = self.get_object()
+        AuditLog.log(request.user, AuditLog.ACTION_HARD_DELETE, product)
+        product._explicit_hard_delete_logged = True  # 抑制兜底信号重复记
+        product.delete()
+        return Response(
+            {'success': True, 'data': {'deleted': str(product), 'hard': True}},
             status=status.HTTP_200_OK,
         )
 

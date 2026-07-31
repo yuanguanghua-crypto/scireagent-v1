@@ -1,5 +1,9 @@
 import os
 from django.db import models
+from django.conf import settings
+from django.contrib.contenttypes.models import ContentType
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from core.models import TimeStampedModel, StatusMixin
 
 # PostgreSQL-only: SearchVectorField + GinIndex
@@ -168,6 +172,10 @@ class Product(StatusMixin, TimeStampedModel):
         help_text='已废弃：新写入走 product_class_id。此列保留作历史数据只读。')
     display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级',
         help_text='数字越大越靠前，0 为默认排序')
+    # Plan B：软删（回收站）标记。DELETE 改为置 archived=True 而非物理删，可恢复；
+    # 默认查询集排除 archived，仅超管 hard-delete 才物理删。
+    archived = models.BooleanField(default=False, db_index=True, verbose_name='已软删(回收站)',
+        help_text='True 表示被软删除进入回收站，默认不在列表出现，可经 restore 恢复')
 
     # SDS 当前版本 → 消除 isCurrent 竞态
     current_sds = models.ForeignKey(
@@ -275,3 +283,80 @@ class ProductDocument(TimeStampedModel):
 
     def __str__(self):
         return f'{self.product.name} - {self.document_type}'
+
+
+class AuditLog(TimeStampedModel):
+    """审计日志 — 记录产品的创建/更新/删除/硬删，杜绝无痕操作。
+
+    关键设计：写日志的**显式钩子在视图层**（持有 request.user），不依赖 signal
+    （signal 拿不到请求用户，是 DRF 删除漏记的根因）。post_delete 信号仅作
+    DB 级兜底，保证任何物理删除都被记录（即便绕过视图）。
+    """
+
+    ACTION_CREATE = 'CREATE'
+    ACTION_UPDATE = 'UPDATE'
+    ACTION_DELETE = 'DELETE'          # 软归档
+    ACTION_RESTORE = 'RESTORE'        # 从回收站恢复
+    ACTION_HARD_DELETE = 'HARD_DELETE'  # 物理删除
+    ACTION_CHOICES = (
+        (ACTION_CREATE, '创建'),
+        (ACTION_UPDATE, '更新'),
+        (ACTION_DELETE, '软删除(归档)'),
+        (ACTION_RESTORE, '恢复'),
+        (ACTION_HARD_DELETE, '物理删除'),
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='操作人'
+    )
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name='动作')
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, verbose_name='模型')
+    object_id = models.PositiveIntegerField(verbose_name='对象ID')
+    object_repr = models.CharField(max_length=255, verbose_name='对象标识')
+    snapshot = models.JSONField(default=dict, blank=True, verbose_name='快照')
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='时间')
+
+    class Meta:
+        db_table = 'audit_log'
+        verbose_name = '审计日志'
+        verbose_name_plural = verbose_name
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['content_type', 'object_id'], name='audit_ct_obj'),
+            models.Index(fields=['action'], name='audit_action_idx'),
+        ]
+
+    def __str__(self):
+        return f'[{self.action}] {self.object_repr} @ {self.timestamp:%Y-%m-%d %H:%M}'
+
+    @classmethod
+    def log(cls, user, action, instance, snapshot=None):
+        """显式写一条审计记录。user 来自 request，避免依赖 signal。"""
+        return cls.objects.create(
+            user=user if getattr(user, 'is_authenticated', False) else None,
+            action=action,
+            content_type=ContentType.objects.get_for_model(type(instance)),
+            object_id=instance.pk,
+            object_repr=str(instance),
+            snapshot=snapshot or {},
+        )
+
+
+@receiver(post_delete, sender=Product)
+def _product_post_delete_audit(sender, instance, **kwargs):
+    """DB 级兜底：任何 Product 物理删除（含绕过视图的途径）都留痕。
+
+    此时拿不到请求用户，故 user=None；动作记为 HARD_DELETE。
+    若视图已显式记过带用户的日志（hard_delete action 设了标记），则跳过，避免重复。
+    """
+    if getattr(instance, '_explicit_hard_delete_logged', False):
+        return
+    AuditLog.objects.create(
+        user=None,
+        action=AuditLog.ACTION_HARD_DELETE,
+        content_type=ContentType.objects.get_for_model(Product),
+        object_id=instance.pk,
+        object_repr=str(instance),
+        snapshot={'fallback': True, 'note': 'physical delete captured by post_delete signal'},
+    )
