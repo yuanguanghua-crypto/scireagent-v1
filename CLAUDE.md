@@ -69,7 +69,11 @@ frontend/src/
 1. **View 薄 → Service 厚 → Serializer 纯验证。** View 只做路由和响应。跨模型写入在 Service 中。Serializer 不编排多模型工作流。
 2. **所有 API 响应走信封格式** `{success, data, meta}`，由 `EnvelopeRenderer` 全局强制。
 3. **Serializer 字段必须显式声明**，禁止 `fields = '__all__'`。
-4. **两个管理员角色：** `IsAdminUser`（Django admin/superuser，管理订单/发票）= 系统管理员；`IsStaffUser`（`is_staff=True`）= 研究员，访问 `/workspace/`。**研究员不能处理订单。**
+4. **三类角色与权限（不要混淆）：**
+   - `IsAdminUser`（Django superuser，管理后台 + 商品硬删）= 系统管理员
+   - `IsStaffUser`（`is_staff=True`）= 研究员，访问 `/workspace/` 做知识编辑/产品维护/发布
+   - `IsProcurementOrAdmin`（`is_staff` 或 `role in ('procurement','admin')`）= 采购/内部人员，可审批订单、发货、开票、核验收款（见 `core/permissions.py`）
+   - **研究员（不含 procurement 角色）不能处理订单/发票/发货/收款**——这些归 procurement/admin。
 5. **研究员是最终权威。** 发布检查是告知模式，不是硬阻断。
 
 **代码味道速查（看到即拒绝）：**
@@ -83,10 +87,13 @@ frontend/src/
 |------|----|-----|
 | 知识实体 (RG/App/Method/Protocol/Ref/Compat) | 公开 | Admin 仅 |
 | Product, SKU, Category | 公开 | Admin 仅 |
-| Order, Quote, Wishlist | 认证用户(自己的) | 认证用户(自己的) |
+| Order | 认证用户(看自己)；staff/内部看全部 | 客户建自己单（`checkout` / `orders/po/`）；审批/发货/开票/核验收款 = `IsProcurementOrAdmin` |
+| Quote (transactions) | 认证用户(看自己) | 认证用户(自己的) |
+| Wishlist | 认证用户(自己的) | 认证用户(自己的)（前端未实现） |
 | QuoteRequest 创建 | 匿名 OK | — |
-| `/workspace/` 研究员工作台 | — | StaffUser |
-| `/admin/` 订单管理 | — | AdminUser(Superuser) |
+| `/workspace/` 研究员工作台 | — | StaffUser(`is_staff`) |
+| `/admin/` 订单/发票管理 | — | `IsProcurementOrAdmin`（`is_staff` 或 `role in ('procurement','admin')`，不一定 superuser） |
+| 商品硬删 | — | 仅 IsSuperUser(superuser) |
 
 ---
 
@@ -129,7 +136,7 @@ frontend/src/
 
 ```bash
 cd backend
-# 全量（1068 passed, 10 skipped）
+# 全量：运行 pytest 查看实时总数（截至 2026-08：commerce 444 / transactions 185 / quotes 24 passed，其余 app 另有用例；10 skipped 为 PostgreSQL 专用）
 DB_ENGINE=sqlite PYTHONDONTWRITEBYTECODE=1 venv/Scripts/python.exe -B -m pytest -p no:cacheprovider
 
 # 单文件
@@ -202,4 +209,4 @@ npm run dev
 
 ---
 
-*最后更新: 2026-06-28 | 测试: 1071 passed, 10 skipped, 0 failed | jena 改策略B（本地索引，撤销批量落库，删除2098条+导入代码）*
+*最后更新: 2026-08-04 | 测试: commerce 444 / transactions 185 / quotes 24 passed（截至 2026-08，运行 pytest 查看实时）；jena 策略B（本地索引，撤销批量落库）*

@@ -513,12 +513,18 @@ Notes:
 
 ### 7.8 Quotes
 
+> **两套独立概念**（勿混淆）：
+> - **Quote**（`apps/transactions`）：内部已生成的报价单，由管理员录入价格后产生，供客户在订单详情查看/接受。
+> - **QuoteRequest**（`apps/quotes`，即 RFQ）：客户侧发起的询价请求，是前端实际使用的入口（`/quote-requests/`）。匿名即可创建。
+
 #### Endpoints
 
-- `GET /api/quotes`
-- `GET /api/quotes/{id}`
-- `POST /api/quotes`
-- `PATCH /api/quotes/{id}`
+- `GET /api/v1/quotes`
+- `GET /api/v1/quotes/{id}`
+- `POST /api/v1/quotes`
+- `PATCH /api/v1/quotes/{id}`
+- `POST /api/v1/quote-requests/`        # QuoteRequest（RFQ）创建，前端客户侧实际入口，匿名可创建
+- `GET /api/v1/quote-requests/{id}`      # 查询 RFQ 状态
 
 #### Required Public Fields
 
@@ -551,12 +557,28 @@ Notes:
 
 ### 7.10 Orders
 
+> **PO 不是独立模型**：采购订单复用 `Order`，以 `payment_method='purchase_order'` + `po_number` 字段承载。提交入口是 `POST /api/v1/orders/po/`（产生 `po_received` 状态订单）。订单状态机见 `apps/transactions/models.py` 的 `VALID_TRANSITIONS`：`po_received → confirmed → in_production → shipped → delivered → invoiced → paid → completed / cancelled`。
+
 #### Endpoints
 
-- `GET /api/orders`
-- `GET /api/orders/{id}`
-- `POST /api/orders`
-- `PATCH /api/orders/{id}`
+- `POST /api/v1/checkout/`              # 购物车 → 订单（非 quote 路径直接置 `confirmed`）
+- `POST /api/v1/orders/po/`             # PO 提交（创建 `po_received` 订单；供内部台审核）
+- `GET /api/v1/orders`                  # 列表（按角色过滤：staff/内部看全部，普通用户仅看自己）
+- `GET /api/v1/orders/{id}`
+- `POST /api/v1/orders/{id}/approve/`   # 审核通过
+- `POST /api/v1/orders/{id}/reject/`    # 审核拒绝
+- `POST /api/v1/orders/{id}/cancel/`    # 取消
+- `POST /api/v1/orders/{id}/assign-rep/`# 分配销售代表
+- `POST /api/v1/orders/{id}/shipments/` # 创建发货记录（**一对多**，支持分批发货）
+- `POST /api/v1/orders/{id}/invoice/`   # 开票
+- `GET /api/v1/admin/orders/`           # 内部台订单列表（含 `po_received` 待审）
+- `POST /api/v1/admin/orders/{id}/confirm/`
+- `POST /api/v1/admin/orders/{id}/invoice/`
+- `POST /api/v1/admin/orders/{id}/complete/`
+- `POST /api/v1/admin/orders/{id}/quote/`    # 录入报价
+- `POST /api/v1/admin/invoices/{id}/verify-payment/` # 核验收款凭证
+- `GET /api/v1/invoices/{id}/pdf/`       # 发票 PDF 下载
+- `POST /api/v1/invoices/{id}/pay/`      # 登记收款（限内部 `IsProcurementOrAdmin`，客户侧暂无助入口）
 
 #### Required Public Fields
 
@@ -588,43 +610,43 @@ Notes:
 - `unit_price`
 
 ### 7.12 Basket
-**迁移注意**：当前现有前端使用 `/api/v1/cart` 路径，Phase 1 迁移时需将前端 API 调用迁移至 `/api/basket` 并同步更新文档。
 
+> **已迁移完成**：前端（`CartPage.vue` → `basketStore.loadBasket()`）实际调用 `GET /api/v1/basket` 系列，本文档路径已对齐。Basket 为临时预结算容器，登录后 `merge` 把匿名 `session_key` 项并入账户。
 
 #### Endpoints
 
-- `GET /api/basket`
-- `POST /api/basket/items`
-- `PATCH /api/basket/items/{item_id}`
-- `DELETE /api/basket/items/{item_id}`
+- `GET /api/v1/basket`              # 返回扁平 items（sku_code / product_name / pack_size / unit_price / quantity / subtotal）
+- `POST /api/v1/basket/items`       # 加入
+- `POST /api/v1/basket/merge`       # 登录后合并匿名购物车
+- `PATCH /api/v1/basket/items/{item_id}`
+- `DELETE /api/v1/basket/items/{item_id}`
 
 #### Required Public Fields
 
 - `id`
-- `user_id`
-- `session_key`
-- `state`
-- `expires_at`
-- `items`
+- `user_id`（已登录）或 `session_key`（匿名）
+- `items`（数组，每项含 `sku_code` / `product_name` / `pack_size` / `unit_price` / `quantity` / `subtotal`）
+
+> 注：模型无 `state` / `expires_at` 字段（旧文档描述已废弃）。
 
 ### 7.13 Wishlist
 
+> **后端已就绪，前端未实现**：模型/ViewSet/admin 均存在，但前端无页面、路由、store 或 api 模块（收藏入口目前是 TODO）。
+
 #### Endpoints
 
-- `GET /api/wishlist`
-- `POST /api/wishlist`
-- `PATCH /api/wishlist/{id}`
-- `POST /api/wishlist/{id}/items`
-- `DELETE /api/wishlist/{id}/items/{item_id}`
+- `GET /api/v1/wishlist`
+- `POST /api/v1/wishlist`
+- `PATCH /api/v1/wishlist/{id}`
+- `POST /api/v1/wishlist/{id}/items`
+- `DELETE /api/v1/wishlist/{id}/items/{item_id}`
 
 #### Required Public Fields
 
 - `id`
 - `user_id`
 - `name`
-- `state`
-- `visibility`
-- `items`
+- `products`（M2M 商品列表，无 `state` / `visibility` 字段）
 
 ### 7.14 Product Classes and Catalogs
 

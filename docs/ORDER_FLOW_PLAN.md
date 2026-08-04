@@ -1,5 +1,15 @@
 # B2B Life Science Order Flow — Implementation Plan
 
+> ⚠️ **历史草案 · 已脱离当前实现（2026-08-04 审计结论）**
+> 本计划写于订单流早期设计阶段，当前代码（`apps/transactions/`、`apps/quotes/`）已大幅演进，**不可作为编码依据**。关键偏差：
+> - **状态机已改**：真实为 `po_received → confirmed → in_production → shipped → delivered → invoiced → paid → completed / cancelled`（见模型 `VALID_TRANSITIONS`）。本文 §2.3 的旧 `draft/quote_pending/quoted/quote_accepted/quote_rejected/processing` 仅保留作旧数据兼容，新订单不再使用。
+> - **PO 非独立模型**：采购订单复用 `Order`（`payment_method='purchase_order'` + `po_number`），提交入口是 `POST /api/v1/orders/po/`。
+> - **端点已变动**：本文 §2.1 三条端点（`confirm-quote`、`orders/{id}/pay`、`admin/orders/{id}/ship`）在代码中不存在，真实端点见 §2.1 修正。
+> - **ShippingRecord 是一对多**：真实为 `ForeignKey`（支持分批发货），非 `OneToOneField`（见 §0.4 修正）。
+> - **结算起点态不同**：`checkout` 对非 quote 直接置 `confirmed`；仅 `orders/po/` 产生 `po_received`（见 §4.1 修正）。
+> - **真实测试以 `apps/transactions/tests/`（185 例）与 `apps/quotes/tests/`（24 例）为准**，本文 TC/E2E 编号已失效。
+> **编码请以 `backend/apps/transactions/api/v1/urls.py` + 模型 `VALID_TRANSITIONS` 为唯一权威。**
+
 ## Overview
 
 Align SciReagent's order flow with B2B life science industry conventions (Thermo Fisher, Sigma-Aldrich, NEB, IDT style). Support PO-based ordering, invoice/payment terms, quote management, and simple shipping — serving both large institutions (with their own procurement systems) and small labs (without).
@@ -112,7 +122,8 @@ class ShippingRecord(TimeStampedModel):
         IN_TRANSIT = 'in_transit', 'In Transit'
         DELIVERED = 'delivered', 'Delivered'
 
-    order = OneToOneField(Order, related_name='shipping')
+    # 修正：真实代码为一对多 ForeignKey（支持同一订单分批发货），非 OneToOneField
+    order = ForeignKey(Order, related_name='shipments', on_delete=CASCADE)
     status = CharField(max_length=20, choices=Status.choices, default=Status.PREPARING)
     carrier = CharField(max_length=100)                       # FedEx, UPS, DHL, etc.
     tracking_number = CharField(max_length=200)
@@ -218,23 +229,25 @@ class ShippingRecord(TimeStampedModel):
 
 | Method | Path | Description | Auth |
 |--------|------|-------------|------|
-| POST | `/api/v1/checkout` | Create order from basket | Auth |
-| GET | `/api/v1/orders` | List orders (filtered by role) | Auth |
-| GET | `/api/v1/orders/{id}` | Order detail | Auth |
-| POST | `/api/v1/orders/{id}/cancel` | Cancel order | Auth |
-| POST | `/api/v1/orders/{id}/confirm-quote` | Accept/reject quote | Auth |
-| GET | `/api/v1/orders/{id}/invoice` | Get invoice | Auth |
-| POST | `/api/v1/orders/{id}/pay` | Submit payment proof | Auth |
-| GET | `/api/v1/invoices` | List invoices | Auth |
-| GET | `/api/v1/invoices/{id}` | Invoice detail | Auth |
-| **Admin endpoints** | | | |
-| POST | `/api/v1/admin/orders/{id}/confirm` | Confirm order | Admin |
-| POST | `/api/v1/admin/orders/{id}/invoice` | Generate invoice | Admin |
-| POST | `/api/v1/admin/orders/{id}/ship` | Mark shipped | Admin |
-| POST | `/api/v1/admin/orders/{id}/complete` | Mark completed | Admin |
-| POST | `/api/v1/admin/orders/{id}/quote` | Enter quote price | Admin |
-| POST | `/api/v1/admin/invoices/{id}/verify-payment` | Verify payment | Admin |
-| GET | `/api/v1/admin/orders` | All orders with filters | Admin |
+| POST | `/api/v1/checkout/` | 购物车 → 订单（非 quote 直接 `confirmed`） | Auth |
+| POST | `/api/v1/orders/po/` | **PO 提交**（创建 `po_received` 订单，供内部台审核） | Auth |
+| GET | `/api/v1/orders` | 订单列表（按角色过滤） | Auth |
+| GET | `/api/v1/orders/{id}` | 订单详情 | Auth |
+| POST | `/api/v1/orders/{id}/approve/` | 审核通过（替代旧 `confirm-quote`） | IsProcurementOrAdmin |
+| POST | `/api/v1/orders/{id}/reject/` | 审核拒绝 | IsProcurementOrAdmin |
+| POST | `/api/v1/orders/{id}/cancel/` | 取消 | Auth |
+| POST | `/api/v1/orders/{id}/assign-rep/` | 分配销售代表 | IsProcurementOrAdmin |
+| POST | `/api/v1/orders/{id}/shipments/` | 创建发货记录（一对多，替代旧 `admin/.../ship`） | IsProcurementOrAdmin |
+| POST | `/api/v1/orders/{id}/invoice/` | 开票 | IsProcurementOrAdmin |
+| GET | `/api/v1/invoices/{id}/pdf/` | 发票 PDF 下载 | Auth |
+| POST | `/api/v1/invoices/{id}/pay/` | 登记收款（替代旧 `orders/{id}/pay`；客户侧暂无助入口） | IsProcurementOrAdmin |
+| **Admin/内部台 endpoints** | | | |
+| GET | `/api/v1/admin/orders/` | 全部订单（含 `po_received` 待审） | IsProcurementOrAdmin |
+| POST | `/api/v1/admin/orders/{id}/confirm/` | 内部确认 | IsProcurementOrAdmin |
+| POST | `/api/v1/admin/orders/{id}/invoice/` | 内部开票 | IsProcurementOrAdmin |
+| POST | `/api/v1/admin/orders/{id}/complete/` | 内部完成 | IsProcurementOrAdmin |
+| POST | `/api/v1/admin/orders/{id}/quote/` | 录入报价 | IsProcurementOrAdmin |
+| POST | `/api/v1/admin/invoices/{id}/verify-payment/` | 核验收款 | IsProcurementOrAdmin |
 
 ### 2.2 Checkout Payload
 
@@ -255,21 +268,26 @@ class ShippingRecord(TimeStampedModel):
 
 ### 2.3 Order Status Machine
 
+> **修正**：以下为 `apps/transactions/models.py` 中 `Order.Status` + `VALID_TRANSITIONS` 的真实定义（2026-08-04 核对）。旧状态机（`draft/quote_pending/quoted/quote_accepted/quote_rejected/processing`）已废弃，仅保留作历史数据兼容。
+
 ```python
-VALID_TRANSITIONS = {
-    'draft':           ['confirmed', 'quote_pending', 'cancelled'],
-    'confirmed':       ['invoiced', 'paid', 'cancelled'],
-    'invoiced':        ['paid'],
-    'paid':            ['processing'],
-    'processing':      ['shipped'],
-    'shipped':         ['completed'],
-    'completed':       [],
-    'cancelled':       [],
-    'quote_pending':   ['quoted', 'cancelled'],
-    'quoted':          ['quote_accepted', 'quote_rejected'],
-    'quote_accepted':  ['confirmed'],
-    'quote_rejected':  [],
-}
+# 主流程（新订单使用）
+'po_received':    ['confirmed', 'cancelled'],
+'confirmed':      ['in_production', 'shipped', 'cancelled'],
+'in_production':  ['shipped', 'cancelled'],
+'shipped':        ['delivered', 'cancelled'],
+'delivered':      ['invoiced', 'cancelled'],
+'invoiced':       ['paid', 'cancelled'],
+'paid':           ['completed'],
+'completed':      [],
+'cancelled':      [],
+# deprecated（仅兼容旧数据）
+'draft':          ['confirmed', 'quote_pending', 'cancelled'],
+'quote_pending':  ['quoted', 'cancelled'],
+'quoted':         ['quote_accepted', 'quote_rejected'],
+'quote_accepted': ['confirmed'],
+'quote_rejected': [],
+'processing':     ['shipped'],
 ```
 
 ---
@@ -335,20 +353,19 @@ VALID_TRANSITIONS = {
 ### 4.1 Checkout → Order Creation Flow
 
 ```
-User clicks "Place Order"
+User clicks "Place Order" (购物车 / 结算页 → CheckoutView)
   → Validate basket not empty
   → Validate shipping address
   → Validate PO number (if PO method)
-  → Create Order (status: draft)
   → Create OrderItems from BasketItems
   → Calculate totals
-  → Auto-transition based on org type:
-     - Single org + PO → confirmed
-     - Single org + credit card → confirmed (pending payment)
-     - Multi org + PO → confirmed
-     - Quote → quote_pending
+  → 状态起点（修正）：非 quote 路径直接置 `confirmed`（不再是 draft）；Quote 路径置 `quote_pending`
   → Clear basket
   → Return order detail
+
+另：客户从 `/po/submit` 提交 → POST /api/v1/orders/po/（POSubmitView）
+  → 创建 `po_received` 订单，进入内部台审核（approve / reject）
+  → 审核通过才转 `confirmed`（与 checkout 直接 confirmed 不同）
 ```
 
 ### 4.2 Invoice Auto-Generation

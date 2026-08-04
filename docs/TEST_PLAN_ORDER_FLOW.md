@@ -1,5 +1,10 @@
 # Order Flow — Complete Test Plan
 
+> ⚠️ **历史测试计划 · 已脱离当前实现（2026-08-04 审计结论）**
+> 本计划基于早期订单流设计（旧状态机 `draft/quote_pending/quoted/quote_accepted/quote_rejected/processing`、旧端点如 `orders/{id}/pay`、`admin/orders/{id}/ship`、`orders/{id}/confirm-quote`）。
+> 当前代码已演进：状态机见 `Order.VALID_TRANSITIONS`（`po_received → confirmed → in_production → shipped → delivered → invoiced → paid → completed`），PO 复用 `Order(payment_method='purchase_order')`，端点以 `backend/apps/transactions/api/v1/urls.py` 为准。
+> **本文件的 TC/E2E 编号与断言已不可作为测试依据。** 真实测试覆盖以 `apps/transactions/tests/`（185 例）与 `apps/quotes/tests/`（24 例）为准，运行 `pytest` 查看实时结果。
+
 ## Test Environment
 
 - Django 5.1 + DRF + SQLite (test DB)
