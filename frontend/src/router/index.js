@@ -21,6 +21,12 @@ const routes = [
     meta: { title: 'Register', guest: true, nav: 'public' },
   },
   {
+    path: '/verify-email',
+    name: 'VerifyEmail',
+    component: () => import('@/views/VerifyEmailPage.vue'),
+    meta: { title: 'Verify Email', nav: 'public' },
+  },
+  {
     path: '/search',
     name: 'Search',
     component: () => import('@/views/SearchPage.vue'),

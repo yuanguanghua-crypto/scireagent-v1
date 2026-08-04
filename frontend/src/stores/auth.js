@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { login as loginApi, register as registerApi, logout as logoutApi, getMe, updateProfile as updateProfileApi } from '@/api/auth'
+import { login as loginApi, register as registerApi, logout as logoutApi, getMe, updateProfile as updateProfileApi, verifyEmail as verifyEmailApi, resendVerification as resendVerificationApi } from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -50,6 +50,22 @@ export const useAuthStore = defineStore('auth', () => {
   async function register(data) {
     const result = await registerApi(data)
     return result
+  }
+
+  // Verify email via the link token; on success the backend mints a token and
+  // we log the user in directly (the link acts as a one-click sign-in).
+  async function verifyEmail(verificationToken) {
+    const result = await verifyEmailApi(verificationToken)
+    token.value = result.token
+    user.value = result.user
+    cachedIsStaff.value = !!result.user?.is_staff
+    localStorage.setItem('token', token.value)
+    localStorage.setItem('is_staff', String(cachedIsStaff.value))
+    return result
+  }
+
+  async function resendVerification(email) {
+    return await resendVerificationApi(email)
   }
 
   async function updateProfile(data) {
@@ -111,6 +127,8 @@ export const useAuthStore = defineStore('auth', () => {
     isStaff,
     login,
     register,
+    verifyEmail,
+    resendVerification,
     updateProfile,
     updateUser,
     logout,

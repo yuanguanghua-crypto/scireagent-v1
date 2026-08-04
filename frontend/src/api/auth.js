@@ -8,6 +8,14 @@ export function login(data) {
   return http.post('/auth/login', data)
 }
 
+export function verifyEmail(token) {
+  return http.get('/auth/verify-email', { params: { token } })
+}
+
+export function resendVerification(email) {
+  return http.post('/auth/resend-verification', { email })
+}
+
 export function logout() {
   return http.post('/auth/logout')
 }

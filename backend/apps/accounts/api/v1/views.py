@@ -15,11 +15,18 @@ from apps.accounts.api.v1.serializers import (
     UserSerializer,
     AddressSerializer,
 )
-from apps.accounts.models import Organization, Address
+from apps.accounts.email import send_verification_email
+from apps.accounts.models import EmailVerification, Organization, Address, User
 
 
 class RegisterView(APIView):
-    """POST /api/v1/auth/register — Register a new user and return auth token."""
+    """POST /api/v1/auth/register — Register a new user and email a verification link.
+
+    No auth token is minted here. The account starts unverified
+    (``email_verified=False``) and cannot log in until the user clicks the
+    verification link (see :class:`VerifyEmailView`, which issues the token on
+    success).
+    """
 
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -28,19 +35,27 @@ class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
-        token, _ = Token.objects.get_or_create(user=user)
+        user = serializer.save()  # email_verified defaults to False
+        send_verification_email(user)
         return Response(
             {
-                'token': token.key,
-                'user': UserSerializer(user).data,
+                'detail': (
+                    'Registration successful. We have sent a verification link '
+                    'to your email address — please verify before signing in.'
+                ),
+                'email': user.email,
+                'email_verified': False,
             },
             status=status.HTTP_201_CREATED,
         )
 
 
 class LoginView(APIView):
-    """POST /api/v1/auth/login — Authenticate user and return auth token."""
+    """POST /api/v1/auth/login — Authenticate user and return auth token.
+
+    Hard-blocks accounts whose email is not yet verified (HTTP 403) so an
+    unverified registration cannot be used until the user confirms their email.
+    """
 
     permission_classes = [AllowAny]
     authentication_classes = []
@@ -61,11 +76,100 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        # Hard-block unverified emails: the account cannot be used until the
+        # user clicks the verification link emailed at registration.
+        if not user.email_verified:
+            return Response(
+                {
+                    'detail': (
+                        'Email address is not verified. Please check your inbox '
+                        'for the verification link (or request a new one from '
+                        'the sign-in page).'
+                    ),
+                    'email_verified': False,
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         token, _ = Token.objects.get_or_create(user=user)
         return Response(
             {
                 'token': token.key,
                 'user': UserSerializer(user).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class VerifyEmailView(APIView):
+    """GET /api/v1/auth/verify-email?token=<uuid> — Verify a user's email.
+
+    On success the account is marked verified and a fresh auth token is issued
+    (the link effectively logs the user in). The consumed token is deleted.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        raw_token = request.query_params.get('token')
+        if not raw_token:
+            return Response(
+                {'detail': 'Missing verification token.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            verification = EmailVerification.objects.get(token=raw_token)
+        except (EmailVerification.DoesNotExist, ValueError):
+            return Response(
+                {'detail': 'Invalid or expired verification token.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if verification.is_expired():
+            verification.delete()
+            return Response(
+                {'detail': 'Verification link has expired. Please request a new one.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user = verification.user
+        user.email_verified = True
+        user.save(update_fields=['email_verified'])
+        verification.delete()
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response(
+            {'token': token.key, 'user': UserSerializer(user).data},
+            status=status.HTTP_200_OK,
+        )
+
+
+class ResendVerificationView(APIView):
+    """POST /api/v1/auth/resend-verification — Re-issue a verification email.
+
+    Rate-limited like login. Responds identically whether or not the email
+    exists / is already verified to avoid account enumeration.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [LoginRateThrottle]
+
+    def post(self, request):
+        email = (request.data.get('email') or '').strip().lower()
+        if not email:
+            return Response(
+                {'detail': 'Email is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user = User.objects.filter(email=email).first()
+        if user and not user.email_verified:
+            send_verification_email(user)
+        # Always return the same generic message (no enumeration).
+        return Response(
+            {
+                'detail': (
+                    'If an unverified account exists for that email, '
+                    'a verification link has been sent.'
+                )
             },
             status=status.HTTP_200_OK,
         )

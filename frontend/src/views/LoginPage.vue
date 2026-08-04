@@ -30,11 +30,17 @@ const errors = reactive({
 
 const serverError = ref('')
 const loading = ref(false)
+// 邮箱未验证导致登录被硬拦截（HTTP 403）
+const emailUnverified = ref(false)
+const resending = ref(false)
+const resendMessage = ref('')
 
 function clearErrors() {
   errors.username = ''
   errors.password = ''
   serverError.value = ''
+  emailUnverified.value = false
+  resendMessage.value = ''
 }
 
 function validate() {
@@ -76,6 +82,12 @@ async function handleSubmit() {
     const status = err?.response?.status || err?.status
     if (status === 401) {
       serverError.value = 'Incorrect username or password. Please check and try again.'
+    } else if (status === 403) {
+      // 邮箱未验证：硬拦截登录，引导用户去验证邮箱
+      emailUnverified.value = true
+      serverError.value =
+        err?.response?.data?.detail ||
+        'Your email address is not verified. Please check your inbox for the verification link.'
     } else {
       serverError.value =
         err?.data?.meta?.error?.message ||
@@ -85,6 +97,21 @@ async function handleSubmit() {
     }
   } finally {
     loading.value = false
+  }
+}
+
+/* Resend verification email from the "unverified" notice on the login page */
+async function handleResend() {
+  if (resending.value) return
+  resending.value = true
+  resendMessage.value = ''
+  try {
+    await authStore.resendVerification(form.email.trim())
+    resendMessage.value = 'A new verification link has been sent. Please check your inbox.'
+  } catch {
+    // 错误 toast 已由 http 拦截器统一弹出
+  } finally {
+    resending.value = false
   }
 }
 </script>
@@ -125,6 +152,24 @@ async function handleSubmit() {
           <circle cx="8" cy="11" r="0.75" fill="currentColor" />
         </svg>
         <span>{{ serverError }}</span>
+      </div>
+
+      <!-- Resend verification (shown when login is blocked by 403 unverified) -->
+      <div v-if="emailUnverified" class="login-resend">
+        <p class="login-resend__label">Need a new verification link?</p>
+        <button type="button" class="login-resend__btn" :disabled="resending" @click="handleResend">
+          <svg v-if="resending" class="spinner" width="16" height="16" viewBox="0 0 18 18" fill="none">
+            <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round" />
+          </svg>
+          <span v-else>Resend verification email</span>
+        </button>
+        <div v-if="resendMessage" class="auth-success-banner">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5" />
+            <path d="M5.5 8l2 2 3.5-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span>{{ resendMessage }}</span>
+        </div>
       </div>
 
       <!-- Form -->
@@ -255,6 +300,48 @@ async function handleSubmit() {
 .auth-error-banner svg {
   flex-shrink: 0;
   margin-top: 2px;
+}
+
+/* ── Resend verification ── */
+.login-resend {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-5);
+}
+
+.login-resend__label {
+  font-size: var(--text-caption);
+  color: var(--color-text-tertiary);
+  text-align: center;
+  margin: 0;
+}
+
+.login-resend__btn {
+  height: 42px;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+  transition: all 0.15s ease;
+}
+
+.login-resend__btn:hover:not(:disabled) {
+  background: var(--color-primary-subtle);
+}
+
+.login-resend__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .auth-form {

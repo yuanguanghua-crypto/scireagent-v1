@@ -13,6 +13,10 @@ const currentStep = ref(1)
 const serverError = ref('')
 const successMessage = ref('')
 const loading = ref(false)
+// 注册成功后进入「请查收验证邮件」内联页（不发 token，账户未验证前无法登录）
+const registeredEmail = ref('')
+const resending = ref(false)
+const resendMessage = ref('')
 
 /* Step 1: Basic info */
 const form = reactive({
@@ -278,11 +282,11 @@ async function handleSubmit() {
       payload.organization_choice = 'create'
     }
 
-    await authStore.register(payload)
-    successMessage.value = 'Account created successfully! Redirecting to login...'
-    setTimeout(() => {
-      router.push({ path: '/login', query: { registered: '1' } })
-    }, 1500)
+    const result = await authStore.register(payload)
+    // 注册成功但不发 token：账户处于未验证状态，登录会被硬拦截（403）。
+    // 直接进入「请查收验证邮件」内联页，不再跳登录（跳过去也无法登录）。
+    registeredEmail.value = result?.email || form.email.trim()
+    resendMessage.value = ''
   } catch (err) {
     // Parse backend error into user-friendly message
     const errData = err?.data?.meta?.error?.details || err?.response?.data
@@ -316,6 +320,21 @@ async function handleSubmit() {
   }
 }
 
+/* Resend verification email from the "check your inbox" panel */
+async function handleResend() {
+  if (!registeredEmail.value || resending.value) return
+  resending.value = true
+  resendMessage.value = ''
+  try {
+    await authStore.resendVerification(registeredEmail.value)
+    resendMessage.value = 'A new verification link has been sent to your email. Please check your inbox.'
+  } catch {
+    // 错误 toast 已由 http 拦截器统一弹出
+  } finally {
+    resending.value = false
+  }
+}
+
 /* Clear org search when switching tabs */
 watch(orgTab, () => {
   orgSearchQuery.value = ''
@@ -342,8 +361,8 @@ watch(orgTab, () => {
         <span class="auth-logo-text">SciReagent</span>
       </div>
 
-      <h1 class="auth-title">Create Account</h1>
-      <p class="auth-subtitle">Join the SciReagent platform</p>
+      <h1 class="auth-title">{{ registeredEmail ? 'Check your email' : 'Create Account' }}</h1>
+      <p class="auth-subtitle">{{ registeredEmail ? 'One last step to activate your account' : 'Join the SciReagent platform' }}</p>
 
       <!-- Step Indicator -->
       <div class="step-indicator">
@@ -373,14 +392,39 @@ watch(orgTab, () => {
         </div>
       </div>
 
-      <!-- Success Message -->
-      <div v-if="successMessage" class="auth-success-banner">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5" />
-          <path d="M5.5 8l2 2 3.5-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-        <span>{{ successMessage }}</span>
+      <!-- Verification pending (after successful register — no token issued) -->
+      <div v-if="registeredEmail" class="verify-pending">
+        <div class="verify-pending__icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <circle cx="14" cy="14" r="12" stroke="currentColor" stroke-width="2" />
+            <path d="M9 14l3.5 3.5L19 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <p class="verify-pending__title">We've sent a verification link</p>
+        <p class="verify-pending__desc">
+          We sent a verification link to <strong>{{ registeredEmail }}</strong>.
+          Click the link in that email to activate your account, then sign in.
+        </p>
+        <div v-if="resendMessage" class="auth-success-banner">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5" />
+            <path d="M5.5 8l2 2 3.5-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span>{{ resendMessage }}</span>
+        </div>
+        <div class="verify-pending__resend">
+          <span class="verify-pending__resend-label">Didn't receive it?</span>
+          <button type="button" class="verify-pending__resend-btn" :disabled="resending" @click="handleResend">
+            <svg v-if="resending" class="spinner" width="16" height="16" viewBox="0 0 18 18" fill="none">
+              <circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="2" stroke-dasharray="31.4" stroke-dashoffset="10" stroke-linecap="round" />
+            </svg>
+            <span v-else>Resend verification email</span>
+          </button>
+        </div>
+        <router-link to="/login" class="auth-link verify-pending__signin">Already verified? Sign in</router-link>
       </div>
+
+      <template v-else>
 
       <!-- Server Error -->
       <div v-if="serverError" class="auth-error-banner">
@@ -655,6 +699,7 @@ watch(orgTab, () => {
         Already have an account?
         <router-link to="/login" class="auth-link">Sign in</router-link>
       </p>
+      </template>
     </div>
   </div>
 </template>
@@ -814,6 +859,92 @@ watch(orgTab, () => {
 .auth-error-banner svg {
   flex-shrink: 0;
   margin-top: 2px;
+}
+
+/* ── Verification pending ── */
+.verify-pending {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4) 0 var(--spacing-2) 0;
+  animation: fadeSlideUp 0.25s var(--ease-decelerate);
+}
+
+.verify-pending__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-success-light);
+  color: var(--color-success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--spacing-1);
+}
+
+.verify-pending__title {
+  font-size: var(--text-h4);
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.verify-pending__desc {
+  font-size: var(--text-body-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.verify-pending__desc strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.verify-pending__resend {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-2);
+}
+
+.verify-pending__resend-label {
+  font-size: var(--text-caption);
+  color: var(--color-text-tertiary);
+}
+
+.verify-pending__resend-btn {
+  height: 42px;
+  padding: 0 var(--spacing-5);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-sm);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.verify-pending__resend-btn:hover:not(:disabled) {
+  background: var(--color-primary-subtle);
+}
+
+.verify-pending__resend-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.verify-pending__signin {
+  margin-top: var(--spacing-3);
+  font-size: var(--text-body-sm);
 }
 
 /* ── Step content ── */

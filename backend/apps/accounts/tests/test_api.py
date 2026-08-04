@@ -1,13 +1,19 @@
 """
 Tests for accounts app — RegisterView, LoginView, LogoutView, MeView, ProfileView,
-OrganizationSearchView, OrganizationCreateView.
+OrganizationSearchView, OrganizationCreateView, and email verification.
 """
-from django.test import TestCase
+import uuid
+from datetime import timedelta
+
+from django.core import mail
+from django.test import TestCase, override_settings
+from django.utils import timezone
+
 from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
 
+from apps.accounts.models import EmailVerification, Organization, User
 from apps.accounts.tests.factories import UserFactory
-from apps.accounts.models import Organization, User
 
 
 class RegisterAPITest(TestCase):
@@ -25,15 +31,18 @@ class RegisterAPITest(TestCase):
             'organization_choice': 'solo',
         }, format='json')
         self.assertEqual(resp.status_code, 201)
-        self.assertIn('token', resp.data)
-        self.assertIn('user', resp.data)
-        self.assertEqual(resp.data['user']['username'], 'newuser')
+        # Registration must NOT mint a token — the user must verify email first.
+        self.assertNotIn('token', resp.data)
+        self.assertIn('detail', resp.data)
+        self.assertEqual(resp.data['email'], 'new@example.com')
         self.assertTrue(User.objects.filter(username='newuser').exists())
         user = User.objects.get(username='newuser')
         self.assertIsNotNone(user.organization)
         self.assertTrue(user.is_org_admin)
+        # Newly registered accounts start unverified.
+        self.assertFalse(user.email_verified)
 
-    def test_register_creates_token(self):
+    def test_register_does_not_create_token(self):
         resp = self.client.post(self.url, {
             'username': 'tokenuser',
             'email': 'token@example.com',
@@ -44,7 +53,9 @@ class RegisterAPITest(TestCase):
         }, format='json')
         self.assertEqual(resp.status_code, 201)
         user = User.objects.get(username='tokenuser')
-        self.assertTrue(Token.objects.filter(user=user).exists())
+        # No token is minted at registration — verification is required first.
+        self.assertFalse(Token.objects.filter(user=user).exists())
+        self.assertFalse(user.email_verified)
 
     def test_register_duplicate_username(self):
         UserFactory(username='existing')
@@ -188,6 +199,152 @@ class RegisterAPITest(TestCase):
     def test_register_missing_required_fields(self):
         resp = self.client.post(self.url, {}, format='json')
         self.assertEqual(resp.status_code, 400)
+
+
+class RegisterPasswordPolicyTest(TestCase):
+    """AUTH_PASSWORD_VALIDATORS must actually reject weak passwords on the
+    registration path (regression guard for the previously-unwired validators)."""
+
+    def setUp(self):
+        self.client = APIClient()
+        self.url = '/api/v1/auth/register'
+
+    def _payload(self, password):
+        return {
+            'username': 'pwpolicy',
+            'email': 'pwpolicy@example.com',
+            'password': password,
+            'password_confirm': password,
+            'role': 'researcher',
+            'organization_choice': 'solo',
+        }
+
+    def test_common_password_rejected(self):
+        resp = self.client.post(self.url, self._payload('password'), format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertNotEqual(resp.status_code, 201)
+
+    def test_numeric_password_rejected(self):
+        resp = self.client.post(self.url, self._payload('12345678'), format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertNotEqual(resp.status_code, 201)
+
+    def test_strong_password_accepted(self):
+        resp = self.client.post(
+            self.url, self._payload('Str0ng!Pass#2026'), format='json'
+        )
+        self.assertEqual(resp.status_code, 201)
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class EmailVerificationAPITest(TestCase):
+    """Registration email verification: register → (no token) → verify → login.
+
+    EMAIL_BACKEND is forced to locmem so we can assert on ``mail.outbox``
+    without touching any real mail server.
+    """
+    def setUp(self):
+        self.client = APIClient()
+        self.register_url = '/api/v1/auth/register'
+        self.verify_url = '/api/v1/auth/verify-email'
+        self.resend_url = '/api/v1/auth/resend-verification'
+        self.login_url = '/api/v1/auth/login'
+
+    def _register_unverified(self, username='newbie'):
+        return self.client.post(self.register_url, {
+            'username': username,
+            'email': f'{username}@example.com',
+            'password': 'testpass123',
+            'password_confirm': 'testpass123',
+            'role': 'researcher',
+            'organization_choice': 'solo',
+        }, format='json')
+
+    def test_register_sends_verification_email(self):
+        resp = self._register_unverified('newbie')
+        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('verify', mail.outbox[0].body.lower())
+        self.assertIn('newbie@example.com', mail.outbox[0].to)
+
+    def test_register_does_not_mint_token(self):
+        self._register_unverified('tokenless')
+        user = User.objects.get(username='tokenless')
+        self.assertFalse(Token.objects.filter(user=user).exists())
+
+    def test_verify_email_success_returns_token_and_verifies(self):
+        self._register_unverified('verifyme')
+        user = User.objects.get(username='verifyme')
+        verification = EmailVerification.objects.get(user=user)
+        resp = self.client.get(self.verify_url, {'token': str(verification.token)})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('token', resp.data)
+        self.assertTrue(Token.objects.filter(user=user).exists())
+        user.refresh_from_db()
+        self.assertTrue(user.email_verified)
+        # Token is consumed after use.
+        self.assertFalse(EmailVerification.objects.filter(user=user).exists())
+
+    def test_verify_email_invalid_token(self):
+        resp = self.client.get(self.verify_url, {'token': str(uuid.uuid4())})
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('detail', resp.data)
+
+    def test_verify_email_missing_token(self):
+        resp = self.client.get(self.verify_url)
+        self.assertEqual(resp.status_code, 400)
+
+    def test_verify_email_expired_token(self):
+        self._register_unverified('expiredguy')
+        user = User.objects.get(username='expiredguy')
+        verification = EmailVerification.objects.get(user=user)
+        verification.expires_at = timezone.now() - timedelta(hours=1)
+        verification.save()
+        resp = self.client.get(self.verify_url, {'token': str(verification.token)})
+        self.assertEqual(resp.status_code, 400)
+        user.refresh_from_db()
+        self.assertFalse(user.email_verified)
+
+    def test_resend_verification_sends_email(self):
+        self._register_unverified('resendguy')
+        mail.outbox.clear()
+        resp = self.client.post(
+            self.resend_url, {'email': 'resendguy@example.com'}, format='json'
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        # Resend rewrites a fresh token (still exactly one active record).
+        self.assertEqual(
+            EmailVerification.objects.filter(user__username='resendguy').count(), 1
+        )
+
+    def test_resend_verification_unknown_email_is_safe(self):
+        resp = self.client.post(
+            self.resend_url, {'email': 'nobody@example.com'}, format='json'
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_login_blocked_when_unverified(self):
+        self._register_unverified('blockedguy')
+        resp = self.client.post(self.login_url, {
+            'username': 'blockedguy',
+            'password': 'testpass123',
+        }, format='json')
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(Token.objects.filter(user__username='blockedguy').exists())
+
+    def test_login_allowed_after_verification(self):
+        self._register_unverified('laterverified')
+        user = User.objects.get(username='laterverified')
+        verification = EmailVerification.objects.get(user=user)
+        self.client.get(self.verify_url, {'token': str(verification.token)})
+        resp = self.client.post(self.login_url, {
+            'username': 'laterverified',
+            'password': 'testpass123',
+        }, format='json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('token', resp.data)
 
 
 class LoginAPITest(TestCase):

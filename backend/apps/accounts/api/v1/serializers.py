@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password as django_validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from apps.accounts.models import Organization, Address
 
@@ -51,6 +53,26 @@ class RegisterSerializer(serializers.Serializer):
                 {"password_confirm": "Passwords do not match"}
             )
 
+        # Enforce the configured AUTH_PASSWORD_VALIDATORS
+        # (UserAttributeSimilarity / MinimumLength / CommonPassword /
+        # NumericPassword). The settings define these validators, but
+        # RegisterSerializer.create() calls create_user() directly, which
+        # never invokes them — so without this explicit call, weak passwords
+        # (too common, purely numeric, too similar to the username/email)
+        # silently pass registration. We surface the messages under the
+        # "password" field so the frontend error UI can show them.
+        password = data['password']
+        # Build a transient, unsaved user so the similarity validator can
+        # compare against the username/email actually being registered.
+        temp_user = User(
+            username=data.get('username', ''),
+            email=data.get('email', ''),
+        )
+        try:
+            django_validate_password(password, user=temp_user)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({"password": list(exc.messages)})
+
         role = data.get('role')
         if role in ('editor', 'admin'):
             raise serializers.ValidationError(
@@ -93,12 +115,14 @@ class RegisterSerializer(serializers.Serializer):
         email = validated_data['email']
         role = validated_data['role']
 
-        # Create user
+        # Create user — explicitly unverified; the user must click the
+        # verification link emailed by RegisterView before they can log in.
         user = User.objects.create_user(
             username=username,
             email=email,
             password=password,
             role=role,
+            email_verified=False,
         )
 
         # Handle organization assignment
@@ -148,6 +172,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name', 'date_joined',
             'organization', 'organization_name', 'role', 'is_org_admin', 'is_staff', 'is_superuser',
+            'email_verified',
             'nickname', 'phone', 'department', 'title',
             'default_shipping_address', 'shipping_name', 'shipping_phone', 'shipping_email',
             'default_payment_method', 'default_po_number',

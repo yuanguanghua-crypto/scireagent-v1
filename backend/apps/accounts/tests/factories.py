@@ -12,3 +12,6 @@ class UserFactory(factory.django.DjangoModelFactory):
     username = factory.Sequence(lambda n: f'user_{n}')
     email = factory.LazyAttribute(lambda o: f'{o.username}@example.com')
     password = factory.PostGenerationMethodCall('set_password', 'testpass123')
+    # Test accounts are treated as already-verified so login flows work.
+    # Email-verification tests create users with email_verified=False explicitly.
+    email_verified = True

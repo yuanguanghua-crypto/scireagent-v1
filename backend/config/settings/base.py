@@ -324,10 +324,32 @@ LOGGING = {
 
 # ── Email / Outbox (django-anymail) ──
 # Secrets (ANYMAIL_API_KEY etc.) are supplied via .env; never committed.
+MAILGUN_API_KEY = os.getenv('ANYMAIL_MAILGUN_API_KEY', '')
 ANYMAIL = {
-    'MAILGUN_API_KEY': os.getenv('ANYMAIL_MAILGUN_API_KEY', ''),
+    'MAILGUN_API_KEY': MAILGUN_API_KEY,
 }
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@scireagent.com')
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# Email backend selection (no outbound SMTP ports required):
+#   - If a Mailgun API key is configured, send via Mailgun's HTTP API (anymail).
+#     Cloud hosts routinely block outbound 25/465/587, so the API path avoids
+#     that pitfall entirely.
+#   - Otherwise fall back to the console backend: verification emails are printed
+#     to the backend logs, so the full register → verify → login flow works with
+#     ZERO email credentials (dev / staging / demo).
+if MAILGUN_API_KEY:
+    EMAIL_BACKEND = 'anymail.backends.mailgun.EmailBackend'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Email verification link lifetime (hours) and the frontend base URL used to
+# build the verification link embedded in the email.
+try:
+    EMAIL_VERIFICATION_EXPIRE_HOURS = int(os.getenv('EMAIL_VERIFICATION_EXPIRE_HOURS', '24'))
+except (TypeError, ValueError):
+    EMAIL_VERIFICATION_EXPIRE_HOURS = 24
+FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL', 'https://scireagent.com')
 
 # ── 数据源健壮性：全局 socket 超时兜底 ──────────────────────────────────────
 # pubchempy 内部 urlopen 未传 timeout，慢响应时 enrich 接口会挂死占满 worker。
