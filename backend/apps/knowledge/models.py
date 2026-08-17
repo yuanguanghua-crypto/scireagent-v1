@@ -199,10 +199,6 @@ class Protocol(TimeStampedModel):
         SUPERSEDED = 'superseded', '已取代'
         ARCHIVED = 'archived', '已归档'
 
-    method = models.ForeignKey(
-        Method, on_delete=models.CASCADE, related_name='protocols', verbose_name='方法',
-        help_text='这个协议基于哪个技术方法', null=True, blank=True,
-    )
     name = models.CharField(max_length=500, verbose_name='名称',
         help_text='协议全名，例如：CuAAC RNA Fluorescent Labeling Protocol')
     slug = models.SlugField(max_length=255, verbose_name='Slug')
@@ -256,8 +252,8 @@ class Protocol(TimeStampedModel):
         db_table = 'protocol'
         verbose_name = '实验协议'
         verbose_name_plural = verbose_name
-        ordering = ['method', '-version']
-        unique_together = [('method', 'slug', 'version')]
+        ordering = ['-version']
+        unique_together = [('slug', 'version')]
         indexes = [
             models.Index(fields=['slug'], name='protocol_slug_idx'),
         ]

@@ -33,7 +33,6 @@ class ProtocolFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f'Protocol {n}')
     slug = factory.Sequence(lambda n: f'protocol-{n}')
     version = '1.0'
-    method = factory.SubFactory(MethodFactory)
 
 
 class ProtocolStepFactory(factory.django.DjangoModelFactory):

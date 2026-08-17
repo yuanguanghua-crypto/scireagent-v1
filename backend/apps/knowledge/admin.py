@@ -5,6 +5,7 @@ from .models import (
     ResearchGoal, Application, Method, Protocol,
     ProtocolStep, Reference, Compatibility,
 )
+from apps.bridges.models import MethodProtocol
 
 
 # ── Inlines ──────────────────────────────────────────
@@ -35,13 +36,13 @@ class ProtocolStepInline(admin.TabularInline):
     verbose_name_plural = '实验步骤'
 
 
-class ProtocolInline(admin.StackedInline):
-    model = Protocol
+class MethodProtocolInline(admin.TabularInline):
+    model = MethodProtocol
+    fk_name = 'method'
     extra = 0
-    fields = ('name', 'slug', 'version', 'objective', 'status')
-    show_change_link = True
-    verbose_name = '实验协议'
-    verbose_name_plural = '实验协议'
+    fields = ('protocol', 'display_order', 'featured', 'explicit', 'status')
+    verbose_name = '方法-协议关联'
+    verbose_name_plural = '方法-协议关联'
 
 
 # ── ResearchGoal ─────────────────────────────────────
@@ -89,7 +90,7 @@ class MethodAdmin(ModelAdmin):
     search_fields = ('name', 'purpose', 'advantages')
     prepopulated_fields = {'slug': ('name',)}
     autocomplete_fields = ('application',)
-    inlines = [ProtocolInline]
+    inlines = [MethodProtocolInline]
     fieldsets = (
         ('基本信息', {
             'fields': ('application', 'name', 'slug', 'status'),
@@ -108,15 +109,14 @@ class MethodAdmin(ModelAdmin):
 
 @admin.register(Protocol)
 class ProtocolAdmin(ModelAdmin):
-    list_display = ('name', 'method', 'version', 'status', 'published_at')
-    list_filter = ('status', 'method')
+    list_display = ('name', 'version', 'status', 'published_at')
+    list_filter = ('status',)
     search_fields = ('name', 'objective')
     prepopulated_fields = {'slug': ('name',)}
-    autocomplete_fields = ('method',)
     inlines = [ProtocolStepInline]
     fieldsets = (
         ('基本信息', {
-            'fields': ('method', 'name', 'slug', 'version', 'status'),
+            'fields': ('name', 'slug', 'version', 'status'),
         }),
         ('内容', {
             'fields': ('objective', 'principle', 'materials', 'reagents', 'equipment'),
