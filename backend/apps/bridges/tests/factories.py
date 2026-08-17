@@ -1,5 +1,8 @@
 import factory
-from apps.bridges.models import ProductMethod, MethodProtocol, ProductReference, ProductCompatibility, ProductProduct
+from apps.bridges.models import (
+    ProductMethod, MethodProtocol, ProductReference, ProductCompatibility,
+    ProductProduct, ProductProtocol,
+)
 from apps.commerce.tests.factories import ProductFactory
 from apps.knowledge.tests.factories import MethodFactory, ProtocolFactory, ReferenceFactory, CompatibilityFactory
 
@@ -42,3 +45,13 @@ class ProductProductFactory(factory.django.DjangoModelFactory):
     source_product = factory.SubFactory(ProductFactory)
     target_product = factory.SubFactory(ProductFactory)
     relation_type = 'related'
+
+
+class ProductProtocolFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ProductProtocol
+    product = factory.SubFactory(ProductFactory)
+    protocol = factory.SubFactory(ProtocolFactory)
+    relevance_score = 0.0
+    link_source = 'inherited'
+    tier = 'featured'

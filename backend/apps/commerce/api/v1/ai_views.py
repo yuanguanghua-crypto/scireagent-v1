@@ -24,8 +24,11 @@ from rest_framework.permissions import IsAdminUser
 from core.mixins import EnvelopeMixin
 from apps.commerce.models import Product
 from apps.commerce.services.validators.product_validator import ProductValidator
-from apps.knowledge.services.protocol_recommender import get_shared_recommender
 from apps.knowledge.services.literature_recommender import LiteratureRecommender
+from apps.bridges.services.auto_links import (
+    recommend_protocols_for_enrich,
+    recommend_methods_for_enrich,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -382,7 +385,13 @@ class ProductEnrichView(EnvelopeMixin, APIView):
             logger.warning(f"bioz pipeline failed: {e}")
             bioz = {"queried": False, "error": str(e)}
 
-        # ── 文献推荐 ──
+        # P3-1：回写已落库 Reference 的 ref_id（仅当传了 product_id）
+        try:
+            product_pk_int = int(product_pk) if product_pk else None
+        except (TypeError, ValueError):
+            product_pk_int = None
+
+        # ── 文献推荐（PubMed 关键词/引用，保留 references 等）──
         literature = {"applications": [], "methods": [], "references": [], "protocols": [],
                       "matched_apps": [], "matched_methods": [], "unmatched_app_keywords": [],
                       "unmatched_method_keywords": []}
@@ -394,43 +403,25 @@ class ProductEnrichView(EnvelopeMixin, APIView):
         except Exception as e:
             logger.warning(f"Literature recommender failed: {e}")
 
-        # ── 协议推荐（查询扩展：覆盖冷门精确名，如 SC8001）──
+        # R1：enrich 预览方法推荐改走 auto_links 真 relevance 图（取代关键词子串假阳性）
+        # 仅覆盖 matched_methods；PubMed references/关键词 其余部分保留。
+        try:
+            literature["matched_methods"] = recommend_methods_for_enrich(
+                product_name or identifier or "", product_pk=product_pk_int)
+        except Exception as e:
+            logger.warning(f"R1 method recommendation failed: {e}")
+
+        # ── 协议推荐（R1：auto_links 真 relevance 流水线，取代关键词 TF 假阳性）──
+        # 已有商品返回其落库真实 PP 行（带真实三轴分）；草稿以 product_name 作伪 usage 实时算 S_A/S_B。
         protocols = []
         try:
-            proto_recommender = get_shared_recommender()
             search_name = product_name or identifier or ""
             if search_name:
-                # expand：产品名碎片化 + jena 分类路径领域关键词 + 化学同义词
-                results = proto_recommender.recommend_expanded(
-                    search_name,
-                    category_path=(jena or {}).get("category_path"),
-                    synonyms=synonyms,
-                    top_k=5,
-                    include_content=True,
-                )
-                for r in results:
-                    protocols.append({
-                        "id": r["id"],
-                        "source": r["source"],
-                        "title": r["title"],
-                        "abstract": r.get("abstract", ""),
-                        "url": r.get("url", ""),
-                        "score": r["score"],
-                        "reagents": r.get("reagents", ""),
-                        "equipment": r.get("equipment", ""),
-                        "materials": r.get("materials", ""),
-                        "steps": r.get("steps", []),
-                        "method_hint": r.get("method_hint", ""),
-                        "matched_query": r.get("matched_query", ""),
-                    })
+                protocols = recommend_protocols_for_enrich(
+                    search_name, product_pk=product_pk_int, top_k=5)
         except Exception as e:
-            logger.warning(f"Protocol recommender failed: {e}")
+            logger.warning(f"R1 protocol recommendation failed: {e}")
 
-        # P3-1：回写已落库 Reference 的 ref_id（仅当传了 product_id）
-        try:
-            product_pk_int = int(product_pk) if product_pk else None
-        except (TypeError, ValueError):
-            product_pk_int = None
         self._attach_ref_ids(literature, bioz, product_pk_int)
 
         return self.success_response({
@@ -504,84 +495,54 @@ class ProductImportProtocolView(EnvelopeMixin, APIView):
         if not protocol_title:
             return self.error_response("protocol_title is required")
 
-        # 1. Find or create Method (fuzzy matching)
-        method = None
-        from django.db import models as db_models
+        # 1. Protocol 幂等（R0-b）—— 级联查重：name → slug，两者均**全局**匹配。
+        #    历史缺陷 D2：filter(slug=..., method=method) 双条件查重 —— BioProCorpus 原件的
+        #    method_id 全为 NULL，而下方 Method 解析逻辑对「协议标题式长句」必然新建 Method，
+        #    两者永不相等 → 查重恒失败 → 每次导入都重复新建 Protocol（脏实体自我放大）。
+        #    历史缺陷 D7：仅按 slug 查重仍然无效 —— 两端 slug 生成规则不一致：
+        #      · BioProCorpus 语料：slug = slugify(name)   例 'context-driven-salt-seeking-test-rats'
+        #      · 本导入端旧逻辑  ：slug = DOI 尾段          例 'BioProtoc.2456'
+        #    且语料原件 references 为空（全库 14065 条仅 44 条含 doi.org），DOI 无法作为对齐键。
+        #    实测：今日新建的 42 条协议 100% 是既有记录的同名重复，但 slug 无一相同。
+        #    故以 name 为主键（全库同名重复仅 5 例，近似唯一），slug 为兜底。
+        #    新建时统一采用 slugify(name)，与语料对齐，使后续 slug 查重也能生效；DOI 存 references。
+        protocol_slug = slugify(protocol_title)[:255] or (
+            protocol_url.split("/")[-1][:255] if protocol_url else 'protocol'
+        )
+        existing = Protocol.objects.filter(name__iexact=protocol_title).first()
+        if existing is None and protocol_url:
+            # 兼容早期以 DOI 尾段为 slug 写入的记录
+            existing = Protocol.objects.filter(slug=protocol_url.split("/")[-1]).first()
+        if existing is None:
+            existing = Protocol.objects.filter(slug=protocol_slug).first()
 
-        if method_name:
-            # Try exact match first
-            method = Method.objects.filter(name__iexact=method_name.strip()).first()
-        if not method:
-            # Fuzzy: match by title keywords against existing Methods
-            title_lower = (method_name or protocol_title).lower()
-            keywords = set(title_lower.split())
-            # Filter stop words
-            stop = {'of', 'in', 'for', 'and', 'the', 'a', 'an', 'with', 'using', 'by', 'to', 'via'}
-            keywords = {k for k in keywords if len(k) > 2 and k not in stop}
-
-            existing_methods = list(Method.objects.all().values('id', 'name', 'slug'))
-            best_match = None
-            best_count = 0
-            for m in existing_methods:
-                m_lower = m['name'].lower()
-                count = sum(1 for kw in keywords if kw in m_lower)
-                if count > best_count:
-                    best_count = count
-                    best_match = m
-
-            if best_match and best_count >= 2:
-                method = Method.objects.get(pk=best_match['id'])
-
-        if not method:
-            # Create a new Method — use method_name if provided, else first 50 chars of title
-            new_method_name = method_name or protocol_title[:50].strip()
-            # Ensure uniqueness
-            base_slug = slugify(new_method_name)
-            slug_orig = base_slug
-            counter = 1
-            while Method.objects.filter(slug=base_slug).exists():
-                base_slug = f"{slug_orig}-{counter}"
-                counter += 1
-            # Attach to first available Application
-            from apps.knowledge.models import Application, ResearchGoal
-            app = Application.objects.first()
-            if not app:
-                # Auto-create default ResearchGoal + Application
-                rg, _ = ResearchGoal.objects.get_or_create(
-                    name="Research Applications",
-                    defaults={"summary": "Auto-created for protocol import", "status": "active"}
-                )
-                app = Application.objects.create(
-                    name="Research Application",
-                    slug="research-application",
-                    summary="Auto-created for protocol import",
-                    status='active',
-                    research_goal=rg,
-                )
-            method = Method.objects.create(
-                name=new_method_name,
-                slug=base_slug,
-                application=app,
-                summary=objective[:500] if objective else protocol_title,
-                status='active',
+        # 2. Method 解析：命中既有协议时**直接复用其 method**，不再新建
+        method = existing.method if existing else None
+        if method is None:
+            method = self._resolve_or_create_method(
+                method_name, protocol_title, objective,
+                allow_create=bool(request.data.get("allow_create_method")),
             )
 
-        # 2. Create Protocol (idempotent by slug = DOI or title)
-        protocol_slug = protocol_url.split("/")[-1] if protocol_url else slugify(protocol_title)
-        # Reuse existing if same slug & method
-        existing = Protocol.objects.filter(slug=protocol_slug, method=method).first()
-        if existing:
+        # 3. 写入 Protocol —— R0-c：既有协议只补空字段，绝不覆盖既有语料
+        reused = existing is not None
+        if reused:
             protocol = existing
-            # update content
-            if objective:
-                protocol.objective = objective
-            if reagents:
-                protocol.reagents = reagents
-            if equipment:
-                protocol.equipment = equipment
-            if materials:
-                protocol.materials = materials
-            protocol.save()
+            update_fields = []
+            for field, value in (
+                ('objective', objective),
+                ('reagents', reagents),
+                ('equipment', equipment),
+                ('materials', materials),
+            ):
+                if value and not (getattr(protocol, field, '') or '').strip():
+                    setattr(protocol, field, value)
+                    update_fields.append(field)
+            if protocol.method_id is None and method is not None:
+                protocol.method = method
+                update_fields.append('method')
+            if update_fields:
+                protocol.save(update_fields=update_fields + ['updated_at'])
         else:
             protocol = Protocol.objects.create(
                 method=method,
@@ -595,9 +556,10 @@ class ProductImportProtocolView(EnvelopeMixin, APIView):
                 status='published',
             )
 
-        # 3. Create ProtocolStep (bulk, clear old steps first)
-        if steps:
-            ProtocolStep.objects.filter(protocol=protocol).delete()
+        # 4. ProtocolStep —— R0-c：严禁 delete 既有步骤。
+        #    仅在「本次新建的协议」或「既有协议一步都没有」时写入（补空不覆盖）。
+        step_count = 0
+        if steps and (not reused or not ProtocolStep.objects.filter(protocol=protocol).exists()):
             step_objs = []
             for i, s in enumerate(steps):
                 step_objs.append(ProtocolStep(
@@ -608,14 +570,16 @@ class ProductImportProtocolView(EnvelopeMixin, APIView):
                     required_materials=s.get("body", "")[:500],
                 ))
             ProtocolStep.objects.bulk_create(step_objs)
+            step_count = len(step_objs)
 
-        # 4. 建立 Method↔Protocol 桥（核心修复：此前缺失导致产品 protocol_ids 恒为空 → Protocols: None）
-        MethodProtocol.objects.get_or_create(method=method, protocol=protocol)
+        # 5. 建立 Method↔Protocol 桥（此前缺失导致产品 protocol_ids 恒为空 → Protocols: None）
+        if method is not None:
+            MethodProtocol.objects.get_or_create(method=method, protocol=protocol)
 
-        # 5. 将 Method 关联至产品（编辑页传 product_id；新建成品无 id 时由保存阶段按数组重建）
+        # 6. 将 Method 关联至产品（编辑页传 product_id；新建成品无 id 时由保存阶段按数组重建）
         product_ids = [product_id] if product_id else list(method_ids)
         for pid in product_ids:
-            if not pid:
+            if not pid or method is None:
                 continue
             try:
                 product = Product.objects.get(pk=pid)
@@ -627,12 +591,81 @@ class ProductImportProtocolView(EnvelopeMixin, APIView):
                 pass
 
         return self.success_response({
-            "method_id": method.id,
-            "method_name": method.name,
+            "method_id": method.id if method else None,
+            "method_name": method.name if method else "",
             "protocol_id": protocol.id,
             "protocol_slug": protocol.slug,
-            "step_count": len(steps),
+            "step_count": step_count,
+            "protocol_reused": reused,   # R0-b 幂等回执：True = 命中既有协议，未新建
         })
+
+    # ── Method 解析（R0-b）：精确 → slug → 关键词模糊；**默认绝不新建** ──────────
+    #
+    # 历史缺陷 D1：调用方传来的 method_name 实际是「协议标题式长句」（Bio-protocol 摘要句），
+    # Method 表里根本不存在同名短方法名 → 精确匹配必失败；关键词重合 >=2 的阈值对
+    # 长句 vs 短方法名同样几乎不可能达成 → 双双失败 → 必然走 Method.objects.create()。
+    # 今日 16 条垃圾 Method（#58–73）全部由此产生，名称就是整句协议标题，且会被下一个
+    # 产品的关键词检索重新捞回，形成自我放大的污染闭环。
+    #
+    # 新策略：BioProCorpus 语料原件的 method_id 全部为 NULL —— 「协议不挂方法」本就是
+    # 既有约定。因此解析不到既有 Method 时直接返回 None，而不是凭空造一个。
+    # 确需新建的调用方必须显式传 allow_create_method=true（人工兜底通道）。
+    @staticmethod
+    def _resolve_or_create_method(method_name, protocol_title, objective, allow_create=False):
+        from apps.knowledge.models import Application, Method, ResearchGoal
+        from django.utils.text import slugify
+
+        name = (method_name or "").strip()
+        if name:
+            method = Method.objects.filter(name__iexact=name).first()
+            if method:
+                return method
+            method = Method.objects.filter(slug=slugify(name)[:255]).first()
+            if method:
+                return method
+
+        # 关键词模糊匹配（阈值 >=2 个非停用词命中）
+        title_lower = (name or protocol_title).lower()
+        stop = {'of', 'in', 'for', 'and', 'the', 'a', 'an', 'with', 'using', 'by', 'to', 'via'}
+        keywords = {k for k in title_lower.split() if len(k) > 2 and k not in stop}
+        best_match, best_count = None, 0
+        for m in Method.objects.all().values('id', 'name'):
+            count = sum(1 for kw in keywords if kw in m['name'].lower())
+            if count > best_count:
+                best_count, best_match = count, m
+        if best_match and best_count >= 2:
+            return Method.objects.get(pk=best_match['id'])
+
+        if not allow_create:
+            # 止血：解析不到就不挂方法（与语料 method_id=NULL 的既有约定一致）
+            return None
+
+        new_method_name = name or protocol_title[:50].strip()
+        base_slug = slugify(new_method_name)[:255] or 'method'
+        existing_method = Method.objects.filter(slug=base_slug).first()
+        if existing_method:
+            return existing_method
+
+        app = Application.objects.first()
+        if not app:
+            rg, _ = ResearchGoal.objects.get_or_create(
+                name="Research Applications",
+                defaults={"summary": "Auto-created for protocol import", "status": "active"},
+            )
+            app = Application.objects.create(
+                name="Research Application",
+                slug="research-application",
+                summary="Auto-created for protocol import",
+                status='active',
+                research_goal=rg,
+            )
+        return Method.objects.create(
+            name=new_method_name,
+            slug=base_slug,
+            application=app,
+            summary=objective[:500] if objective else protocol_title,
+            status='active',
+        )
 
 
 # ── RDKit Structure Render ─────────────────────────────────────────────────

@@ -161,8 +161,9 @@ class ProductEnrichAPITest(TestCase):
     @patch("apps.commerce.services.validators.product_validator.ProductValidator.validate")
     @patch("apps.commerce.services.validators.pubchem_enhancer.PubChemEnhancer.resolve_to_properties")
     @patch("apps.knowledge.services.literature_recommender.LiteratureRecommender.recommend")
-    @patch("apps.knowledge.services.protocol_recommender.ProtocolRecommender.recommend_expanded")
-    def test_enrich_returns_all_sections(self, mock_proto, mock_lit, mock_chem, mock_validate):
+    @patch("apps.commerce.api.v1.ai_views.recommend_methods_for_enrich", return_value=[])
+    @patch("apps.commerce.api.v1.ai_views.recommend_protocols_for_enrich")
+    def test_enrich_returns_all_sections(self, mock_proto, mock_methods, mock_lit, mock_chem, mock_validate):
         """一站式 enrich 返回 chemical + literature + protocols + jena + bioz，且 chemical 含合并的校验字段"""
         mock_validate.return_value = _fake_validation_report()
         mock_chem.return_value = {
@@ -216,8 +217,9 @@ class ProductEnrichAPITest(TestCase):
     @patch("apps.commerce.services.validators.product_validator.ProductValidator.validate")
     @patch("apps.commerce.services.validators.pubchem_enhancer.PubChemEnhancer.resolve_to_properties")
     @patch("apps.knowledge.services.literature_recommender.LiteratureRecommender.recommend")
-    @patch("apps.knowledge.services.protocol_recommender.ProtocolRecommender.recommend_expanded")
-    def test_enrich_returns_validation_fields(self, mock_proto, mock_lit, mock_chem, mock_validate):
+    @patch("apps.commerce.api.v1.ai_views.recommend_methods_for_enrich", return_value=[])
+    @patch("apps.commerce.api.v1.ai_views.recommend_protocols_for_enrich")
+    def test_enrich_returns_validation_fields(self, mock_proto, mock_methods, mock_lit, mock_chem, mock_validate):
         """合并后：chemical 段返回真实的 mismatches 与 similar_compounds（原 AI Tools Validate 独有）"""
         mock_chem.return_value = {
             "source": "pubchem", "found": True, "cid": 2244,
@@ -250,9 +252,10 @@ class ProductEnrichAPITest(TestCase):
     @patch("apps.commerce.services.validators.product_validator.ProductValidator.validate")
     @patch("apps.commerce.services.validators.pubchem_enhancer.PubChemEnhancer.resolve_to_properties")
     @patch("apps.knowledge.services.literature_recommender.LiteratureRecommender.recommend")
-    @patch("apps.knowledge.services.protocol_recommender.ProtocolRecommender.recommend_expanded")
+    @patch("apps.commerce.api.v1.ai_views.recommend_methods_for_enrich", return_value=[])
+    @patch("apps.commerce.api.v1.ai_views.recommend_protocols_for_enrich")
     def test_enrich_jena_matches_by_name_not_hijacked_by_cas_resolved(
-        self, mock_proto, mock_lit, mock_chem, mock_validate
+        self, mock_proto, mock_methods, mock_lit, mock_chem, mock_validate
     ):
         """回归：仅填 name（无用户 CAS）时，jena 必须按名字匹配，绝不能用
         PubChem 误解析的 cas_resolved 当主键。
@@ -319,8 +322,9 @@ class ProductEnrichAPITest(TestCase):
     @patch("apps.commerce.services.validators.product_validator.ProductValidator.validate")
     @patch("apps.commerce.services.validators.pubchem_enhancer.PubChemEnhancer.resolve_to_properties")
     @patch("apps.knowledge.services.literature_recommender.LiteratureRecommender.recommend")
-    @patch("apps.knowledge.services.protocol_recommender.ProtocolRecommender.recommend_expanded")
-    def test_enrich_bioz_section_when_jena_hits(self, mock_proto, mock_lit, mock_chem, mock_validate, mock_bioz):
+    @patch("apps.commerce.api.v1.ai_views.recommend_methods_for_enrich", return_value=[])
+    @patch("apps.commerce.api.v1.ai_views.recommend_protocols_for_enrich")
+    def test_enrich_bioz_section_when_jena_hits(self, mock_proto, mock_methods, mock_lit, mock_chem, mock_validate, mock_bioz):
         mock_validate.return_value = _fake_validation_report()
         mock_chem.return_value = {
             "source": "pubchem", "found": True, "cid": 2244,
@@ -358,8 +362,9 @@ class ProductEnrichAPITest(TestCase):
     @patch("apps.commerce.services.validators.product_validator.ProductValidator.validate")
     @patch("apps.commerce.services.validators.pubchem_enhancer.PubChemEnhancer.resolve_to_properties")
     @patch("apps.knowledge.services.literature_recommender.LiteratureRecommender.recommend")
-    @patch("apps.knowledge.services.protocol_recommender.ProtocolRecommender.recommend_expanded")
-    def test_enrich_bioz_failure_does_not_block(self, mock_proto, mock_lit, mock_chem, mock_validate, mock_bioz):
+    @patch("apps.commerce.api.v1.ai_views.recommend_methods_for_enrich", return_value=[])
+    @patch("apps.commerce.api.v1.ai_views.recommend_protocols_for_enrich")
+    def test_enrich_bioz_failure_does_not_block(self, mock_proto, mock_methods, mock_lit, mock_chem, mock_validate, mock_bioz):
         mock_validate.return_value = _fake_validation_report()
         mock_chem.return_value = {
             "source": "pubchem", "found": True, "cid": 2244,
@@ -393,8 +398,9 @@ class ProductEnrichAPITest(TestCase):
     @patch("apps.commerce.services.validators.product_validator.ProductValidator.validate")
     @patch("apps.commerce.services.validators.pubchem_enhancer.PubChemEnhancer.resolve_to_properties")
     @patch("apps.knowledge.services.literature_recommender.LiteratureRecommender.recommend")
-    @patch("apps.knowledge.services.protocol_recommender.ProtocolRecommender.recommend_expanded")
-    def test_enrich_cas_searching(self, mock_proto, mock_lit, mock_chem, mock_validate):
+    @patch("apps.commerce.api.v1.ai_views.recommend_methods_for_enrich", return_value=[])
+    @patch("apps.commerce.api.v1.ai_views.recommend_protocols_for_enrich")
+    def test_enrich_cas_searching(self, mock_proto, mock_methods, mock_lit, mock_chem, mock_validate):
         mock_validate.return_value = _fake_validation_report()
         mock_chem.return_value = {
             "source": "pubchem", "found": True, "cid": 2244,
@@ -429,7 +435,10 @@ class ProductImportProtocolAPITest(TestCase):
         self.client.force_authenticate(user=self.admin)
 
     def test_import_protocol_creates_method_and_protocol(self):
+        # allow_create_method：2026-08-10 起 Method 不再隐式自动新建（协议标题式长句曾被
+        # 造成 16 条垃圾方法 #58–73）。此处是「有意新建一个真实方法」的显式通道。
         payload = {
+            "allow_create_method": True,
             "method_name": "CuAAC Click Chemistry",
             "protocol_title": "CuAAC RNA Fluorescent Labeling Protocol",
             "protocol_url": "https://doi.org/10.21769/BioProtoc.9999",
@@ -474,6 +483,7 @@ class ProductImportProtocolAPITest(TestCase):
         from apps.knowledge.models import Method, Protocol
 
         payload = {
+            "allow_create_method": True,
             "method_name": "CuAAC Click Chemistry",
             "protocol_title": "CuAAC Bridge Test Protocol",
             "protocol_url": "https://doi.org/10.21769/BridgeTest.5555",
@@ -495,6 +505,7 @@ class ProductImportProtocolAPITest(TestCase):
 
         product = ProductFactory()
         payload = {
+            "allow_create_method": True,
             "method_name": "RNA Labeling",
             "protocol_title": "RNA Labeling Protocol Link",
             "protocol_url": "https://doi.org/10.21769/LinkTest.8888",
@@ -543,3 +554,104 @@ class ProductImportProtocolAPITest(TestCase):
         self.assertEqual(
             MethodProtocol.objects.filter(method=method, protocol=protocol).count(), 1
         )
+
+
+class R1AutoLinksRecommendTest(TestCase):
+    """R1 回归：enrich 预览协议/方法推荐走 auto_links 真 relevance，取代关键词 TF 假阳性。
+
+    覆盖：① 已有商品返回其落库真实 PP 行（带真实三轴分）；② 草稿经 domain 真匹配；
+    ③ 方法经 MethodProtocol 图派生（非关键词巧合）；④ 草稿 S_C 恒为 0（不加载 embedding）。
+    """
+
+    def _reset_proto_cache(self):
+        # 草稿路径用进程级协议领域词缓存；测试间 DB 隔离但缓存跨测试，需手动重置。
+        from apps.bridges.services import auto_links
+        auto_links._PROTO_Q_CACHE = None
+
+    def test_existing_product_returns_real_pp_rows(self):
+        """已有商品：返回落库真实 PP 行，带真实三轴分，零新计算。"""
+        from apps.bridges.models import ProductProtocol, ProductMethod, MethodProtocol
+        from apps.knowledge.models import Method, Protocol
+        from apps.bridges.services.auto_links import recommend_protocols_for_enrich
+
+        product = ProductFactory()
+        method = Method.objects.create(name="R1 Method", slug="r1-method", status="active")
+        protocol = Protocol.objects.create(
+            method=method, name="R1 Protocol", slug="r1-protocol", status="published",
+            objective="PCR amplification using primers",
+        )
+        ProductMethod.objects.create(product=product, method=method)
+        MethodProtocol.objects.create(method=method, protocol=protocol)
+        ProductProtocol.objects.create(
+            product=product, protocol=protocol,
+            link_source=ProductProtocol.LinkSource.AUTO,
+            relevance_score=0.83, score_a=0.9, score_b=0.0, score_c=0.5,
+            tier=ProductProtocol.Tier.DOCUMENT, relevance_basis="vendor_only",
+            literature_count=0,
+        )
+
+        rows = recommend_protocols_for_enrich("anything", product_pk=product.pk)
+        self.assertEqual(len(rows), 1)
+        r = rows[0]
+        self.assertEqual(r["id"], protocol.id)
+        self.assertEqual(r["source"], "auto_links")
+        self.assertEqual(r["relevance_score"], 0.83)
+        self.assertEqual(r["score_a"], 0.9)
+        self.assertEqual(r["score_c"], 0.5)
+        self.assertEqual(r["tier"], "document")
+        self.assertEqual(r["link_source"], "auto")
+
+    def test_existing_product_methods_via_real_graph(self):
+        """已有商品：方法取真实 ProductMethod 链，带可归因 id/name。"""
+        from apps.bridges.models import ProductMethod
+        from apps.knowledge.models import Method, Protocol
+        from apps.bridges.services.auto_links import recommend_methods_for_enrich
+
+        product = ProductFactory()
+        method = Method.objects.create(name="R1 Method 2", slug="r1-method-2", status="active")
+        Protocol.objects.create(method=method, name="R1 Protocol 2", slug="r1-protocol-2", status="published")
+        ProductMethod.objects.create(product=product, method=method)
+
+        rows = recommend_methods_for_enrich("anything", product_pk=product.pk)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["keyword"], "auto_links")
+        matches = rows[0]["matches"]
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]["id"], method.id)
+        self.assertEqual(matches[0]["name"], "R1 Method 2")
+
+    def test_draft_protocol_via_domain_match(self):
+        """草稿：以 product_name 为伪 usage，经 domain F-score 真匹配返回协议。"""
+        from apps.bridges.models import MethodProtocol
+        from apps.knowledge.models import Method, Protocol
+        from apps.bridges.services.auto_links import recommend_protocols_for_enrich
+
+        protocol = Protocol.objects.create(
+            method=Method.objects.create(name="R1 M3", slug="r1-m3", status="active"),
+            name="PCR amplification protocol using primers", slug="r1-p3", status="published",
+        )
+        self._reset_proto_cache()
+        rows = recommend_protocols_for_enrich("pcr primer")
+        self.assertEqual(len(rows), 1, "草稿应经 domain 真匹配返回该协议")
+        self.assertEqual(rows[0]["id"], protocol.id)
+        self.assertEqual(rows[0]["tier"], "document")
+        self.assertEqual(rows[0]["score_c"], 0.0, "草稿无 embedding 上下文，S_C 必须为 0")
+
+    def test_draft_methods_derived_via_graph(self):
+        """草稿：方法从 Top-K 协议经 MethodProtocol 桥派生（真实图，非关键词巧合）。"""
+        from apps.bridges.models import MethodProtocol
+        from apps.knowledge.models import Method, Protocol
+        from apps.bridges.services.auto_links import recommend_methods_for_enrich
+
+        method = Method.objects.create(name="R1 M4", slug="r1-m4", status="active")
+        protocol = Protocol.objects.create(
+            method=method, name="PCR amplification protocol using primers",
+            slug="r1-p4", status="published",
+        )
+        MethodProtocol.objects.create(method=method, protocol=protocol)
+        self._reset_proto_cache()
+        rows = recommend_methods_for_enrich("pcr primer")
+        self.assertEqual(len(rows), 1)
+        matches = rows[0]["matches"]
+        self.assertEqual(len(matches), 1)
+        self.assertEqual(matches[0]["id"], method.id)

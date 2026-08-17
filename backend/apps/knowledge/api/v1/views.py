@@ -13,6 +13,7 @@ from apps.knowledge.api.v1.serializers import (
     ReferenceSerializer, CompatibilitySerializer,
 )
 from apps.knowledge import selectors
+from apps.knowledge.api.v1.fixture_visibility import apply_fixture_filter
 
 
 class ResearchGoalViewSet(EnvelopeMixin, viewsets.ModelViewSet):
@@ -24,8 +25,13 @@ class ResearchGoalViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         """公开端点（匿名/普通用户）仅返回已发布(ACTIVE)记录，规避草稿/测试数据外泄；
-        staff 可访问全量（含草稿/归档），便于后台管理。"""
-        qs = selectors.get_research_goals_with_applications()
+        staff 可访问全量（含草稿/归档），便于后台管理。
+
+        S1：测试夹具行（is_test_fixture=True）对所有身份默认不可见——不依赖
+        status 侥幸；staff 可用 ?include_test_fixtures=1 显式查看以便清理。"""
+        qs = apply_fixture_filter(
+            selectors.get_research_goals_with_applications(), self.request
+        )
         if self.request.user.is_authenticated and self.request.user.is_staff:
             return qs
         return qs.filter(status=ResearchGoal.Status.ACTIVE)
@@ -40,8 +46,11 @@ class ApplicationViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     filterset_fields = ['research_goal_id', 'status']
 
     def get_queryset(self):
-        """公开端点仅返回已发布(ACTIVE)记录；staff 可访问全量。"""
-        qs = Application.objects.select_related('research_goal').all()
+        """公开端点仅返回已发布(ACTIVE)记录；staff 可访问全量。
+        S1：测试夹具行默认对所有身份不可见。"""
+        qs = apply_fixture_filter(
+            Application.objects.select_related('research_goal').all(), self.request
+        )
         if self.request.user.is_authenticated and self.request.user.is_staff:
             return qs
         return qs.filter(status=Application.Status.ACTIVE)
@@ -61,8 +70,11 @@ class MethodViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     filterset_fields = ['application_id', 'status']
 
     def get_queryset(self):
-        """公开端点仅返回已发布(ACTIVE)记录；staff 可访问全量。"""
-        qs = Method.objects.select_related('application').all()
+        """公开端点仅返回已发布(ACTIVE)记录；staff 可访问全量。
+        S1：测试夹具行默认对所有身份不可见。"""
+        qs = apply_fixture_filter(
+            Method.objects.select_related('application').all(), self.request
+        )
         if self.request.user.is_authenticated and self.request.user.is_staff:
             return qs
         return qs.filter(status=Method.Status.ACTIVE)

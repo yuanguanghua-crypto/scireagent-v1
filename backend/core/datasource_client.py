@@ -32,12 +32,15 @@ _sleep = time.sleep
 # (capacity, refill_rate_per_sec)。capacity 允许短时突发，refill_rate 是持续 QPS 上限。
 # PubChem 官方限 5 req/s；PubMed 无 key 3 req/s；ChEMBL 响应慢保守 1 req/s；
 # Bioz widget 无公开限速文档，保守 2 req/s。
+# Europe PMC（EBI）未公布硬性 QPS 上限，官方只要求「合理使用」；实测单请求
+# 约 1.9s，天然远低于限速，故保守配 2 req/s（显式声明，避免落 _DEFAULT_RATE）。
 # 详见 docs/DATASOURCE_RELIABILITY.md §4.3
 SOURCE_RATES = {
     "pubchem": (5, 5),
     "pubmed": (3, 3),
     "chembl": (1, 1),
     "bioz": (2, 2),
+    "europepmc": (2, 2),
 }
 _DEFAULT_RATE = (1, 1)
 

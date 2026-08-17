@@ -10,6 +10,9 @@ if os.getenv('DB_ENGINE', 'postgres') == 'sqlite':
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
+            'TEST': {
+                'NAME': str(BASE_DIR / 'test_db.sqlite3'),
+            },
         }
     }
     # Remove postgres-specific apps that require psycopg2

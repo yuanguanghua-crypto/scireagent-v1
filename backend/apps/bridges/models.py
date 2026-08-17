@@ -62,6 +62,10 @@ class MethodProtocol(TimeStampedModel):
     )
     display_order = models.IntegerField(default=0, verbose_name='排序')
     featured = models.BooleanField(default=False, verbose_name='是否推荐')
+    explicit = models.BooleanField(
+        default=False, verbose_name='显式关联',
+        help_text='研究者显式建立的跨方法合法关联；清理命令不删除 explicit=True 的残留'
+    )
     status = models.CharField(max_length=20, default='active', verbose_name='状态')
 
     class Meta:
@@ -184,3 +188,72 @@ class ProductProduct(TimeStampedModel):
 
     def __str__(self):
         return f'{self.source_product} -> {self.target_product} ({self.relation_type})'
+
+
+class ProductProtocol(TimeStampedModel):
+    """产品↔协议直接相关性（三轴融合，§14.3）。
+
+    保持 MethodProtocol 桥不变（铁律①全量保留派生链路）；本表为产品↔协议的
+    直接相关性收口，承载三轴融合总分与分量，驱动编辑页/详情页的排序、折叠与
+    透明徽标。数据全量保留（折叠≠删除）。
+    """
+
+    class LinkSource(models.TextChoices):
+        EXPLICIT = 'explicit', '显式关联'
+        INHERITED = 'inherited', '派生关联'
+        AUTO = 'auto', '自动匹配'
+
+    class Basis(models.TextChoices):
+        VENDOR_ONLY = 'vendor_only', '厂商声称'
+        BIOZ_ALIGNED = 'bioz_aligned', '文献对齐'
+        EMBEDDING_BREAK = 'embedding_break', '语义打散'
+        COMBINED = 'combined', '综合'
+
+    class Tier(models.TextChoices):
+        DOCUMENT = 'document', '文档相关'
+        LITERATURE = 'literature', '文献支持'
+        FEATURED = 'featured', '编辑精选'  # 历史值：S4 起不再自动派生/默认；仅存量回退兼容
+        WEAK = 'weak', '弱相关'  # S4 新增：广播/仅语义相似桶（S_A=0 且 S_B=0），恒沉底
+
+    product = models.ForeignKey(
+        'commerce.Product', on_delete=models.CASCADE,
+        related_name='protocol_links', verbose_name='产品'
+    )
+    protocol = models.ForeignKey(
+        'knowledge.Protocol', on_delete=models.CASCADE,
+        related_name='product_protocols', verbose_name='协议'
+    )
+    relevance_score = models.FloatField(
+        db_index=True, default=0.0, verbose_name='相关性总分'
+    )
+    score_a = models.FloatField(null=True, blank=True, verbose_name='轴A 厂商声称')
+    score_b = models.FloatField(null=True, blank=True, verbose_name='轴B 文献实证')
+    score_c = models.FloatField(null=True, blank=True, verbose_name='轴C 语义')
+    literature_count = models.IntegerField(default=0, verbose_name='对齐文献数')
+    relevance_basis = models.CharField(
+        max_length=32, default='', blank=True, verbose_name='相关性依据'
+    )
+    link_source = models.CharField(
+        max_length=16, choices=LinkSource.choices,
+        default=LinkSource.INHERITED, verbose_name='来源'
+    )
+    tier = models.CharField(
+        max_length=16, choices=Tier.choices,
+        default=Tier.WEAK, verbose_name='档位'
+    )
+    computed_at = models.DateTimeField(auto_now=True, verbose_name='计算时间')
+
+    class Meta:
+        db_table = 'product_protocol'
+        verbose_name = '产品-协议相关性'
+        verbose_name_plural = verbose_name
+        unique_together = [('product', 'protocol')]
+        indexes = [
+            models.Index(fields=['product', 'relevance_score'],
+                         name='product_proto_score_idx'),
+            models.Index(fields=['product', 'tier'],
+                         name='product_proto_tier_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.product} ~ {self.protocol} (score={self.relevance_score})'

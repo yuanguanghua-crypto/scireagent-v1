@@ -12,6 +12,16 @@ const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = 20
 
+// ── S5 前端接入：知识关联强度排序 ──────────────
+// value 直接对应后端 ordering 参数；'default' 不传 ordering（走后端默认序）
+const sortOption = ref('default')
+const sortOptions = [
+  { value: 'default', label: '默认' },
+  { value: 'name', label: '名称 A→Z' },
+  { value: '-created_at', label: '最新上架' },
+  { value: '-aggregate_relevance_score', label: '知识关联最强' },
+]
+
 const productLayoutRef = ref(null)
 
 /* Current filter state from ProductLayout */
@@ -35,7 +45,15 @@ function fetchProducts() {
   } else if (currentFilter.value.l1) {
     params.category_l1 = currentFilter.value.l1
   }
+  if (sortOption.value && sortOption.value !== 'default') {
+    params.ordering = sortOption.value
+  }
   store.fetchProducts(params)
+}
+
+function onSortChange() {
+  currentPage.value = 1
+  fetchProducts()
 }
 
 function handleSearch() {
@@ -85,9 +103,15 @@ const visiblePages = computed(() => {
       @filter="onFilterChange"
       @search="onSearch"
     >
-      <!-- Result count -->
+      <!-- Result count + sort -->
       <div class="result-info">
         <span class="result-count">{{ resultCount }} results</span>
+        <label class="sort-control">
+          <span class="sort-label">排序</span>
+          <select v-model="sortOption" class="sort-select" @change="onSortChange">
+            <option v-for="o in sortOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+          </select>
+        </label>
       </div>
 
       <!-- Loading -->
@@ -146,8 +170,17 @@ const visiblePages = computed(() => {
 /* Search bar - now in ProductLayout */
 
 /* Results */
-.result-info { margin-bottom: 10px; }
+.result-info { margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .result-count { font-size: 13px; color: var(--color-text-secondary); }
+.sort-control { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-text-secondary); }
+.sort-label { white-space: nowrap; }
+.sort-select {
+  padding: 5px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md);
+  font-size: 13px; background: var(--color-surface); color: var(--color-text);
+  cursor: pointer; font-family: var(--font-sans);
+}
+.sort-select:hover { border-color: var(--color-primary); }
+.sort-select:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
 .product-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 .pagination { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 24px 0; }
 .page-btn {

@@ -80,6 +80,58 @@ class ProductDestroyTest(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_403_FORBIDDEN)
 
 
+class ProductRestoreOnCreateTest(TestCase):
+    """软删除（archived=True）商品仍占 catalog_no；重新创建同名目录号应恢复而非冲突。
+
+    删除审计铁律下 DELETE 仅置 archived=True，行仍在库、catalog_no 仍受唯一约束占用。
+    修复：POST 创建时若 catalog_no 仅命中 archived 行，则 un-archive 并用新数据更新该商品。
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.staff = UserFactory(is_staff=True)
+
+    def _post_create(self, payload):
+        self.client.force_authenticate(user=self.staff)
+        return self.client.post('/api/v1/products/', payload, format='json')
+
+    def test_create_with_archived_catalog_no_restores(self):
+        """POST 同名 catalog_no（仅 archived 命中）→ 201，恢复同 id、archived=False、字段更新。"""
+        p = ProductFactory(catalog_no='SC-RESTORE-1', name='Old Name', status='active')
+        p.archived = True
+        p.save()
+        resp = self._post_create({
+            'name': 'New Restored', 'catalog_no': 'SC-RESTORE-1', 'slug': 'new-sc-restore-1', 'status': 'draft',
+        })
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(resp.json()['data']['id'], p.id)
+        p.refresh_from_db()
+        self.assertFalse(p.archived)
+        self.assertEqual(p.name, 'New Restored')
+
+    def test_create_with_archived_catalog_no_preserves_skus_when_none_sent(self):
+        """恢复时若未带 skus，归档商品原有 SKU 不应被误删。"""
+        p = ProductFactory(catalog_no='SC-RESTORE-2', name='Has Sku', status='active')
+        sku = SKUFactory(product=p, sku_code='KEEP-ME')
+        p.archived = True
+        p.save()
+        resp = self._post_create({
+            'name': 'Restored', 'catalog_no': 'SC-RESTORE-2', 'slug': 'new-sc-restore-2', 'status': 'draft',
+        })
+        self.assertEqual(resp.status_code, status.HTTP_201_CREATED)
+        p.refresh_from_db()
+        self.assertFalse(p.archived)
+        self.assertTrue(SKU.objects.filter(pk=sku.pk).exists())
+
+    def test_create_with_active_duplicate_still_conflicts(self):
+        """若 catalog_no 命中未归档（active）行，仍走唯一约束正常报 400（真重复）。"""
+        ProductFactory(catalog_no='SC-DUP-1', name='Existing', status='active')
+        resp = self._post_create({
+            'name': 'Clash', 'catalog_no': 'SC-DUP-1', 'slug': 'new-sc-dup-1', 'status': 'draft',
+        })
+        self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
+
+
 class ProductPublicStatusFilterTest(TestCase):
     """前台列表状态过滤隐患修复"""
 

@@ -78,14 +78,35 @@ class ProtocolDetailSerializer(BaseModelSerializer):
     steps = ProtocolStepSerializer(many=True, read_only=True)
     references = serializers.SerializerMethodField()
     products = serializers.SerializerMethodField()
+    facets = serializers.SerializerMethodField()
 
     class Meta:
         model = Protocol
         fields = [
             'id', 'name', 'slug', 'version', 'method_id', 'objective', 'principle',
             'materials', 'reagents', 'equipment', 'troubleshooting', 'expected_results',
-            'status', 'steps', 'references', 'products', 'created_at', 'updated_at',
+            'status', 'steps', 'references', 'products', 'facets', 'created_at', 'updated_at',
         ]
+
+    def get_facets(self, obj):
+        """route B 加法（范围 A）：按 facet_type 分组返回该协议的受控词表标签。
+
+        仅返回非空组；每条含 id/facet_type/kind/value（按用户决策不暴露 source）。
+        一次查询经 protocol_facets.select_related('facet')，无 N+1。
+        """
+        grouped = {}
+        pf_qs = obj.protocol_facets.select_related('facet').order_by(
+            'facet__facet_type', 'facet__kind', 'facet__value'
+        )
+        for pf in pf_qs:
+            fv = pf.facet
+            grouped.setdefault(fv.facet_type, []).append({
+                'id': fv.id,
+                'facet_type': fv.facet_type,
+                'kind': fv.kind,
+                'value': fv.value,
+            })
+        return grouped
 
     def get_references(self, obj):
         """从 Protocol.references 文本字段派生 references"""

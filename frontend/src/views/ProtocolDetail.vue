@@ -20,6 +20,44 @@ const activeTab = ref('steps')
 
 const protocol = computed(() => store.currentProtocol)
 
+/* ── Facet 分类（route B 加法，范围 A）──
+ * 后端 ProtocolDetailSerializer 返回 facets：{ facet_type: [{id, facet_type, kind, value}] }
+ * 仅含非空组。value 全英文（用户决策）；组标签用中文。
+ */
+const FACET_TYPE_ORDER = ['application', 'method', 'biological_context', 'study_type']
+const FACET_TYPE_LABELS = {
+  application: '研究域',
+  method: '方法',
+  biological_context: '物种·细胞·疾病',
+  study_type: '研究类型',
+}
+const KIND_ORDER = ['species', 'cell', 'disease']
+const KIND_LABELS = { species: '物种', cell: '细胞', disease: '疾病' }
+
+const facetGroups = computed(() => {
+  const facets = protocol.value?.facets || {}
+  const groups = []
+  for (const ft of FACET_TYPE_ORDER) {
+    const items = facets[ft]
+    if (!items || !items.length) continue
+    if (ft === 'biological_context') {
+      const byKind = {}
+      for (const it of items) {
+        ;(byKind[it.kind] = byKind[it.kind] || []).push(it)
+      }
+      const sub = KIND_ORDER.filter((k) => byKind[k]).map((k) => ({
+        kind: k,
+        kindLabel: KIND_LABELS[k],
+        items: byKind[k],
+      }))
+      groups.push({ type: ft, label: FACET_TYPE_LABELS[ft], sub })
+    } else {
+      groups.push({ type: ft, label: FACET_TYPE_LABELS[ft], items })
+    }
+  }
+  return groups
+})
+
 /* ── Navigation data ── */
 const upstreamEntities = computed(() => {
   const items = []
@@ -99,6 +137,39 @@ function formatDuration(seconds) {
         </div>
         <span class="detail-meta">Method ID: {{ store.currentProtocol.method_id }}</span>
       </div>
+
+      <!-- 研究分类（route B 加法，范围 A） -->
+      <section v-if="facetGroups.length" class="detail-section classification">
+        <h2 class="section-title">研究分类</h2>
+        <div class="facet-groups">
+          <div v-for="g in facetGroups" :key="g.type" class="facet-group">
+            <span class="facet-group-label">{{ g.label }}</span>
+            <template v-if="g.sub">
+              <span v-for="s in g.sub" :key="s.kind" class="facet-subgroup">
+                <span class="facet-kind-label">{{ s.kindLabel }}</span>
+                <el-tag
+                  v-for="it in s.items"
+                  :key="it.id"
+                  size="small"
+                  type="info"
+                  effect="plain"
+                  class="facet-tag"
+                >{{ it.value }}</el-tag>
+              </span>
+            </template>
+            <template v-else>
+              <el-tag
+                v-for="it in g.items"
+                :key="it.id"
+                size="small"
+                type="info"
+                effect="plain"
+                class="facet-tag"
+              >{{ it.value }}</el-tag>
+            </template>
+          </div>
+        </div>
+      </section>
 
       <!-- Objective & Principle -->
       <section class="detail-section">
@@ -259,6 +330,14 @@ function formatDuration(seconds) {
 .detail-title { font-size: 28px; font-weight: 700; color: var(--color-text); margin: 0; }
 .version-tag { font-family: var(--font-mono); }
 .detail-meta { font-size: 13px; color: var(--color-text-secondary); }
+
+/* 研究分类（route B 加法） */
+.facet-groups { display: flex; flex-direction: column; gap: 10px; }
+.facet-group { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.facet-group-label { flex-shrink: 0; width: 96px; font-size: 13px; font-weight: 600; color: var(--color-text-secondary); padding-top: 2px; }
+.facet-subgroup { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.facet-kind-label { font-size: 12px; color: var(--color-text-tertiary); padding: 1px 6px; border: 1px dashed var(--color-border); border-radius: 4px; }
+.facet-tag { font-family: var(--font-mono); }
 .detail-tabs { margin-top: 8px; }
 .detail-section { margin-bottom: 24px; }
 .section-title { font-size: 18px; font-weight: 600; color: var(--color-text); margin: 0 0 8px 0; border-bottom: 1px solid var(--color-border); padding-bottom: 6px; }

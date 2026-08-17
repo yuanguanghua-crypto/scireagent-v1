@@ -56,7 +56,7 @@ export function enrichProduct({ name, cas, smiles, inchi, formula, molecular_wei
     formula: formula || '',
     molecular_weight: molecular_weight ?? null,
     product_id: productId || null,
-  }, { timeout: 90000 })
+  }, { timeout: 120000 })
 }
 
 /** Import a BioProCorpus protocol into knowledge base.

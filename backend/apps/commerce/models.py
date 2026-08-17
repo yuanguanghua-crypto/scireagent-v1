@@ -158,6 +158,16 @@ class Product(StatusMixin, TimeStampedModel):
         help_text='勾选表示此产品仅用于科学研究')
     overview = models.TextField(blank=True, default='', verbose_name='产品概述',
         help_text='产品详细介绍，支持 Markdown')
+    usage = models.TextField(blank=True, default='', verbose_name='厂商声称用途',
+        help_text='从导入的 Word 文档中提取的厂商声称用途，作为轴A 相关性的地基（docx usage × 协议领域词 F-score）')
+    aggregate_relevance_score = models.FloatField(
+        null=True, blank=True, db_index=True, verbose_name='商品级相关性聚合分',
+        help_text='S5：聚合本商品所有非 weak(广播) 协议链接的三轴融合分（默认 mean）。'
+                  '无 evidenced 链接则为 NULL（诚实不冒充 0，排序沉底）')
+    substructure_tags = models.JSONField(
+        null=True, blank=True, verbose_name='四轴子结构标签',
+        help_text='S6：由 detect_substructures --write 离线填充，展示用四轴修饰标签'
+                  '（base / sugar_sub / sugar_type / label）。不进用户写入路径。')
     structure_svg = models.TextField(blank=True, default='', verbose_name='结构式SVG',
         help_text='分子结构 SVG 代码（由 SMILES 渲染，或回退自文档结构图）')
     structure_image = models.TextField(blank=True, default='', verbose_name='文档结构图',

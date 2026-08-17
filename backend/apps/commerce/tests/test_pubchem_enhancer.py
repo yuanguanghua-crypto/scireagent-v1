@@ -504,7 +504,7 @@ class L1DataSourceCacheIntegrationTest(TestCase):
         cached = {"source": "pubchem", "found": True, "namespace": "name",
                   "cid": 2244, "identity_verified": True,
                   "properties": {"molecular_weight": 180.16}}
-        set_cache("pubchem", "Aspirin", "name", cached)
+        set_cache("pubchem", "Aspirin|", "name", cached)
 
         result = self.enhancer.resolve_to_properties("Aspirin")
 
@@ -527,7 +527,7 @@ class L1DataSourceCacheIntegrationTest(TestCase):
         self.assertTrue(result["identity_verified"])
         from apps.documents.models import DataSourceCache
         entry = DataSourceCache.objects.get(
-            source="pubchem", query_key="Aspirin", query_namespace="name")
+            source="pubchem", query_key="Aspirin|", query_namespace="name")
         self.assertEqual(entry.get_data()["cid"], 2244)
         self.assertFalse(entry.is_stale)
 

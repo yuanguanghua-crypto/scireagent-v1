@@ -377,7 +377,11 @@ class PubChemEnhancer:
         if not self.available or not identifier:
             return {'error': 'pubchempy not available or empty identifier'}
 
-        cache_key = f'pubchem:resolve:{namespace}:{identifier}:{expected_cas or ""}'
+        # #473-A1 / #475：缓存键纳入文档 formula/MW（ctx），避免同名但文档公式/MW 不同的
+        # 两个产品复用同一缓存槽、错配 formula_mismatch/mw_mismatch 状态（跨文档污染，
+        # 违反铁律①：文档值不符绝不自动套用）。L1 同键改造见下方 get/set_cache。
+        ctx = f"{expected_formula or ''}|{expected_mw or ''}"
+        cache_key = f'pubchem:resolve:{namespace}:{identifier}:{expected_cas or ""}:{ctx}'
         try:
             cached = cache.get(cache_key)
         except Exception:
@@ -386,7 +390,7 @@ class PubChemEnhancer:
         if cached is not None and cached.get('identity_verified') is not None:
             return cached
 
-        l1_entry = get_cache("pubchem", identifier, namespace)
+        l1_entry = get_cache("pubchem", f"{identifier}{ctx}", namespace)
         if l1_entry:
             data = l1_entry.get_data()
             # 旧格式缓存缺 identity_verified 标记 → 视为失效，强制重新解析校验
@@ -414,7 +418,7 @@ class PubChemEnhancer:
                 cache.set(cache_key, result, self.PUBCHEM_CACHE_TTL_FOUND)
             except Exception as e:
                 logger.debug(f"PubChem cache set skipped for {cache_key}: {e}")
-            set_cache("pubchem", identifier, namespace, result, ttl_seconds=self.PUBCHEM_CACHE_TTL_FOUND)
+            set_cache("pubchem", f"{identifier}{ctx}", namespace, result, ttl_seconds=self.PUBCHEM_CACHE_TTL_FOUND)
         return result
 
     def _resolve_to_properties_impl(self, identifier: str, namespace: str = 'name',

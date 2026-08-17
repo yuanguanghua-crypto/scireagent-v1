@@ -1,0 +1,237 @@
+{
+  "transcription": [
+    "transcription",
+    "transcribe",
+    "ivt",
+    "in vitro transcription",
+    "rna synthesis",
+    "synthesize rna",
+    "run-off transcription"
+  ],
+  "reverse transcription": [
+    "reverse transcription",
+    "reverse transcriptase",
+    "rt-pcr",
+    "cdna synthesis"
+  ],
+  "pcr": [
+    "pcr",
+    "polymerase chain reaction",
+    "amplification",
+    "amplify"
+  ],
+  "qpcr": [
+    "qpcr",
+    "q-pcr",
+    "quantitative pcr",
+    "real-time pcr",
+    "rt-qpcr"
+  ],
+  "rnaseq": [
+    "rna-seq",
+    "rnaseq",
+    "rna sequencing",
+    "transcriptome",
+    "mrna seq",
+    "bulk rna"
+  ],
+  "sequencing": [
+    "sequencing",
+    "sequenced",
+    "ngs",
+    "nanopore",
+    "pacbio",
+    "illumina",
+    "minion",
+    "oxford nanopore",
+    "third-generation sequencing"
+  ],
+  "labeling": [
+    "labeling",
+    "labelling",
+    "label",
+    "fluorescent labeling",
+    "fluorophore",
+    "fluorescein",
+    "biotin",
+    "digoxigenin",
+    "dig-",
+    "alkaline phosphatase",
+    "tagging"
+  ],
+  "fluorescent": [
+    "fluorescent",
+    "fluorescence",
+    "fam",
+    "tamra",
+    "cy3",
+    "cy5",
+    "texas red",
+    "alexa",
+    "quencher",
+    "dyes",
+    "dye"
+  ],
+  "click chemistry": [
+    "click chemistry",
+    "cuac",
+    "azide",
+    "alkyne",
+    "cycloaddition",
+    "bioorthogonal",
+    "strain-promoted"
+  ],
+  "nucleotide": [
+    "nucleotide",
+    "nucleoside",
+    "ntp",
+    "utp",
+    "atp",
+    "gtp",
+    "ctp",
+    "ntps",
+    "modified nucleotide",
+    "phosphorothioate",
+    "ptp",
+    "thio",
+    "aminoallyl",
+    "biotinylated nucleotide",
+    "ribonucleotide",
+    "deoxynucleotide"
+  ],
+  "oligonucleotide": [
+    "oligonucleotide",
+    "oligo",
+    "primer",
+    "probe",
+    "aptamer",
+    "pcr primer"
+  ],
+  "rna": [
+    "rna",
+    "mrna",
+    "rrna",
+    "snrna",
+    "mirna",
+    "sirna",
+    "shrna",
+    "lncrna",
+    "trna",
+    "rnai"
+  ],
+  "dna": [
+    "dna",
+    "cdna",
+    "genomic dna",
+    "plasmid",
+    "dsdna",
+    "ssdna",
+    "genomic"
+  ],
+  "crispr": [
+    "crispr",
+    "cas9",
+    "cas12",
+    "cas13",
+    "sgrna",
+    "gene editing",
+    "knockout",
+    "knock-in",
+    "knockin",
+    "genome editing"
+  ],
+  "epigenetic": [
+    "epigenetic",
+    "methylation",
+    "methylated",
+    "bisulfite",
+    "5-mc",
+    "5-hmc",
+    "chip",
+    "cut&run",
+    "cut run",
+    "atac",
+    "histone"
+  ],
+  "protein-rna": [
+    "rna binding",
+    "rna-binding",
+    "rbp",
+    "protein-rna",
+    "protein rna interaction",
+    "crosslink",
+    "clip",
+    "eclip",
+    "iclip",
+    "par-clip",
+    "rip"
+  ],
+  "purification": [
+    "purification",
+    "purify",
+    "extraction",
+    "isolation",
+    "cleanup",
+    "clean-up",
+    "enrichment"
+  ],
+  "detection": [
+    "detection",
+    "detect",
+    "imaging",
+    "microscopy",
+    "in situ",
+    "western",
+    "blot",
+    "fluorescence microscopy"
+  ],
+  "modification": [
+    "modification",
+    "modified",
+    "2-ome",
+    "pseudouridine",
+    "psi",
+    "m5c",
+    "m6a",
+    "base modification",
+    "chemical modification",
+    "ribose"
+  ],
+  "in vitro": [
+    "in vitro",
+    "cell-free",
+    "cell free"
+  ],
+  "library prep": [
+    "library prep",
+    "library preparation",
+    "library construction",
+    "rna library",
+    "cdna library"
+  ],
+  "splicing": [
+    "splicing",
+    "splice",
+    "alternative splicing"
+  ],
+  "translation": [
+    "translation",
+    "protein expression",
+    "in vitro translation",
+    "ivtt",
+    "protein synthesis"
+  ],
+  "probe design": [
+    "probe design",
+    "probe synthesis",
+    "hybridization",
+    "hybridisation"
+  ],
+  "fluorescent in situ": [
+    "fish",
+    "fluorescence in situ",
+    "smfish",
+    "rna fish",
+    "rna-fish"
+  ]
+}

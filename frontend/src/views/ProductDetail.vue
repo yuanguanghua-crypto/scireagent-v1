@@ -427,6 +427,35 @@ function onSearch(query) {
             </dl>
           </div>
 
+          <!-- Modification Signature (SMARTS) -->
+          <div class="pd-prop-group" v-if="product.substructure_tags && product.substructure_tags.parsed && product.substructure_tags.axes">
+            <h4 class="pd-prop-group-title">Modification Signature <span class="pd-prop-group-sub">SMARTS</span></h4>
+            <dl class="pd-prop-list">
+              <div class="pd-prop-item">
+                <dt class="pd-prop-label">Base</dt>
+                <dd class="pd-prop-val">
+                  <span class="ss-chip ss-chip--base">{{ product.substructure_tags.axes.base }}</span>
+                  <span v-if="product.substructure_tags.axes.base_mod" class="ss-chip ss-chip--base_mod">{{ product.substructure_tags.axes.base_mod }}</span>
+                </dd>
+              </div>
+              <div class="pd-prop-item">
+                <dt class="pd-prop-label">Sugar</dt>
+                <dd class="pd-prop-val">
+                  <span v-if="product.substructure_tags.axes.sugar_sub" class="ss-chip ss-chip--sugar_sub">{{ product.substructure_tags.axes.sugar_sub }}</span>
+                  <span class="ss-chip ss-chip--sugar_type">{{ product.substructure_tags.axes.sugar_type }}</span>
+                </dd>
+              </div>
+              <div class="pd-prop-item" v-if="product.substructure_tags.axes.biotin_label || product.substructure_tags.axes.ntp || product.substructure_tags.axes.propargyl">
+                <dt class="pd-prop-label">Labels</dt>
+                <dd class="pd-prop-val">
+                  <span v-if="product.substructure_tags.axes.biotin_label" class="ss-chip ss-chip--label">Biotin</span>
+                  <span v-if="product.substructure_tags.axes.ntp" class="ss-chip ss-chip--label">NTP</span>
+                  <span v-if="product.substructure_tags.axes.propargyl" class="ss-chip ss-chip--label">Propargyl</span>
+                </dd>
+              </div>
+            </dl>
+          </div>
+
           <!-- Specifications -->
           <div class="pd-prop-group" v-if="product.purity || product.concentration || product.storage || product.shipping || product.lead_time">
             <h4 class="pd-prop-group-title">Specifications</h4>
@@ -775,6 +804,34 @@ function onSearch(query) {
   padding-bottom: 4px;
   border-bottom: 1px solid var(--color-border-light);
 }
+.pd-prop-group-sub {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--color-text-tertiary);
+  background: var(--color-border-light);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+/* S6 四轴修饰标签 chips（与卡片共用配色语义） */
+.ss-chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  padding: 1px 7px;
+  border-radius: 4px;
+  margin: 1px 4px 1px 0;
+  white-space: nowrap;
+}
+.ss-chip--base { color: #1d4ed8; background: #dbeafe; }
+.ss-chip--base_mod { color: #7c3aed; background: #ede9fe; }
+.ss-chip--sugar_sub { color: #047857; background: #d1fae5; }
+.ss-chip--sugar_type { color: #b45309; background: #fef3c7; }
+.ss-chip--label { color: #be123c; background: #ffe4e6; }
 .pd-prop-list {
   margin: 0;
   display: grid;

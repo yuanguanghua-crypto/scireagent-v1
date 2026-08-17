@@ -41,6 +41,15 @@ function formatPrice(price, currency) {
   const sym = currency === 'CNY' ? '¥' : '$'
   return `${sym}${parseFloat(price).toFixed(2)}`
 }
+
+// S6 四轴修饰标签 → 按轴着色（与详情页 Modification Signature 共用配色语义）
+function ssChipClass(tag) {
+  if (/^(A|U|C|G|T|Purine)$/.test(tag)) return 'ss-chip--base'
+  if (/Methyl/.test(tag)) return 'ss-chip--base_mod'
+  if (/^2'-/.test(tag)) return 'ss-chip--sugar_sub'
+  if (/^(deoxy|ribose)$/.test(tag)) return 'ss-chip--sugar_type'
+  return 'ss-chip--label'
+}
 </script>
 
 <template>
@@ -66,11 +75,23 @@ function formatPrice(price, currency) {
         </el-tag>
       </div>
 
+      <!-- S6 四轴修饰标签 -->
+      <div v-if="product.substructure_tags && product.substructure_tags.parsed && product.substructure_tags.labels && product.substructure_tags.labels.length"
+           class="card-substructure" aria-label="Modification signature">
+        <span v-for="(tag, i) in product.substructure_tags.labels" :key="i"
+              class="ss-chip" :class="ssChipClass(tag)">{{ tag }}</span>
+      </div>
+
       <h3 class="card-title">{{ product.name }}</h3>
       <p class="card-description">{{ truncate(product.overview || product.storage || '', 90) }}</p>
 
       <div class="card-footer">
         <div class="card-footer-left">
+          <span v-if="product.aggregate_relevance_score != null" class="card-spec card-spec--knowledge"
+                :title="`知识关联强度 ${product.aggregate_relevance_score.toFixed(2)}（基于知识图谱关联分聚合）`">
+            <span class="card-spec-label">知识关联</span>
+            <span class="card-spec-value">{{ product.aggregate_relevance_score.toFixed(2) }}</span>
+          </span>
           <span v-if="product.formula" class="card-spec">
             <span class="card-spec-label">Formula</span>
             <span class="card-spec-value">{{ product.formula }}</span>
@@ -215,6 +236,13 @@ function formatPrice(price, currency) {
   color: var(--color-text-secondary);
 }
 
+/* S5 知识关联强度徽标：主色突出，区别于普通规格 */
+.card-spec--knowledge { gap: 5px; }
+.card-spec--knowledge .card-spec-value {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
 .card-price {
   font-size: 15px;
   font-weight: 700;
@@ -230,4 +258,27 @@ function formatPrice(price, currency) {
   border-radius: 4px;
   font-weight: 500;
 }
+
+/* S6 四轴修饰标签 chips（与详情页共用配色语义） */
+.card-substructure {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.ss-chip {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.ss-chip--base { color: #1d4ed8; background: #dbeafe; }
+.ss-chip--base_mod { color: #7c3aed; background: #ede9fe; }
+.ss-chip--sugar_sub { color: #047857; background: #d1fae5; }
+.ss-chip--sugar_type { color: #b45309; background: #fef3c7; }
+.ss-chip--label { color: #be123c; background: #ffe4e6; }
 </style>

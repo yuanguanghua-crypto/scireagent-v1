@@ -105,3 +105,15 @@ deploy/.htpasswd.*
 deploy/CREDENTIALS.txt
 deploy/certbot/
 frontend/dist.bak*/
+
+# 本地/探索垃圾与构建产物（不入库）
+._*                                  # macOS / 工具产生的 ._ 垃圾文件
+db.sqlite3.*                         # SQLite 备份（db.sqlite3.bak* 等），仅 db.sqlite3 本身已在上方忽略
+backend/data/suppliers/              # 供应商原始 JSONL 大数据（cayman 51MB+），非源码
+backend/full_pool*.csv               # 探索期产物
+backend/_*.py                        # 探索/一次性脚本
+backend/s6_*.py
+backend/s6_*.json
+frontend/dist_check_*/               # 回归构建产物
+frontend/dist_regress_*/
+frontend/e2e/shots/                  # E2E 截图产物

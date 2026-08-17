@@ -11,10 +11,12 @@ from apps.knowledge.services.graph_service import build_graph
 
 def _build_homepage_graph():
     """Build a graph preview from the top-priority application."""
-    top_app = Application.objects.filter(status='active', display_priority__gt=0).order_by('-display_priority').first()
+    top_app = Application.objects.public().filter(
+        status='active', display_priority__gt=0
+    ).order_by('-display_priority').first()
     if not top_app:
         # Fallback: pick any active application
-        top_app = Application.objects.filter(status='active').first()
+        top_app = Application.objects.public().filter(status='active').first()
     if not top_app:
         return None
     graph = build_graph('application', top_app.id, depth=2, max_nodes=20, max_edges=30)
@@ -29,7 +31,7 @@ def get_suggested_searches():
     Falls back to a curated English list when no applications exist.
     """
     names = list(
-        Application.objects.filter(status='active')
+        Application.objects.public().filter(status='active')
         .order_by('-display_priority', 'id')
         .values_list('name', flat=True)[:8]
     )
@@ -137,8 +139,9 @@ def site_home(request):
     sku_count = Product.objects.filter(status__in=['active', 'published']).aggregate(
         total=Count('skus__id', distinct=True)
     )['total'] or 0
-    area_count = ResearchGoal.objects.count()
-    method_count = Method.objects.filter(status='active').count()
+    # S1：统计口径必须排除测试夹具残骸，否则首页 areas/goals 会把 e2e 残留计入
+    area_count = ResearchGoal.objects.public().count()
+    method_count = Method.objects.public().filter(status='active').count()
     protocol_count = Protocol.objects.filter(status='published').count()
     product_count = Product.objects.filter(status__in=['active', 'published']).count()
 
@@ -170,8 +173,8 @@ def site_home(request):
 
     # Knowledge section data — aligned with frontend KnowledgeSection
     knowledge_payload = {
-        'goals': ResearchGoal.objects.count(),
-        'applications': Application.objects.filter(status='active').count(),
+        'goals': ResearchGoal.objects.public().count(),
+        'applications': Application.objects.public().filter(status='active').count(),
         'methods': method_count,
         'protocols': protocol_count,
     }
@@ -275,7 +278,7 @@ def site_home(request):
 @api_view(['GET'])
 def site_navigation(request):
     """Navigation tree for frontend."""
-    apps = Application.objects.filter(status='active').order_by('sort_order')
+    apps = Application.objects.public().filter(status='active').order_by('sort_order')
     return Response({
         'success': True,
         'data': {
@@ -316,11 +319,11 @@ def sitemap_xml(request):
     urls = [f'{base_url}/']
 
     # Applications
-    for app in Application.objects.filter(status='active'):
+    for app in Application.objects.public().filter(status='active'):
         urls.append(f'{base_url}/applications/{app.id}')
 
     # Methods
-    for method in Method.objects.filter(status='active'):
+    for method in Method.objects.public().filter(status='active'):
         urls.append(f'{base_url}/methods/{method.id}')
 
     # Protocols

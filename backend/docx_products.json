@@ -1,0 +1,877 @@
+[
+ {
+  "file": "SC8001_5‑Propargylamino‑CTP.docx",
+  "catalog": "SC8001",
+  "name": "5PropargylaminoCTP",
+  "cas": "150718-26-6",
+  "usage": "5PropargylaminoCTP is a chemically modified cytidine triphosphate used as substrate for metabolic RNA labeling, clickchemistry detection, small RNAs labeling, and RNA structure probing."
+ },
+ {
+  "file": "SC8002_5‑Propargylamino‑dCTP.docx",
+  "catalog": "SC8002",
+  "name": "5-PropargylaminodCTP",
+  "cas": "115899-39-3",
+  "usage": "5PropargylaminodCTP is a chemically modified deoxycytidine triphosphate used mainly in molecular biology for DNA labeling and clickchemistry–based detection. 5-Propargylamino-dCTP (deoxyribose) is for DNA synthesis, while 5-Propargylamino-CTP (ribose) is for RNA synthesis"
+ },
+ {
+  "file": "SC8003_5‑Propargylamino‑CTP-Cy3.docx",
+  "catalog": "SC8003",
+  "name": "5PropargylaminoCTP-Cy3",
+  "cas": "",
+  "usage": "5PropargylaminoCTP-Cy3 is a fluorescently labeled nucleotide analog used for direct enzymatic incorporation of the Cy3 dye into RNA, which make it Ideal for one-step, direct RNA labeling for microarrays or imaging."
+ },
+ {
+  "file": "SC8004_5‑Propargylamino‑dCTP-Cy3.docx",
+  "catalog": "SC8004",
+  "name": "5-PropargylaminodCTP-Cy3",
+  "cas": "",
+  "usage": "5-Propargylamino-dCTP-Cy3 is a fluorescently labeled 5PropargylaminodCTP used for the direct enzymatic labeling of DNA or cDNA. It consists of a 2′-deoxycytidine-5′-triphosphate (dCTP) modified at the C5 position with a propargylamino linker attached to a Cyanine 3 (Cy3) fluorophore. Normally used for FISH, microarray-based gene expression, PCR."
+ },
+ {
+  "file": "SC8005_5‑Propargylamino‑CTP-Cy5.docx",
+  "catalog": "SC8005",
+  "name": "5PropargylaminoCTP-Cy5",
+  "cas": "",
+  "usage": "5PropargylaminoCTP-Cy5 is a Cyanine5-labeled, propargylamino-modified cytidine triphosphate used as a fluorescent nucleotide analog, for enzymatic RNA labeling in microarrays or imaging."
+ },
+ {
+  "file": "SC8006_5‑Propargylamino‑dCTP-Cy5.docx",
+  "catalog": "SC8006",
+  "name": "5-PropargylaminodCTP-Cy5",
+  "cas": "",
+  "usage": "5-Propargylamino-dCTP-Cy5 is a fluorescently (Cyanine 5/Cy5 fluorophore) labeled 5PropargylaminodCTP used for the direct enzymatic labeling of DNA or cDNA, used for FISH, microarray-based gene expression, PCR."
+ },
+ {
+  "file": "SC8007_Fluorescein-12-UTP.docx",
+  "catalog": "SC8009",
+  "name": "Fluorescein-12-UTP",
+  "cas": "134367-01-4",
+  "usage": "Fluorescein-12-UTP is a fluorescently labeled nucleoside triphosphate in which linked to a fluorescein dye (a green, fluorescent dye) via a 12-atom spacer (C12 linker) at the 5position of the uracil ring, with excitation at ~490 nm and emission at ~520 nm. It can be used for IVT (in vitro transcription) for RNA labeling, fluorescence microscopy, RNA–Protein interaction and FISH."
+ },
+ {
+  "file": "SC8008_5-Formyl-UTP.docx",
+  "catalog": "SC8008",
+  "name": "5-Formyl-UTP",
+  "cas": "",
+  "usage": "5-Formyl-UTP is a modified nucleoside triphosphate in which it carries a formyl group (–CHO) at the 5position of the uracil ring. It was used for IVT (in vitro transcription) as can produces RNA containing 5-formyluridine (f⁵U) modifications, and RNA tagging, pull-down assays, and conjugation."
+ },
+ {
+  "file": "SC8010_Desthiobiotin-11-UTP.docx",
+  "catalog": "SC8010",
+  "name": "Desthiobiotin-11-UTP",
+  "cas": "",
+  "usage": "Desthiobiotin-11-UTP is a biotin analog-labeled nucleoside triphosphate which is linked to desthiobiotin (desthiobiotin is a biotin analog that binds to Streptavidin) via an 11-atom spacer (C11 linker) at the 5position of the uracil ring. Compared to biotin–streptavidin binding, which is extremely strong and almost irreversible, desthiobiotin–streptavidin binding is strong but reversible. Desthiobiotin-11-UTP is used in synthesizing desthiobiotin-labeled RNA probes, for RNA Pull-down/purification and RNA–Protein interaction."
+ },
+ {
+  "file": "SC8011_Pseudo-UTP.docx",
+  "catalog": "SC8011",
+  "name": "Pseudo-UTP",
+  "cas": "1175-34-4",
+  "usage": "Pseudo-UTP is the triphosphate form of pseudouridine (Ψ) - in which the uracil base is replaced by pseudouracil (pseudouridine). Pseudouridine is a naturally occurring nucleotide modification, incorporating pseudouridine into RNA increases RNA’s resistance to degradation, and Pseudouridine-modified mRNA triggers less innate immune response than uridine-modified mRNA, making it great valuable for mRNA vaccine/therapeutic mRNA product."
+ },
+ {
+  "file": "SC8012_N1-Methylpseudo-UTP.docx",
+  "catalog": "SC8012",
+  "name": "N1-Methylpseudo-UTP",
+  "cas": "1428903-59-6",
+  "usage": "N1-Methylpseudo-UTP is a modified nucleoside triphosphate in which N1 position of pseudouridine is methylated, this modification will enhance stability and reduce degradation of RNA, and highly maximize the translational capacity and lower immunogenicity, thus widely used in high-performance manufacturing of mRNA therapeutics and vaccines."
+ },
+ {
+  "file": "SC8013_5-Methoxy-UTP.docx",
+  "catalog": "SC8013",
+  "name": "5-Methoxy-UTP",
+  "cas": "847649-65-4",
+  "usage": "5-Methoxy-UTP is a modified nucleoside triphosphate in which the uracil base carries a methoxy group (-OCH₃) at the 5position and can be incorporated into RNA during in vitro transcription (IVT). This modification will provide higher transcription efficiency and protein production and reduce immune signaling of the mRNA."
+ },
+ {
+  "file": "SC8014_Biotin-11-UTP.docx",
+  "catalog": "SC8014",
+  "name": "Biotin-11-UTP",
+  "cas": "",
+  "usage": "Biotin-11-UTP can be substrate for T3/T7/SP6 RNA polymerases during in vitro transcription (IVT). This Biotinylated RNA can be captured, purified, immobilized or detected by using biotin–streptavidin interactions, and thus used for RNA pulldown, RNA tracking and transcription labeling."
+ },
+ {
+  "file": "SC8015_Biotin-16-UTP.docx",
+  "catalog": "SC8015",
+  "name": "Biotin-16-UTP",
+  "cas": "86303-26-6",
+  "usage": "is a Biotin-labeled (biotinylated) uridine triphosphate (UTP), and the 16 stands for the number of atoms in the linker (aminohexyl chain) between biotin and UTP.  The Biotin-16-UTP is a substrate for T3/T7/SP6 RNA polymerases during in vitro transcription (IVT). And used for RNA pulldown, RNA tracking and transcription labeling."
+ },
+ {
+  "file": "SC8016_Biotin-11-dUTP.docx",
+  "catalog": "SC8016",
+  "name": "Biotin-11-dUTP",
+  "cas": "86303-25-5",
+  "usage": "Biotin-11-dUTP is a biotinylated nucleotide analog form of deoxyuridine triphosphate (dUTP) in which a biotin molecule is attached via an 11carbon linker. It can incorporate biotin into DNA during enzymatic synthesis, and can be used for DNA labeling, DNA microarray probe preparation, in situ hybridization (ISH/FISH) detection and PCR labeling."
+ },
+ {
+  "file": "SC8017_Biotin-16-dUTP.docx",
+  "catalog": "SC8017",
+  "name": "Biotin-16-dUTP",
+  "cas": "136632-31-0",
+  "usage": "Biotin-16-dUTP is a biotinylated nucleotide analog form of deoxyuridine triphosphate (dUTP) in which a biotin molecule is attached via a 16carbon linker. It can incorporate biotin into DNA during enzymatic synthesis, and can be used for DNA labeling, DNA microarray probe preparation, in situ hybridization (ISH/FISH) detection and PCR labeling."
+ },
+ {
+  "file": "SC8018_Cy3-dUTP.docx",
+  "catalog": "SC8018",
+  "name": "Cy3-dUTP",
+  "cas": "",
+  "usage": "Cy3-dUTP is a deoxyuridine triphosphate (dUTP) molecule conjugated to the Cyanine 3 dye. It is commonly incorporated into DNA during enzymatic reactions, which make it Ideal for DNA labeling, Nick translation, TUNEL labeling and FISH probes."
+ },
+ {
+  "file": "SC8019_Cy5-dUTP.docx",
+  "catalog": "SC8019",
+  "name": "Cy5-dUTP",
+  "cas": "",
+  "usage": "Cy5-dUTP is a deoxyuridine triphosphate (dUTP) molecule conjugated to the Cyanine 5 dye. It is commonly incorporated into DNA during enzymatic reactions, which make it good for DNA labeling, FISH probes, Deeptissue imaging and confocal imaging. Compared to Cy3-dUTP (brighter, orangered), Cy5-dUTP is more farred, low background, ideal for deep imaging and multiplexing."
+ },
+ {
+  "file": "SC8020_Sulfo-Cy5 dUTP.docx",
+  "catalog": "SC8020",
+  "name": "Sulfo-Cy5-dUTP",
+  "cas": "",
+  "usage": "Sulfo-Cy5-dUTP is a deoxyuridine triphosphate (dUTP) molecule conjugated to the sulfonated Cyanine 5 dye. Used for DNA labeling, FISH probes, Deeptissue imaging and confocal imaging. Sulfo-Cy5 is superior in aqueous environments (higher water-soluble), making it ideal for direct aqueous enzymatic labeling, the better solubility and cleaner signal feature of Sulfo-Cy5-dUTP offer lower non-specific binding and higher stability than hydrophobic Cy5-dUTP in labeling and imaging."
+ },
+ {
+  "file": "SC8021_5‑Propargylamino‑dUTP.docx",
+  "catalog": "SC8021",
+  "name": "5-PropargylaminodUTP",
+  "cas": "179101-49-6",
+  "usage": "5PropargylaminodUTP is a deoxyuridine triphosphate modified dUTP bearing a terminal alkyne group (propargyl), which make it good for Clickable DNA labeling, FISH probes, and confocal imaging. Compared to dyedUTP, 5PropargylaminodUTP is smaller modification which allows high labeling density."
+ },
+ {
+  "file": "SC8022_5-Propynyl-dUTP.docx",
+  "catalog": "SC8022",
+  "name": "5-Propynyl-dUTP",
+  "cas": "",
+  "usage": "5-Propynyl-dUTP is a deoxyuridine triphosphate modified dUTP bearing a uracil base carries a propynyl (–C≡C–CH₃) substituent at the 5position. This propynyl group enhance the duplex stability of DNA-DNA or DNA-RNA hybrids."
+ },
+ {
+  "file": "SC8023_5-Iodo-dUTP.docx",
+  "catalog": "SC8023",
+  "name": "5-Iodo-dUTP",
+  "cas": "3731-55-3",
+  "usage": "5-Iodo-dUTP is a deoxyuridine triphosphate modified dUTP in which the uracil base carries an iodine atom at the 5position. It’s used for DNA labeling, synthesis, and probing of DNA–protein interactions"
+ },
+ {
+  "file": "SC8024_5-Formyl-dUTP.docx",
+  "catalog": "SC8024",
+  "name": "5-Formyl-dUTP",
+  "cas": "",
+  "usage": "5-Formyl-dUTP is a deoxyuridine triphosphate modified dUTP in which the 5-methyl group of thymine is oxidized by reactive oxygen species (ROS), ionizing radiation, or chemical agents. 5formyldUTP was normally used to incorporate into DNA for mutational processes, BER dynamics and oxidative DNA lesions."
+ },
+ {
+  "file": "SC8025_Cy3-UTP.docx",
+  "catalog": "SC8025",
+  "name": "Cy3-UTP",
+  "cas": "",
+  "usage": "Cy3-UTP is a uridine triphosphate (UTP) molecule in which a Cy3 fluorophore is covalently attached to the uridine moiety. It is commonly used for RNA labeling, RNA FISH probes, RNA tracking/imaging"
+ },
+ {
+  "file": "SC8026_Cy5-UTP.docx",
+  "catalog": "SC8026",
+  "name": "Cy5-UTP",
+  "cas": "",
+  "usage": "Cy5-UTP is a uridine triphosphate (UTP) molecule in which a Cy5 fluorophore is covalently attached to the uridine moiety. Cy5-UTP can replace UTP as a substrate for T7 RNA polymerase in labeling systems that generate labeled probes through IVT. It is commonly applied in RNA labeling, FISH, and multi-color fluorescence analysis."
+ },
+ {
+  "file": "SC8027_4-Thio-UTP.docx",
+  "catalog": "SC8027",
+  "name": "4-Thio-UTP",
+  "cas": "31556-28-2",
+  "usage": "4-Thio-UTP is a uridine triphosphate (UTP) molecule in which the oxygen at the 4position of uridine is replaced by sulfur. As 4thiouridine strongly absorbs nearUV light, enabling efficient crosslinking to RNAbinding proteins, thus commonly used in UVcrosslink immunoprecipitation. And Cells incorporate 4ThioUTP (via 4SU) into newly synthesized RNA, so also can be used in RNA halflife and degradation study."
+ },
+ {
+  "file": "SC8028_5-Carboxy-UTP.docx",
+  "catalog": "SC8028",
+  "name": "5-Carboxy-UTP",
+  "cas": "",
+  "usage": "5-Carboxy-UTP is a modified nucleoside triphosphate in which a carboxyl group (–COOH) linked at the 5position of the uracil ring. The carboxyl group can be used for amide coupling or creation of site-specific modified RNA. It can be incorporated into RNA during in vitro transcription (IVT) to generate carboxyl-modified RNA transcripts. So well used for RNA labeling & bioconjugation and RNA-based therapeutics engineering."
+ },
+ {
+  "file": "SC8029_5-Hydroxy-UTP.docx",
+  "catalog": "SC8029",
+  "name": "5-Hydroxy-UTP",
+  "cas": "",
+  "usage": "5-Hydroxy-UTP is a modified nucleoside triphosphate in which it carries a hydroxyl (–OH) at the 5position of the uracil ring. The 5-OH-UTP mimics oxidative lesions generated by reactive oxygen species (ROS), so besides being used in IVT (in vitro transcription) and RNA probing, it was more specifically used for radiation-induced RNA oxidation, oxidation on translation and RNA stability/decay."
+ },
+ {
+  "file": "SC8030_5-Carboxy-dUTP.docx",
+  "catalog": "SC8030",
+  "name": "5-Carboxy-dUTP",
+  "cas": "",
+  "usage": "5-Carboxy-dUTP is a modified deoxyuridine triphosphate (dUTP) in which a carboxyl group (–COOH) linked at the 5position of the uracil ring. The carboxyl group allows chemical coupling reactions (EDC/NHS chemistry). It can incorporate into DNA during enzymatic synthesis, and can be used for DNA labeling, DNA microarray probe preparation, PCR labeling and DNA Synthesis."
+ },
+ {
+  "file": "sc8031 5-Indolyl-AA-dUTP.docx",
+  "catalog": "SC8031",
+  "name": "5-Indolyl-AA-dUTP",
+  "cas": "",
+  "usage": "5-Indolyl-AA-dUTP is a modified deoxyuridine triphosphate (dUTP) which is linked to Indole ring via an amino-alkyl linker (AA) at the 5position of the uracil ring. It can be used for DNA labeling, modified aptamer selection (SELEX), and DNA-based catalysts (DNAzymes)."
+ },
+ {
+  "file": "sc8032 5-Methyl-3'-dUTP.docx",
+  "catalog": "SC8032",
+  "name": "5-Methyl-3'-dUTP",
+  "cas": "",
+  "usage": "5-Methyl-3'-dUTP is a modified deoxyuridine triphosphate (dUTP) which is linked to methyl group (–CH₃) at the 5position of the uracil ring. As 5-Methyl-3′-dUTP cannot be extended after incorporation so it will prevent DNA elongation, so it can be used in chain termination and make it useful for mechanistic studies rather than standard synthesis."
+ },
+ {
+  "file": "sc8033 5-Methyl-3'-UTP.docx",
+  "catalog": "SC8033",
+  "name": "5-Methyl-3'-UTP",
+  "cas": "23198-01-8",
+  "usage": "5-Methyl-3'-UTP is a modified nucleoside triphosphate (UTP) which is linked to methyl group (–CH₃) at the 5position of the uracil ring. It was used for IVT (in vitro transcription), RNA structure and stability studies, and mRNA vaccine & therapeutic research."
+ },
+ {
+  "file": "sc8034 5-Ethynyl-dUTP.docx",
+  "catalog": "SC8034",
+  "name": "5-Ethynyl-dUTP",
+  "cas": "111289-87-3",
+  "usage": "5-Ethynyl-dUTP is a modified deoxyuridine triphosphate (dUTP) which is linked to Ethynyl group (–C≡CH) at the 5position of the uracil ring.  As The ethynyl group (–C≡CH) reacts specifically with azides (–N₃) via copper-catalyzed azide–alkyne cycloaddition, to make it highly specific, fast and high-yield, so It is mainly used in click chemistry labeling."
+ },
+ {
+  "file": "sc8035 2'-Fluoro-dUTP.docx",
+  "catalog": "SC8035",
+  "name": "2'-Fluoro-dUTP",
+  "cas": "66840-02-6",
+  "usage": "2'-Fluoro-dUTP is a modified deoxyuridine triphosphate (dUTP) in which the 2′hydrogen on the sugar is replaced by fluorine on the uracil ring. As the 2′fluoro substitution can increase nuclease resistance (protects RNA from degradation), so it can be used in RNA synthesis (in vitro transcription) and aptamer development (SELEX)."
+ },
+ {
+  "file": "sc8036 2'-Fluoro-dATP.docx",
+  "catalog": "SC8036",
+  "name": "2'-Fluoro-dATP",
+  "cas": "73449-07-7",
+  "usage": "2'-Fluoro-dATP is a modified deoxyadenosine triphosphate (dATP) in which the 2′hydrogen on the deoxyribose sugar is replaced by fluorine. As the 2′fluoro modification can increase sugar rigidity and thermal stability, so, it can be used in RNA synthesis (in vitro transcription) and aptamer development (SELEX)."
+ },
+ {
+  "file": "sc8037 2'-Fluoro-dCTP.docx",
+  "catalog": "SC8037",
+  "name": "2'-Fluoro-dCTP",
+  "cas": "66840-03-7",
+  "usage": "2'-Fluoro-dCTP is a modified deoxycytidine triphosphate (dCTP) in which the 2′hydrogen on the deoxyribose sugar is replaced by fluorine. As the 2′fluoro modification can increase sugar rigidity and thermal stability, so it can be used in RNA synthesis (in vitro transcription), aptamer development (SELEX) and RNA therapeutics."
+ },
+ {
+  "file": "sc8038 2'-Fluoro-dGTP.docx",
+  "catalog": "SC8038",
+  "name": "2'-Fluoro-dGTP",
+  "cas": "202186-97-8",
+  "usage": "2'-Fluoro-dGTP is a modified deoxyguanosine triphosphate (dGTP) in which the 2′hydrogen on the deoxyribose sugar is replaced by fluorine. It is commonly used in polymerase reactions, aptamer development (SELEX) and Xenonucleic acids (XNAs)."
+ },
+ {
+  "file": "sc8039 2'-Amino-dUTP.docx",
+  "catalog": "SC8039",
+  "name": "2'Amino-dUTP",
+  "cas": "",
+  "usage": "2'Amino-dUTP is a modified deoxyuridine triphosphate (dUTP) in which the 2′ position of the deoxyribose sugar is substituted with an amino group (–NH₂) on the uracil ring. It can be used in Nucleic acid labeling, and Aptamer selection (SELEX)."
+ },
+ {
+  "file": "sc8040 2'-Amino-dGTP.docx",
+  "catalog": "SC8040",
+  "name": "2'-Amino-dGTP",
+  "cas": "",
+  "usage": "2'-Amino-dGTP is a modified deoxyguanosine triphosphate (dGTP) in which the 2′ position of the deoxyribose sugar is substituted with an amino group (–NH₂) on the uracil ring. It can be used in nucleic acid labeling, synthetic biology and Aptamer selection (SELEX)."
+ },
+ {
+  "file": "sc8041 2'-Amino-dCTP.docx",
+  "catalog": "SC8041",
+  "name": "2'-Amino-dCTP",
+  "cas": "",
+  "usage": "2'-Amino-dCTP is a modified deoxycytidine triphosphate (dCTP) in which the 2′ position of the deoxyribose sugar is substituted with an amino group (–NH₂) on the uracil ring. It can be used in RNA synthesis (in vitro transcription), aptamer development (SELEX) and RNA therapeutics."
+ },
+ {
+  "file": "sc8042 2'-Amino-dATP.docx",
+  "catalog": "SC8042",
+  "name": "2'-Amino-dATP",
+  "cas": "",
+  "usage": "2'-Amino-dATP is a modified deoxyadenosine triphosphate (dATP) in which the 2′ position of the deoxyribose sugar is substituted with an amino group (–NH₂) on the uracil ring. It can be used in RNA synthesis (in vitro transcription), aptamer development (SELEX) and RNA therapeutics."
+ },
+ {
+  "file": "sc8043 2'-Amino-ATP.docx",
+  "catalog": "SC8043",
+  "name": "2'-Amino-ATP",
+  "cas": "",
+  "usage": "2'-Amino-ATP is a modified adenosine triphosphate (ATP) in which the 2′ position of the ribose sugar is substituted with an amino group (–NH₂) on the uracil ring. It can be used in modified RNA synthesis, synthetic genetic polymers (XNAs) and sitespecific RNA functionalization."
+ },
+ {
+  "file": "sc8044 2'-Azido-dUTP.docx",
+  "catalog": "SC8044",
+  "name": "2'-Azido-dUTP",
+  "cas": "106448-30-0",
+  "usage": "2'-Azido-dUTP is a modified deoxyuridine triphosphate (dUTP) in which the 2′ position of the deoxyribose sugar is substituted with an azide group (–N₃) on the uracil ring. The azide group enables Cucatalyzed or copperfree click reactions to attach fluorophores, biotin, or other probes. It can be used in vitro transcription and click chemistry for detection."
+ },
+ {
+  "file": "sc8045 2'-Azido-dGTP.docx",
+  "catalog": "SC8045",
+  "name": "2'-Azido-dGTP",
+  "cas": "",
+  "usage": "2'-Azido-dGTP is a modified deoxyguanosine triphosphate (dGTP) in which the 2′ position of the deoxyribose sugar is substituted with an azido group (–N₃) on the uracil ring.  The azido (–N₃) group is highly useful for click chemistry, it can be used in nucleic acid labeling, DNA/RNA tracking."
+ },
+ {
+  "file": "sc8046 2'-Azido-dCTP.docx",
+  "catalog": "SC8046",
+  "name": "2'-Azido-dCTP",
+  "cas": "",
+  "usage": "2'-Azido-dCTP is a modified deoxycytidine triphosphate (dCTP) in which the 2′ position of the deoxyribose sugar is substituted with an azido group (–N₃) on the uracil ring.  The azido (–N₃) group is highly useful for click chemistry, it can be used in chemical biology, DNA labeling, click chemistry, polymerase studies, and XNA research."
+ },
+ {
+  "file": "sc8047 2'-Azido-dATP.docx",
+  "catalog": "SC8047",
+  "name": "2'-Azido-dATP",
+  "cas": "73449-06-6",
+  "usage": "2'-Azido-dATP is a modified deoxyadenosine triphosphate (dATP) in which the 2′ position of the deoxyribose sugar is substituted with an azido group (–N₃) on the uracil ring.  The azido (–N₃) group is highly useful for click chemistry, it can be used in chemical biology, DNA labeling, click chemistry, and polymerase mechanism studies."
+ },
+ {
+  "file": "sc8048 5-Bromo-2'-dCTP.docx",
+  "catalog": "SC8048",
+  "name": "5-Bromo-2'- dCTP",
+  "cas": "30419-11-5",
+  "usage": "5-Bromo-2'-dCTP is a modified deoxycytidine triphosphate (dCTP) in which a bromine atom replaces hydrogen at the 5-position of the cytosine ring. As 5Bromocytosine can enhances DNA strand break formation upon irradiation, so it’s well used to study radiationinduced DNA damage mechanisms, DNA labeling and tracing."
+ },
+ {
+  "file": "sc8049 5-Bromo-2'-dUTP.docx",
+  "catalog": "SC8049",
+  "name": "5-Bromo-2'- dUTP",
+  "cas": "102212-99-7",
+  "usage": "5-Bromo-2'-dUTP is a modified deoxyuridine triphosphate (dUTP) in which a bromine atom replaces hydrogen at the 5-position of the cytosine ring. It is the triphosphate precursor of 5-Bromodeoxyuridine (BrdU), and it’s widely used in DNA labeling, DNA damage and repair studies, radiation biology, and immunology research."
+ },
+ {
+  "file": "sc8050 7-Deaza-dATP.docx",
+  "catalog": "SC8050",
+  "name": "7-Deaza-dATP",
+  "cas": "587848-72-4",
+  "usage": "7-Deaza-dATP is a modified deoxyadenosine triphosphate (dATP) in which the N7 nitrogen of adenine is replaced by a carbon atom (“deaza” substitution), producing a 7deazapurine structure, while the sugar remains 2′deoxyribose. It is widely used in polymerase biochemistry, PCR amplification, DNA sequencing, and structural studies."
+ },
+ {
+  "file": "sc8051 7-Deaza-dGTP.docx",
+  "catalog": "SC8051",
+  "name": "7-Deaza-dGTP",
+  "cas": "101515-08-6",
+  "usage": "7-Deaza-dGTP is a modified deoxyguanosine triphosphate (dGTP) in which the N7 nitrogen of guanosine is replaced by a carbon atom (“deaza” substitution), producing a 7deazapurine structure, while the sugar remains 2′deoxyribose. It is widely used in PCR, DNA sequencing, polymerase biochemistry, and structural DNA studies, especially for difficult or GCrich templates."
+ },
+ {
+  "file": "sc8052 dITP.docx",
+  "catalog": "SC8052",
+  "name": "dITP",
+  "cas": "95648-77-4",
+  "usage": "dITP is a deoxyribonucleotide triphosphate analog in which the base is inosine (a hypoxanthine base linked to 2′deoxyribose). It is a mutagenic, noncanonical nucleotide that arises from adenine deamination and can mispair with multiple bases. cells rely on ITPA (Inosine Triphosphate Pyrophosphatase) to hydrolyze dITP and preserve genome integrity."
+ },
+ {
+  "file": "sc8053 5-Propynyl-dCTP.docx",
+  "catalog": "SC8053",
+  "name": "5-Propynyl-dCTP",
+  "cas": "327174-86-7",
+  "usage": "5-Propynyl-dCTP is a deoxycytidine triphosphate modified dCTP bearing a cytosine base carries a propynyl (–C≡C–CH₃) substituent at the 5position. The propynyl group enhances DNA duplex stability and hybridization strength, and thus dramatically increases melting temperature (Tm). It’s widely used in DNA hybridization assays and FISH/qPCR probes."
+ },
+ {
+  "file": "sc8054 5-Iodo-dCTP.docx",
+  "catalog": "SC8054",
+  "name": "5-Iodo-dCTP",
+  "cas": "31747-59-8",
+  "usage": "5-Iodo-dCTP is a deoxycytidine triphosphate modified dCTP in which the cytidine base carries an iodine atom at the 5position. It’s used for DNA damage research, radiation biology, PCR and enzymatic incorporation, and DNA–protein interaction studies."
+ },
+ {
+  "file": "sc8055 5-Iodo-CTP.docx",
+  "catalog": "SC8055",
+  "name": "5-Iodo-CTP",
+  "cas": "59259-76-6",
+  "usage": "5-Iodo-CTP is a modified cytidine triphosphate (CTP) in which the cytidine base carries an iodine atom at the 5position. It’s used for RNA structure probing, structural biology, and probing RNA–protein interactions."
+ },
+ {
+  "file": "sc8056 5-Methyl-dCTP.docx",
+  "catalog": "SC8056",
+  "name": "5-Methyl-dCTP",
+  "cas": "22003-12-9",
+  "usage": "5-Methyl-dCTP is a modified deoxycytidine triphosphate (dCTP) which is linked to methyl group (–CH₃) at the 5position of the cytidine base. It can be used in DNA synthesis, study of DNA methylation, epigenetics and chromatin biology."
+ },
+ {
+  "file": "sc8057 5-Methyl-CTP.docx",
+  "catalog": "SC8057",
+  "name": "5-Methyl-CTP",
+  "cas": "327174-86-7",
+  "usage": "5-Methyl-CTP is a modified cytidine triphosphate (CTP) which is linked to methyl group             (–CH₃) at the 5position of the cytidine base. It can incorporate m⁵C into RNA in vitro to study the effects of cytosine methylation on RNA structure, stability, and translation."
+ },
+ {
+  "file": "sc8058 O6-Methyl-dGTP.docx",
+  "catalog": "SC8058",
+  "name": "O6-Methyl-dGTP",
+  "cas": "",
+  "usage": "O6-Methyl-dGTP is a modified deoxyguanosine triphosphate (dGTP) in which a methyl group is added to the O⁶ position of guanine. When O⁶methyldGTP is incorporated into DNA, it can promote G→A transition mutations, trigger mismatch repair (MMR) and replication stress. It is widely used in study of mismatch formation, DNA repair pathways (especially MGMT activity), and mutagenesis experiments."
+ },
+ {
+  "file": "sc8059 O6-Methyl-GTP.docx",
+  "catalog": "SC8059",
+  "name": "O6-Methyl-GTP",
+  "cas": "99404-63-4",
+  "usage": "O6-Methyl-GTP is a modified guanosine triphosphate (GTP) in which a methyl group is added to the O⁶ position of guanine. It is widely used in study of alkylation damage during transcription, and RNA polymerase selectivity and error rates."
+ },
+ {
+  "file": "sc8060 N6-Methyl-dATP.docx",
+  "catalog": "SC8060",
+  "name": "N6-Methyl-dATP",
+  "cas": "5085-65-4",
+  "usage": "N6-Methyl-dATP is a modified deoxyadenosine triphosphate (dATP) in which a methyl group is added to the N⁶ position of adenine. N⁶methyladenine (6mA) is a known DNA modification in bacteria and archaea, it is widely used in study of DNA polymerase discrimination, DNA-protein interaction assays, and probe for epigenetic signaling."
+ },
+ {
+  "file": "sc8061 N6-Methyl-ATP.docx",
+  "catalog": "SC8061",
+  "name": "N6-Methyl-ATP",
+  "cas": "3130-39-0",
+  "usage": "N6-Methyl-ATP is a modified adenosine triphosphate (ATP) in which a methyl group is added to the N⁶ position of adenine. N⁶methyladenosine (m⁶A) is the most abundant internal modification in eukaryotic mRNA, it is widely used in study of In vitro transcription (IVT), RNA–protein interactions, and mRNA therapeutics research."
+ },
+ {
+  "file": "sc8062 N2-Methyl-dGTP.docx",
+  "catalog": "SC8062",
+  "name": "N2-Methyl-dGTP",
+  "cas": "",
+  "usage": "N2-Methyl-dGTP is a modified deoxyguanosine triphosphate (dGTP) in which a methyl group is added to the N² position of guanine. N²methylguanine (m²G) is a natural modification, it is widely used in study of probe minorgroove recognition, and polymerase tolerance without mutagenesis (compare to O⁶methyldGTP in study of mutagenesis experiments)."
+ },
+ {
+  "file": "sc8063 8-Oxo-dATP(1).docx",
+  "catalog": "SC8063",
+  "name": "8-Oxo-dATP",
+  "cas": "3056945-23-1",
+  "usage": "8-Oxo-dATP is a modified deoxyadenosine triphosphate (dATP) in which oxo group is added at the C8 position of adenine. 8-oxo lesions are hallmarks of oxidative DNA damage, 8-Oxo-dATP is widely used in study of oxidative damage, DNA polymerase discrimination against oxidized adenine, and mutagenesis studies."
+ },
+ {
+  "file": "sc8064 8-Oxo-dGTP(1).docx",
+  "catalog": "SC8064",
+  "name": "8-Oxo-dGTP",
+  "cas": "139307-94-1",
+  "usage": "8-Oxo-dGTP is a modified deoxyguanosine triphosphate (dGTP) in which oxo group is added at the C8 position of guanine. 8-oxo lesions are hallmarks of oxidative DNA damage, 8-Oxo-dGTP is widely used in study of oxidative damage, DNA polymerase discrimination against oxidized adenine, and compare mutational signatures of oxidized A vs oxidized G."
+ },
+ {
+  "file": "sc8065 8-Oxo-GTP(1).docx",
+  "catalog": "SC8065",
+  "name": "8-Oxo-GTP",
+  "cas": "21238-36-8",
+  "usage": "8-Oxo-GTP is a modified guanosine triphosphate (GTP) in which oxo group is added at the C8 position of guanine. 8-oxo-GTP is a hallmark of oxidative stress in the nucleotide pool, it is widely used in study of oxidative stress responses, RNA fidelity and quality control, and differences between DNA vs RNA damage tolerance."
+ },
+ {
+  "file": "sc8066 8-Oxo-dGMP(1).docx",
+  "catalog": "SC8066",
+  "name": "8-Oxo-dGMP",
+  "cas": "127027-50-3",
+  "usage": "8-Oxo-dGMP is a modified deoxyguanosine monophosphate (dGMP) in which oxo group is added at the C8 position of guanine. 8-Oxo-dGMP is widely used in study of oxidative damage, DNA repair pathway research."
+ },
+ {
+  "file": "sc8067 8-Oxo-dGDP(1).docx",
+  "catalog": "SC8067",
+  "name": "8-Oxo-dGDP",
+  "cas": "",
+  "usage": "8-Oxo-dGDP is a modified deoxyguanosine diphosphate (dGDP) in which oxo group is added at the C8 position of guanine. 8-Oxo-dGDP is widely used in Oxidative stress research, and nucleotide metabolism studies."
+ },
+ {
+  "file": "sc8068 2-thio-dTTP(1).docx",
+  "catalog": "SC8068",
+  "name": "2-thio-dTTP",
+  "cas": "",
+  "usage": "2-thio-dTTP is a modified deoxyribonucleotide in which the oxygen at the C2 position of thymine is replaced by sulfur. 2thiodTTP is used in hydrogenbond vs stacking contributions in DNA replication, and study of polymerase substrate discrimination."
+ },
+ {
+  "file": "sc8069 2-thio-dCTP(1).docx",
+  "catalog": "SC8069",
+  "name": "2-thio-dCTP",
+  "cas": "",
+  "usage": "2-thio-dCTP is a modified deoxyribonucleotide in which the oxygen at the C2 position of cytosine is replaced by sulfur. 2thiodCTP is used in DNA structure probing, DNA–protein interaction studies, and minorgroove interactions in DNA replication."
+ },
+ {
+  "file": "sc8070 2-thio-CTP(1).docx",
+  "catalog": "SC8070",
+  "name": "2-thio-CTP",
+  "cas": "",
+  "usage": "2-thio-CTP is a modified ribonucleotide in which the carbonyl oxygen at the 2position of cytosine is replaced by sulfur, with a 5′triphosphate. 2thioCTP is used in RNA structure probing, RNA–protein interaction studies, and RNA polymerase substrate discrimination."
+ },
+ {
+  "file": "sc8071 2-thio-UTP(1).docx",
+  "catalog": "SC8071",
+  "name": "2-thio-UTP",
+  "cas": "35763-29-2",
+  "usage": "2-thio-UTP is a modified ribonucleotide in which the carbonyl oxygen at the 2position of uracil is replaced by sulfur, with a 5′triphosphate. 2Thiouridine (s²U) is a natural and biologically important tRNA modification. 2thioUTP is used in RNA structure and stability studies, RNA–protein interaction studies, and translation and codon recognition."
+ },
+ {
+  "file": "sc8072 6-thio-dGTP(1).docx",
+  "catalog": "SC8072",
+  "name": "6-thio-dGTP",
+  "cas": "17660-38-7",
+  "usage": "6-thio-dGTP is a modified deoxyribonucleotide in which the oxygen at the O6 position of guanine is replaced by sulfur. 6ThiodGTP is used to model O⁶guanine–type DNA damage, study mechanisms related to thioguaninebased therapies, and polymerase discrimination at the pairing face."
+ },
+ {
+  "file": "sc8073 6-thio-GTP(1).docx",
+  "catalog": "SC8073",
+  "name": "6-thio-GTP",
+  "cas": "17670-19-8",
+  "usage": "6-thio-GTP is a modified ribonucleotide in which the oxygen at the O6 position of guanine is replaced by sulfur. 6ThioGTP is used to probe RNA polymerase activesite constraints, model pairingface damage during transcription, and RNA–protein interaction studies."
+ },
+ {
+  "file": "sc8074 6-thio-GMP(1).docx",
+  "catalog": "SC8074",
+  "name": "6-thio-GMP",
+  "cas": "15867-02-4",
+  "usage": "6-thio-GMP is a modified ribonucleotide (guanosine monophosphate, GMP) in which the oxygen at the O6 position of guanine is replaced by sulfur. 6ThioGMP is used in study of purine metabolism, and tracking thiopurine drug activation pathways."
+ },
+ {
+  "file": "sc8075 6-Aza-dUTP.docx",
+  "catalog": "SC8075",
+  "name": "6-Aza-dUTP",
+  "cas": "",
+  "usage": "6-Aza-dUTP is a modified deoxyuridine triphosphate (dUTP) in which the carbon atom at position 6 of the uracil ring is replaced by nitrogen (N6). It can be used to study DNA polymerase substrate discrimination, and study how cells respond to noncanonical bases."
+ },
+ {
+  "file": "sc8076 6-Aza-UTP(1).docx",
+  "catalog": "SC8076",
+  "name": "6-Aza-UTP",
+  "cas": "",
+  "usage": "6-Aza-UTP is a modified uridine triphosphate (UTP) in which the carbon atom at position 6 of the uracil ring is replaced by nitrogen (N6). It can be used to study RNA polymerase substrate discrimination, and probe electronic effects in RNA base pairing."
+ },
+ {
+  "file": "sc8077 6-Aza-CTP(1).docx",
+  "catalog": "SC8077",
+  "name": "6-Aza-CTP",
+  "cas": "",
+  "usage": "6-Aza-CTP is a modified cytidine triphosphate (CTP) in which the carbon atom at position 6 of the cytosine ring is replaced by nitrogen (N6). It can be used to study RNA polymerase substrate discrimination, and probe electronic effects in C–G base pairing."
+ },
+ {
+  "file": "sc8078 6-Aza-dCTP(1).docx",
+  "catalog": "SC8078",
+  "name": "6-Aza-dCTP",
+  "cas": "",
+  "usage": "6-Aza-dCTP is a modified deoxycytidine triphosphate (dCTP) in which the carbon atom at position 6 of the cytosine ring is replaced by nitrogen (N6). It can be used to study DNA polymerase substrate discrimination, and probe electronic effects in C–G base pairing."
+ },
+ {
+  "file": "sc8079 5-AA-dCTP(1).docx",
+  "catalog": "SC8079",
+  "name": "5-AA-dCTP",
+  "cas": "",
+  "usage": "5-AA-dCTP is a modified deoxycytidine triphosphate (dCTP) in which the 5-position of cytosine is modified by aminoallyl group. The aminoallyl group acts as a handle for conjugation to reacts efficiently with NHS-esters. It can be used in fluorescent DNA probes (FISH, Southern blotting), microarray probe labeling, and qPCR probe preparation."
+ },
+ {
+  "file": "sc8080 5-AA-CTP(1).docx",
+  "catalog": "SC8080",
+  "name": "5-AA-CTP",
+  "cas": "182700-18-0",
+  "usage": "5-AA-CTP is a modified cytidine triphosphate (CTP) in which the 5-position of cytosine is modified by aminoallyl group. The aminoallyl group acts as a handle for conjugation to reacts efficiently with NHS-esters. It can be used in RNA microarrays, in situ hybridization, fluorescent RNA probes, and RNA tracking and imaging."
+ },
+ {
+  "file": "sc8081 5-AA-dUTP(1).docx",
+  "catalog": "SC8081",
+  "name": "5-AA-dUTP",
+  "cas": "936327-10-5",
+  "usage": "5-AA-dUTP is a modified deoxyuridine triphosphate (dUTP) in which the 5-position of uridine is modified by aminoallyl group. The aminoallyl group acts as a handle for conjugation to reacts efficiently with NHS-esters. It can be used in fluorescent DNA/cDNA labeling, and post-labeling with NHS-biotin for affinity purification or detection."
+ },
+ {
+  "file": "sc8082 5-AA-UTP(1).docx",
+  "catalog": "SC8082",
+  "name": "5-AA-UTP",
+  "cas": "112131-73-4",
+  "usage": "5-AA-UTP is a modified uridine triphosphate (UTP) in which the 5-position of uridine is modified by aminoallyl group. The aminoallyl group acts as a handle for conjugation to reacts efficiently with NHS-esters. It can be used in fluorescent RNA labeling, react aminoallyl-RNA with NHS-biotin for pull-down or detection assays, and RNA probe synthesis."
+ },
+ {
+  "file": "sc8083 5-Hydroxy-CTP(1).docx",
+  "catalog": "SC8083",
+  "name": "5-Hydroxy-CTP",
+  "cas": "",
+  "usage": "5-Hydroxy-CTP is a modified cytidine triphosphate (CTP) in which it carries a hydroxyl (–OH) at the 5position of the cytosine ring. It can be used in study of oxidative RNA/DNA lesions caused by ROS, mutagenesis and lesion bypass by polymerases, and test how DNA/RNA polymerases incorporate or misread oxidized bases."
+ },
+ {
+  "file": "sc8084 5-Hydroxy-dCTP(1).docx",
+  "catalog": "SC8084",
+  "name": "5-Hydroxy-dCTP",
+  "cas": "154121-10-5",
+  "usage": "5-Hydroxy-dCTP is a modified deoxycytidine triphosphate (dCTP) in which it carries a hydroxyl (–OH) at the 5position of the cytosine ring. It can be used in study of oxidative damage to the dNTP pool, replicative vs poolderived DNA damage, and to probe polymerase discrimination against oxidized cytidine."
+ },
+ {
+  "file": "sc8085 5-Hydroxymethyl-dCTP(1).docx",
+  "catalog": "SC8085",
+  "name": "5-Hydroxymethyl-dCTP",
+  "cas": "7226-77-9",
+  "usage": "5-Hydroxymethyl-dCTP is a modified deoxycytidine triphosphate (dCTP) in which it carries a hydroxymethyl group (-CH₂OH) at the 5-position of the cytosine ring. It can be used in generating DNA containing 5hmC-like modifications, examining polymerase tolerance to hydroxymethylated cytosines, and comparing 5mC vs 5hmC vs unmodified C for epigenetics or synthetic DNA applications."
+ },
+ {
+  "file": "sc8086 5-Hydroxymethyl-CTP(1).docx",
+  "catalog": "SC8086",
+  "name": "5-Hydroxymethyl-CTP",
+  "cas": "39749-90-1",
+  "usage": "5-Hydroxymethyl-CTP is a modified cytidine triphosphate (CTP) in which it carries a hydroxymethyl group (-CH₂OH) at the 5-position of the cytosine ring. It can be used to Introduce 5hmClike chemistry into RNA, study effects of C5 cytidine modifications on RNA structure, translation, and recognition."
+ },
+ {
+  "file": "sc8086 5-Hydroxymethyl-CTP.docx",
+  "catalog": "SC8086",
+  "name": "5-Hydroxymethyl-CTP",
+  "cas": "39749-90-1",
+  "usage": "5-Hydroxymethyl-CTP is a modified cytidine triphosphate (CTP) in which it carries a hydroxymethyl group (-CH₂OH) at the 5-position of the cytosine ring. It can be used to Introduce 5hmClike chemistry into RNA, study effects of C5 cytidine modifications on RNA structure, translation, and recognition."
+ },
+ {
+  "file": "sc8087 5-Hydroxymethyl-UTP.docx",
+  "catalog": "SC8087",
+  "name": "5-Hydroxymethyl-UTP",
+  "cas": "2415101-56-1",
+  "usage": "5-Hydroxymethyl-UTP is a modified uridine triphosphate (UTP) in which it carries a hydroxymethyl group (-CH₂OH) at the 5-position of the uracil. It can be used to produce hydroxymethyl-modified RNA in IVT synthesis, and to evaluate how 5-position uridine modifications alter RNA folding and duplex behavior."
+ },
+ {
+  "file": "sc8088 5-Hydroxymethyl-dUTP.docx",
+  "catalog": "SC8088",
+  "name": "5-Hydroxymethyl-dUTP",
+  "cas": "14167-70-5",
+  "usage": "5-Hydroxymethyl-dUTP is a modified deoxyuridine triphosphate (dUTP) in which it carries a hydroxymethyl group (-CH₂OH) at the 5-position of the uracil. It can be used in incorporation into DNA during PCR/primer extension/enzymatic synthesis, and to introduce reactive hydroxymethyl handles into DNA."
+ },
+ {
+  "file": "sc8089 5-Carboxy-CTP.docx",
+  "catalog": "SC8089",
+  "name": "5-Carboxy-CTP",
+  "cas": "",
+  "usage": "5-Carboxy-CTP is a modified cytidine triphosphate (CTP) in which a carboxyl group (–COOH) linked at the 5position of the cytosine ring. 5Carboxycytosine (5caC) is a known DNA base modification, it can be used to mimic advanced TEToxidation states of cytosine in RNA, compare 5mC → 5hmC → 5fC → 5caC chemistry, and expands chemical diversity of RNA libraries for SELEX and engineered binding."
+ },
+ {
+  "file": "sc8090 5-Carboxy-dCTP.docx",
+  "catalog": "SC8090",
+  "name": "5-Carboxy-dCTP",
+  "cas": "",
+  "usage": "5-Carboxy-dCTP is a modified deoxycytidine triphosphate (dCTP) in which a carboxyl group (–COOH) linked at the 5position of the cytosine ring. The carboxyl group allows chemical coupling reactions (EDC/NHS chemistry). It can be used to generate DNA containing 5caC at defined positions, Probe polymerase tolerance limits for C5modified cytosines, and Probe polymerase tolerance limits for C5modified cytosines."
+ },
+ {
+  "file": "sc8091 5-Formyl-CTP.docx",
+  "catalog": "SC8091",
+  "name": "5-Formyl-CTP",
+  "cas": "",
+  "usage": "5-Formyl-CTP is a modified cytidine triphosphate (CTP) in which it carries a formyl group (–CHO) at the 5position of the cytosine ring. 5Formylcytosine (5fC) is a wellestablished DNA base modification. 5-Formyl-CTP can be used to incorporated during in vitro transcription to generate formyl-modified RNA, and model naturally occurring formylated nucleobase modifications."
+ },
+ {
+  "file": "sc8092 5-Formyl-dCTP.docx",
+  "catalog": "SC8092",
+  "name": "5-Formyl-dCTP",
+  "cas": "1428903-58-5",
+  "usage": "(–CHO) at the 5position of the cytosine ring. It is used to introduce 5fC at defined DNA positions, compare 5mC vs 5hmC vs 5fC vs 5caC mechanistically, and study intermediate stages of DNA demethylation."
+ },
+ {
+  "file": "sc8093 7-Deaza-GTP.docx",
+  "catalog": "SC8093",
+  "name": "7-Deaza-GTP",
+  "cas": "",
+  "usage": "7-Deaza-GTP is a modified guanosine triphosphate (GTP) in which the N7 nitrogen of guanosine is replaced by a carbon atom (“deaza” substitution), this will help reduce strong G-rich secondary structure /G-quadruplex effects in some transcripts. It is used to reduce RNA secondary structure stability, improve transcription through GCrich or structured templates, and study RNA–protein interactions that depend on guanine N7."
+ },
+ {
+  "file": "sc8094 7-Deaza-ATP.docx",
+  "catalog": "SC8094",
+  "name": "7-Deaza-ATP",
+  "cas": "",
+  "usage": "7-Deaza-ATP is a modified adenosine triphosphate (ATP) in which the N7 nitrogen of adenine is replaced by a carbon atom (“deaza” substitution). It is used to probe adenine N7–dependent protein interactions, modify majorgroove recognition without disrupting base pairing, and complement 7deazaGTP in systematic purineN7 studies."
+ },
+ {
+  "file": "sc8095 7-Deaza-dADP.docx",
+  "catalog": "SC8095",
+  "name": "7-Deaza-dADP",
+  "cas": "187478-96-2",
+  "usage": "7-Deaza-dADP is a modified deoxyadenosine diphosphate (dADP) in which the N7 nitrogen of adenine is replaced by a carbon atom (“deaza” substitution), producing a 7deazapurine structure. It is used to study adenine N7 chemistry independent of base pairing, and serve as a nonpolymerizable analog in biochemical assays."
+ },
+ {
+  "file": "sc8096 7-Deaza-dAMP.docx",
+  "catalog": "SC8096",
+  "name": "7-Deaza-dAMP",
+  "cas": "",
+  "usage": "7-Deaza-dAMP is a modified deoxyadenosine monophosphate (dAMP) in which the N7 nitrogen of adenine is replaced by a carbon atom (“deaza” substitution), producing a 7deazapurine structure. It is used to study adenine N7 chemistry independent of base pairing, and support synthesis and validation of 7deazadATP."
+ },
+ {
+  "file": "sc8097 7-Deaza-dGDP.docx",
+  "catalog": "SC8097",
+  "name": "7-Deaza-dGDP",
+  "cas": "",
+  "usage": "7-Deaza-dGDP is a modified deoxyguanosine diphosphate (dGDP) in which the N7 nitrogen of guanosine is replaced by a carbon atom (“deaza” substitution), producing a 7deazapurine structure. It is used to test kinase, phosphatase, or nucleotide-processing enzyme activity, and intermediate for enzymatic phosphorylation to 7-Deaza-dGTP."
+ },
+ {
+  "file": "sc8098 7-Deaza-dGMP.docx",
+  "catalog": "SC8098",
+  "name": "7-Deaza-dGMP",
+  "cas": "",
+  "usage": "7-Deaza-dGMP is a modified deoxyguanosine monophosphate (dGMP) in which the N7 nitrogen of guanosine is replaced by a carbon atom (“deaza” substitution), producing a 7deazapurine structure. It is used to study role of guanine N7 in protein–DNA/RNA interactions, and support synthesis, validation, or quality control of 7deazadGTP."
+ },
+ {
+  "file": "sc8099 7-Deaza-7-iodo-dATP.docx",
+  "catalog": "SC8099",
+  "name": "7-Deaza-7-iodo-dATP",
+  "cas": "214833-26-8",
+  "usage": "7-Deaza-7-iodo-dATP is a modified deoxyadenosine triphosphate (dATP) in which the adenine base is converted to a 7-deaza scaffold and carries an iodine substituent at the 7-position. It is used to study DNA–protein complex structure determination, map majorgroove contacts in enzymes and binding proteins, and cross-coupling chemistry."
+ },
+ {
+  "file": "sc8100 7-Deaza-7-iodo-dGTP.docx",
+  "catalog": "SC8100",
+  "name": "7-Deaza-7-iodo-dGTP",
+  "cas": "214833-26-8",
+  "usage": "7-Deaza-7-iodo-dGTP is a modified deoxyguanosine triphosphate (dATP) in which the guanine base is converted to a 7-deaza scaffold and carries an iodine substituent at the 7-position. It is used to study DNA–protein and DNA–enzyme complex structures, map majorgroove contacts in enzymes and binding proteins and dissect N7dependent guanine recognition."
+ },
+ {
+  "file": "sc8101 7-Deaza-7-Propargylamino-dATP.docx",
+  "catalog": "SC8101",
+  "name": "7-Deaza-7-Propargylamino-dATP",
+  "cas": "587848-72-4",
+  "usage": "7-Deaza-7-Propargylamino-dATP is a modified deoxyadenosine triphosphate (dATP) in which the nitrogen at the 7-position of the purine ring is replaced by carbon (“7-deaza” modification), and a propargylamino group (–NH–CH2–C≡CH) is attached at the 7-position. It is used in tracking DNA synthesis in cells or in vitro, DNA labeling and imaging (attach fluorophores postsynthesis), and nextgeneration sequencing method development."
+ },
+ {
+  "file": "sc8102 7-Deaza-7-Propargylamino-dGTP.docx",
+  "catalog": "SC8102",
+  "name": "7-Deaza-7-Propargylamino-dGTP",
+  "cas": "587848-73-5",
+  "usage": "7-Deaza-7-Propargylamino-dGTP is a modified deoxyguanosine triphosphate (dGTP) in which the guanine base is converted to a 7-deaza scaffold and a propargylamino group (–NH–CH2–C≡CH) is attached at the 7-position. It is used in fluorescent or affinity labeling of newly synthesized DNA, DNA imaging and replication studies,and Nextgeneration sequencing chemistry development."
+ },
+ {
+  "file": "sc8103 7-Deaza-7-Propargylamino-ddATP.docx",
+  "catalog": "SC8103",
+  "name": "7-Deaza-7-Propargylamino-ddATP",
+  "cas": "114748-69-5",
+  "usage": "7-Deaza-7-Propargylamino-ddATP is a modified dideoxyadenosine triphosphate (ddATP) in which the nitrogen at the 7-position of the purine ring is replaced by carbon (“7-deaza” modification), and a propargylamino group (–NH–CH2–C≡CH) is attached at the 7-position, also a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. It is used in post-synthetic fluorescent labeling, sequencing probe preparation, and DNA mapping."
+ },
+ {
+  "file": "sc8104 7-Deaza-7-Propargylamino-ddGTP.docx",
+  "catalog": "SC8104",
+  "name": "7-Deaza-7-Propargylamino-ddGTP",
+  "cas": "114748-61-7",
+  "usage": "(–NH–CH2–C≡CH) is attached at the 7-position, and a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. It is used in singlebase incorporation / kinetic assays, mapping guanine positions or events, and DNA barcoding or affinity tagging."
+ },
+ {
+  "file": "sc8105 3’-Azido-ddATP.docx",
+  "catalog": "SC8105",
+  "name": "3’-Azido-ddATP",
+  "cas": "92562-94-2",
+  "usage": "Ring, also a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. It can be used in DNA sequencingbytermination approaches, DNA labeling via click chemistry (CuAAC / SPAAC),"
+ },
+ {
+  "file": "sc8106 3’-Azido-ddGTP.docx",
+  "catalog": "SC8106",
+  "name": "3’-Azido-ddGTP",
+  "cas": "94059-38-8",
+  "usage": "3’-Azido-ddGTP is a modified dideoxyguanosine triphosphate (ddGTP) in which the 3′ position of the deoxyribose sugar is substituted with an azido group (–N₃) on the guanine ring, also a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. It can be used in DNA chaintermination sequencing, RNA-dependent DNA synthesis, and Postincorporation labeling."
+ },
+ {
+  "file": "sc8107 3’-Azido-ddCTP.docx",
+  "catalog": "SC8107",
+  "name": "3’-Azido-ddCTP",
+  "cas": "92562-77-1",
+  "usage": "3’-Azido-ddCTP is a modified dideoxycytosine triphosphate (ddCTP) in which the 3′ position of the deoxyribose sugar is substituted with an azido group (–N₃) on the cytosine ring, also a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. It can be used in DNA chaintermination sequencing, postincorporation modification, and modified oligonucleotide generation."
+ },
+ {
+  "file": "sc8108 3’-Azido-ddUTP.docx",
+  "catalog": "SC8108",
+  "name": "3’-Azido-ddUTP",
+  "cas": "119388-79-3",
+  "usage": "3’-Azido-ddUTP is a modified dideoxyuridine triphosphate (ddUTP) in which the 3′ position of the deoxyribose sugar is substituted with an azido group (–N₃) on the cytosine ring, also a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. It can be used in DNA chaintermination sequencing, postincorporation labeling, and DNA/RNA conjugation."
+ },
+ {
+  "file": "sc8109 3’-Azido-ddTTP.docx",
+  "catalog": "SC8109",
+  "name": "3’-Azido-ddTTP",
+  "cas": "92586-35-1",
+  "usage": "3’-Azido-ddTTP is a modified deoxyribonucleotide triphosphate (ddTTP) in which the 3′ position of the deoxyribose sugar is substituted with an azido group (–N₃) on thymine base (5methyluracil), also a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. It can be used in DNA chaintermination sequencing, postincorporation labeling, and used as a substrate for certain DNA polymerases and reverse transcriptases."
+ },
+ {
+  "file": "sc8110 3’-Amino-ddATP.docx",
+  "catalog": "SC8110",
+  "name": "3'-Amino-ddATP",
+  "cas": "90053-18-2",
+  "usage": "3'-Amino-ddATP is a modified dideoxyadenosine triphosphate (ddATP) in which the 3′ position of the deoxyribose sugar is substituted with an an amino group (–NH₂) on the adenosine ring, also a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. It can be used in DNA sequencingbytermination approaches, DNA labeling via click chemistry (CuAAC / SPAAC), and polymerase mechanism studies."
+ },
+ {
+  "file": "sc8111 3’-Amino-ddCTP.docx",
+  "catalog": "SC8111",
+  "name": "3’-Amino-ddCTP",
+  "cas": "90053-17-1",
+  "usage": "3’-Amino-ddCTP is a modified dideoxycytosine triphosphate (ddCTP) in which the 3′ position of the deoxyribose sugar is substituted with an amino group (–NH₂) on the cytosine ring, also a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. It can be used in modified sanger sequencing or specialized enzymatic reactions, and attachment of dyes, biotin, or other molecules to create labeled oligonucleotides."
+ },
+ {
+  "file": "sc8112 3’-Amino-ddGTP.docx",
+  "catalog": "SC8112",
+  "name": "3’-Amino-ddGTP",
+  "cas": "90053-19-3",
+  "usage": "3’-Amino-ddGTP is a modified dideoxyguanosine triphosphate (ddGTP) in which the 3′ position of the deoxyribose sugar is substituted with an amino group (–NH₂) on the guanine ring, also a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. It can be used in DNA labeling, oligonucleotide conjugation, and polymerase substrate studies."
+ },
+ {
+  "file": "sc8113 3’-Amino-ddTTP.docx",
+  "catalog": "SC8113",
+  "name": "3’-Amino-ddTTP",
+  "cas": "90053-16-0",
+  "usage": "3’- Amino-ddTTP is a modified deoxyribonucleotide triphosphate (ddTTP) in which the 3′ position of the deoxyribose sugar is substituted with an amino group (–NH₂) on thymine base (5methyluracil), also a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. It can be used in DNA sequencing and polymerase studies, controlled DNA chain termination, and preparation of chemically modified oligonucleotides."
+ },
+ {
+  "file": "sc8114 5-Bromo-ddUTP.docx",
+  "catalog": "SC8114",
+  "name": "5-Bromo-ddUTP",
+  "cas": "",
+  "usage": "5-Bromo-ddUTP is a modified dideoxyuridine triphosphate (ddUTP) in which bromine atom replaces hydrogen at the 5-position of the uracil ring, also a dideoxyribose sugar lacking both 2′-OH and 3′-OH groups. The 5BromoddUTP can stops DNA synthesis once incorporated so work similarly to ddNTPs used in Sanger sequencing. It can be used in DNA chaintermination sequencing, postincorporation labeling, and DNA/RNA conjugation."
+ },
+ {
+  "file": "sc8115 Biotin-11-CTP.docx",
+  "catalog": "SC8115",
+  "name": "Biotin-11-CTP",
+  "cas": "",
+  "usage": "Biotin-11-CTP can be substrate for T3/T7/SP6 RNA polymerases during in vitro transcription (IVT). It can be used for RNA labeling, RNA capture and pulldown, and northern blotting."
+ },
+ {
+  "file": "sc8116 Biotin-11-dCTP.docx",
+  "catalog": "SC8116",
+  "name": "Biotin-11-dCTP",
+  "cas": "",
+  "usage": "Biotin-11-dCTP is a Biotin-labeled (biotinylated) deoxycytidine triphosphate (dCTP), and the 11 stands for the number of atoms in the linker (aminohexyl chain) between biotin and dCTP. It can be used for DNA labeling, DNA microarray probe preparation, in situ hybridization (ISH/FISH) detection and PCR labeling."
+ },
+ {
+  "file": "sc8117 Biotin-11-ATP.docx",
+  "catalog": "SC8117",
+  "name": "Biotin-11-ATP",
+  "cas": "",
+  "usage": "The Biotin-11-ATP can be used for ATP-binding protein studies, enzyme characterization, and kinase substrate labeling."
+ },
+ {
+  "file": "sc8118 Biotin-11-dATP.docx",
+  "catalog": "SC8118",
+  "name": "Biotin-11-dATP",
+  "cas": "",
+  "usage": "Biotin-11-dATP is a Biotin-labeled (biotinylated) deoxyadenosine triphosphate (dATP), and the 11 stands for the number of atoms in the linker (aminohexyl chain) between biotin and dATP. The Biotin-11-dATP can be used for PCR labeling, DNA probe synthesis, and DNA–protein interaction studies."
+ },
+ {
+  "file": "sc8119 Biotin-11-GTP.docx",
+  "catalog": "SC8119",
+  "name": "Biotin-11-GTP",
+  "cas": "",
+  "usage": "Biotin-11-GTP is a Biotin-labeled (biotinylated) guanosine triphosphate (GTP), and the 11 stands for the number of atoms in the linker (aminohexyl chain) between biotin and GTP. The Biotin-11-GTP can be used for RNA probe synthesis to generate biotinylated RNA probes, RNA affinity capture, and RNA pull-down assays."
+ },
+ {
+  "file": "sc8120 Biotin-11-dGTP.docx",
+  "catalog": "SC8120",
+  "name": "Biotin-11-dGTP",
+  "cas": "",
+  "usage": "Biotin-11-dGTP is a Biotin-labeled (biotinylated) deoxyguanosine triphosphate (dGTP), and the 11 stands for the number of atoms in the linker (aminohexyl chain) between biotin and dGTP. The Biotin-11-dGTP can be used for biotinylated DNA probes in fluorescence in situ hybridization (FISH), DNA–protein interaction studies, and chromatin-associated assays."
+ },
+ {
+  "file": "sc8121 Biotin-11-ddUTP.docx",
+  "catalog": "SC8121",
+  "name": "Biotin-11-ddUTP",
+  "cas": "",
+  "usage": "Biotin-11-ddUTP is a Biotin-labeled (biotinylated) dideoxyuridine triphosphate (ddUTP), and the 11 stands for the number of atoms in the linker (aminohexyl chain) between biotin and ddUTP. It can be used for generating DNA fragments with a biotin label specifically at the termination point, affinity capture, DNA mapping and sequencing research."
+ },
+ {
+  "file": "sc8122 Biotin-16-CTP.docx",
+  "catalog": "SC8122",
+  "name": "Biotin-16-CTP",
+  "cas": "",
+  "usage": "The Biotin-16-CTP can be substrate for T3/T7/SP6 RNA polymerases during in vitro transcription (IVT). It can be used for RNA probe synthesis, RNA affinity purification, and northern blotting."
+ },
+ {
+  "file": "sc8123 Biotin-16-dCTP.docx",
+  "catalog": "SC8123",
+  "name": "Biotin-16-dCTP",
+  "cas": "",
+  "usage": "Biotin-16-dCTP is a Biotin-labeled (biotinylated) deoxycytidine triphosphate (dCTP), and the 16 stands for the number of atoms in the linker (aminohexyl chain) between biotin and dCTP. It can be used in DNA labeling for fluorescence in situ hybridization (FISH), PCR labeling, DNA capture and enrichment."
+ },
+ {
+  "file": "sc8124 Biotin-16-dGTP.docx",
+  "catalog": "SC8124",
+  "name": "Biotin-16-dGTP",
+  "cas": "",
+  "usage": "Biotin-16-dGTP is a Biotin-labeled (biotinylated) deoxyguanosine triphosphate (dGTP), and the 16 stands for the number of atoms in the linker (aminohexyl chain) between biotin and dGTP. The Biotin-16-dGTP can be used for biotinylated DNA probes in fluorescence in situ hybridization (FISH), DNA–protein interaction studies, hybrid capture sequencing, and non-radioactive detection."
+ },
+ {
+  "file": "sc8125 Biotin-16-ddUTP.docx",
+  "catalog": "SC8125",
+  "name": "Biotin-16-ddUTP",
+  "cas": "",
+  "usage": "Biotin-16-ddUTP is a Biotin-labeled (biotinylated) dideoxyuridine triphosphate (ddUTP), and the 16 stands for the number of atoms in the linker (aminohexyl chain) between biotin and ddUTP. It can be used for generating DNA fragments with a biotin label specifically at the termination point, primer extension assays, chain-termination and DNA-mapping methodologies."
+ }
+]

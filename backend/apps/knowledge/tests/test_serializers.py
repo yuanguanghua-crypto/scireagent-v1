@@ -9,6 +9,24 @@ from apps.knowledge.tests.factories import (
     ProtocolFactory, ProtocolStepFactory, ReferenceFactory, CompatibilityFactory
 )
 from apps.bridges.tests.factories import ProductMethodFactory, MethodProtocolFactory
+import factory
+from apps.knowledge.models import FacetValue, ProtocolFacet
+
+
+class FacetValueFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = FacetValue
+    facet_type = 'method'
+    kind = ''
+    value = factory.Sequence(lambda n: f'Facet {n}')
+
+
+class ProtocolFacetFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = ProtocolFacet
+    protocol = factory.SubFactory(ProtocolFactory)
+    facet = factory.SubFactory(FacetValueFactory)
+    source = 'cluster_main'
 
 
 class ResearchGoalListSerializerTest(TestCase):
@@ -185,3 +203,48 @@ class CompatibilitySerializerTest(TestCase):
         self.assertIn('expression_json', data)
         self.assertIn('summary', data)
         self.assertIn('status', data)
+
+
+class ProtocolDetailSerializerFacetTest(TestCase):
+    """route B 加法（范围 A）：ProtocolDetailSerializer 必须暴露按 facet_type 分组的 facets。"""
+
+    def _link(self, protocol, facet_type, value, kind=''):
+        fv = FacetValueFactory(facet_type=facet_type, kind=kind, value=value)
+        ProtocolFacetFactory(protocol=protocol, facet=fv)
+        return fv
+
+    def test_facets_grouped_by_type(self):
+        protocol = ProtocolFactory()
+        self._link(protocol, 'application', 'Sequencing & Library Prep')
+        self._link(protocol, 'method', 'Bioinformatics & Data Analysis')
+        self._link(protocol, 'biological_context', 'Homo sapiens', kind='species')
+        self._link(protocol, 'biological_context', 'HEK293', kind='cell')
+        self._link(protocol, 'study_type', 'Review')
+        facets = ProtocolDetailSerializer(protocol).data['facets']
+        self.assertIn('application', facets)
+        self.assertEqual(facets['application'][0]['value'], 'Sequencing & Library Prep')
+        self.assertEqual(facets['method'][0]['value'], 'Bioinformatics & Data Analysis')
+        self.assertEqual(len(facets['biological_context']), 2)
+        self.assertEqual(facets['study_type'][0]['value'], 'Review')
+
+    def test_facet_entry_shape_no_source(self):
+        protocol = ProtocolFactory()
+        fv = self._link(protocol, 'application', 'Genomics & DNA')
+        entry = ProtocolDetailSerializer(protocol).data['facets']['application'][0]
+        self.assertEqual(entry['id'], fv.id)
+        self.assertEqual(entry['facet_type'], 'application')
+        self.assertEqual(entry['kind'], '')
+        self.assertEqual(entry['value'], 'Genomics & DNA')
+        # 用户决策：不暴露来源标记
+        self.assertNotIn('source', entry)
+
+    def test_biological_context_kind_preserved(self):
+        protocol = ProtocolFactory()
+        self._link(protocol, 'biological_context', 'Mus musculus', kind='species')
+        self._link(protocol, 'biological_context', 'Cancer', kind='disease')
+        facets = ProtocolDetailSerializer(protocol).data['facets']
+        self.assertEqual({e['kind'] for e in facets['biological_context']}, {'species', 'disease'})
+
+    def test_empty_facets_is_empty_dict(self):
+        protocol = ProtocolFactory()
+        self.assertEqual(ProtocolDetailSerializer(protocol).data['facets'], {})

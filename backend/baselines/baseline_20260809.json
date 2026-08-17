@@ -1,0 +1,114 @@
+{
+  "generated_at": "2026-08-09",
+  "source_db": "db.sqlite3 (dev, post-S1/S1-A / S2 / F3-A)",
+  "note": "本 JSON 为 S0 权威基线。v2 方案 S0 表(非零RG=1/9 等)是 S1/S2 之前快照，现已过时，以本文件为准。",
+  "dirty_data_caliber": {
+    "c0_claim": "ABC 方案 C0 正文（line 135）：18 RG 中 9、14 AP 中 6、22 ME 中 7 个 __e2e_* / __curl_* 残留 = 9+6+7 = 22 顶层脏夹具",
+    "c5_claim": "ABC 方案 C5 验收表（line 249）误写「15」，v2 已注明为笔误，正确应为 22",
+    "caliber_definition": "「脏实体」严格 = 顶层 __ 前缀 e2e 夹具（零跨链接）。Product e2e 残骸与伪方法属另一口径，单列如下。",
+    "top_layer_fixtures": {
+      "total": 22,
+      "research_goal": {
+        "fixture": 9,
+        "total": 18
+      },
+      "application": {
+        "fixture": 6,
+        "total": 15
+      },
+      "method": {
+        "fixture": 7,
+        "total": 22
+      },
+      "note": "全部 is_test_fixture=True（S1 标记），公开读取面已过滤；零删除。"
+    },
+    "product_e2e_residue": {
+      "total": 131,
+      "archived": 131,
+      "draft": 131,
+      "with_bridges": 0,
+      "identification": "按前缀 E2E / E2E- 识别；archived 是 dev 库的广泛状态(255/256 商品均 archived，含 108 active + 16 published + 131 e2e)，故 e2e 不能靠 archived 区分，必须靠前缀。",
+      "note": "全部 archived=True、draft、0 桥接行；公开 list 已隐藏，search 已在 S1-A 用 .exclude(archived=True) 对齐。"
+    },
+    "pseudo_methods": {
+      "total": 5,
+      "note": "整句实验描述冒充 Method，F3-A 已整体重挂到 catch-all(Other / Experimental Descriptions, research_goal=None)，零删除，MethodProtocol/ProductMethod 桥保留。"
+    },
+    "full_dirty_footprint": {
+      "top_layer_fixtures": 22,
+      "product_e2e": 131,
+      "pseudo_methods": 5,
+      "note": "C0『22』只覆盖 top_layer_fixtures 一项；完整脏数据足迹远大于 22。"
+    }
+  },
+  "top_chain_path_two": {
+    "research_goal": {
+      "total": 18,
+      "fixture": 9,
+      "real": 9
+    },
+    "application": {
+      "total": 15,
+      "fixture": 6,
+      "real": 9
+    },
+    "method": {
+      "total": 22,
+      "fixture": 7,
+      "real": 15
+    },
+    "nonzero_rg": {
+      "path_two_all": 6,
+      "path_two_real_only": 6,
+      "real_rg_total": 9,
+      "ratio": "6 / 9",
+      "note": "S2 后非零 RG 由 1/9 提升到 6/9（v2 核心指标达成）。"
+    },
+    "methods_under_rg_tree": 10,
+    "product_rg_multiplicity": {
+      "1": 88,
+      "2": 14,
+      "3": 4
+    }
+  },
+  "knowledge_links": {
+    "productprotocol_total": 4363,
+    "tier_distribution": {
+      "document": 3389,
+      "featured": 974
+    },
+    "link_source_distribution": {
+      "auto": 2445,
+      "inherited": 1918
+    },
+    "relevance_score": {
+      "count": 4363,
+      "median": 0.5609,
+      "mean": 0.4451,
+      "min": 0.0947,
+      "max": 0.8511,
+      "zero_count": 0
+    },
+    "single_protocol_max_linked": 104,
+    "per_product_link_count": {
+      "count": 124,
+      "min": 19,
+      "max": 46,
+      "median": 39.0
+    },
+    "methodprotocol_total": 38,
+    "productmethod_total": 150
+  },
+  "other_scale": {
+    "protocol_total": 14065,
+    "product_total": 256,
+    "product_archived": 255,
+    "product_archived_breakdown": {
+      "active_archived": 108,
+      "published_archived": 16,
+      "draft_archived": 131,
+      "not_archived": 1,
+      "note": "dev 库几乎全 archived；e2e(131) 是 draft+archived 子集，靠前缀识别。"
+    }
+  }
+}

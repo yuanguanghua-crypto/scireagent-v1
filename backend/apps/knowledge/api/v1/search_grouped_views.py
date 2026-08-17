@@ -18,6 +18,7 @@ from django.db.models.functions import Coalesce, Cast
 from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
 from apps.commerce.models import Product
 from apps.knowledge.models import Application, Method, Protocol, Reference
+from apps.knowledge.api.v1.fixture_visibility import apply_fixture_filter
 
 
 def _is_postgres():
@@ -51,7 +52,8 @@ def _search_products_fts(q, limit=10):
     query = SearchQuery(q)
     vector = _build_vector(_PRODUCT_SEARCH_COLS)
     fts = list(
-        Product.objects.annotate(search=vector, score=SearchRank(vector, query))
+        Product.objects.exclude(archived=True)
+        .annotate(search=vector, score=SearchRank(vector, query))
         .filter(search=query)
         .order_by('-score')
         .values('id', 'name', 'slug', 'catalog_no', 'cas', 'formula', 'score')[:limit]
@@ -61,7 +63,7 @@ def _search_products_fts(q, limit=10):
     # Supplement with substring matches not already present in the FTS results.
     seen = {r['id'] for r in fts}
     ql = q.lower()
-    supp = Product.objects.filter(
+    supp = Product.objects.exclude(archived=True).filter(
         Q(catalog_no__icontains=q) | Q(cas__icontains=q) | Q(name__icontains=q)
     ).exclude(id__in=seen).values(
         'id', 'name', 'slug', 'catalog_no', 'cas', 'formula'
@@ -79,7 +81,7 @@ def _search_products_fts(q, limit=10):
 
 def _search_products_icontains(q, limit=10):
     """SQLite fallback: icontains with simple relevance score."""
-    qs = Product.objects.filter(
+    qs = Product.objects.exclude(archived=True).filter(
         Q(name__icontains=q) | Q(cas__icontains=q) | Q(catalog_no__icontains=q) |
         Q(formula__icontains=q) | Q(overview__icontains=q)
     )
@@ -103,19 +105,28 @@ def _search_products_icontains(q, limit=10):
     return sorted(results, key=lambda x: -x['score'])
 
 
-def _search_model_fts(model, q, fields, search_cols, limit=5):
+def _base_qs(model, request):
+    """S1：对带 is_test_fixture 的模型统一施加可见性过滤。"""
+    qs = model.objects.all()
+    if hasattr(model, 'is_test_fixture'):
+        qs = apply_fixture_filter(qs, request)
+    return qs
+
+
+def _search_model_fts(model, q, fields, search_cols, limit=5, request=None):
     """Generic FTS search for a model — query-time tsvector."""
     query = SearchQuery(q)
     vector = _build_vector(search_cols)
     return list(
-        model.objects.annotate(search=vector, score=SearchRank(vector, query))
+        _base_qs(model, request)
+        .annotate(search=vector, score=SearchRank(vector, query))
         .filter(search=query)
         .order_by('-score')
         .values(*fields)[:limit]
     )
 
 
-def _search_model_icontains(model, q, fields, limit=5):
+def _search_model_icontains(model, q, fields, limit=5, request=None):
     """SQLite fallback: icontains search."""
     q_objects = Q()
     search_fields = [f for f in fields if f not in ('id', 'slug', 'score')]
@@ -123,7 +134,7 @@ def _search_model_icontains(model, q, fields, limit=5):
         q_objects |= Q(**{f'{f}__icontains': q})
     if not q_objects:
         return []
-    qs = model.objects.filter(q_objects)
+    qs = _base_qs(model, request).filter(q_objects)
     results = []
     for obj in qs[:limit]:
         row = {}
@@ -191,32 +202,32 @@ def search_grouped(request):
 
     if not type_filter or type_filter == 'application':
         data['applications'] = (
-            _search_model_fts(Application, q, APPLICATION_FIELDS, _APPLICATION_SEARCH_COLS, 5) if use_fts
-            else _search_model_icontains(Application, q, APPLICATION_FIELDS, 5)
+            _search_model_fts(Application, q, APPLICATION_FIELDS, _APPLICATION_SEARCH_COLS, 5, request) if use_fts
+            else _search_model_icontains(Application, q, APPLICATION_FIELDS, 5, request)
         )
     else:
         data['applications'] = []
 
     if not type_filter or type_filter == 'method':
         data['methods'] = (
-            _search_model_fts(Method, q, METHOD_FIELDS, _METHOD_SEARCH_COLS, 5) if use_fts
-            else _search_model_icontains(Method, q, METHOD_FIELDS, 5)
+            _search_model_fts(Method, q, METHOD_FIELDS, _METHOD_SEARCH_COLS, 5, request) if use_fts
+            else _search_model_icontains(Method, q, METHOD_FIELDS, 5, request)
         )
     else:
         data['methods'] = []
 
     if not type_filter or type_filter == 'protocol':
         data['protocols'] = (
-            _search_model_fts(Protocol, q, PROTOCOL_FIELDS, _PROTOCOL_SEARCH_COLS, 5) if use_fts
-            else _search_model_icontains(Protocol, q, PROTOCOL_FIELDS, 5)
+            _search_model_fts(Protocol, q, PROTOCOL_FIELDS, _PROTOCOL_SEARCH_COLS, 5, request) if use_fts
+            else _search_model_icontains(Protocol, q, PROTOCOL_FIELDS, 5, request)
         )
     else:
         data['protocols'] = []
 
     if not type_filter or type_filter == 'reference':
         data['references'] = (
-            _search_model_fts(Reference, q, REFERENCE_FIELDS, _REFERENCE_SEARCH_COLS, 5) if use_fts
-            else _search_model_icontains(Reference, q, REFERENCE_FIELDS, 5)
+            _search_model_fts(Reference, q, REFERENCE_FIELDS, _REFERENCE_SEARCH_COLS, 5, request) if use_fts
+            else _search_model_icontains(Reference, q, REFERENCE_FIELDS, 5, request)
         )
     else:
         data['references'] = []

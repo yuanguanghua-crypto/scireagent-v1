@@ -39,9 +39,24 @@ function sortIcon(field) {
 
 const sortedProducts = computed(() => {
   const list = [...products.value]
+  const field = sortField.value
+  // 知识关联度是数值列：用数值比较，且「无关联」(null) 始终沉底（与后端 nulls_last 一致）
+  if (field === 'aggregate_relevance_score') {
+    const toNum = (v) => (v === null || v === undefined || (typeof v === 'number' && Number.isNaN(v))) ? null : Number(v)
+    list.sort((a, b) => {
+      const an = toNum(a.aggregate_relevance_score)
+      const bn = toNum(b.aggregate_relevance_score)
+      if (an === null && bn === null) return 0
+      if (an === null) return 1   // a 沉底
+      if (bn === null) return -1  // b 沉底
+      const cmp = an - bn
+      return sortDir.value === 'asc' ? cmp : -cmp
+    })
+    return list
+  }
   list.sort((a, b) => {
-    const av = a[sortField.value] ?? ''
-    const bv = b[sortField.value] ?? ''
+    const av = a[field] ?? ''
+    const bv = b[field] ?? ''
     const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' })
     return sortDir.value === 'asc' ? cmp : -cmp
   })
@@ -402,6 +417,7 @@ async function confirmDelete() {
             <th>Complete</th>
             <th class="sortable" @click="toggleSort('status')">Status{{ sortIcon('status') }}</th>
             <th class="sortable" @click="toggleSort('category_l1')">Category{{ sortIcon('category_l1') }}</th>
+            <th class="sortable" @click="toggleSort('aggregate_relevance_score')" title="知识关联度 (0–1)，点击按关联强弱排序，无关联商品沉底">Knowledge Link{{ sortIcon('aggregate_relevance_score') }}</th>
             <th>Compliance</th>
             <th class="col-action"></th>
           </tr>
@@ -418,6 +434,10 @@ async function confirmDelete() {
             </td>
             <td><span class="status-tag" :class="`status-${p.status}`">{{ p.status }}</span></td>
             <td>{{ p.product_class_name || p.category_l1 || '—' }}</td>
+            <td class="col-rel">
+              <span v-if="p.aggregate_relevance_score !== null && p.aggregate_relevance_score !== undefined" class="rel-score">{{ p.aggregate_relevance_score.toFixed(2) }}</span>
+              <span v-else class="rel-none">—</span>
+            </td>
             <td class="col-compliance">
               <span class="tag" :class="p.sds_published ? 'tag-sds' : 'tag-gray'" :title="p.sds_published ? 'SDS published' : 'SDS not published'">SDS{{ p.sds_published ? '✓' : '—' }}</span>
               <span class="tag" :class="(p.coa_published_count || 0) > 0 ? 'tag-coa' : 'tag-gray'" :title="`Published COA batches: ${p.coa_published_count || 0}`">COA {{ p.coa_published_count || 0 }}</span>
@@ -532,6 +552,9 @@ async function confirmDelete() {
 .col-code { font-family: monospace; white-space: nowrap; }
 .col-name { font-weight: 500; }
 .col-cas { font-family: monospace; font-size: 12px; white-space: nowrap; }
+.col-rel { white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+.rel-score { font-family: var(--font-mono); font-weight: 600; color: var(--color-primary); }
+.rel-none { color: var(--color-text-tertiary); }
 .col-action { width: 90px; text-align: right; }
 .row-actions { position: relative; }
 .menu-trigger { padding: 4px 10px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); color: var(--color-text); font-size: 12px; cursor: pointer; }

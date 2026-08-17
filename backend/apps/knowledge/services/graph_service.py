@@ -108,7 +108,7 @@ def _application_neighbors(aid):
             'relationship': 'part_of',
         })
     # Application → Method
-    for method in Method.objects.filter(application_id=aid, status='active'):
+    for method in Method.objects.public().filter(application_id=aid, status='active'):
         neighbors.append({
             'target_type': 'method',
             'target_id': method.id,
@@ -151,7 +151,7 @@ def _reference_neighbors(rid):
 def _research_goal_neighbors(rgid):
     """ResearchGoal → Application (FK reverse)"""
     neighbors = []
-    for app in Application.objects.filter(research_goal_id=rgid, status='active'):
+    for app in Application.objects.public().filter(research_goal_id=rgid, status='active'):
         neighbors.append({
             'target_type': 'application',
             'target_id': app.id,
@@ -189,7 +189,11 @@ def build_graph(entity_type, entity_id, depth=3, max_nodes=50, max_edges=100):
         return {'nodes': [], 'edges': []}
 
     model = ENTITY_MODELS[entity_type]
-    entity = model.objects.filter(id=entity_id).first()
+    qs = model.objects.all()
+    # S1：以测试夹具为起点的图谱一律视作不存在，避免残骸经 graph 端点外泄
+    if hasattr(model, 'is_test_fixture'):
+        qs = qs.filter(is_test_fixture=False)
+    entity = qs.filter(id=entity_id).first()
     if not entity:
         return None  # Not found
 

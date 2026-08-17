@@ -105,6 +105,7 @@ class ProductFullSerializer(serializers.ModelSerializer):
             'category_l1', 'category_l2', 'status', 'product_class_id',
             'product_class_name', 'product_class_path',
             'skus', 'documents', 'created_at', 'updated_at',
+            'substructure_tags',
         ]
 
     def get_product_class_name(self, obj):

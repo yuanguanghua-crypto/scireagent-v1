@@ -7,6 +7,7 @@ import * as documentsApi from '@/api/documents'
 import { openPreview } from '@/utils/previewInject'
 import { useDialogA11y } from '@/composables/useDialogA11y'
 import { AppInput, AppSelect, LoadingSpinner } from '@/components/common'
+import { sortProtocolLinks, buildFolded, splitWeakLinks, axisBadges, unionProtocolRows } from '@/utils/protocolLinks'
 
 import StructureViewer from './components/StructureViewer.vue'
 
@@ -95,6 +96,26 @@ const pendingProductClassId = ref(null)
 const skus = ref([])
 const methodIds = ref([])
 const protocolIds = ref([])
+
+// #356 — enriched Protocol links from server (sort / TopN fold / 三轴徽标 / 来源).
+// productProtocolLinks = authoritative server-derived rows; displayProtocolRows
+// unions them with locally-added protocolIds not yet recomputed (铁律①不丢链)。
+const productProtocolLinks = ref([])
+const showAllProtocolLinks = ref(false)
+const showWeakLinks = ref(false)
+const displayProtocolRows = computed(() => {
+  // #356/#357 + S4: authoritative server rows ∪ locally-added ids (铁律①不丢链)。
+  // Union/dedup/defaults live in unionProtocolRows (unit-tested); sort+fold here.
+  // S4: weak（弱相关/广播桶）拆为独立折叠区「弱相关(N)」，不污染强相关排序。
+  const rows = unionProtocolRows(
+    productProtocolLinks.value,
+    protocolIds.value,
+    (pid) => knowledgeList.value.protocols.find((p) => p.id === pid)?.name || null
+  )
+  const { strong, weak } = splitWeakLinks(sortProtocolLinks(rows))
+  const folded = buildFolded(strong, 10, showAllProtocolLinks.value)
+  return { ...folded, weak }
+})
 
 // ── Dropdown options — pulled from Product model Choices ────
 const purityOpts = ['≥ 99% (HPLC)', '≥ 98% (HPLC)', '≥ 97% (HPLC)', '≥ 95% (HPLC)', '≥ 90% (HPLC)', '≥ 99% (PAGE)', '≥ 95% (PAGE)', '≥ 98% (TLC)']
@@ -438,6 +459,9 @@ const pubchemEnriching = ref(false)
 const pubchemEnrichResult = ref(null)
 const protocolExpanded = ref({})
 const protocolImported = ref({})
+// R0-a：来自 BioProCorpus 的候选协议（字符串 id，尚未入库）。
+// 仅作前端候选引用，绝不在预览/保存阶段自动写入知识库权威表。
+const pendingCorpusProtocols = ref([])
 const protocolImportingId = ref(null)
 const literatureImported = ref({})
 const literatureImportingId = ref(null)
@@ -474,8 +498,12 @@ async function importSingleProtocol(idx) {
       if (newProtocolId && !protocolIds.value.includes(newProtocolId)) {
         protocolIds.value.push(newProtocolId)
       }
+      // R0-a：显式导入成功后从候选列表移除（候选 → 已入库）
+      pendingCorpusProtocols.value = pendingCorpusProtocols.value.filter(x => x !== p)
       await loadKnowledge()
-      setFeedback('success', 'Protocol imported to knowledge base')
+      setFeedback('success', resp.data?.protocol_reused
+        ? 'Protocol already in knowledge base — reused existing entry (no duplicate created)'
+        : 'Protocol imported to knowledge base')
     }
   } catch (e) {
     setFeedback('error', 'Import failed: ' + (e?.response?.data?.meta?.error?.message || e.message))
@@ -672,7 +700,7 @@ function lipinskiClass(val) {
 // 供 Apply All 与 Save Draft 自动套用共用（与 Apply All 行为一致）。
 async function applyEnrichKnowledgeLinks() {
   const data = pubchemEnrichResult.value
-  if (!data || data.error) return { methodCount: 0, protoCount: 0 }
+  if (!data || data.error) return { methodCount: 0, protoCount: 0, pendingCount: 0 }
   let methodCount = 0
   let protoCount = 0
 
@@ -701,34 +729,24 @@ async function applyEnrichKnowledgeLinks() {
     }
   }
 
-  // 4. Protocols — 数字 DB id 直接链；BioProCorpus 字符串 id 先导入知识库再链
+  // 4. Protocols — 只链已在知识库中的数字 DB id。
+  //    R0-a 止血：BioProCorpus 字符串 id 的协议**一律不再自动写库**。
+  //    历史缺陷：此处直接调 importProtocol()，导致「AI 预览 / Save Draft」在产品保存之前
+  //    就往 protocol / method / protocol_step 权威表批量新建实体（且去重失效 → 自我放大），
+  //    违反铁律「全草案不自动落库」。现改为仅登记为候选，由研究员在协议卡片上逐条显式
+  //    点击 Import 才入库（importSingleProtocol）。
   const protos = enrichProtocols.value || []
+  const pending = []
   for (const p of protos) {
     if (Number.isInteger(p.id)) {
       if (!protocolIds.value.includes(p.id)) { protocolIds.value.push(p.id); protoCount++ }
       continue
     }
-    try {
-      const r = await importProtocol({
-        method_name: p.method_hint || p.title || '',
-        protocol_title: p.title || '',
-        protocol_url: p.url || '',
-        objective: p.abstract || '',
-        reagents: p.reagents || '',
-        equipment: p.equipment || '',
-        materials: p.materials || '',
-        steps: p.steps || [],
-        product_id: isEdit.value ? productId.value : null,
-      })
-      if (r.success && r.data?.protocol_id && !protocolIds.value.includes(r.data.protocol_id)) {
-        protocolIds.value.push(r.data.protocol_id)
-        if (r.data.method_id && !methodIds.value.includes(r.data.method_id)) methodIds.value.push(r.data.method_id)
-        protoCount++
-      }
-    } catch { /* 单个协议导入失败不影响其余 */ }
+    pending.push(p)
   }
+  pendingCorpusProtocols.value = pending
 
-  return { methodCount, protoCount }
+  return { methodCount, protoCount, pendingCount: pending.length }
 }
 
 // Apply All: chemical properties + knowledge links + protocols + jena
@@ -750,7 +768,7 @@ async function applyAllEnrichResults() {
   }
 
   // 2-4. Knowledge chain（methods / apps / protocols）— 共用抽取函数
-  const { methodCount, protoCount } = await applyEnrichKnowledgeLinks()
+  const { methodCount, protoCount, pendingCount } = await applyEnrichKnowledgeLinks()
 
   // 5. Jena 归一化规格（仅填空字段，不覆盖已填）
   let jenaCount = 0
@@ -770,7 +788,12 @@ async function applyAllEnrichResults() {
   if (methodCount) parts.push(`${methodCount} methods`)
   if (protoCount) parts.push(`${protoCount} protocols`)
   if (jenaCount) parts.push(`${jenaCount} jena specs`)
-  setFeedback('success', `Applied: ${parts.join(', ')}`)
+  // R0-a：语料库候选协议不再自动入库，明确告知需人工逐条确认
+  if (pendingCount) {
+    setFeedback('success', `Applied: ${parts.join(', ')} — ${pendingCount} corpus protocols kept as candidates (not saved to the knowledge base; use Import on each card to persist)`)
+  } else {
+    setFeedback('success', `Applied: ${parts.join(', ')}`)
+  }
 }
 
 async function adoptProtocol(protocolData) {
@@ -897,6 +920,7 @@ async function loadProduct() {
       })
       methodIds.value = d.method_ids || []
       protocolIds.value = d.protocol_ids || []
+      productProtocolLinks.value = d.protocol_links || []
       // 回填 cascader 选中路径（从 product_class_id 反查 options 树）
       if (d.product_class_id) {
         // options 可能尚未加载，延迟到 loadCategoryOptions 后处理
@@ -1582,13 +1606,19 @@ watch(
           </template>
         </div>
       </div>
-      <div v-if="enrichProtocols && enrichProtocols.length > 0 && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
+      <!-- R0-a：Apply All 之后仍需保留面板，否则未入库的候选协议将无法人工导入 -->
+      <div v-if="enrichProtocols && enrichProtocols.length > 0 && (!pubchemEnrichResult.applied || pendingCorpusProtocols.length > 0)" class="pubchem-preview" style="margin-top: 8px">
         <h4 style="margin:0 0 8px 0;font-size:14px">🧪 Protocols ({{ enrichProtocols.length }} found)</h4>
+        <p v-if="pendingCorpusProtocols.length" class="form-hint" style="margin:0 0 8px 0">
+          ⚠ 以下 {{ pendingCorpusProtocols.length }} 条来自语料库的协议为<strong>候选，尚未写入知识库</strong>；
+          AI 匹配与保存草稿都不会自动入库，需逐条确认后点击 Import。
+        </p>
         <div v-for="(p, i) in enrichProtocols.slice(0, 5)" :key="i" class="protocol-card">
           <div class="protocol-card-header" @click="toggleProtocolExpand(i)">
             <span style="font-weight:600;font-size:12px">{{ p.title || 'Untitled' }}</span>
             <span style="font-size:11px;color:var(--color-text-secondary)">[{{ p.source }}]</span>
             <span v-if="p.steps?.length" style="font-size:11px;color:var(--color-text-secondary)">{{ p.steps.length }} steps</span>
+            <span v-if="!Number.isInteger(p.id) && !protocolImported[i]" class="badge badge-weak">候选 · 未入库</span>
             <span style="margin-left:auto;font-size:11px">{{ protocolExpanded[i] ? '▲' : '▼' }}</span>
           </div>
           <div v-if="protocolExpanded[i]" class="protocol-card-body">
@@ -1753,14 +1783,30 @@ watch(
           <span v-if="!methodIds.length" class="chip-none">None</span>
         </div>
 
-        <!-- Protocols chips -->
+        <!-- Protocols chips (enriched: 排序 / TopN 折叠 / 三轴徽标 / 来源 / #id 锚点) -->
         <div class="chip-group">
           <span class="chip-label">Protocols:</span>
-          <span v-for="pid in protocolIds" :key="pid" class="chip">
-            <a :href="`/protocols/${pid}`" target="_blank" class="chip-link">{{ knowledgeList.protocols.find(p => p.id === pid)?.name || `#${pid}` }}</a>
-            <button type="button" class="chip-remove" @click="toggleProtocolId(pid)" title="Unlink">✕</button>
+          <span v-for="row in displayProtocolRows.visible" :key="row.id" class="chip chip-protocol">
+            <a :href="`/protocols/${row.id}`" target="_blank" class="chip-link">{{ row.name || ('#' + row.id) }}</a>
+            <span class="badge" :class="`badge-${row.tier}`" :title="row.tier_label">{{ row.tier_label }}</span>
+            <span v-for="b in axisBadges(row, { includeTier: false })" :key="b.kind" class="badge" :class="`badge-${b.kind}`" :title="b.axis">{{ b.text }}</span>
+            <span class="badge badge-source" :title="`来源：${row.link_source_label}`">{{ row.link_source_label }}</span>
+            <button type="button" class="chip-remove" @click="toggleProtocolId(row.id)" title="Unlink">✕</button>
           </span>
-          <span v-if="!protocolIds.length" class="chip-none">None</span>
+          <span v-if="!displayProtocolRows.visible.length" class="chip-none">None</span>
+          <button v-if="displayProtocolRows.folded" type="button" class="btn btn-ghost btn-xs" @click="showAllProtocolLinks = true">显示全部 ({{ displayProtocolRows.hidden.length }})</button>
+          <button v-if="showAllProtocolLinks && displayProtocolRows.hidden.length" type="button" class="btn btn-ghost btn-xs" @click="showAllProtocolLinks = false">收起</button>
+          <!-- S4: 弱相关（仅语义相似/广播桶）独立折叠区，默认收起，点击展开 -->
+          <button v-if="displayProtocolRows.weak.length" type="button" class="btn btn-ghost btn-xs weak-toggle" @click="showWeakLinks = !showWeakLinks">弱相关 ({{ displayProtocolRows.weak.length }}){{ showWeakLinks ? ' ▲' : ' ▼' }}</button>
+          <span v-if="showWeakLinks && displayProtocolRows.weak.length" class="chip-group weak-group">
+            <span v-for="row in displayProtocolRows.weak" :key="row.id" class="chip chip-protocol chip-weak">
+              <a :href="`/protocols/${row.id}`" target="_blank" class="chip-link">{{ row.name || ('#' + row.id) }}</a>
+              <span class="badge" :class="`badge-${row.tier}`" :title="row.tier_label">{{ row.tier_label }}</span>
+              <span v-for="b in axisBadges(row, { includeTier: false })" :key="b.kind" class="badge" :class="`badge-${b.kind}`" :title="b.axis">{{ b.text }}</span>
+              <span class="badge badge-source" :title="`来源：${row.link_source_label}`">{{ row.link_source_label }}</span>
+              <button type="button" class="chip-remove" @click="toggleProtocolId(row.id)" title="Unlink">✕</button>
+            </span>
+          </span>
         </div>
 
         <!-- Add existing (single select + add button) -->
@@ -2160,6 +2206,19 @@ html.dark .lipinski-unknown { background: #1e293b; color: #94a3b8; border-color:
 .chip-remove { background: none; border: none; cursor: pointer; padding: 0; font-size: 12px; color: var(--color-primary); opacity: 0.6; }
 .chip-remove:hover { opacity: 1; }
 .chip-none { font-size: 12px; color: var(--color-text-secondary); font-style: italic; }
+
+/* #356 — enriched protocol badges (三轴分量 + 档位 + 来源) */
+.badge { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
+.badge-literature { background: #ecfdf5; color: #047857; }   /* 文献支持 */
+.badge-document { background: #eff6ff; color: #1d4ed8; }      /* 文档相关 */
+.badge-featured { background: #fef3c7; color: #b45309; }      /* 编辑精选 */
+.badge-weak { background: #f3f4f6; color: #6b7280; }          /* S4 弱相关/仅语义相似 */
+.badge-tier-weak { background: #f3f4f6; color: #6b7280; }      /* S4 三轴徽标中的 tier-weak */
+.badge-axis-a { background: #f1f5f9; color: #475569; }        /* F= 轴A */
+.badge-axis-b { background: #faf5ff; color: #7e22ce; }        /* 文献×N 轴B */
+.badge-axis-c { background: #f0fdfa; color: #0f766e; }        /* C= 轴C */
+.badge-source { background: #f3f4f6; color: #6b7280; }        /* 来源 */
+.btn-xs { padding: 2px 8px; font-size: 11px; margin-left: 6px; }
 .entity-select-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; flex-wrap: wrap; }
 .entity-select-row .app-select { flex: 1 1 240px; min-width: 240px; margin-bottom: 0; }
 .entity-select-row .el-select { width: 100%; }

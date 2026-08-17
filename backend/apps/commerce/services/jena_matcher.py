@@ -120,6 +120,7 @@ def _match_jena_no_cache(identifier: str, synonyms: list, request_name: str = No
         vendor_matched = False
         match_key = None
         record = None
+        rejected_conjugate = False  # 本供应商是否存在因糖型/碱基冲突被拒的候选（#473-B1）
 
         # 优先级 1: CAS 精确匹配
         if identifier and _looks_like_cas(identifier):
@@ -136,15 +137,17 @@ def _match_jena_no_cache(identifier: str, synonyms: list, request_name: str = No
         if record is None and identifier:
             if is_multi:
                 name_results = index.lookup(identifier, namespace="name")
-                if vendor in name_results:
-                    cand = name_results[vendor]
-                else:
-                    cand = None
+                cand = name_results.get(vendor) if vendor in name_results else None
             else:
                 cand = index.lookup(identifier, namespace="name")
-            if cand and not signatures_conflict(req_sig, extract_nucleotide_signature(cand.product_name)):
-                record = cand
-                match_key = "name"
+            if cand is not None:
+                cand_sig = extract_nucleotide_signature(cand.product_name)
+                if not signatures_conflict(req_sig, cand_sig):
+                    record = cand
+                    match_key = "name"
+                else:
+                    # 糖型/碱基冲突被拒（#473-B1：暴露拒因供前端透明标注）
+                    rejected_conjugate = True
 
         # 优先级 3: synonyms 匹配（加修饰词一致性约束，防不同修饰产品错配）
         if record is None and synonyms:
@@ -154,12 +157,15 @@ def _match_jena_no_cache(identifier: str, synonyms: list, request_name: str = No
                     cand = syn_results.get(vendor) if vendor in syn_results else None
                 else:
                     cand = index.lookup(syn.strip(), namespace="name")
-                if cand is not None and not signatures_conflict(
-                    req_sig, extract_nucleotide_signature(cand.product_name)
-                ) and not _modifiers_conflict(request_name or identifier, cand.product_name):
-                    record = cand
-                    match_key = f"synonym:{syn}"
-                    break
+                if cand is not None:
+                    cand_sig = extract_nucleotide_signature(cand.product_name)
+                    if (not signatures_conflict(req_sig, cand_sig)
+                            and not _modifiers_conflict(request_name or identifier, cand.product_name)):
+                        record = cand
+                        match_key = f"synonym:{syn}"
+                        break
+                    # 候选存在但糖型/碱基或修饰词冲突 → 记录拒因（#473-B1）
+                    rejected_conjugate = True
 
         # 优先级 4: Ex/Em 光谱近似匹配（Biotium 专属次级键，D2）。
         # 仅对 biotium 候选触发；jena/cayman/trilink 无 ex_em 记录，天然不受影响。
@@ -178,10 +184,15 @@ def _match_jena_no_cache(identifier: str, synonyms: list, request_name: str = No
                 normalize_purity, normalize_storage, normalize_shipping,
                 normalize_shelf_life, classify_concentration, map_category_l1,
             )
+            # #473-B1：暴露化学一致性信号（铁律②可归因/透明）。命中候选与目标签名冲突则
+            # 标 True（尽管已通过级联约束，仍如实记录），否则 False。
+            conflict = bool(signatures_conflict(
+                req_sig, extract_nucleotide_signature(record.product_name)))
             matches.append({
                 "vendor": vendor,
                 "matched": True,
                 "match_key": match_key,
+                "signatures_conflict": conflict,
                 "catalog_no": record.catalog_no,
                 "product_name": record.product_name,
                 "systematic_name": record.systematic_name,
@@ -211,6 +222,8 @@ def _match_jena_no_cache(identifier: str, synonyms: list, request_name: str = No
             matches.append({
                 "vendor": vendor,
                 "matched": False,
+                # 因糖型/碱基冲突被拒 → True（暴露拒因）；无候选可评 → None（不适用）
+                "signatures_conflict": True if rejected_conjugate else None,
             })
 
     matched_count = sum(1 for m in matches if m.get("matched"))

@@ -51,7 +51,7 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     serializer_class = ProductListSerializer
     permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'cas', 'smiles', 'inchi', 'catalog_no', 'formula']
-    ordering_fields = ['name', 'created_at', 'catalog_no']
+    ordering_fields = ['name', 'created_at', 'catalog_no', 'aggregate_relevance_score']
     filterset_fields = ['product_class_id', 'research_use_only']
 
     def get_serializer_class(self):
@@ -95,7 +95,29 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         # 非 staff（匿名/普通用户）只看 active，下架/草稿不进公开列表，
         # 且忽略客户端传入的 status 过滤参数（防止绕过）。
         if not (user and user.is_authenticated and user.is_staff):
-            qs = qs.filter(status=Product.Status.ACTIVE)
+            # 库里 status 存的是原始字符串（如 'active'），而 Product.Status.ACTIVE 是枚举成员；
+            # 必须用 .value 才能匹配，否则公开列表恒为 0（预埋 bug，2026-08-10 修复）。
+            qs = qs.filter(status=Product.Status.ACTIVE.value)
+        return qs
+
+    def filter_queryset(self, queryset):
+        """S5 前端接入：按知识关联分排序时强制 NULLS LAST。
+
+        DRF OrderingFilter 在 PostgreSQL 上对 DESC 默认把 NULL 排到最前，
+        而 dev SQLite 排到最后。为让「知识关联最强」降序时「无关联商品沉底」
+        在两种库行为一致，显式用 F(...).desc/asc(nulls_last=True) 覆盖默认排序。
+        """
+        qs = super().filter_queryset(queryset)
+        ordering = self.request.query_params.get('ordering', '')
+        if 'aggregate_relevance_score' in ordering:
+            from django.db.models import F
+            desc = ordering.startswith('-')
+            expr = (
+                F('aggregate_relevance_score').desc(nulls_last=True)
+                if desc
+                else F('aggregate_relevance_score').asc(nulls_last=True)
+            )
+            qs = qs.order_by(expr)
         return qs
 
     @action(detail=True, methods=['post'], url_path='archive')

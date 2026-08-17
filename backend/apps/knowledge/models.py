@@ -10,6 +10,30 @@ if _USE_POSTGRES:
     from django.contrib.postgres.search import SearchVectorField
 
 
+class TestFixtureQuerySet(models.QuerySet):
+    """为顶部知识实体（ResearchGoal/Application/Method）提供测试夹具过滤。
+
+    设计取舍（S1）：**不改默认 manager 语义** —— ``objects.all()`` 仍返回全量，
+    以免破坏 e2e 清理脚本、数据修复命令与管理后台等需要看到夹具行的路径。
+    对外读取面必须显式调用 ``.public()`` 排除夹具。
+    """
+
+    def public(self):
+        """排除被标记为测试夹具的行（对外读取面统一入口）。"""
+        return self.filter(is_test_fixture=False)
+
+    def test_fixtures(self):
+        return self.filter(is_test_fixture=True)
+
+
+def _test_fixture_field():
+    return models.BooleanField(
+        default=False, db_index=True, verbose_name='测试夹具',
+        help_text='True 表示此行由自动化测试残留产生，不参与任何对外展示与统计；'
+                  '仅作标记，数据不会被删除',
+    )
+
+
 class ResearchGoal(StatusMixin, TimeStampedModel):
     """顶层科研意图"""
     name = models.CharField(max_length=255, verbose_name='名称',
@@ -20,6 +44,17 @@ class ResearchGoal(StatusMixin, TimeStampedModel):
         help_text='一句话描述这个研究方向的核心内容')
     priority = models.IntegerField(default=0, validators=[MaxValueValidator(9999)], verbose_name='优先级',
         help_text='数字越大越靠前，0 为默认排序')
+    is_test_fixture = _test_fixture_field()
+
+    # route B 加法：ResearchGoal 作为策展集合（curated collection），手动关联协议，
+    # 无路径、无打分。与顶部 RG→AP→ME→Protocol 严格单父 FK 树解耦。
+    protocols = models.ManyToManyField(
+        'knowledge.Protocol', blank=True, related_name='research_goals',
+        verbose_name='策展协议集',
+        help_text='研究者人工策展纳入该研究目标的协议集合（无数据驱动，仅策展）',
+    )
+
+    objects = TestFixtureQuerySet.as_manager()
 
     class Meta:
         db_table = 'research_goal'
@@ -56,8 +91,11 @@ class Application(StatusMixin, TimeStampedModel):
         help_text='描述这个实验场景的原理和用途')
     sort_order = models.IntegerField(default=0, verbose_name='排序')
     display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级')
+    is_test_fixture = _test_fixture_field()
     if _USE_POSTGRES:
         search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')
+
+    objects = TestFixtureQuerySet.as_manager()
 
     class Meta:
         db_table = 'application'
@@ -120,8 +158,11 @@ class Method(StatusMixin, TimeStampedModel):
     timeline = models.CharField(max_length=100, blank=True, default='', choices=Timeline.choices, verbose_name='时间线',
         help_text='完成一次实验所需的大致时间')
     display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级')
+    is_test_fixture = _test_fixture_field()
     if _USE_POSTGRES:
         search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')
+
+    objects = TestFixtureQuerySet.as_manager()
 
     class Meta:
         db_table = 'method'
@@ -189,10 +230,27 @@ class Protocol(TimeStampedModel):
     )
     references = models.TextField(blank=True, default='', verbose_name='参考文献文本',
         help_text='引用的论文，每行一条（PMID 或 DOI）')
+
+    class Source(models.TextChoices):
+        CURATED = 'curated', '人工策展库'
+        BIOPROCORPUS = 'bioprocorpus', 'BioProCorpus 自动匹配库'
+
+    source = models.CharField(
+        max_length=32, choices=Source.choices, default=Source.CURATED,
+        blank=True, verbose_name='来源',
+        help_text='协议来源：curated=人工策展库；bioprocorpus=BioProCorpus 自动匹配库'
+    )
     published_at = models.DateTimeField(null=True, blank=True, verbose_name='发布时间')
     superseded_at = models.DateTimeField(null=True, blank=True, verbose_name='取代时间')
     if _USE_POSTGRES:
         search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')
+
+    # route B 加法：类型化 facet 标签（无打分）。通过 ProtocolFacet 记录来源（聚类主标签/交叉检测补标）。
+    facets = models.ManyToManyField(
+        'knowledge.FacetValue', through='knowledge.ProtocolFacet',
+        related_name='protocols', blank=True, verbose_name='受控词表标签',
+        help_text='协议的类型化 facet 标签（application / method / biological_context / study_type），无打分',
+    )
 
     class Meta:
         db_table = 'protocol'
@@ -351,3 +409,93 @@ class Compatibility(StatusMixin, TimeStampedModel):
 
     def __str__(self):
         return f'{self.code} ({self.rule_type})'
+
+
+class FacetValue(TimeStampedModel):
+    """受控词表项（route B 加法）。
+
+    类型化 facet 词汇：application / method / biological_context / study_type。
+    biological_context 以 kind(species/cell/disease) 区分子类型，单列成一维。
+    value 全英文（用户决策：不需要中文名称）。
+    """
+
+    class FacetType(models.TextChoices):
+        APPLICATION = 'application', '研究域'
+        METHOD = 'method', '方法'
+        BIOLOGICAL_CONTEXT = 'biological_context', '物种/细胞/疾病'
+        STUDY_TYPE = 'study_type', '研究类型'
+
+    class Kind(models.TextChoices):
+        SPECIES = 'species', '物种'
+        CELL = 'cell', '细胞'
+        DISEASE = 'disease', '疾病'
+
+    facet_type = models.CharField(
+        max_length=32, choices=FacetType.choices, db_index=True, verbose_name='facet 维度',
+    )
+    kind = models.CharField(
+        max_length=16, choices=Kind.choices, blank=True, default='', db_index=True,
+        verbose_name='biological_context 子类型',
+        help_text='仅 biological_context 维度使用：species / cell / disease',
+    )
+    value = models.CharField(max_length=255, verbose_name='facet 值(英文)',
+        help_text='受控词表项英文名称，例如：PCR / qPCR、Mus musculus、Cancer / Tumor Model')
+    slug = models.SlugField(max_length=255, unique=True, verbose_name='Slug')
+    description = models.TextField(blank=True, default='', verbose_name='说明')
+
+    class Meta:
+        db_table = 'facet_value'
+        verbose_name = '受控词表项'
+        verbose_name_plural = verbose_name
+        unique_together = [('facet_type', 'kind', 'value')]
+        ordering = ['facet_type', 'kind', 'value']
+
+    def __str__(self):
+        if self.kind:
+            return f'[{self.facet_type}:{self.kind}] {self.value}'
+        return f'[{self.facet_type}] {self.value}'
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = slugify(f'{self.facet_type}-{self.kind}-{self.value}') or 'item'
+            slug = base
+            n = 1
+            qs = self.__class__.objects.exclude(pk=self.pk) if self.pk else self.__class__.objects
+            while qs.filter(slug=slug).exists():
+                slug = f'{base}-{n}'
+                n += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+
+class ProtocolFacet(TimeStampedModel):
+    """协议 ↔ facet 关联（route B 加法，类型化标签，无打分）。
+
+    通过模型：记录每个 facet 的来源（聚类主标签 / 交叉检测补标），保证 UI 透明。
+    """
+
+    class Source(models.TextChoices):
+        CLUSTER_MAIN = 'cluster_main', '聚类主标签'
+        CROSS_DETECT = 'cross_detect', '交叉检测补标'
+
+    protocol = models.ForeignKey(
+        Protocol, on_delete=models.CASCADE, related_name='protocol_facets', verbose_name='协议',
+    )
+    facet = models.ForeignKey(
+        FacetValue, on_delete=models.CASCADE, related_name='protocol_facets', verbose_name='facet',
+    )
+    source = models.CharField(
+        max_length=16, choices=Source.choices, default=Source.CLUSTER_MAIN, verbose_name='来源',
+    )
+
+    class Meta:
+        db_table = 'protocol_facet'
+        verbose_name = '协议-facet 关联'
+        verbose_name_plural = verbose_name
+        unique_together = [('protocol', 'facet')]
+        indexes = [
+            models.Index(fields=['protocol', 'source'], name='protocol_facet_src_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.protocol} -> {self.facet} ({self.source})'
