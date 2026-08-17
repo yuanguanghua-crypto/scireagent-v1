@@ -120,17 +120,20 @@ def _application_neighbors(aid):
 
 
 def _protocol_neighbors(prid):
-    """Protocol → Method (FK reverse)"""
+    """Protocol → Method(s)（经 MethodProtocol 桥，一对多）"""
     neighbors = []
-    protocol = Protocol.objects.filter(id=prid).select_related('method').first()
-    if protocol and protocol.method:
-        neighbors.append({
-            'target_type': 'method',
-            'target_id': protocol.method.id,
-            'target_label': protocol.method.name,
-            'target_slug': protocol.method.slug,
-            'relationship': 'belongs_to',
-        })
+    protocol = Protocol.objects.filter(id=prid).first()
+    if not protocol:
+        return neighbors
+    for mp in protocol.method_protocols.select_related('method'):
+        if mp.method:
+            neighbors.append({
+                'target_type': 'method',
+                'target_id': mp.method.id,
+                'target_label': mp.method.name,
+                'target_slug': mp.method.slug,
+                'relationship': 'belongs_to',
+            })
     return neighbors
 
 

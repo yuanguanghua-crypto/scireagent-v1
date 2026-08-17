@@ -12,6 +12,7 @@ from typing import Optional
 from django.db import transaction
 
 from apps.knowledge.models import ResearchGoal, Application, Method, Protocol
+from apps.bridges.models import MethodProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -110,18 +111,18 @@ def create_knowledge_chain(inp: ChainInput) -> ChainReport:
         if created:
             report.created['Method'] = 1
 
-        # 4. Protocol (FK → Method)
+        # 4. Protocol（经 MethodProtocol 桥关联到 Method）
         protocol, created = Protocol.objects.update_or_create(
             slug=_slug(inp.protocol_name),
             defaults={
                 'name': inp.protocol_name,
                 'objective': inp.protocol_objective,
-                'method': method,
                 'status': 'published',
             },
         )
         if created:
             report.created['Protocol'] = 1
+        MethodProtocol.objects.get_or_create(method=method, protocol=protocol)
 
         report.success = True
 

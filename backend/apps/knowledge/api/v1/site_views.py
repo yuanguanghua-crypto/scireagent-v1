@@ -101,8 +101,8 @@ def site_home(request):
                 distinct=True
             ),
             protocols_count=Count(
-                'methods__protocols',
-                filter=Q(methods__protocols__status='published'),
+                'methods__method_protocols__protocol',
+                filter=Q(methods__method_protocols__protocol__status='published'),
                 distinct=True
             ),
             products_count=Count(

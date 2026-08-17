@@ -14,6 +14,7 @@ from typing import Any
 from core.json_validator import validate_graph_json
 
 from apps.knowledge.models import ResearchGoal, Application, Method, Protocol
+from apps.bridges.models import MethodProtocol
 from apps.commerce.models import Product, SKU
 
 logger = logging.getLogger(__name__)
@@ -155,7 +156,6 @@ def _import_protocols(entities: list[dict]) -> tuple[int, int]:
             'name': entity['name'],
             'objective': entity.get('objective', ''),
             'principle': entity.get('principle', ''),
-            'method_id': mapped_method_id,
             'status': 'published',
         }
         obj, was_created = Protocol.objects.update_or_create(
@@ -163,6 +163,8 @@ def _import_protocols(entities: list[dict]) -> tuple[int, int]:
             defaults=defaults,
         )
         _id_map['Protocol'][entity['id']] = obj.id
+        if mapped_method_id:
+            MethodProtocol.objects.get_or_create(method_id=mapped_method_id, protocol=obj)
         if was_created:
             created += 1
         else:

@@ -24,6 +24,7 @@ from rest_framework.permissions import IsAdminUser
 from core.mixins import EnvelopeMixin
 from apps.commerce.models import Product
 from apps.commerce.services.validators.product_validator import ProductValidator
+from apps.bridges.models import MethodProtocol
 from apps.knowledge.services.literature_recommender import LiteratureRecommender
 from apps.bridges.services.auto_links import (
     recommend_protocols_for_enrich,
@@ -516,8 +517,11 @@ class ProductImportProtocolView(EnvelopeMixin, APIView):
         if existing is None:
             existing = Protocol.objects.filter(slug=protocol_slug).first()
 
-        # 2. Method 解析：命中既有协议时**直接复用其 method**，不再新建
-        method = existing.method if existing else None
+        # 2. Method 解析：命中既有协议时**直接复用其桥接 method**，不再新建
+        method = None
+        if existing:
+            mp = existing.method_protocols.select_related('method').first()
+            method = mp.method if mp else None
         if method is None:
             method = self._resolve_or_create_method(
                 method_name, protocol_title, objective,
@@ -538,14 +542,12 @@ class ProductImportProtocolView(EnvelopeMixin, APIView):
                 if value and not (getattr(protocol, field, '') or '').strip():
                     setattr(protocol, field, value)
                     update_fields.append(field)
-            if protocol.method_id is None and method is not None:
-                protocol.method = method
-                update_fields.append('method')
+            if method is not None:
+                MethodProtocol.objects.get_or_create(method=method, protocol=protocol)
             if update_fields:
                 protocol.save(update_fields=update_fields + ['updated_at'])
         else:
             protocol = Protocol.objects.create(
-                method=method,
                 name=protocol_title,
                 slug=protocol_slug,
                 objective=objective,
@@ -555,6 +557,8 @@ class ProductImportProtocolView(EnvelopeMixin, APIView):
                 references=protocol_url,  # store DOI/URL as reference
                 status='published',
             )
+            if method is not None:
+                MethodProtocol.objects.get_or_create(method=method, protocol=protocol)
 
         # 4. ProtocolStep —— R0-c：严禁 delete 既有步骤。
         #    仅在「本次新建的协议」或「既有协议一步都没有」时写入（补空不覆盖）。

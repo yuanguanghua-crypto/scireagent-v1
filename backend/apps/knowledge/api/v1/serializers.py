@@ -59,15 +59,11 @@ class ProtocolStepSerializer(BaseModelSerializer):
 
 
 class ProtocolListSerializer(BaseModelSerializer):
-    method_id = serializers.PrimaryKeyRelatedField(
-        source='method', queryset=Method.objects.all(),
-        required=False, allow_null=True,
-    )
     slug = serializers.SlugField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Protocol
-        fields = ['id', 'name', 'slug', 'version', 'method_id', 'status', 'created_at']
+        fields = ['id', 'name', 'slug', 'version', 'status', 'created_at']
         # unique_together(method, slug, version) is still enforced at DB level on save;
         # slug is auto-generated (globally unique) by Protocol.save(), so the auto
         # UniqueTogetherValidator must not require slug/version to be supplied on create.
@@ -83,7 +79,7 @@ class ProtocolDetailSerializer(BaseModelSerializer):
     class Meta:
         model = Protocol
         fields = [
-            'id', 'name', 'slug', 'version', 'method_id', 'objective', 'principle',
+            'id', 'name', 'slug', 'version', 'objective', 'principle',
             'materials', 'reagents', 'equipment', 'troubleshooting', 'expected_results',
             'status', 'steps', 'references', 'products', 'facets', 'created_at', 'updated_at',
         ]
@@ -126,9 +122,10 @@ class ProtocolDetailSerializer(BaseModelSerializer):
         return list(Reference.objects.filter(q).values('id', 'title', 'journal', 'year', 'doi'))
 
     def get_products(self, obj):
-        from apps.bridges.models import ProductMethod
+        from apps.bridges.models import ProductMethod, MethodProtocol
         from apps.commerce.models import Product
-        product_ids = ProductMethod.objects.filter(method=obj.method).values_list('product_id', flat=True).distinct()
+        method_ids = MethodProtocol.objects.filter(protocol=obj).values_list('method_id', flat=True)
+        product_ids = ProductMethod.objects.filter(method_id__in=list(method_ids)).values_list('product_id', flat=True).distinct()
         return list(Product.objects.filter(id__in=product_ids).values('id', 'name', 'slug', 'catalog_no'))
 
 
@@ -157,7 +154,7 @@ class MethodDetailSerializer(BaseModelSerializer):
         ]
 
     def get_protocols(self, obj):
-        return list(obj.protocols.values('id', 'name', 'slug', 'version'))
+        return list(Protocol.objects.filter(method_protocols__method=obj).values('id', 'name', 'slug', 'version'))
 
     def get_products(self, obj):
         from apps.bridges.models import ProductMethod

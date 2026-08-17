@@ -117,8 +117,11 @@ def get_bioz_refs_for_product(product):
 def build_protocol_corpus(protocol):
     method_name = ""
     try:
-        if protocol.method_id and protocol.method:
-            method_name = protocol.method.name or ""
+        method_names = [
+            mp.method.name for mp in protocol.method_protocols.select_related('method').all()
+            if mp.method and mp.method.name
+        ]
+        method_name = " ".join(method_names)
     except Exception:
         method_name = ""
     parts = [protocol.name or "", method_name, protocol.objective or "",

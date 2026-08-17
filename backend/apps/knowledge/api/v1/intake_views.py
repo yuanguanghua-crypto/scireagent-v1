@@ -87,7 +87,6 @@ class KnowledgeIntakeView(EnvelopeMixin, APIView):
             protocol, _ = Protocol.objects.get_or_create(
                 name=name,
                 defaults={
-                    'method': method,
                     'objective': data.get('protocol_steps', ''),
                     'reagents': data.get('protocol_materials', ''),
                     'troubleshooting': '',

@@ -93,12 +93,12 @@ class MethodViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
 
 class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
-    queryset = Protocol.objects.select_related('method').prefetch_related('steps').all()
+    queryset = Protocol.objects.prefetch_related('steps').all()
     serializer_class = ProtocolListSerializer
     permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'objective', 'materials', 'reagents']
     ordering_fields = ['name', 'version']
-    filterset_fields = ['method_id', 'status']
+    filterset_fields = ['status']
 
     def get_serializer_class(self):
         if self.action == 'retrieve':

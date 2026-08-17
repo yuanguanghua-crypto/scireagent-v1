@@ -166,7 +166,6 @@ class Command(BaseCommand):
         for method_idx, name, version, objective, status in protocols_data:
             method = methods[method_idx]
             obj, _ = Protocol.objects.update_or_create(
-                method=method,
                 slug=f'{PREFIX}{name.lower().replace(" ", "-")[:60]}',
                 version=version,
                 defaults={
@@ -183,7 +182,7 @@ class Command(BaseCommand):
             )
             # Add steps
             self._create_protocol_steps(obj, method_idx)
-            protocols.append(obj)
+            protocols.append((obj, method))
             self.stdout.write(f'  Protocol: {obj.name}')
         return protocols
 
@@ -374,9 +373,9 @@ class Command(BaseCommand):
             )
 
         # MethodProtocol
-        for i, proto in enumerate(protocols):
+        for i, (proto, method) in enumerate(protocols):
             MethodProtocol.objects.update_or_create(
-                method=proto.method,
+                method=method,
                 protocol=proto,
                 defaults={'display_order': i, 'featured': i < 4, 'status': 'active'},
             )
