@@ -61,8 +61,8 @@ const facetGroups = computed(() => {
 /* ── Navigation data ── */
 const upstreamEntities = computed(() => {
   const items = []
-  if (protocol.value?.method_id) {
-    items.push({ type: 'method', id: protocol.value.method_id, name: protocol.value.method_name || 'Method' })
+  for (const m of (protocol.value?.methods || [])) {
+    items.push({ type: 'method', id: m.id, name: m.name || 'Method' })
   }
   return items
 })
@@ -77,8 +77,8 @@ const researchPath = computed(() => {
   if (protocol.value?.application_id) {
     path.push({ type: 'application', id: protocol.value.application_id, name: protocol.value.application_name || 'Application' })
   }
-  if (protocol.value?.method_id) {
-    path.push({ type: 'method', id: protocol.value.method_id, name: protocol.value.method_name || 'Method' })
+  for (const m of (protocol.value?.methods || [])) {
+    path.push({ type: 'method', id: m.id, name: m.name || 'Method' })
   }
   if (protocol.value) path.push({ type: 'protocol', id: protocol.value.id, name: protocol.value.name })
   return path
@@ -135,7 +135,7 @@ function formatDuration(seconds) {
             {{ store.currentProtocol.status }}
           </el-tag>
         </div>
-        <span class="detail-meta">Method ID: {{ store.currentProtocol.method_id }}</span>
+        <span class="detail-meta" v-if="protocol?.methods?.length">Methods: {{ protocol.methods.map(m => m.name).join(', ') }}</span>
       </div>
 
       <!-- 研究分类（route B 加法，范围 A） -->

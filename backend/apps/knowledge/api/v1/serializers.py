@@ -60,14 +60,54 @@ class ProtocolStepSerializer(BaseModelSerializer):
 
 class ProtocolListSerializer(BaseModelSerializer):
     slug = serializers.SlugField(required=False, allow_blank=True, allow_null=True)
+    # #494 route B：协议↔方法改走 MethodProtocol 桥（多对多）。
+    # methods 仅作写入字段（创建/编辑时建桥），不进列表响应。
+    methods = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Method.objects.all(), required=False, write_only=True,
+    )
 
     class Meta:
         model = Protocol
-        fields = ['id', 'name', 'slug', 'version', 'status', 'created_at']
+        fields = ['id', 'name', 'slug', 'version', 'status', 'methods', 'created_at']
         # unique_together(method, slug, version) is still enforced at DB level on save;
         # slug is auto-generated (globally unique) by Protocol.save(), so the auto
         # UniqueTogetherValidator must not require slug/version to be supplied on create.
         validators = []
+
+    def create(self, validated_data):
+        methods = validated_data.pop('methods', [])
+        protocol = Protocol.objects.create(**validated_data)
+        for m in methods:
+            MethodProtocol.objects.update_or_create(
+                method=m, protocol=protocol,
+                defaults={'explicit': True, 'status': 'active'},
+            )
+        return protocol
+
+    def update(self, instance, validated_data):
+        methods = validated_data.pop('methods', None)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        if methods is not None:
+            # 仅刷新「显式（explicit）」桥：删除不再勾选的、补建新增的，
+            # 不触动非显式桥（如服务层 / AI 派生）。
+            existing = set(
+                MethodProtocol.objects.filter(protocol=instance, explicit=True)
+                .values_list('method_id', flat=True)
+            )
+            wanted = {m.id for m in methods}
+            to_remove = existing - wanted
+            if to_remove:
+                MethodProtocol.objects.filter(
+                    protocol=instance, explicit=True, method_id__in=to_remove
+                ).delete()
+            for m in methods:
+                MethodProtocol.objects.update_or_create(
+                    method=m, protocol=instance,
+                    defaults={'explicit': True, 'status': 'active'},
+                )
+        return instance
 
 
 class ProtocolDetailSerializer(BaseModelSerializer):
@@ -75,13 +115,14 @@ class ProtocolDetailSerializer(BaseModelSerializer):
     references = serializers.SerializerMethodField()
     products = serializers.SerializerMethodField()
     facets = serializers.SerializerMethodField()
+    methods = serializers.SerializerMethodField()
 
     class Meta:
         model = Protocol
         fields = [
             'id', 'name', 'slug', 'version', 'objective', 'principle',
             'materials', 'reagents', 'equipment', 'troubleshooting', 'expected_results',
-            'status', 'steps', 'references', 'products', 'facets', 'created_at', 'updated_at',
+            'status', 'steps', 'references', 'products', 'facets', 'methods', 'created_at', 'updated_at',
         ]
 
     def get_facets(self, obj):
@@ -127,6 +168,23 @@ class ProtocolDetailSerializer(BaseModelSerializer):
         method_ids = MethodProtocol.objects.filter(protocol=obj).values_list('method_id', flat=True)
         product_ids = ProductMethod.objects.filter(method_id__in=list(method_ids)).values_list('product_id', flat=True).distinct()
         return list(Product.objects.filter(id__in=product_ids).values('id', 'name', 'slug', 'catalog_no'))
+
+    def get_methods(self, obj):
+        """#494 route B：协议关联方法经 MethodProtocol 桥多对多返回（只读）。
+
+        形如 [{id, name, slug}]，供前端上游实体 / 研究路径 / 「关联方法」渲染与跳转。
+        仅含 active 桥；按 display_order 与 method_id 稳定排序。
+        """
+        from apps.bridges.models import MethodProtocol
+        rows = (
+            MethodProtocol.objects.filter(protocol=obj, status='active')
+            .select_related('method')
+            .order_by('display_order', 'method_id')
+        )
+        return [
+            {'id': mp.method_id, 'name': mp.method.name, 'slug': mp.method.slug}
+            for mp in rows
+        ]
 
 
 class MethodListSerializer(BaseModelSerializer):

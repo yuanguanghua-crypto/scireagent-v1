@@ -52,9 +52,17 @@ function openNew() {
   loadMethods()
   showEditor.value = true
 }
-function openEdit(e) {
+async function openEdit(e) {
   editing.value = e
-  form.value = { name: e.name || '', method_id: e.method_id || null }
+  // 列表接口不返回 methods，编辑时拉详情预填已关联方法，避免保存时误清空桥。
+  let methodId = null
+  try {
+    const resp = await http.get(`/protocols/${e.id}/`)
+    const data = resp.data?.data || resp.data || {}
+    const methods = data.methods || []
+    methodId = methods.length ? methods[0].id : null
+  } catch { /* 拉取失败则留空，不影响编辑其他字段 */ }
+  form.value = { name: e.name || '', method_id: methodId }
   loadMethods()
   showEditor.value = true
 }
@@ -62,10 +70,14 @@ function openEdit(e) {
 async function save() {
   saving.value = true
   try {
+    // #494 route B：协议↔方法经 MethodProtocol 桥多对多。编辑器维持单选 UX，
+    // 保存时把单个 method_id 转成 methods 列表写入桥（后端 ProtocolListSerializer 处理）。
+    const payload = { name: form.value.name }
+    payload.methods = form.value.method_id ? [form.value.method_id] : []
     if (editing.value) {
-      await http.put(`/protocols/${editing.value.id}/`, form.value)
+      await http.put(`/protocols/${editing.value.id}/`, payload)
     } else {
-      await http.post('/protocols/', form.value)
+      await http.post('/protocols/', payload)
     }
     showEditor.value = false
     await loadList()
