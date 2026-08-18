@@ -29,7 +29,7 @@ class FirstVersionPipelineTest(TestCase):
         product = ProductFactory(catalog_no='SC9999PIPE', usage='')
         method = MethodFactory()
         protocol = ProtocolFactory(
-            method=method, name='RNA Sequencing', objective='rna sequencing library prep'
+            name='RNA Sequencing', objective='rna sequencing library prep'
         )
         ProductMethod.objects.create(product=product, method=method)
         MethodProtocol.objects.create(method=method, protocol=protocol)

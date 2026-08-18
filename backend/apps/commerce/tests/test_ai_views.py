@@ -539,7 +539,7 @@ class ProductImportProtocolAPITest(TestCase):
         product = ProductFactory()
         method = Method.objects.create(name="Sync M", slug="sync-m", status="active")
         protocol = Protocol.objects.create(
-            method=method, name="Sync P", slug="sync-p", status="published"
+            name="Sync P", slug="sync-p", status="published"
         )
         ProductMethod.objects.create(product=product, method=method)
 
@@ -577,7 +577,7 @@ class R1AutoLinksRecommendTest(TestCase):
         product = ProductFactory()
         method = Method.objects.create(name="R1 Method", slug="r1-method", status="active")
         protocol = Protocol.objects.create(
-            method=method, name="R1 Protocol", slug="r1-protocol", status="published",
+            name="R1 Protocol", slug="r1-protocol", status="published",
             objective="PCR amplification using primers",
         )
         ProductMethod.objects.create(product=product, method=method)
@@ -609,7 +609,7 @@ class R1AutoLinksRecommendTest(TestCase):
 
         product = ProductFactory()
         method = Method.objects.create(name="R1 Method 2", slug="r1-method-2", status="active")
-        Protocol.objects.create(method=method, name="R1 Protocol 2", slug="r1-protocol-2", status="published")
+        Protocol.objects.create(name="R1 Protocol 2", slug="r1-protocol-2", status="published")
         ProductMethod.objects.create(product=product, method=method)
 
         rows = recommend_methods_for_enrich("anything", product_pk=product.pk)
@@ -627,7 +627,6 @@ class R1AutoLinksRecommendTest(TestCase):
         from apps.bridges.services.auto_links import recommend_protocols_for_enrich
 
         protocol = Protocol.objects.create(
-            method=Method.objects.create(name="R1 M3", slug="r1-m3", status="active"),
             name="PCR amplification protocol using primers", slug="r1-p3", status="published",
         )
         self._reset_proto_cache()
@@ -645,7 +644,7 @@ class R1AutoLinksRecommendTest(TestCase):
 
         method = Method.objects.create(name="R1 M4", slug="r1-m4", status="active")
         protocol = Protocol.objects.create(
-            method=method, name="PCR amplification protocol using primers",
+            name="PCR amplification protocol using primers",
             slug="r1-p4", status="published",
         )
         MethodProtocol.objects.create(method=method, protocol=protocol)

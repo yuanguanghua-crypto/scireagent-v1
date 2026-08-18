@@ -56,7 +56,7 @@ class ChainCreateTest(TestCase):
         ))
         self.assertEqual(report.created['Protocol'], 1)
         protocol = Protocol.objects.get(name='Protocol')
-        self.assertEqual(protocol.method.name, 'Method')
+        self.assertEqual(protocol.method_protocols.first().method.name, 'Method')
 
     def test_chain_integrity(self):
         """Full chain should be traversable."""
@@ -69,7 +69,7 @@ class ChainCreateTest(TestCase):
         goal = ResearchGoal.objects.get(name='Cell Study')
         app = goal.applications.first()
         method = app.methods.first()
-        protocol = method.protocols.first()
+        protocol = method.method_protocols.first().protocol
         self.assertEqual(protocol.name, 'SYBR Green Protocol')
 
     def test_report_counts(self):

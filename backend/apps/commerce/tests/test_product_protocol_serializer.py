@@ -29,7 +29,7 @@ def _build_product_with_protocols(n=3):
     ProductMethod.objects.create(product=product, method=method)
     protocols = []
     for i in range(n):
-        p = ProtocolFactory(method=method, name=f"Protocol {i}")
+        p = ProtocolFactory(name=f"Protocol {i}")
         MethodProtocol.objects.create(method=method, protocol=p)
         protocols.append(p)
     return product, protocols

@@ -8,6 +8,7 @@ from apps.knowledge.tests.factories import (
     ResearchGoalFactory, ApplicationFactory, MethodFactory,
     ProtocolFactory, ProtocolStepFactory, ReferenceFactory, CompatibilityFactory
 )
+from apps.bridges.models import MethodProtocol
 
 
 class ResearchGoalModelTest(TestCase):
@@ -168,16 +169,14 @@ class ProtocolModelTest(TestCase):
         self.assertEqual(protocol.name, 'Standard Protocol')
         self.assertEqual(protocol.version, '1.0')
 
-    def test_unique_together_method_slug_version(self):
-        method = MethodFactory()
-        ProtocolFactory(method=method, slug='test-proto', version='1.0')
+    def test_unique_together_slug_version(self):
+        ProtocolFactory(slug='test-proto', version='1.0')
         with self.assertRaises(IntegrityError):
-            ProtocolFactory(method=method, slug='test-proto', version='1.0')
+            ProtocolFactory(slug='test-proto', version='1.0')
 
     def test_same_slug_different_version_allowed(self):
-        method = MethodFactory()
-        p1 = ProtocolFactory(method=method, slug='test-proto', version='1.0')
-        p2 = ProtocolFactory(method=method, slug='test-proto', version='2.0')
+        p1 = ProtocolFactory(slug='test-proto', version='1.0')
+        p2 = ProtocolFactory(slug='test-proto', version='2.0')
         self.assertNotEqual(p1.id, p2.id)
 
     def test_status_default(self):
@@ -211,18 +210,19 @@ class ProtocolModelTest(TestCase):
         self.assertEqual(len(slug_indexes), 1)
 
     def test_ordering(self):
-        method = MethodFactory()
-        p2 = ProtocolFactory(method=method, version='2.0')
-        p1 = ProtocolFactory(method=method, version='1.0')
+        p2 = ProtocolFactory(version='2.0')
+        p1 = ProtocolFactory(version='1.0')
         protocols = list(Protocol.objects.all())
-        # ordering is ['method', '-version']
+        # ordering is ['-version']
         self.assertEqual(protocols[0].version, '2.0')
 
     def test_related_name_on_method(self):
         method = MethodFactory()
-        ProtocolFactory(method=method)
-        ProtocolFactory(method=method)
-        self.assertEqual(method.protocols.count(), 2)
+        p1 = ProtocolFactory()
+        p2 = ProtocolFactory()
+        MethodProtocol.objects.create(method=method, protocol=p1)
+        MethodProtocol.objects.create(method=method, protocol=p2)
+        self.assertEqual(method.method_protocols.count(), 2)
 
     def test_table_name(self):
         self.assertEqual(Protocol._meta.db_table, 'protocol')

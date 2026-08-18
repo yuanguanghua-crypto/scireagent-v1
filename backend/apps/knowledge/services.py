@@ -1,6 +1,7 @@
 from django.utils import timezone
 from django.db import transaction
 from .models import Protocol, ProtocolStep
+from apps.bridges.models import MethodProtocol
 
 
 class KnowledgeService:
@@ -31,7 +32,10 @@ class KnowledgeService:
     def create_protocol_with_steps(validated_data: dict, steps_data: list) -> Protocol:
         """创建协议及其步骤"""
         steps = steps_data if isinstance(steps_data, list) else steps_data.get('steps', [])
+        method = validated_data.pop('method', None)
         protocol = Protocol.objects.create(**validated_data)
+        if method is not None:
+            MethodProtocol.objects.create(method=method, protocol=protocol)
         ProtocolStep.objects.bulk_create([
             ProtocolStep(protocol=protocol, **step) for step in steps
         ])

@@ -9,6 +9,7 @@ from apps.knowledge.tests.factories import (
     ProtocolFactory, ProtocolStepFactory, ReferenceFactory, CompatibilityFactory
 )
 from apps.bridges.tests.factories import ProductMethodFactory, MethodProtocolFactory
+from apps.bridges.models import MethodProtocol
 import factory
 from apps.knowledge.models import FacetValue, ProtocolFacet
 
@@ -100,7 +101,8 @@ class ApplicationDetailSerializerTest(TestCase):
 class MethodDetailSerializerTest(TestCase):
     def test_protocol_ids_field(self):
         method = MethodFactory()
-        protocol = ProtocolFactory(method=method)
+        protocol = ProtocolFactory()
+        MethodProtocol.objects.create(method=method, protocol=protocol)
         serializer = MethodDetailSerializer(method)
         protocol_ids = [p['id'] for p in serializer.data['protocols']]
         self.assertIn(protocol.id, protocol_ids)
@@ -147,8 +149,10 @@ class ProtocolDetailSerializerTest(TestCase):
         self.assertEqual(serializer.data['references'], [])
 
     def test_product_ids_field(self):
+        method = MethodFactory()
         protocol = ProtocolFactory()
-        pm = ProductMethodFactory(method=protocol.method)
+        MethodProtocol.objects.create(method=method, protocol=protocol)
+        pm = ProductMethodFactory(method=method)
         serializer = ProtocolDetailSerializer(protocol)
         product_ids = [p['id'] for p in serializer.data['products']]
         self.assertIn(pm.product_id, product_ids)

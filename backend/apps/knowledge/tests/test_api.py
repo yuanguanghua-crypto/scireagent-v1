@@ -6,6 +6,7 @@ from apps.knowledge.tests.factories import (
 )
 from apps.knowledge.models import ResearchGoal, Application, Method
 from apps.bridges.tests.factories import ProductMethodFactory, MethodProtocolFactory
+from apps.bridges.models import MethodProtocol
 from apps.accounts.tests.factories import UserFactory
 
 
@@ -170,7 +171,8 @@ class MethodAPITest(TestCase):
 
     def test_detail_protocols_populated(self):
         method = MethodFactory()
-        protocol = ProtocolFactory(method=method)
+        protocol = ProtocolFactory()
+        MethodProtocol.objects.create(method=method, protocol=protocol)
         resp = self.client.get(f'/api/v1/methods/{method.id}/')
         data = resp.json()['data']
         protocol_ids = [p['id'] for p in data['protocols']]
@@ -267,7 +269,7 @@ class ProtocolAPITest(TestCase):
         self.assertIn('id', data)
         self.assertIn('name', data)
         self.assertIn('version', data)
-        self.assertIn('method_id', data)
+        self.assertNotIn('method_id', data)
 
     def test_detail_includes_steps(self):
         protocol = ProtocolFactory()
@@ -298,12 +300,20 @@ class ProtocolAPITest(TestCase):
         resp = self.client.get(f'/api/v1/protocols/{protocol.id}/')
         self.assertIn('products', resp.json()['data'])
 
-    def test_filter_by_method_id(self):
+    def test_protocol_linked_to_method_appears_in_list(self):
         method = MethodFactory()
-        ProtocolFactory(method=method)
-        ProtocolFactory()  # different method
-        resp = self.client.get(f'/api/v1/protocols/?method_id={method.id}')
-        self.assertEqual(len(resp.json()['data']), 1)
+        protocol = ProtocolFactory()
+        MethodProtocol.objects.create(method=method, protocol=protocol)
+        ProtocolFactory()  # unrelated protocol
+        resp = self.client.get('/api/v1/protocols/')
+        data = resp.json()['data']
+        self.assertEqual(len(data), 2)
+        protocol_ids = [p['id'] for p in data]
+        self.assertIn(protocol.id, protocol_ids)
+        # 桥接关系成立（替代已删除的 ?method_id= 过滤）
+        self.assertTrue(
+            MethodProtocol.objects.filter(method=method, protocol=protocol).exists()
+        )
 
     def test_filter_by_status(self):
         ProtocolFactory(status='published')

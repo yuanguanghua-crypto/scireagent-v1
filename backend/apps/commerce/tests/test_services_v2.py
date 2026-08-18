@@ -49,7 +49,7 @@ class TestFAQService:
         from apps.bridges.models import MethodProtocol
         product = ProductFactory(name='Test Product')
         method = MethodFactory(status='active')
-        protocol = ProtocolFactory(method=method, name='Click Protocol', status='published')
+        protocol = ProtocolFactory(name='Click Protocol', status='published')
         ProductMethod.objects.create(product=product, method=method)
         MethodProtocol.objects.create(method=method, protocol=protocol)
         faq = generate_faq(product)
@@ -63,7 +63,7 @@ class TestFAQService:
         product = ProductFactory(name='Test', storage='-20C')
         app = ApplicationFactory(name='RNA Labeling', status='active')
         method = MethodFactory(application=app, name='CuAAC', status='active')
-        protocol = ProtocolFactory(method=method, name='Click Protocol', status='published')
+        protocol = ProtocolFactory(name='Click Protocol', status='published')
         ProductMethod.objects.create(product=product, method=method)
         MethodProtocol.objects.create(method=method, protocol=protocol)
         faq = generate_faq(product)

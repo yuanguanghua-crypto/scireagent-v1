@@ -92,7 +92,6 @@ class ImportProtocolIdempotencyTest(TestCase):
     #    这里刻意让 name 不同，只有 DOI 尾段 slug 相同，以单独覆盖 slug 兼容路径。
     def test_slug_dedup_matches_corpus_original_with_null_method(self):
         corpus = Protocol.objects.create(
-            method=None,                                   # BioProCorpus 原件特征
             name="Legacy Corpus Record With Different Name",
             slug="carbamoyltransferase-enzyme-assay-abc123",
             status="published",
@@ -109,7 +108,6 @@ class ImportProtocolIdempotencyTest(TestCase):
     # 3) 既有步骤绝不被删除或改写（原 D4：filter(...).delete() 后重建）
     def test_existing_steps_are_never_destroyed(self):
         corpus = Protocol.objects.create(
-            method=None,
             name="Carbamoyltransferase Enzyme Assay",
             slug="carbamoyltransferase-enzyme-assay-abc123",
             status="published",
@@ -135,7 +133,6 @@ class ImportProtocolIdempotencyTest(TestCase):
     # 3b) 既有协议一步都没有时，允许补齐（补空不覆盖）
     def test_steps_backfilled_when_existing_protocol_has_none(self):
         corpus = Protocol.objects.create(
-            method=None,
             name="Carbamoyltransferase Enzyme Assay",
             slug="carbamoyltransferase-enzyme-assay-abc123",
             status="published",
@@ -147,7 +144,6 @@ class ImportProtocolIdempotencyTest(TestCase):
     # 4) 既有正文只补空、不覆盖
     def test_existing_text_fields_are_not_overwritten(self):
         corpus = Protocol.objects.create(
-            method=None,
             name="Carbamoyltransferase Enzyme Assay",
             slug="carbamoyltransferase-enzyme-assay-abc123",
             objective="ORIGINAL OBJECTIVE",
@@ -171,7 +167,12 @@ class ImportProtocolIdempotencyTest(TestCase):
             "协议标题式长句不得被造成 Method（今日 #58–73 共 16 条垃圾方法的成因）",
         )
         self.assertIsNone(resp.json()["data"]["method_id"])
-        self.assertEqual(Protocol.objects.get(pk=resp.json()["data"]["protocol_id"]).method_id, None)
+        # 协议不得被桥接任何 Method（标题式长句不得造成 Method 关联）
+        protocol_id = resp.json()["data"]["protocol_id"]
+        self.assertFalse(
+            MethodProtocol.objects.filter(protocol_id=protocol_id).exists(),
+            "协议不应被桥接任何 Method",
+        )
 
     # 5b) 显式 opt-in 才允许新建，且不得靠 -1/-2 后缀制造同义重复
     def test_method_created_only_with_explicit_opt_in_and_slug_reused(self):
@@ -196,7 +197,6 @@ class ImportProtocolIdempotencyTest(TestCase):
     #    实测今日 42 条重复协议 100% 同名但 slug 无一相同，故 name 必须作为首选查重键。
     def test_name_dedup_when_slug_rules_differ(self):
         corpus = Protocol.objects.create(
-            method=None,
             name="An Improved Protocol for the Matrigel Duplex Assay",
             slug="an-improved-protocol-for-the-matrigel-duplex-assay",  # slugify(name)
             status="published",

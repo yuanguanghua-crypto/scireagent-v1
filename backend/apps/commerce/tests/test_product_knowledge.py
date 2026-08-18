@@ -22,7 +22,7 @@ class ProductKnowledgeFieldTest(TestCase):
         self.app = ApplicationFactory(name='RNA Labeling', research_goal=self.goal)
         self.method1 = MethodFactory(name='CuAAC', application=self.app)
         self.method2 = MethodFactory(name='NHS-Ester', application=self.app)
-        self.protocol = ProtocolFactory(name='CuAAC Protocol', method=self.method1)
+        self.protocol = ProtocolFactory(name='CuAAC Protocol')
 
     def test_serializer_accepts_method_ids(self):
         """Serializer 接受 method_ids 字段"""
@@ -138,7 +138,7 @@ class ProductKnowledgeResponseTest(TestCase):
         self.goal = ResearchGoalFactory(name='RNA Analysis')
         self.app = ApplicationFactory(name='RNA Labeling', research_goal=self.goal)
         self.method = MethodFactory(name='CuAAC', application=self.app)
-        self.protocol = ProtocolFactory(name='CuAAC Protocol', method=self.method)
+        self.protocol = ProtocolFactory(name='CuAAC Protocol')
 
     def test_product_detail_includes_method_ids(self):
         """产品详情 API 返回 method_ids"""

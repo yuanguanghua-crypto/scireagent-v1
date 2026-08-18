@@ -145,7 +145,7 @@ class RecomputeCommandTest(TestCase):
     def test_command_runs_and_creates_rows(self):
         product = ProductFactory()
         method = MethodFactory()
-        protocol = ProtocolFactory(method=method)
+        protocol = ProtocolFactory()
         from apps.bridges.models import ProductMethod, MethodProtocol
         ProductMethod.objects.create(product=product, method=method)
         MethodProtocol.objects.create(method=method, protocol=protocol)
@@ -166,7 +166,7 @@ class RecomputeIdempotentTest(TestCase):
     def test_recompute_idempotent(self):
         product = ProductFactory()
         method = MethodFactory()
-        protocol = ProtocolFactory(method=method)
+        protocol = ProtocolFactory()
         from apps.bridges.models import ProductMethod, MethodProtocol
         ProductMethod.objects.create(product=product, method=method)
         MethodProtocol.objects.create(method=method, protocol=protocol)

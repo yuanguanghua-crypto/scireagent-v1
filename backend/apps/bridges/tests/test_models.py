@@ -93,7 +93,7 @@ class MethodProtocolModelTest(TestCase):
 
     def test_unique_together(self):
         method = MethodFactory()
-        protocol = ProtocolFactory(method=method)
+        protocol = ProtocolFactory()
         MethodProtocolFactory(method=method, protocol=protocol)
         with self.assertRaises(IntegrityError):
             MethodProtocolFactory(method=method, protocol=protocol)
