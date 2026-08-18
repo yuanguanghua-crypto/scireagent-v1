@@ -18,7 +18,9 @@ const showEditor = ref(false)
 const editing = ref(null)
 const saving = ref(false)
 
-const form = ref({ name: '', summary: '' })
+const form = ref({ name: '', summary: '', protocols: [] })
+const protocolOptions = ref([])
+const protocolSearching = ref(false)
 const overlay = ref(null)
 const dialogAttrs = useDialogA11y(showEditor, overlay, {
   titleId: 'entity-editor-title',
@@ -41,14 +43,36 @@ async function loadList() {
 
 function openNew() {
   editing.value = null
-  form.value = { name: '', summary: '' }
+  form.value = { name: '', summary: '', protocols: [] }
+  protocolOptions.value = []
   showEditor.value = true
 }
 
-function openEdit(e) {
+async function openEdit(e) {
   editing.value = e
-  form.value = { name: e.name || '', summary: e.summary || '' }
+  let protocols = []
+  let options = []
+  try {
+    const detail = await http.get(`/research-goals/${e.id}/`)
+    const cur = (detail.data?.protocols || [])
+    protocols = cur.map(p => p.id)
+    options = cur.map(p => ({ value: p.id, label: p.name }))
+  } catch { /* 详情取不到则回退为空，仍可保存其它字段 */ }
+  form.value = { name: e.name || '', summary: e.summary || '', protocols }
+  protocolOptions.value = options
   showEditor.value = true
+}
+
+async function searchProtocols(query) {
+  protocolSearching.value = true
+  try {
+    const resp = await http.get('/protocols/', { params: { search: query || '', page_size: 50 } })
+    const list = (resp.data?.results || resp.data || [])
+    protocolOptions.value = list.map(p => ({ value: p.id, label: p.name }))
+  } catch { /* ignore */ }
+  finally {
+    protocolSearching.value = false
+  }
 }
 
 async function save() {
@@ -101,6 +125,18 @@ async function save() {
         <h3 id="entity-editor-title">{{ editing ? 'Edit' : 'New' }} Research Goal</h3>
         <label>Name <input v-model="form.name" class="input-full" /></label>
         <label>Summary <textarea v-model="form.summary" rows="4" class="input-full"></textarea></label>
+        <label>Curated Protocols
+          <el-select
+            v-model="form.protocols"
+            multiple filterable remote
+            :remote-method="searchProtocols"
+            :loading="protocolSearching"
+            placeholder="Search protocols to curate"
+            class="input-full"
+          >
+            <el-option v-for="opt in protocolOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </label>
         <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="showEditor = false">Cancel</button>
           <button class="btn btn-primary btn-sm" @click="save" :disabled="saving">{{ saving ? 'Saving...' : 'Save' }}</button>

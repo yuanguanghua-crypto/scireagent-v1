@@ -8,7 +8,7 @@ from apps.knowledge.models import (
     ResearchGoal, Application, Method, Protocol, Reference, Compatibility
 )
 from apps.knowledge.api.v1.serializers import (
-    ResearchGoalListSerializer, ApplicationListSerializer, ApplicationDetailSerializer,
+    ResearchGoalListSerializer, ResearchGoalDetailSerializer, ApplicationListSerializer, ApplicationDetailSerializer,
     MethodListSerializer, MethodDetailSerializer, ProtocolListSerializer, ProtocolDetailSerializer,
     ReferenceSerializer, CompatibilitySerializer,
 )
@@ -22,6 +22,13 @@ class ResearchGoalViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'summary']
     ordering_fields = ['priority', 'name']
+
+    def get_serializer_class(self):
+        # #495 轻量版：详情/写入走 Detail（暴露并可写策展 protocols）；
+        # 列表/删除走 List（轻量、无 N+1）。写权限沿用 IsAdminOrReadOnly（写=is_staff）。
+        if self.action in ('retrieve', 'create', 'update', 'partial_update'):
+            return ResearchGoalDetailSerializer
+        return ResearchGoalListSerializer
 
     def get_queryset(self):
         """公开端点（匿名/普通用户）仅返回已发布(ACTIVE)记录，规避草稿/测试数据外泄；

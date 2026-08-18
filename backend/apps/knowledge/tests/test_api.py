@@ -73,6 +73,81 @@ class ResearchGoalAPITest(TestCase):
         resp = self.client.get('/api/v1/research-goals/99999/')
         self.assertEqual(resp.status_code, 404)
 
+    def test_detail_includes_protocols(self):
+        goal = ResearchGoalFactory()
+        p = ProtocolFactory()
+        goal.protocols.add(p)
+        resp = self.client.get(f'/api/v1/research-goals/{goal.id}/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()['data']
+        self.assertIn('protocols', data)
+        ids = {x['id'] for x in data['protocols']}
+        self.assertIn(p.id, ids)
+
+    def test_anonymous_detail_includes_protocols(self):
+        # 公开端点对匿名可读；策展协议集是只读展示，不应因匿名而消失。
+        self.client.force_authenticate(user=None)
+        goal = ResearchGoalFactory(status=ResearchGoal.Status.ACTIVE)
+        p = ProtocolFactory()
+        goal.protocols.add(p)
+        resp = self.client.get(f'/api/v1/research-goals/{goal.id}/')
+        self.assertEqual(resp.status_code, 200)
+        ids = {x['id'] for x in resp.json()['data']['protocols']}
+        self.assertIn(p.id, ids)
+
+    def test_staff_can_update_protocols(self):
+        admin = UserFactory(is_staff=True)
+        self.client.force_authenticate(user=admin)
+        goal = ResearchGoalFactory()
+        p = ProtocolFactory()
+        resp = self.client.put(
+            f'/api/v1/research-goals/{goal.id}/',
+            {
+                'name': goal.name, 'slug': goal.slug, 'summary': goal.summary,
+                'priority': goal.priority, 'status': goal.status,
+                'protocols': [p.id],
+            },
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+        goal.refresh_from_db()
+        self.assertEqual(list(goal.protocols.values_list('id', flat=True)), [p.id])
+
+    def test_staff_can_clear_protocols(self):
+        admin = UserFactory(is_staff=True)
+        self.client.force_authenticate(user=admin)
+        goal = ResearchGoalFactory()
+        p = ProtocolFactory()
+        goal.protocols.add(p)
+        resp = self.client.put(
+            f'/api/v1/research-goals/{goal.id}/',
+            {
+                'name': goal.name, 'slug': goal.slug, 'summary': goal.summary,
+                'priority': goal.priority, 'status': goal.status,
+                'protocols': [],
+            },
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.json())
+        goal.refresh_from_db()
+        self.assertEqual(list(goal.protocols.values_list('id', flat=True)), [])
+
+    def test_non_staff_cannot_update_protocols(self):
+        user = UserFactory(is_staff=False)
+        self.client.force_authenticate(user=user)
+        goal = ResearchGoalFactory()
+        p = ProtocolFactory()
+        resp = self.client.put(
+            f'/api/v1/research-goals/{goal.id}/',
+            {
+                'name': goal.name, 'slug': goal.slug, 'summary': goal.summary,
+                'priority': goal.priority, 'status': goal.status,
+                'protocols': [p.id],
+            },
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 403)
+
 
 class ApplicationAPITest(TestCase):
     def setUp(self):

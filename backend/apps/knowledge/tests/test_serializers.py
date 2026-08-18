@@ -1,6 +1,6 @@
 from django.test import TestCase
 from apps.knowledge.api.v1.serializers import (
-    ResearchGoalListSerializer, ApplicationListSerializer, ApplicationDetailSerializer,
+    ResearchGoalListSerializer, ResearchGoalDetailSerializer, ApplicationListSerializer, ApplicationDetailSerializer,
     MethodListSerializer, MethodDetailSerializer, ProtocolListSerializer, ProtocolDetailSerializer,
     ReferenceSerializer, CompatibilitySerializer, ProtocolStepSerializer
 )
@@ -41,12 +41,64 @@ class ResearchGoalListSerializerTest(TestCase):
         self.assertIn('summary', data)
         self.assertIn('priority', data)
         self.assertIn('status', data)
+        self.assertIn('application_count', data)
         self.assertIn('created_at', data)
+
+    def test_application_count_real(self):
+        # #495-D：application_count 是真实关联 Application 计数，非死字段。
+        goal = ResearchGoalFactory()
+        ApplicationFactory.create_batch(3, research_goal=goal)
+        serializer = ResearchGoalListSerializer(goal)
+        self.assertEqual(serializer.data['application_count'], 3)
 
     def test_data_values(self):
         goal = ResearchGoalFactory(name='RNA Labeling')
         serializer = ResearchGoalListSerializer(goal)
         self.assertEqual(serializer.data['name'], 'RNA Labeling')
+
+
+class ResearchGoalDetailSerializerTest(TestCase):
+    """#495 轻量版：ResearchGoal 详情序列化器须暴露策展协议集（读=对象，写=ID列表）。"""
+
+    def test_read_includes_protocol_objects(self):
+        goal = ResearchGoalFactory()
+        p1 = ProtocolFactory()
+        p2 = ProtocolFactory()
+        goal.protocols.add(p1, p2)
+        data = ResearchGoalDetailSerializer(goal).data
+        self.assertIn('protocols', data)
+        ids = {p['id'] for p in data['protocols']}
+        self.assertEqual(ids, {p1.id, p2.id})
+        entry = data['protocols'][0]
+        self.assertIn('id', entry)
+        self.assertIn('name', entry)
+        self.assertIn('slug', entry)
+
+    def test_read_empty_protocols(self):
+        goal = ResearchGoalFactory()
+        data = ResearchGoalDetailSerializer(goal).data
+        self.assertEqual(data['protocols'], [])
+
+    def test_partial_update_sets_protocols(self):
+        goal = ResearchGoalFactory()
+        p1 = ProtocolFactory()
+        serializer = ResearchGoalDetailSerializer(
+            instance=goal, data={'protocols': [p1.id]}, partial=True,
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+        self.assertEqual(list(goal.protocols.values_list('id', flat=True)), [p1.id])
+
+    def test_partial_update_clears_protocols(self):
+        goal = ResearchGoalFactory()
+        p1 = ProtocolFactory()
+        goal.protocols.add(p1)
+        serializer = ResearchGoalDetailSerializer(
+            instance=goal, data={'protocols': []}, partial=True,
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+        self.assertEqual(list(goal.protocols.values_list('id', flat=True)), [])
 
 
 class ApplicationListSerializerTest(TestCase):

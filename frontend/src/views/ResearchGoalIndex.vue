@@ -101,9 +101,9 @@ watch(
           </template>
         </el-table-column>
 
-        <el-table-column prop="description" label="Description" min-width="300">
+        <el-table-column prop="summary" label="Summary" min-width="300">
           <template #default="{ row }">
-            <span class="goal-desc">{{ truncate(row.description, 80) }}</span>
+            <span class="goal-desc">{{ truncate(row.summary, 80) }}</span>
           </template>
         </el-table-column>
 

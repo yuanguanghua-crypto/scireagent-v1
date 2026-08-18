@@ -46,21 +46,18 @@ onUnmounted(() => {
       </section>
 
       <section class="detail-section">
-        <h2 class="section-title">Applications</h2>
-        <div v-if="store.currentGoal.application_ids?.length">
-          <p class="info-text">{{ store.currentGoal.application_ids.length }} application(s) under this goal</p>
-          <el-table :data="store.currentGoal.application_ids.map(id => ({ id }))" stripe>
-            <el-table-column prop="id" label="Application ID" width="120" />
-            <el-table-column label="Action" width="120">
+        <h2 class="section-title">Curated Protocols</h2>
+        <div v-if="store.currentGoal.protocols?.length">
+          <el-table :data="store.currentGoal.protocols" stripe>
+            <el-table-column label="Protocol" min-width="260">
               <template #default="{ row }">
-                <AppButton variant="ghost" size="sm" @click="router.push(`/applications/${row.id}`)">
-                  View →
-                </AppButton>
+                <router-link :to="`/protocols/${row.id}`" class="protocol-link">{{ row.name }}</router-link>
               </template>
             </el-table-column>
+            <el-table-column prop="slug" label="Slug" min-width="200" />
           </el-table>
         </div>
-        <el-empty v-else description="No applications linked yet" />
+        <el-empty v-else description="No curated protocols yet" />
       </section>
 
       <el-descriptions :column="2" border>
@@ -85,5 +82,7 @@ onUnmounted(() => {
 .section-title { font-size: 18px; font-weight: 600; color: var(--color-text); margin: 0 0 8px 0; border-bottom: 1px solid var(--color-border); padding-bottom: 6px; }
 .section-content { font-size: 15px; line-height: 1.6; color: var(--color-text); }
 .info-text { color: var(--color-text-secondary); font-size: 14px; margin-bottom: 12px; }
+.protocol-link { color: var(--color-primary); text-decoration: none; font-weight: 500; }
+.protocol-link:hover { text-decoration: underline; }
 .loading-container, .empty-container { padding: 60px 0; text-align: center; }
 </style>

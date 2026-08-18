@@ -8,10 +8,40 @@ from apps.knowledge.models import (
 
 class ResearchGoalListSerializer(BaseModelSerializer):
     slug = serializers.SlugField(required=False, allow_blank=True, allow_null=True)
+    # #495-D：列表契约修复——真实关联 Application 计数（原前端用死字段 application_count）。
+    application_count = serializers.SerializerMethodField()
 
     class Meta:
         model = ResearchGoal
-        fields = ['id', 'name', 'slug', 'summary', 'priority', 'status', 'created_at']
+        fields = ['id', 'name', 'slug', 'summary', 'priority', 'status', 'application_count', 'created_at']
+
+    def get_application_count(self, obj):
+        return obj.applications.count()
+
+
+class ResearchGoalProtocolsField(serializers.PrimaryKeyRelatedField):
+    """#495 轻量版：策展协议集读=对象 / 写=ID 列表。
+
+    ResearchGoal.protocols 是普通 M2M（无 through），DRF 原生 .set() 即持久化，
+    无需 Service 层。字段名与模型属性同名(protocols)，create/update 自动处理 M2M。
+    读取时每个 Protocol 返回 {id, name, slug} 供前端直接渲染与跳转。
+    """
+
+    def to_representation(self, value):
+        return {'id': value.id, 'name': value.name, 'slug': value.slug}
+
+
+class ResearchGoalDetailSerializer(BaseModelSerializer):
+    protocols = ResearchGoalProtocolsField(
+        many=True, queryset=Protocol.objects.all(), required=False,
+    )
+
+    class Meta:
+        model = ResearchGoal
+        fields = [
+            'id', 'name', 'slug', 'summary', 'priority', 'status',
+            'created_at', 'updated_at', 'protocols',
+        ]
 
 
 class ApplicationListSerializer(BaseModelSerializer):
