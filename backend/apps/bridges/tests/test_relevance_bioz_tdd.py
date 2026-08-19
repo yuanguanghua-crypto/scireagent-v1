@@ -32,6 +32,14 @@ def _bioz_row(query_key, payload):
     )
 
 
+def _pubmed_row(query_key, payload):
+    return DataSourceCache.objects.create(
+        source="pubmed", query_key=query_key, query_namespace="sku",
+        data_json=json.dumps(payload),
+        expires_at=timezone.now() + timedelta(days=30),
+    )
+
+
 class LoadProductBiozTddTest(TestCase):
     """B2 红灯：键对齐时 loader 必须返回 bioz 载荷（当前因 import/字段 bug 返回 []）。"""
 
@@ -75,3 +83,50 @@ class LoadProductBiozTddTest(TestCase):
                    side_effect=ImportError("simulated"), create=True):
             out = load_product_bioz(product)
         self.assertEqual(out, [])
+
+
+class LoadProductLiteratureMergeTest(TestCase):
+    """固化：load_product_bioz 并入 PubMed 文献（S_B 多源证据，2026-08-19）。
+
+    PubMed 缓存（source='pubmed'）与 Bioz 缓存同键（catalog_no/sku_code）；
+    loader 必须把 PubMed 条目（title 结构）转成 Bioz 兼容结构后合并返回，
+    使 compute_axis_b 协议级对齐获得多源文献证据。
+    """
+
+    def test_merges_bioz_and_pubmed(self):
+        product = ProductFactory(catalog_no="SC8201")
+        _bioz_row("SC8201", [{
+            "article_title": "bioz rna seq study", "techniques": "rna sequencing",
+            "long": "", "medium": "", "short": "",
+        }])
+        _pubmed_row("SC8201", [{
+            "pmid": "1", "title": "pubmed dna labeling study",
+            "source": "J Mol Biol", "doi": "",
+        }])
+        out = load_product_bioz(product)
+        titles = {x.get("article_title") for x in out}
+        self.assertIn("bioz rna seq study", titles)
+        self.assertIn("pubmed dna labeling study", titles)
+
+    def test_pubmed_entry_has_bioz_compatible_shape(self):
+        product = ProductFactory(catalog_no="SC8202")
+        _pubmed_row("SC8202", [{
+            "pmid": "2", "title": "click chemistry detection",
+            "source": "", "doi": "",
+        }])
+        out = load_product_bioz(product)
+        self.assertEqual(len(out), 1)
+        entry = out[0]
+        self.assertEqual(entry["article_title"], "click chemistry detection")
+        for f in ("techniques", "long", "medium", "short"):
+            self.assertIn(f, entry)
+
+    def test_pubmed_empty_title_skipped(self):
+        product = ProductFactory(catalog_no="SC8203")
+        _pubmed_row("SC8203", [
+            {"pmid": "3", "title": "", "source": "", "doi": ""},
+            {"pmid": "4", "title": "valid title", "source": "", "doi": ""},
+        ])
+        out = load_product_bioz(product)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["article_title"], "valid title")

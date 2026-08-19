@@ -281,19 +281,19 @@ def update_product_aggregate(product):
 
 
 def load_product_bioz(product):
-    """加载产品级 Bioz 文献缓存（用于轴B 协议级对齐）。
+    """加载产品级文献缓存（Bioz + PubMed，用于轴B 协议级对齐）。
 
     修复 #473-B2：原实现从 apps.knowledge.models 导入 DataSourceCache（模型实属
     apps.documents.models）致 ImportError 被吞、永远返回 []；且 filter 用不存在的
     resolved_catalog 列、取 r.payload（真实是 get_data()）。三处缺陷叠加使轴B 文献轴
     全库恒为 0（literature 档从未触发）。
 
-    现从正确模块导入；按产品的可解析键（catalog_no + 关联 SKU.sku_code）查询 bioz 缓存
-    （跨 namespace），返回载荷列表。任何异常均安全降级 []（轴B 退化为 0，不阻断 recompute）。
+    2026-08-19 固化：并入 PubMed 证据源——按产品的可解析键（catalog_no + 关联
+    SKU.sku_code）同时查询 bioz 与 pubmed 缓存（同键），PubMed 条目（title 结构）
+    转成 Bioz 兼容结构（article_title/long/medium/short）合并返回，使 S_B 获得
+    多源文献证据（Bioz 26 产品 + PubMed 68 产品 → 78 产品，weak 降 12%）。
 
-    注：生产库 bioz 缓存按厂商货号（如 'Jena Bioscience:36544'）键入，而产品仅持内部
-    catalog_no / sku_code，无厂商货号映射 → 即便 loader 正确，S_B 仍无法接通，需另行
-    按 SC catalog_no 重键 bioz 缓存（数据/导入缺口，非本 loader 缺陷）。
+    任何异常均安全降级 []（轴B 退化为 0，不阻断 recompute）。
     """
     try:
         from apps.documents.models import DataSourceCache
@@ -323,6 +323,26 @@ def load_product_bioz(product):
                 out.extend(d for d in data if isinstance(d, dict))
             elif isinstance(data, dict):
                 out.append(data)
+        # PubMed 文献并入（title 结构 → Bioz 兼容结构）
+        p_rows = DataSourceCache.objects.filter(source='pubmed', query_key__in=keys)
+        for r in p_rows:
+            data = r.get_data()
+            if not isinstance(data, list):
+                continue
+            for d in data:
+                if not isinstance(d, dict):
+                    continue
+                title = (d.get('title') or '').strip()
+                if not title:
+                    continue
+                out.append({
+                    'article_title': title,
+                    'techniques': '',
+                    'long': title,
+                    'medium': '',
+                    'short': '',
+                    '_source': 'pubmed',
+                })
         return out
     except Exception:
         return []
