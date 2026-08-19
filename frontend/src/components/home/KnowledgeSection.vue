@@ -61,7 +61,7 @@ function toggle() {
     <button class="knowledge-toggle" :class="{ open }" @click="toggle">
       <span>
         Explore Knowledge Graph
-        <span class="pill-count">6 domains</span>
+        <span class="pill-count">{{ knowledgeItems.length }} domains</span>
       </span>
       <span class="chevron" :class="{ open }">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
