@@ -229,6 +229,36 @@ class ProtocolDetailSerializerTest(TestCase):
         ref_ids = [r['id'] for r in serializer.data['references']]
         self.assertIn(ref.id, ref_ids)
 
+    def test_methods_include_application_and_research_goal(self):
+        # #534 B方案：协议详情 methods 须带 application/research_goal 上溯字段，
+        # 供前端研究路径（RG→AP→Method→Protocol）单一代表分支渲染。
+        goal = ResearchGoalFactory(name='RNA Biology')
+        app = ApplicationFactory(name='Library Prep', research_goal=goal)
+        method = MethodFactory(name='PCR', application=app)
+        protocol = ProtocolFactory()
+        MethodProtocol.objects.create(method=method, protocol=protocol)
+        data = ProtocolDetailSerializer(protocol).data
+        self.assertEqual(len(data['methods']), 1)
+        entry = data['methods'][0]
+        self.assertEqual(entry['id'], method.id)
+        self.assertEqual(entry['application_id'], app.id)
+        self.assertEqual(entry['application_name'], 'Library Prep')
+        self.assertEqual(entry['research_goal_id'], goal.id)
+        self.assertEqual(entry['research_goal_name'], 'RNA Biology')
+
+    def test_methods_application_none_fields_none(self):
+        # 兼容历史数据：method 无 application 时上溯字段须为 None 而非报错。
+        method = MethodFactory(application=None)
+        protocol = ProtocolFactory()
+        MethodProtocol.objects.create(method=method, protocol=protocol)
+        data = ProtocolDetailSerializer(protocol).data
+        self.assertEqual(len(data['methods']), 1)
+        entry = data['methods'][0]
+        self.assertIsNone(entry['application_id'])
+        self.assertIsNone(entry['application_name'])
+        self.assertIsNone(entry['research_goal_id'])
+        self.assertIsNone(entry['research_goal_name'])
+
 
 class ReferenceSerializerTest(TestCase):
     def test_fields(self):

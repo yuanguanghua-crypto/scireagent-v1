@@ -70,14 +70,18 @@ const downstreamEntities = computed(() => {
   return (protocol.value?.products || []).map(p => ({ type: 'product', id: p.id, name: p.name, catalog_no: p.catalog_no }))
 })
 const researchPath = computed(() => {
+  // #534 B方案：单一代表分支上溯（RG→AP→Method→Protocol），对齐 ProductDetail slice(0,1)。
+  // 上溯字段来自后端 get_methods 新返回的 application_id/application_name/
+  // research_goal_id/research_goal_name；protocol 自身无 RG/AP 字段。
   const path = []
-  if (protocol.value?.research_goal_id) {
-    path.push({ type: 'research_goal', id: protocol.value.research_goal_id, name: 'Research Goal' })
+  const m0 = (protocol.value?.methods || [])[0]
+  if (m0?.research_goal_id) {
+    path.push({ type: 'research_goal', id: m0.research_goal_id, name: m0.research_goal_name || 'Research Goal' })
   }
-  if (protocol.value?.application_id) {
-    path.push({ type: 'application', id: protocol.value.application_id, name: protocol.value.application_name || 'Application' })
+  if (m0?.application_id) {
+    path.push({ type: 'application', id: m0.application_id, name: m0.application_name || 'Application' })
   }
-  for (const m of (protocol.value?.methods || [])) {
+  for (const m of (protocol.value?.methods || []).slice(0, 1)) {
     path.push({ type: 'method', id: m.id, name: m.name || 'Method' })
   }
   if (protocol.value) path.push({ type: 'protocol', id: protocol.value.id, name: protocol.value.name })

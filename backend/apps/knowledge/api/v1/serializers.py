@@ -202,19 +202,31 @@ class ProtocolDetailSerializer(BaseModelSerializer):
     def get_methods(self, obj):
         """#494 route B：协议关联方法经 MethodProtocol 桥多对多返回（只读）。
 
-        形如 [{id, name, slug}]，供前端上游实体 / 研究路径 / 「关联方法」渲染与跳转。
+        形如 [{id, name, slug, application_id, application_name,
+               research_goal_id, research_goal_name}]，供前端研究路径
+        （RG→AP→Method→Protocol）单一代表分支上溯渲染与跳转。
         仅含 active 桥；按 display_order 与 method_id 稳定排序。
         """
         from apps.bridges.models import MethodProtocol
         rows = (
             MethodProtocol.objects.filter(protocol=obj, status='active')
-            .select_related('method')
+            .select_related('method__application__research_goal')
             .order_by('display_order', 'method_id')
         )
-        return [
-            {'id': mp.method_id, 'name': mp.method.name, 'slug': mp.method.slug}
-            for mp in rows
-        ]
+        out = []
+        for mp in rows:
+            application = mp.method.application
+            research_goal = application.research_goal if application else None
+            out.append({
+                'id': mp.method_id,
+                'name': mp.method.name,
+                'slug': mp.method.slug,
+                'application_id': application.id if application else None,
+                'application_name': application.name if application else None,
+                'research_goal_id': research_goal.id if research_goal else None,
+                'research_goal_name': research_goal.name if research_goal else None,
+            })
+        return out
 
 
 class MethodListSerializer(BaseModelSerializer):
