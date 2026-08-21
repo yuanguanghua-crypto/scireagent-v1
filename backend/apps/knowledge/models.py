@@ -54,6 +54,14 @@ class ResearchGoal(StatusMixin, TimeStampedModel):
         help_text='研究者人工策展纳入该研究目标的协议集合（无数据驱动，仅策展）',
     )
 
+    # 顶部链重建（2026-08-21）：RG 作为研究领域策展集合，M:N 关联技术族（Application）
+    # 注意：字段名避开 FK 反向访问器 rg.applications（Application.research_goal related_name='applications'）
+    application_collection = models.ManyToManyField(
+        'knowledge.Application', blank=True, related_name='research_goal_collections',
+        verbose_name='策展技术族集合',
+        help_text='该研究目标覆盖的技术族集合（策展，M:N；一个技术族可服务多个研究目标）',
+    )
+
     objects = TestFixtureQuerySet.as_manager()
 
     class Meta:
