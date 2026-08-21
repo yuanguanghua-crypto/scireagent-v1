@@ -22,8 +22,8 @@ print("L3 条数:", len(l3_ids))
 objs = dict(Protocol.objects.filter(id__in=l3_ids).values_list("id", "objective"))
 names = dict(Protocol.objects.filter(id__in=l3_ids).values_list("id", "name"))
 
-# ---- CSV 工作文件 ----
-csv_path = os.path.join(OUT, "L3_curation_workfile.csv")
+# ---- CSV 工作文件（R2：干净重发版，corrected 全空） ----
+csv_path = os.path.join(OUT, "L3_curation_workfile_r2.csv")
 n_no = n_sup = 0
 with open(csv_path, "w", encoding="utf-8-sig", newline="") as f:
     w = csv.writer(f)
@@ -42,7 +42,7 @@ with open(csv_path, "w", encoding="utf-8-sig", newline="") as f:
         note = "(objective 为空，仅凭 name 判定)" if not obj.strip() else ""
         w.writerow([pid, names.get(pid, ""), obj, cur or "",
                     cur_name, "", "", note])
-print("saved L3_curation_workfile.csv（无信号 %d / SUP %d）" % (n_no, n_sup))
+print("saved L3_curation_workfile_r2.csv（无信号 %d / SUP %d）" % (n_no, n_sup))
 
 # ---- 补充专名速查表（L3 探针暴露的高价值专名，提示人工勿留空） ----
 terms = [
