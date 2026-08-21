@@ -162,6 +162,30 @@ class Method(StatusMixin, TimeStampedModel):
     if _USE_POSTGRES:
         search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')
 
+    # ---- 顶部链治理新增字段（migration 0018_method_add_topchain_fields）----
+    method_type = models.CharField(
+        max_length=32, blank=True, default='', verbose_name='方法类型',
+        choices=[('technique', '技术'), ('assay', '测定'), ('sample_prep', '样本制备'), ('analysis', '分析')],
+    )
+    commercial_relevance = models.CharField(
+        max_length=32, blank=True, default='unsupported', verbose_name='商业相关性',
+        choices=[('core', '核心'), ('adjacent', '相邻'), ('unsupported', '无对应商品')],
+    )
+    reagent_dependency_type = models.CharField(
+        max_length=32, blank=True, default='none', verbose_name='试剂依赖类型',
+        choices=[('essential', '必需'), ('enabling', '可替代'), ('optional', '可选'), ('none', '无直接依赖')],
+    )
+    canonical_name = models.CharField(max_length=255, blank=True, default='', verbose_name='英文规范名')
+    definition = models.TextField(blank=True, default='', verbose_name='定义')
+    experimental_purpose = models.TextField(blank=True, default='', verbose_name='实验目的')
+    grounded_term = models.CharField(max_length=500, blank=True, default='', verbose_name='接地术语')
+    grounded_ontology = models.CharField(max_length=64, blank=True, default='', verbose_name='接地本体')
+    grounded_iri = models.CharField(max_length=500, blank=True, default='', verbose_name='接地 IRI')
+    match_type = models.CharField(
+        max_length=32, blank=True, default='', verbose_name='接地匹配类型',
+        choices=[('exact', '精确'), ('close', '近似'), ('partial', '部分'), ('no_match', '无匹配')],
+    )
+
     objects = TestFixtureQuerySet.as_manager()
 
     class Meta:

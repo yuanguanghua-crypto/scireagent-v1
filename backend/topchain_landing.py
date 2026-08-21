@@ -43,9 +43,11 @@ slug_of = {e["id_code"]: e["slug"] for e in ENTITIES}
 log(f"B. 导入 {len(ENTITIES)} 个 Method 实体（slug 预分配，application 暂空，is_test_fixture=False）")
 new_count = 0
 for e in ENTITIES:
-    if Method.objects.filter(slug=e["slug"]).exists():
-        FAILS.append(f"StepB: slug 冲突 {e['slug']}（{e['id_code']}）")
-        continue
+    existing_m = Method.objects.filter(slug=e["slug"]).first()
+    if existing_m is not None:
+        if existing_m.is_test_fixture:
+            FAILS.append(f"StepB: slug 被 fixture 占用 {e['slug']}（{e['id_code']}）")
+        continue  # 已存在且非 fixture → 幂等跳过
     new_count += 1
     if not DRY:
         Method.objects.create(

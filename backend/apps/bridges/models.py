@@ -68,6 +68,18 @@ class MethodProtocol(TimeStampedModel):
     )
     status = models.CharField(max_length=20, default='active', verbose_name='状态')
 
+    # ---- 顶部链治理新增字段（migration 0005_methodprotocol_evidence_source）----
+    evidence_source = models.CharField(
+        max_length=32, blank=True, default='legacy', verbose_name='关联来源',
+        help_text='lexicon_auto=词典自动标注；manual_curated=人工策展；llm_reviewed=LLM 判定；legacy=历史遗留映射',
+        choices=[
+            ('lexicon_auto', '词典自动标注'),
+            ('manual_curated', '人工策展'),
+            ('llm_reviewed', 'LLM 判定'),
+            ('legacy', '历史遗留'),
+        ],
+    )
+
     class Meta:
         db_table = 'method_protocol'
         verbose_name = '方法-协议关联'
