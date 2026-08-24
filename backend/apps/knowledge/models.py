@@ -527,3 +527,54 @@ class ProtocolFacet(TimeStampedModel):
 
     def __str__(self):
         return f'{self.protocol} -> {self.facet} ({self.source})'
+
+
+class ReagentClass(TimeStampedModel):
+    """试剂类（Reagent Class Ontology V1.0.2，35 类）。
+
+    定位：Product 的实验功能角色分类，作为 Product ↔ Method 的语义桥。
+    - 与 ProductClass（商品分类树）正交并存：一个回答"是什么商品"，一个回答"在实验中扮演什么角色"。
+    - `replaced_from` 仅记录 ontology lineage（RC-06：不自动继承任何 assignment/mapping/dependency）。
+    - `id_code` 为 ontology identifier（不可变）；`slug` 为 URL/display identifier（技术上可改）。
+    """
+
+    class BehaviorType(models.TextChoices):
+        METHOD_SPECIFIC = 'method_specific', 'method_specific'
+        METHOD_ENABLING = 'method_enabling', 'method_enabling'
+        CONTEXT_DEPENDENT = 'context_dependent', 'context_dependent'
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'draft'
+        APPROVED = 'approved', 'approved'
+        DEPRECATED = 'deprecated', 'deprecated'
+
+    id_code = models.CharField(
+        max_length=20, unique=True, verbose_name='Ontology ID',
+        help_text='RC-01…RC-33/19A/19B/20A/20B；ontology identifier（不可变）',
+    )
+    name = models.CharField(max_length=200, verbose_name='名称')
+    slug = models.SlugField(max_length=200, unique=True, verbose_name='Slug',
+                            help_text='URL/display identifier（技术上可改，不作 ontology 身份）')
+    definition = models.TextField(blank=True, default='', verbose_name='定义')
+    behavior_type = models.CharField(
+        max_length=20, choices=BehaviorType.choices, db_index=True, verbose_name='行为性质',
+        help_text='method_specific：天然强 Method 指向；method_enabling：可支持多 Method；context_dependent：须结合 Product/Protocol 上下文',
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices, default=Status.APPROVED, db_index=True, verbose_name='状态',
+    )
+    replaced_from = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='replacements', verbose_name='替代来源',
+        help_text='仅记录 ontology lineage（如 19A/19B ← RC-19）；不自动继承任何关系（RC-06）',
+    )
+    is_test_fixture = _test_fixture_field()
+
+    class Meta:
+        db_table = 'reagent_class'
+        verbose_name = '试剂类'
+        verbose_name_plural = verbose_name
+        ordering = ['id_code']
+
+    def __str__(self):
+        return f'{self.id_code} {self.name}'
