@@ -4,6 +4,7 @@ from core.serializers import BaseModelSerializer
 from core.svg_sanitizer import sanitize_svg
 from apps.commerce.models import Product, SKU, ProductClass, CatalogGroup, ProductDocument
 from apps.knowledge.models import Method, Protocol
+from apps.commerce.services.commerce_service import CommerceService
 
 
 class ProductClassSerializer(BaseModelSerializer):
@@ -377,6 +378,16 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         # Auto-generate SEO when transitioning from draft to active
         if is_becoming_active:
             self._auto_seo_on_publish(instance)
+            # R1: DRAFT→ACTIVE 唯一触发点编排关联管线（MUST-1）
+            # 系统级异常仅记录日志、不阻断产品保持 ACTIVE（Q2：管线故障可恢复）
+            try:
+                CommerceService.activate_product(instance.id)
+            except Exception:
+                import logging
+                logging.getLogger('association_pipeline').exception(
+                    'association_pipeline.activate_failed',
+                    extra={'product_id': instance.id},
+                )
         return instance
 
     def _refresh_inherited_bridges(self, product):
