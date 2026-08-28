@@ -488,6 +488,7 @@ class ProductMethodRelation(TimeStampedModel):
         ACTIVE = 'active', 'active'
         REVIEW = 'review', 'review'
         DEPRECATED = 'deprecated', 'deprecated'
+        REJECTED = 'rejected', 'rejected'
 
     product = models.ForeignKey(
         'commerce.Product', on_delete=models.PROTECT, related_name='method_relations', verbose_name='产品',
@@ -524,22 +525,32 @@ class ProductMethodRelation(TimeStampedModel):
                 name='uq_pmr_product_method_relation_type',
             ),
             models.CheckConstraint(
-                # PMR-01 discriminator：derived → source_rc 必填 + evidence 全空；verified → source_rc NULL + evidence 三件套非空
+                # PMR-01 discriminator（Phase 3 放宽，蕴含式）：
+                #  - derived_relevance          → 必满足 branch1（source_rc 必填 + evidence 全空）
+                #  - verified_applicability 且
+                #    status=ACTIVE              → 必满足 branch2（source_rc NULL + evidence 三件套非空）
+                #  - verified_applicability 且
+                #    status∈{REVIEW,REJECTED}    → 不受 branch2 约束（允许 evidence 不全，用户决策：部分草稿逐步补全）
+                # 形式：(NOT derived OR branch1) AND (NOT (verified AND active) OR branch2)
                 condition=(
                     (
-                        models.Q(relation_type='derived_relevance')
-                        & models.Q(source_reagent_class__isnull=False)
-                        & models.Q(evidence_type='')
-                        & models.Q(evidence_reference__isnull=True)
-                        & models.Q(evidence_strength='')
+                        ~models.Q(relation_type='derived_relevance')
+                        | (
+                            models.Q(source_reagent_class__isnull=False)
+                            & models.Q(evidence_type='')
+                            & models.Q(evidence_reference__isnull=True)
+                            & models.Q(evidence_strength='')
+                        )
                     )
-                    |
+                    &
                     (
-                        models.Q(relation_type='verified_applicability')
-                        & models.Q(source_reagent_class__isnull=True)
-                        & ~models.Q(evidence_type='')
-                        & models.Q(evidence_reference__isnull=False)
-                        & ~models.Q(evidence_strength='')
+                        ~models.Q(relation_type='verified_applicability', status='active')
+                        | (
+                            models.Q(source_reagent_class__isnull=True)
+                            & ~models.Q(evidence_type='')
+                            & models.Q(evidence_reference__isnull=False)
+                            & ~models.Q(evidence_strength='')
+                        )
                     )
                 ),
                 name='ck_pmr_relation_discriminator',

@@ -1,10 +1,32 @@
 import factory
 from apps.bridges.models import (
     ProductMethod, MethodProtocol, ProductReference, ProductCompatibility,
-    ProductProduct, ProductProtocol,
+    ProductProduct, ProductProtocol, ProductMethodRelation,
 )
 from apps.commerce.tests.factories import ProductFactory
 from apps.knowledge.tests.factories import MethodFactory, ProtocolFactory, ReferenceFactory, CompatibilityFactory
+
+
+class ProductMethodRelationFactory(factory.django.DjangoModelFactory):
+    """PMR 工厂（双 edge）。
+
+    默认造一条 REVIEW 草稿（verified_applicability + source_reagent_class=None），
+    豁免 PMR-01 分支 2（仅 ACTIVE verified 强约束 evidence 三件套），可直接落库。
+    derived_relevance 场景需显式传 relation_type + source_reagent_class（且 evidence 全空）。
+    """
+    class Meta:
+        model = ProductMethodRelation
+
+    product = factory.SubFactory(ProductFactory)
+    method = factory.SubFactory(MethodFactory)
+    relation_type = 'verified_applicability'
+    source_reagent_class = None
+    evidence_type = ''
+    evidence_reference = None
+    evidence_strength = ''
+    evidence_note = ''
+    curator = ''
+    status = 'review'
 
 
 class ProductMethodFactory(factory.django.DjangoModelFactory):

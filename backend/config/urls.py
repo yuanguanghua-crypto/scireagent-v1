@@ -24,6 +24,7 @@ urlpatterns = [
     path('api/v1/', include('apps.accounts.api.v1.urls')),
     path('api/v1/', include('apps.knowledge.api.v1.urls')),
     path('api/v1/', include('apps.commerce.api.v1.urls')),
+    path('api/v1/', include('apps.bridges.api.v1.urls')),
     path('api/v1/', include('apps.transactions.api.v1.urls')),
     path('api/v1/', include('apps.quotes.api.v1.urls')),
     path('api/v1/', include('apps.assets.api.v1.urls')),

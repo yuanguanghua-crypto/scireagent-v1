@@ -168,9 +168,40 @@ def test_invariant_a8_derived_unique_per_product_method_type():
     ).count() == 1
 
 
-# ── A7（verified 必须有完整 evidence）：属 Phase 3 verified 通道，本轮 TODO ──
-# 说明：verified 边的 evidence 完整性由 PMR-01 CheckConstraint + verified API 写入校验
-# 共同保证，不在 derived 管线的 Phase 1 范围内。Phase 3 实现 verified API 时补专项测试。
+# ── A7：verified evidence 完整性语义（用户决策：部分草稿逐步补全）──
+# PMR-01 分支 2 仅对 status=ACTIVE 的 verified 强约束 evidence 三件套非空；
+# REVIEW/REJECTED 草稿可不全（允许研究员先存草稿再 PATCH 补全）。
 @pytest.mark.django_db
-def test_invariant_a7_verified_requires_evidence_todo():
-    pytest.skip("A7 属 Phase 3 verified 通道，待 verified API 落地后补专项测试")
+def test_invariant_a7_review_draft_allows_partial_evidence():
+    """REVIEW 草稿允许 evidence 不全（不触发 PMR-01 约束违例）。"""
+    product = _active_product("a7-review")
+    method = _make_method("a7-m")
+    pmr = ProductMethodRelation.objects.create(
+        product=product, method=method,
+        relation_type='verified_applicability',
+        source_reagent_class=None,
+        status='review',
+        # 部分：仅 evidence_type，缺 reference + strength
+        evidence_type='pubmed',
+        evidence_reference=None,
+        evidence_strength='',
+    )
+    assert pmr.status == 'review'
+    assert pmr.evidence_reference is None
+
+
+@pytest.mark.django_db
+def test_invariant_a7_active_requires_full_evidence():
+    """ACTIVE verified 必须 evidence 三件套非空（PMR-01 分支 2 硬约束）。"""
+    product = _active_product("a7-active")
+    method = _make_method("a7-m2")
+    with pytest.raises(Exception):  # CheckConstraint → IntegrityError
+        ProductMethodRelation.objects.create(
+            product=product, method=method,
+            relation_type='verified_applicability',
+            source_reagent_class=None,
+            status='active',
+            evidence_type='pubmed',
+            evidence_reference=None,  # 缺
+            evidence_strength='',      # 缺
+        )
