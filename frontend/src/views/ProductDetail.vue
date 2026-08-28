@@ -10,6 +10,7 @@ import ExpandableSection from './admin/components/ExpandableSection.vue'
 import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 import { useResearchPathStore } from '@/stores/researchPath'
 import * as documentsApi from '@/api/documents'
+import * as bridgesApi from '@/api/bridges'
 import { openPreview } from '@/utils/previewInject'
 import { AppButton, LoadingSpinner, toast } from '@/components/common'
 
@@ -63,12 +64,23 @@ const relatedDisplayCount = computed(() => {
   return Math.max(displayCount, Math.min(cols, pool))
 })
 
+/* ── Verified applicability（Phase 4：verified 置顶区块，策展事实公开读）──
+ * 数据源：GET /api/v1/products/{id}/methods/ 的 verified_methods（PMR verified edge）。
+ * 与下方遗留 methods 列表（ProductMethod 桥表）是独立信号源，互不混入。
+ * 公开页仅展示 evidence（PMID/DOI 等），curator 不对外显示。
+ * 拉取失败静默降级为空态，不阻塞产品页主数据。
+ * 注意：状态声明必须位于 availableTabs computed 之前（该 computed 被 immediate
+ * watch 在 setup 期间求值，晚声明会触发 TDZ ReferenceError 使组件崩溃）。
+ */
+const verifiedMethods = ref([])
+const verifiedLoading = ref(false)
+
 /* ── Knowledge Tabs ── */
 const activeTab = ref('')
 const availableTabs = computed(() => {
   const tabs = []
   if (applications.value.length) tabs.push({ key: 'applications', label: 'Applications' })
-  if (methods.value.length) tabs.push({ key: 'methods', label: 'Methods' })
+  if (methods.value.length || verifiedMethods.value.length) tabs.push({ key: 'methods', label: 'Methods' })
   if (protocols.value.length) tabs.push({ key: 'protocols', label: 'Protocols' })
   if (references.value.length) tabs.push({ key: 'references', label: 'References' })
   if (faq.value.length) tabs.push({ key: 'faq', label: 'FAQ' })
@@ -188,10 +200,40 @@ async function loadProduct(id) {
   await store.fetchProductDetail(id)
   renderStructure()
   loadCompliance()
+  loadVerifiedMethods()
   // Track in research path
   if (product.value) {
     researchCart.addStep('product', product.value.id, product.value.name, product.value.slug)
   }
+}
+
+/* ── Verified applicability（Phase 4：verified 置顶区块，策展事实公开读）──
+ * 数据源：GET /api/v1/products/{id}/methods/ 的 verified_methods（PMR verified edge）。
+ * 与下方遗留 methods 列表（ProductMethod 桥表）是独立信号源，互不混入。
+ * 公开页仅展示 evidence（PMID/DOI 等），curator 不对外显示。
+ * 拉取失败静默降级为空态，不阻塞产品页主数据。
+ */
+/* verified 状态声明见文件顶部（availableTabs 之前，规避 TDZ） */
+
+async function loadVerifiedMethods() {
+  const id = route.params.id
+  if (!id) return
+  verifiedLoading.value = true
+  try {
+    const data = await bridgesApi.getProductMethods(id)
+    verifiedMethods.value = (data && data.verified_methods) || []
+  } catch (e) {
+    console.error('Failed to load verified methods', e)
+    verifiedMethods.value = []
+  } finally {
+    verifiedLoading.value = false
+  }
+}
+
+/* evidence_reference → 展示用 chips（[{type:'PMID', value:'123'}] → 'PMID: 123'） */
+function evidenceChip(refItem) {
+  if (!refItem || !refItem.type) return ''
+  return `${refItem.type}: ${refItem.value ?? ''}`.trim()
 }
 
 /* ── Compliance (COA / SDS) — read-only, public ── */
@@ -606,6 +648,36 @@ function onSearch(query) {
             </router-link>
           </template>
         </ExpandableSection>
+
+        <!-- Verified applicability (Phase 4: curated facts, pinned above derived/legacy methods) -->
+        <div v-if="activeTab === 'methods'" class="pd-verified" data-testid="verified-applicability">
+          <h3 class="pd-verified-heading">Verified Applicability</h3>
+          <span v-if="verifiedLoading" class="pd-verified-empty">Loading…</span>
+          <template v-else>
+            <div v-if="verifiedMethods.length" class="pd-verified-list">
+              <router-link
+                v-for="v in verifiedMethods"
+                :key="v.id"
+                :to="`/methods/${v.method_id}`"
+                class="pd-card pd-verified-card"
+              >
+                <div class="pd-card-icon pd-icon-verified">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+                </div>
+                <div class="pd-card-body">
+                  <h3 class="pd-card-title">{{ v.method_name || `Method #${v.method_id}` }}</h3>
+                  <div v-if="Array.isArray(v.evidence_reference) && v.evidence_reference.length" class="pd-verified-evidence">
+                    <span v-for="(refItem, i) in v.evidence_reference" :key="i" class="pd-evidence-chip">
+                      {{ evidenceChip(refItem) }}
+                    </span>
+                  </div>
+                </div>
+                <span class="pd-card-arrow">&rarr;</span>
+              </router-link>
+            </div>
+            <p v-else class="pd-verified-empty">No verified method applicability has been confirmed for this product yet.</p>
+          </template>
+        </div>
 
         <!-- Methods (Fix 7: removed redundant title) -->
         <ExpandableSection
@@ -1154,6 +1226,35 @@ function onSearch(query) {
 .pd-card-icon { width: 36px; height: 36px; border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .pd-icon-app { background: var(--color-emerald-50); color: var(--color-emerald-600); }
 .pd-icon-method { background: #E8F0FE; color: #7AAEDB; }
+
+/* ── Verified applicability (Phase 4) ── */
+.pd-verified { margin-bottom: 20px; }
+.pd-verified-heading {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #1B7A43;
+  margin: 0 0 10px;
+}
+.pd-verified-list { display: grid; gap: 10px; }
+.pd-verified-card { border-left: 3px solid #1B7A43; }
+.pd-icon-verified { background: #E6F4EC; color: #1B7A43; }
+.pd-verified-evidence { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.pd-evidence-chip {
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #F1F5F9;
+  color: #475569;
+}
+.pd-verified-empty {
+  font-size: 14px;
+  color: #6B7280;
+  margin: 0;
+}
 .pd-icon-protocol { background: #F5F0E0; color: #C9A34E; }
 .pd-card-body { flex: 1; min-width: 0; }
 .pd-card-title { font-size: 14px; font-weight: 600; margin: 0; color: var(--color-text); }

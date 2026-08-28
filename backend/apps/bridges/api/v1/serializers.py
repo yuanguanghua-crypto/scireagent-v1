@@ -12,10 +12,15 @@ from apps.bridges.models import ProductMethodRelation, validate_evidence_referen
 
 
 class ProductMethodRelationSerializer(serializers.Serializer):
-    """PMR（双 edge）只读输出。显式字段，禁用 ModelSerializer.__all__。"""
+    """PMR（双 edge）只读输出。显式字段，禁用 ModelSerializer.__all__。
+
+    method_name/method_slug（Phase 4）：前端卡片直接渲染方法名，避免 N+1 取 Method。
+    """
     id = serializers.IntegerField(read_only=True)
     product_id = serializers.IntegerField(read_only=True)
     method_id = serializers.IntegerField(read_only=True)
+    method_name = serializers.CharField(source='method.name', read_only=True)
+    method_slug = serializers.CharField(source='method.slug', read_only=True)
     relation_type = serializers.CharField(read_only=True)
     status = serializers.CharField(read_only=True)
     source_reagent_class = serializers.PrimaryKeyRelatedField(read_only=True)

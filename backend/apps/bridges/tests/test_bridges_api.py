@@ -36,17 +36,29 @@ class BridgesApiTestCase(APITestCase):
         # bridges API 挂载于 api/v1/（同 commerce），端点直接位于 api/v1/ 下
         self.base = '/api/v1'
 
-    # ── 双 edge 读取 ──
-    def test_get_product_methods_dual_edge(self):
-        self.client.force_authenticate(self.staff)
+    # ── 双 edge 读取（Phase 4 决策：公开读 AllowAny，符「知识实体公开读」铁律）──
+    def test_get_product_methods_dual_edge_anonymous(self):
+        """匿名（公开产品页）可读双 edge；两列表互不混入 + method_name 直出。"""
+        from apps.bridges.tests.factories import ProductMethodRelationFactory as PMRFactory
+        ProductMethodRelationFactory(  # verified 边（REVIEW 草稿）
+            product=self.product, method=self.method,
+            relation_type='verified_applicability',
+        )
+        self.client.force_authenticate(None)
         resp = self.client.get(f'{self.base}/products/{self.product.id}/methods/')
         assert resp.status_code == 200
         data = resp.json()['data']
         assert 'related_methods' in data
         assert 'verified_methods' in data
+        # 两列表互不混入（T4.1 验收）
+        for row in data['verified_methods']:
+            assert row['relation_type'] == 'verified_applicability'
+        assert data['verified_methods'][0]['method_name'] == self.method.name
+        assert data['verified_methods'][0]['method_slug'] == self.method.slug
 
-    def test_get_method_products_reverse(self):
-        self.client.force_authenticate(self.staff)
+    def test_get_method_products_reverse_anonymous(self):
+        """匿名（公开产品页）可读反向查询。"""
+        self.client.force_authenticate(None)
         resp = self.client.get(f'{self.base}/methods/{self.method.id}/products/')
         assert resp.status_code == 200
         data = resp.json()['data']

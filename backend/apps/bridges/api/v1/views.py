@@ -1,7 +1,8 @@
 """bridges API 视图（Phase 3 verified 通道 + 双 edge，T3.2）。
 
 铁律：API 只编排 VerifiedService / 查询 PMR，绝不直接 ORM 改 PMR（写）。
-权限：GET/创建草稿/PATCH = IsAuthenticated；approve/reject = IsStaffUser。
+权限（Phase 4 决策）：GET 双 edge = AllowAny（公开产品页调用，符「知识实体公开读」铁律）；
+创建草稿/PATCH = IsAuthenticated；approve/reject = IsStaffUser。
 响应：统一 EnvelopeMixin 信封 {success, data, meta}。
 """
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -9,7 +10,7 @@ from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
 from core.mixins import EnvelopeMixin
@@ -27,7 +28,7 @@ from apps.bridges.api.v1.serializers import (
 
 class ProductMethodsView(EnvelopeMixin, APIView):
     """GET product/{id}/methods → 双 edge 分离（related_methods / verified_methods）。"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]  # Phase 4：公开产品页调用，公开读
 
     def get(self, request, pk):
         get_object_or_404(Product, pk=pk)
@@ -44,7 +45,7 @@ class ProductMethodsView(EnvelopeMixin, APIView):
 
 class MethodProductsView(EnvelopeMixin, APIView):
     """GET method/{id}/products → 反向查询（双 edge 合并输出）。"""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]  # Phase 4：公开读
 
     def get(self, request, pk):
         get_object_or_404(Method, pk=pk)
