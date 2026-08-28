@@ -21,7 +21,7 @@ def get_related_products(product, limit=6):
     if product.product_class:
         same_class_qs = Product.objects.filter(
             product_class=product.product_class,
-            status__in=['active', 'published'],
+            status='active',
         ).exclude(id=product.id).order_by('catalog_no')
 
         class_ids = list(same_class_qs.values_list('id', flat=True))
@@ -30,7 +30,7 @@ def get_related_products(product, limit=6):
             all_in_class = list(
                 Product.objects.filter(
                     product_class=product.product_class,
-                    status__in=['active', 'published'],
+                    status='active',
                 ).order_by('catalog_no').values_list('id', flat=True)
             )
             try:
@@ -74,7 +74,7 @@ def get_related_products(product, limit=6):
     # Get this product's application IDs
     app_ids = list(
         Application.objects.filter(
-            methods__id__in=method_ids, status__in=['active', 'published']
+            methods__id__in=method_ids, status='active'
         ).values_list('id', flat=True).distinct()
     )
 
@@ -123,7 +123,7 @@ def get_related_products(product, limit=6):
     if product.product_class:
         same_class_ids = set(
             Product.objects.filter(
-                product_class=product.product_class, status__in=['active', 'published']
+                product_class=product.product_class, status='active'
             ).exclude(id=product.id).values_list('id', flat=True)
         )
         for pid in same_class_ids:
@@ -136,7 +136,7 @@ def get_related_products(product, limit=6):
     # Sort by score descending, take remaining slots
     sorted_ids = sorted(scores.keys(), key=lambda pid: scores[pid], reverse=True)[:fallback_limit]
 
-    fallback_products = Product.objects.filter(id__in=sorted_ids, status__in=['active', 'published'])
+    fallback_products = Product.objects.filter(id__in=sorted_ids, status='active')
     fb_map = {p.id: p for p in fallback_products}
 
     for pid in sorted_ids:

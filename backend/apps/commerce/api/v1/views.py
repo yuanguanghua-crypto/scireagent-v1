@@ -286,7 +286,8 @@ class ProductDetailAPIView(EnvelopeMixin, APIView):
         from apps.commerce.services.faq_service import generate_faq
         from apps.commerce.services.product_relationship_service import get_related_products
 
-        product = get_object_or_404(Product, pk=pk, status__in=['active', 'published'])
+        # A2 死分支清理：Product 状态机无 'published'（那是 Protocol/COA 的枚举），只认 active
+        product = get_object_or_404(Product, pk=pk, status='active')
 
         # Get related entities via bridge tables
         method_ids = list(
