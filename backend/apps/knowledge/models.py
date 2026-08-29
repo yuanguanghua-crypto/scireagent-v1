@@ -34,6 +34,33 @@ def _test_fixture_field():
     )
 
 
+class OriginChoices(models.TextChoices):
+    """数据来源（顶部链 AI 生成管线三层护栏①：诚实标注来源）。
+
+    与 is_test_fixture 正交：is_test_fixture=是否测试种子数据，origin=数据来源。
+    AI 生成数据 origin=ai_extracted；人工审核升格在 origin_detail 记 reviewed_by。
+    """
+    HUMAN_CURATED = 'human_curated', '人工策展'
+    AI_EXTRACTED = 'ai_extracted', 'AI 从协议提取'
+    IMPORTED = 'imported', '存量导入'
+
+
+def _origin_field():
+    return models.CharField(
+        max_length=20, choices=OriginChoices.choices,
+        default=OriginChoices.IMPORTED, verbose_name='数据来源',
+        help_text='human_curated=人工策展 / ai_extracted=AI 从协议提取 / '
+                  'imported=存量导入（默认，不猜来源）',
+    )
+
+
+def _origin_detail_field():
+    return models.CharField(
+        max_length=500, blank=True, default='', verbose_name='来源详情',
+        help_text='溯源详情，如 extractor_v0.1|protocols:12,34,56 或 reviewed_by:admin',
+    )
+
+
 class ResearchGoal(StatusMixin, TimeStampedModel):
     """顶层科研意图"""
     name = models.CharField(max_length=255, verbose_name='名称',
@@ -45,6 +72,8 @@ class ResearchGoal(StatusMixin, TimeStampedModel):
     priority = models.IntegerField(default=0, validators=[MaxValueValidator(9999)], verbose_name='优先级',
         help_text='数字越大越靠前，0 为默认排序')
     is_test_fixture = _test_fixture_field()
+    origin = _origin_field()
+    origin_detail = _origin_detail_field()
 
     # route B 加法：ResearchGoal 作为策展集合（curated collection），手动关联协议，
     # 无路径、无打分。与顶部 RG→AP→ME→Protocol 严格单父 FK 树解耦。
@@ -100,6 +129,8 @@ class Application(StatusMixin, TimeStampedModel):
     sort_order = models.IntegerField(default=0, verbose_name='排序')
     display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级')
     is_test_fixture = _test_fixture_field()
+    origin = _origin_field()
+    origin_detail = _origin_detail_field()
     if _USE_POSTGRES:
         search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')
 
@@ -193,6 +224,8 @@ class Method(StatusMixin, TimeStampedModel):
         max_length=32, blank=True, default='', verbose_name='接地匹配类型',
         choices=[('exact', '精确'), ('close', '近似'), ('partial', '部分'), ('no_match', '无匹配')],
     )
+    origin = _origin_field()
+    origin_detail = _origin_detail_field()
 
     objects = TestFixtureQuerySet.as_manager()
 
