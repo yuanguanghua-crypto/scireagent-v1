@@ -68,3 +68,36 @@ class TestReport:
         assert data['rows'][0]['research_goals'][0]['name'] == 'RNA Analysis'
         # 黄金集 md 同目录生成
         assert (tmp_path / 't2_report_review.md').exists()
+
+
+class TestConcurrency:
+    @pytest.mark.django_db
+    def test_workers_extract_all_rows(self, monkeypatch, tmp_path):
+        """--workers 并发：所有协议都被提取且保序输出。"""
+        monkeypatch.setenv('SCIREAGENT_LLM_API_KEY', 'sk-test')
+        from apps.knowledge.services import llm_extractor as le
+        from apps.knowledge.models import Protocol
+        seen = {'n': 0}
+
+        def fake_extract(self, protocol_text, temperature=0):
+            seen['n'] += 1
+            return {'research_goals': [{'name': f'RG-{seen["n"]}', 'confidence': 0.5}],
+                    'applications': []}
+
+        monkeypatch.setattr(le.LLMExtractor, 'extract_topchain', fake_extract)
+        # 建 5 个协议
+        for i in range(5):
+            ProtocolFactory(name=f'Conc P{i}', slug=f'conc-p{i}',
+                            objective='X' * 30, principle='Y')
+        out = tmp_path / 'conc_report.json'
+        call_command('extract_topchain_drafts', count=5, workers=4, report=str(out))
+        data = json.loads(out.read_text(encoding='utf-8'))
+        assert data['stats']['protocols'] == 5
+        assert data['stats']['errors'] == 0
+        # 保序：rows 索引与输入顺序一致（p.id 递增）
+        ids = [r['protocol_id'] for r in data['rows']]
+        assert ids == sorted(ids)
+        # 每行都有提取结果
+        for r in data['rows']:
+            assert r['research_goals'], f'p={r["protocol_id"]} 缺 RG'
+            assert r['error'] is None

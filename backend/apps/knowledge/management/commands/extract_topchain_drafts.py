@@ -31,6 +31,8 @@ class Command(BaseCommand):
                             help='取样数（objective 最丰富的 N 个协议）')
         parser.add_argument('--source', type=str, default='',
                             help='协议源过滤：curated / bioprocorpus（空=全部）')
+        parser.add_argument('--workers', type=int, default=4,
+                            help='并发 worker 数（全量批次建议 8-16）')
         parser.add_argument('--report', type=str, default='',
                             help='报告 JSON 输出路径（写前自动建目录）')
 
@@ -43,32 +45,50 @@ class Command(BaseCommand):
             )
 
         qs = self._pick_protocols(options)
-        self.stdout.write(f'取样 {qs.count()} 个协议（共 {Protocol.objects.count()}）')
+        self.stdout.write(f'取样 {qs.count()} 个协议（共 {Protocol.objects.count()}），'
+                          f'workers={options["workers"]}')
 
         extractor = LLMExtractor(
             api_key=cfg['api_key'], base_url=cfg['base_url'], model=cfg['model'])
-        rows = []
-        for p in qs:
+        rows = self._extract_all(extractor, list(qs), options['workers'])
+        report = self._build_report(cfg, rows)
+        self._write_report(report, options['report'])
+        self._write_review_md(rows, options['report'])
+
+    def _extract_all(self, extractor, protocols, workers):
+        """并发提取（ThreadPoolExecutor，保序输出）。每 worker 独立 extractor 调用
+        （urllib 线程安全；单 extractor 复用亦可，但独立更稳）。"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        rows = [None] * len(protocols)
+        done = {'n': 0}
+
+        def work(idx, p):
             try:
                 result = extractor.extract_topchain(build_prompt(
                     name=p.name, objective=p.objective,
                     principle=p.principle, reagents=p.reagents))
-            except Exception as e:  # noqa: BLE001 —— pilot 阶段单协议失败不中断全量
+            except Exception as e:  # noqa: BLE001 —— 单协议失败不中断全量
                 result = {'error': str(e)}
-            rows.append({
-                'protocol_id': p.id,
-                'protocol_name': p.name,
-                'research_goals': result.get('research_goals', []),
-                'applications': result.get('applications', []),
-                'error': result.get('error'),
-            })
-            self.stdout.write(f'  p={p.id} {p.name[:40]} '
-                              f'RG={len(result.get("research_goals", []))} '
-                              f'AP={len(result.get("applications", []))}')
+            return idx, p, result
 
-        report = self._build_report(cfg, rows)
-        self._write_report(report, options['report'])
-        self._write_review_md(rows, options['report'])
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(work, i, p) for i, p in enumerate(protocols)]
+            for fut in as_completed(futures):
+                i, p, result = fut.result()
+                rows[i] = {
+                    'protocol_id': p.id,
+                    'protocol_name': p.name,
+                    'research_goals': result.get('research_goals', []),
+                    'applications': result.get('applications', []),
+                    'error': result.get('error'),
+                }
+                done['n'] += 1
+                if done['n'] % 10 == 0 or done['n'] == len(protocols):
+                    self.stdout.write(f'  进度 {done["n"]}/{len(protocols)}')
+                self.stdout.write(f'  p={p.id} {p.name[:40]} '
+                                  f'RG={len(result.get("research_goals", []))} '
+                                  f'AP={len(result.get("applications", []))}')
+        return rows
 
     def _pick_protocols(self, options):
         from django.db.models.functions import Length

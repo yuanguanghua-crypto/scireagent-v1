@@ -10,6 +10,7 @@
 
 铁律（宁缺毋滥）：prompt 明确禁止臆造实体；空输出合法。
 """
+import http.client
 import json
 import os
 import time
@@ -94,11 +95,13 @@ def parse_llm_json(content):
 class LLMExtractor:
     """OpenAI 兼容 chat/completions 调用器（urllib 实现，零第三方依赖）。
 
-    超时重试：读取超时（LLM 长输出常见）自动重试 RETRIES 次，
-    指数退避（2s, 4s）；网络/HTTP 错误不重试（非瞬态）。
+    重试：瞬态错误（读取超时 / SSL EOF / IncompleteRead / URLError / OSError）
+    自动重试 RETRIES 次，指数退避（2s, 4s, 8s）；实测 bioprocorpus 批次
+    11/200 连接层顽固错误，重试 2 次不够 → 3 次 + 覆盖 IncompleteRead。
+    非瞬态（HTTP 4xx/5xx 由 HTTPError 抛出）不重试。
     """
 
-    RETRIES = 2
+    RETRIES = 3
 
     def __init__(self, api_key=None, base_url=None, model=None, timeout=TIMEOUT):
         self.api_key = (api_key or '').strip()
@@ -140,10 +143,11 @@ class LLMExtractor:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                     body = json.loads(resp.read().decode('utf-8'))
                 break
-            except (TimeoutError, urllib.error.URLError, OSError) as e:
+            except (TimeoutError, urllib.error.URLError, OSError,
+                    http.client.IncompleteRead, http.client.HTTPException) as e:
                 last_err = e
                 if attempt < self.RETRIES:
-                    time.sleep(2 * (attempt + 1))  # 2s, 4s 退避
+                    time.sleep(2 * (attempt + 1))  # 2s, 4s, 8s 退避
         else:
             raise last_err
         try:
