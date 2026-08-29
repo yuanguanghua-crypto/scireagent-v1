@@ -8,7 +8,10 @@ async function apiContext(token) {
   const { request } = require('@playwright/test');
   return request.newContext({
     baseURL: API_BASE,
-    extraHTTPHeaders: token ? { Authorization: `Token ${token}` } : {},
+    extraHTTPHeaders: {
+      Accept: 'application/json',  // 强制 JSON，避免 DRF 可浏览 API 返回 HTML
+      ...(token ? { Authorization: `Token ${token}` } : {}),
+    },
   });
 }
 

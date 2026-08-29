@@ -75,6 +75,12 @@ if (!auth.isStaff) {
             </svg>
             References
           </router-link>
+          <router-link to="/workspace/verified" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+            Verified Applicability
+          </router-link>
           <router-link to="/workspace/knowledge-intake" class="nav-item" active-class="active">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
               <path d="M12 5v14M5 12h14" />

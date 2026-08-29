@@ -70,8 +70,29 @@ class MethodProductsView(EnvelopeMixin, APIView):
 
 
 class VerifiedCreateView(EnvelopeMixin, APIView):
-    """POST verified → 创建 REVIEW 草稿（登录用户即可）。"""
+    """GET/POST verified（C3 起双方法）：
+    - GET  → workspace 审核列表（IsStaffUser，全状态 + status/product_id 过滤）
+    - POST → 创建 REVIEW 草稿（IsAuthenticated）
+    """
     permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsStaffUser()]
+        return [IsAuthenticated()]
+
+    def get(self, request):
+        qs = (ProductMethodRelation.objects
+              .filter(relation_type=ProductMethodRelation.RelationType.VERIFIED_APPLICABILITY)
+              .select_related('product', 'method'))
+        status_f = request.query_params.get('status')
+        if status_f:
+            qs = qs.filter(status=status_f)
+        pid = request.query_params.get('product_id')
+        if pid:
+            qs = qs.filter(product_id=pid)
+        data = ProductMethodRelationSerializer(qs.order_by('-created_at'), many=True).data
+        return self.success_response(data)
 
     def post(self, request):
         serializer = VerifiedCreateSerializer(data=request.data)

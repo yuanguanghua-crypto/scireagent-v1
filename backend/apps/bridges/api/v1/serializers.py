@@ -15,9 +15,12 @@ class ProductMethodRelationSerializer(serializers.Serializer):
     """PMR（双 edge）只读输出。显式字段，禁用 ModelSerializer.__all__。
 
     method_name/method_slug（Phase 4）：前端卡片直接渲染方法名，避免 N+1 取 Method。
+    product_name/product_catalog_no/created_at（C3）：workspace 审核列表需要产品信息。
     """
     id = serializers.IntegerField(read_only=True)
     product_id = serializers.IntegerField(read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_catalog_no = serializers.CharField(source='product.catalog_no', read_only=True)
     method_id = serializers.IntegerField(read_only=True)
     method_name = serializers.CharField(source='method.name', read_only=True)
     method_slug = serializers.CharField(source='method.slug', read_only=True)
@@ -29,6 +32,7 @@ class ProductMethodRelationSerializer(serializers.Serializer):
     evidence_strength = serializers.CharField(read_only=True)
     evidence_note = serializers.CharField(read_only=True)
     curator = serializers.CharField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
 
 
 class VerifiedCreateSerializer(serializers.Serializer):
