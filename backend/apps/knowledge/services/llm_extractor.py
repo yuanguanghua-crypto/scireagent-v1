@@ -12,6 +12,8 @@
 """
 import json
 import os
+import time
+import urllib.error
 import urllib.request
 
 ENV_KEY = 'SCIREAGENT_LLM_API_KEY'
@@ -90,7 +92,13 @@ def parse_llm_json(content):
 
 
 class LLMExtractor:
-    """OpenAI 兼容 chat/completions 调用器（urllib 实现，零第三方依赖）。"""
+    """OpenAI 兼容 chat/completions 调用器（urllib 实现，零第三方依赖）。
+
+    超时重试：读取超时（LLM 长输出常见）自动重试 RETRIES 次，
+    指数退避（2s, 4s）；网络/HTTP 错误不重试（非瞬态）。
+    """
+
+    RETRIES = 2
 
     def __init__(self, api_key=None, base_url=None, model=None, timeout=TIMEOUT):
         self.api_key = (api_key or '').strip()
@@ -117,17 +125,27 @@ class LLMExtractor:
             ],
             'temperature': temperature,
         }
-        req = urllib.request.Request(
-            f'{self.base_url}/chat/completions',
-            data=json.dumps(payload).encode('utf-8'),
-            headers={
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {self.api_key}',
-            },
-            method='POST',
-        )
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-            body = json.loads(resp.read().decode('utf-8'))
+        last_err = None
+        for attempt in range(self.RETRIES + 1):
+            try:
+                req = urllib.request.Request(
+                    f'{self.base_url}/chat/completions',
+                    data=json.dumps(payload).encode('utf-8'),
+                    headers={
+                        'Content-Type': 'application/json',
+                        'Authorization': f'Bearer {self.api_key}',
+                    },
+                    method='POST',
+                )
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    body = json.loads(resp.read().decode('utf-8'))
+                break
+            except (TimeoutError, urllib.error.URLError, OSError) as e:
+                last_err = e
+                if attempt < self.RETRIES:
+                    time.sleep(2 * (attempt + 1))  # 2s, 4s 退避
+        else:
+            raise last_err
         try:
             content = body['choices'][0]['message']['content']
         except (KeyError, IndexError, TypeError):

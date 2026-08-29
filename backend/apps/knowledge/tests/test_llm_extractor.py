@@ -5,6 +5,8 @@ key/base_url/model 全部环境变量可配（后期换 key/换服务商零代�
 无 key 优雅降级：is_available=False，extract 抛 LLMNotConfigured（命令转 dry-run 报错）。
 """
 import json
+import time
+
 import pytest
 
 from apps.knowledge.services.llm_extractor import (
@@ -116,6 +118,37 @@ class TestExtract:
         r = ex.extract_topchain('boring protocol')
         assert r['research_goals'] == []
         assert r['applications'] == []
+
+    def test_timeout_retried_then_success(self, monkeypatch):
+        """超时（实测 p=200 现象）→ 重试 2 次内成功。"""
+        inner = {'research_goals': [{'name': 'CITE-seq', 'confidence': 0.9}],
+                 'applications': []}
+        body = {'choices': [{'message': {'content': json.dumps(inner)}}]}
+        calls = {'n': 0}
+
+        def flaky(req, timeout):
+            calls['n'] += 1
+            if calls['n'] < 3:
+                raise TimeoutError('The read operation timed out')
+            return _FakeResp(json.dumps(body))
+
+        monkeypatch.setattr('urllib.request.urlopen', flaky)
+        monkeypatch.setattr(time, 'sleep', lambda s: None)
+        ex = LLMExtractor(api_key='sk-test')
+        r = ex.extract_topchain('text')
+        assert calls['n'] == 3  # 2 次失败 + 1 次成功
+        assert r['research_goals'][0]['name'] == 'CITE-seq'
+
+    def test_timeout_exhausted_raises(self, monkeypatch):
+        """重试耗尽后抛原始错误（不静默）。"""
+        def always_timeout(req, timeout):
+            raise TimeoutError('The read operation timed out')
+
+        monkeypatch.setattr('urllib.request.urlopen', always_timeout)
+        monkeypatch.setattr(time, 'sleep', lambda s: None)
+        ex = LLMExtractor(api_key='sk-test')
+        with pytest.raises(TimeoutError):
+            ex.extract_topchain('text')
 
 
 class _FakeResp:
