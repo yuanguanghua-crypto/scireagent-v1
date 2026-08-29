@@ -48,6 +48,16 @@ class PubMedClient:
         with urllib.request.urlopen(url, timeout=20) as resp:
             return json.loads(resp.read().decode('utf-8'))
 
+    def _get_text(self, endpoint, params):
+        """纯文本端点（efetch retmode=text 返回非 JSON）。"""
+        wait = self._last + self.interval - time.time()
+        if wait > 0:
+            time.sleep(wait)
+        url = EUTILS + endpoint + '?' + urllib.parse.urlencode(params)
+        self._last = time.time()
+        with urllib.request.urlopen(url, timeout=20) as resp:
+            return resp.read().decode('utf-8', errors='replace')
+
     def esearch(self, term, retmax=ESEARCH_RETMAX):
         data = self._get('esearch.fcgi', {
             'db': 'pubmed', 'term': term, 'retmax': retmax, 'retmode': 'json',
@@ -61,6 +71,12 @@ class PubMedClient:
             'db': 'pubmed', 'id': ','.join(str(i) for i in ids), 'retmode': 'json',
         })
         return data.get('result', {})
+
+    def efetch_one(self, pmid):
+        """单 PMID 摘要全文（retmode=text，含标题+摘要；v0.2 方法召回扩展）。"""
+        return self._get_text('efetch.fcgi', {
+            'db': 'pubmed', 'id': str(pmid), 'rettype': 'abstract', 'retmode': 'text',
+        })
 
 
 def _norm_text(s):
@@ -117,15 +133,23 @@ def match_methods_in_title(title, methods):
     """标题级 Method 匹配（词元覆盖率 ≥0.8，按覆盖率降序）。
 
     methods: [{'id','name','slug'}]。返回匹配列表（空 = 无方法命中，不落库）。
-    语义边界：论文标题提到方法 ≠ 论文证明产品适用于该方法（relevance 级证据）。
+    语义边界：论文提到方法 ≠ 论文证明产品适用于该方法（relevance 级证据）。
     """
-    title_tokens = _tokens(title)
+    return match_methods_in_text(title, methods)
+
+
+def match_methods_in_text(text, methods):
+    """全文级（标题+摘要）Method 匹配（v0.2：摘要扩展召回）。
+
+    与标题级同规则（词元覆盖率 ≥0.8）；命中来源由调用方按需区分 title/abstract。
+    """
+    text_tokens = _tokens(text)
     hits = []
     for m in methods:
         m_tokens = _tokens(m.get('name'))
         if not m_tokens:
             continue
-        coverage = len(m_tokens & title_tokens) / len(m_tokens)
+        coverage = len(m_tokens & text_tokens) / len(m_tokens)
         if coverage >= COVERAGE_THRESHOLD:
             hits.append({'id': m['id'], 'name': m['name'], 'slug': m.get('slug', ''),
                          'coverage': round(coverage, 2)})
@@ -177,6 +201,13 @@ def mine_product(client, product):
             candidates.append(entry)
         else:
             excluded.append(entry)
+
+    # v0.2：仅对候选（有产品信号的）拉取摘要，扩展 record_text（标题+摘要），
+    # 供方法级匹配提召回；排除项不拉摘要（省请求）。
+    for c in candidates:
+        abstract = client.efetch_one(c['pmid']) or ''
+        c['abstract'] = abstract
+        c['record_text'] = ((c.get('title') or '') + '\n' + abstract).strip()
 
     return {
         'product_id': product['id'],

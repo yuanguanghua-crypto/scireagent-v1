@@ -29,6 +29,10 @@ class FakeClient:
     def esummary(self, ids):
         return {'uids': ids, **{str(i): self.docs.get(int(i)) for i in ids}}
 
+    def efetch_one(self, pmid):
+        doc = self.docs.get(int(pmid)) or {}
+        return doc.get('abstract', '')
+
 
 def _setup_product_method(method_name='DNA Polymerase', title_extra='assay'):
     """构造 5-Iodo-dUTP 产品 + 命中标题的 method + FakeClient。
@@ -131,3 +135,23 @@ def test_existing_active_same_pmid_skipped():
     assert _draft_count(product, method) == 1  # 未被覆盖
     pmr = ProductMethodRelation.objects.get(product=product, method=method)
     assert pmr.status == 'active'  # 原 ACTIVE 不被降级
+
+
+def test_method_match_in_abstract_only_creates_draft():
+    """v0.2：产品信号在标题、方法仅在摘要 → 仍建草稿（摘要级召回扩展）。"""
+    product = ProductFactory(name='5-Iodo-dUTP', cas='', synonyms=[])
+    method = MethodFactory(name='DNA Polymerase')
+    client = FakeClient(
+        by_term={'"5-iodo-dutp"': {'idlist': ['789'], 'count': 1}},
+        docs={789: {'title': '5-Iodo-dUTP nucleotide analog in polymerase studies',
+                    'source': 'JBC', 'pubdate': '1980',
+                    'abstract': 'DNA polymerase activity with 5-iodo-dUTP '
+                                'was measured in vitro.'}})
+    methods = [{'id': method.id, 'name': method.name, 'slug': method.slug}]
+    stats = generate_verified_drafts([product.id], apply=True, client=client,
+                                     methods=methods)
+    assert stats['created'] == 1
+    pmr = ProductMethodRelation.objects.get(product=product, method=method)
+    assert pmr.status == 'review'
+    assert 'method_source:abstract' in pmr.evidence_note
+    assert pmr.evidence_reference == [{'type': 'PMID', 'value': '789'}]

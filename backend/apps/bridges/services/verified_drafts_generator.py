@@ -10,7 +10,8 @@
 """
 from apps.bridges.models import ProductMethodRelation
 from apps.bridges.services.evidence_miner import (
-    ORIGIN_TAG, PubMedClient, match_methods_in_title, mine_product,
+    ORIGIN_TAG, PubMedClient, match_methods_in_text, match_methods_in_title,
+    mine_product,
 )
 from apps.commerce.models import Product
 from apps.knowledge.models import Method
@@ -53,17 +54,23 @@ def generate_verified_drafts(product_ids, *, apply=False, client=None, methods=N
             stats['zero_candidate'] += 1
             continue
         for cand in res['candidates']:
-            matched = match_methods_in_title(cand['title'], methods)
+            # v0.2：方法匹配用全文（标题+摘要）；标题命中记 source=title，
+            # 仅摘要命中记 source=abstract（提升召回，语义仍是 relevance 级）
+            record_text = cand.get('record_text') or cand.get('title', '')
+            title_hits = match_methods_in_title(cand.get('title', ''), methods)
+            full_hits = match_methods_in_text(record_text, methods)
             row = {'product_id': p.id, 'pmid': cand['pmid'],
-                   'title': cand['title'][:80], 'strength': cand['strength']}
-            if not matched:
+                   'title': cand.get('title', '')[:80], 'strength': cand['strength']}
+            if not full_hits:
                 stats['no_method'] += 1
                 row['method'] = None
                 row['action'] = 'no_method'
                 stats['rows'].append(row)
                 continue
-            m = matched[0]
+            m = full_hits[0]
             row['method'] = m['name']
+            row['method_source'] = ('title' if (title_hits and title_hits[0]['id'] == m['id'])
+                                    else 'abstract')
             if str(cand['pmid']) in _existing_pmids(p.id, m['id']):
                 stats['skipped_dup'] += 1
                 row['action'] = 'skip_dup'
@@ -72,7 +79,8 @@ def generate_verified_drafts(product_ids, *, apply=False, client=None, methods=N
             stats['planned'] += 1
             row['action'] = 'create'
             if apply:
-                note = f"{ORIGIN_TAG}\nrelevance:pass\nmatched_method:{m['name']}"
+                note = (f"{ORIGIN_TAG}\nrelevance:pass\n"
+                        f"matched_method:{m['name']}\nmethod_source:{row['method_source']}")
                 ProductMethodRelation.objects.create(
                     product_id=p.id,
                     method_id=m['id'],

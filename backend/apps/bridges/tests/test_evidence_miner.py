@@ -32,6 +32,10 @@ class FakeClient:
     def esummary(self, ids):
         return {'uids': ids, **{str(i): self.docs.get(int(i)) for i in ids}}
 
+    def efetch_one(self, pmid):
+        doc = self.docs.get(int(pmid)) or {}
+        return doc.get('abstract', '')
+
 
 PROD = {'id': 1, 'name': 'Fluorescein-12-UTP',
         'synonyms': ['12-Fluorescein-UTP'], 'cas': '134367-01-4'}
@@ -175,6 +179,22 @@ class MineProductTests(unittest.TestCase):
         r = mine_product(client, PROD)
         self.assertEqual(r['esearch_count'], 3)
         self.assertEqual(len(r['candidates']), 2)
+
+    def test_candidates_enriched_with_abstract(self):
+        """v0.2：候选附 record_text（标题+摘要），供方法级匹配提召回。"""
+        docs = {111: {'title': 'Fluorescein-12-UTP modified nucleotide study',
+                      'source': 'J', 'pubdate': '2020',
+                      'abstract': 'We used Fluorescein-12-UTP with DNA polymerase '
+                                  'in reverse transcription experiments.'}}
+        client = FakeClient(
+            by_term={'"fluorescein-12-utp"': {'idlist': ['111'], 'count': 1},
+                     '"12-fluorescein-utp"': {'idlist': [], 'count': 0}},
+            docs=docs)
+        r = mine_product(client, PROD)
+        self.assertEqual(len(r['candidates']), 1)
+        cand = r['candidates'][0]
+        self.assertIn('DNA polymerase', cand['record_text'])
+        self.assertIn('reverse transcription', cand['record_text'])
 
 
 if __name__ == '__main__':
