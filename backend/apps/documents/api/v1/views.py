@@ -176,11 +176,13 @@ class SdsRevisionViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='approve')
     def approve(self, request, pk=None):
-        """审批 SDS + 生成 PDF + 设为当前版本"""
+        """审批 SDS + 生成 PDF + 设为当前版本（B1：响应携带 compliance 合规警告）"""
         sds = self.get_object()
         try:
-            sds = approve_sds(sds.id)
-            return Response(SdsRevisionSerializer(sds).data)
+            sds, compliance = approve_sds(sds.id)
+            data = SdsRevisionSerializer(sds).data
+            data['compliance'] = compliance
+            return Response(data)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

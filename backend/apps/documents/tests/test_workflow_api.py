@@ -189,10 +189,11 @@ class SDSWorkflowTest(TestCase):
             'section_data': {},
         }
         sds = generate_sds(product_id=self.product.id)
-        approved = approve_sds(sds.id)
+        approved, compliance = approve_sds(sds.id)  # B1 起返回 (sds, compliance)
         self.assertIsNotNone(approved.pdf_path)
         self.product.refresh_from_db()
         self.assertEqual(self.product.current_sds_id, approved.id)
+        self.assertTrue(compliance['compliant'])
 
     @patch('apps.documents.services.workflow.fetch_sds_data_from_pubchem')
     def test_withdraw_sds_workflow(self, mock_fetch):
@@ -203,7 +204,7 @@ class SDSWorkflowTest(TestCase):
             'section_data': {},
         }
         sds = generate_sds(product_id=self.product.id)
-        approved = approve_sds(sds.id)
+        approved, _ = approve_sds(sds.id)  # B1 起返回 (sds, compliance)
         self.product.refresh_from_db()
         self.assertEqual(self.product.current_sds_id, approved.id)
         withdraw_sds(sds.id)

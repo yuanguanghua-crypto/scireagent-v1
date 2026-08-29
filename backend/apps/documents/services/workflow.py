@@ -284,9 +284,27 @@ def generate_sds(product_id):
     )
 
 
+def _sds_compliance(product):
+    """SDS 合规性检查（B1，TECH-P0-3 上线合规闸门）。
+
+    软闸门（架构铁律 5：研究员是最终权威，发布检查=告知非硬阻断）：
+    产品无 CAS 号 → 不阻断发布，但返回合规警告供前端展示。
+    """
+    if not (product.cas or '').strip():
+        return {
+            'compliant': False,
+            'reason': 'no_cas',
+            'note': '产品无 CAS 号，SDS 合规性受限（数据来源已降级）',
+        }
+    return {'compliant': True}
+
+
 def approve_sds(revision_id):
     """
     审批 SDS + 生成 PDF + 设置为当前版本。
+
+    B1 起返回 (sds, compliance) 二元组：compliance 为软闸门合规检查结果
+    （无 CAS 不阻断，仅告警——铁律 5）。
     """
     sds = SdsRevision.objects.select_related('product').get(id=revision_id)
 
@@ -300,7 +318,8 @@ def approve_sds(revision_id):
     product.current_sds = sds
     product.save(update_fields=['current_sds'])
 
-    return sds
+    compliance = _sds_compliance(product)
+    return sds, compliance
 
 
 def withdraw_sds(revision_id):
