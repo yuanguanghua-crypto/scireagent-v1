@@ -6,7 +6,7 @@
 响应：统一 EnvelopeMixin 信封 {success, data, meta}。
 """
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, models
 from django.shortcuts import get_object_or_404
 
 from rest_framework import status
@@ -34,8 +34,12 @@ class ProductMethodsView(EnvelopeMixin, APIView):
         get_object_or_404(Product, pk=pk)
         derived = ProductMethodRelation.objects.filter(
             product_id=pk, relation_type=ProductMethodRelation.RelationType.DERIVED_RELEVANCE)
+        # T0（批次 C）：公开端点仅暴露 ACTIVE verified；REVIEW/REJECTED 草稿只走 workspace
         verified = ProductMethodRelation.objects.filter(
-            product_id=pk, relation_type=ProductMethodRelation.RelationType.VERIFIED_APPLICABILITY)
+            product_id=pk,
+            relation_type=ProductMethodRelation.RelationType.VERIFIED_APPLICABILITY,
+            status=ProductMethodRelation.Status.ACTIVE,
+        )
         data = {
             "related_methods": ProductMethodRelationSerializer(derived, many=True).data,
             "verified_methods": ProductMethodRelationSerializer(verified, many=True).data,
@@ -49,7 +53,16 @@ class MethodProductsView(EnvelopeMixin, APIView):
 
     def get(self, request, pk):
         get_object_or_404(Method, pk=pk)
-        edges = ProductMethodRelation.objects.filter(method_id=pk)
+        # T0（批次 C）：verified 仅公开 ACTIVE；derived 为机器缓存全量公开
+        edges = ProductMethodRelation.objects.filter(
+            method_id=pk,
+        ).filter(
+            models.Q(relation_type=ProductMethodRelation.RelationType.DERIVED_RELEVANCE)
+            | models.Q(
+                relation_type=ProductMethodRelation.RelationType.VERIFIED_APPLICABILITY,
+                status=ProductMethodRelation.Status.ACTIVE,
+            )
+        )
         data = {
             "products": ProductMethodRelationSerializer(edges, many=True).data,
         }

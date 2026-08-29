@@ -36,13 +36,16 @@ class BridgesApiTestCase(APITestCase):
         # bridges API 挂载于 api/v1/（同 commerce），端点直接位于 api/v1/ 下
         self.base = '/api/v1'
 
-    # ── 双 edge 读取（Phase 4 决策：公开读 AllowAny，符「知识实体公开读」铁律）──
+    # ── 双 edge 读取（Phase 4 决策：公开读 AllowAny；批次 C T0：仅 ACTIVE verified 公开）──
     def test_get_product_methods_dual_edge_anonymous(self):
         """匿名（公开产品页）可读双 edge；两列表互不混入 + method_name 直出。"""
         from apps.bridges.tests.factories import ProductMethodRelationFactory as PMRFactory
-        ProductMethodRelationFactory(  # verified 边（REVIEW 草稿）
+        ProductMethodRelationFactory(  # ACTIVE verified 边（公开可见）
             product=self.product, method=self.method,
-            relation_type='verified_applicability',
+            relation_type='verified_applicability', status='active',
+            evidence_type='pubmed',
+            evidence_reference=[{'type': 'PMID', 'value': '123'}],
+            evidence_strength='high',
         )
         self.client.force_authenticate(None)
         resp = self.client.get(f'{self.base}/products/{self.product.id}/methods/')
@@ -56,13 +59,46 @@ class BridgesApiTestCase(APITestCase):
         assert data['verified_methods'][0]['method_name'] == self.method.name
         assert data['verified_methods'][0]['method_slug'] == self.method.slug
 
-    def test_get_method_products_reverse_anonymous(self):
-        """匿名（公开产品页）可读反向查询。"""
+    def test_public_get_hides_review_draft(self):
+        """T0 合规：REVIEW 草稿不得出现在公开响应（研究员未审完的草稿不外泄）。"""
+        from apps.bridges.tests.factories import ProductMethodRelationFactory as PMRFactory
+        ProductMethodRelationFactory(  # REVIEW 草稿（证据不全）
+            product=self.product, method=self.method,
+            relation_type='verified_applicability', status='review',
+            evidence_type='', evidence_reference=None, evidence_strength='',
+        )
+        self.client.force_authenticate(None)
+        resp = self.client.get(f'{self.base}/products/{self.product.id}/methods/')
+        assert resp.status_code == 200
+        assert resp.json()['data']['verified_methods'] == []
+
+    def test_public_get_hides_rejected(self):
+        """T0 合规：REJECTED 不公开。"""
+        from apps.bridges.tests.factories import ProductMethodRelationFactory as PMRFactory
+        ProductMethodRelationFactory(
+            product=self.product, method=self.method,
+            relation_type='verified_applicability', status='rejected',
+            evidence_type='pubmed',
+            evidence_reference=[{'type': 'PMID', 'value': '1'}],
+            evidence_strength='high',
+        )
+        self.client.force_authenticate(None)
+        resp = self.client.get(f'{self.base}/products/{self.product.id}/methods/')
+        assert resp.json()['data']['verified_methods'] == []
+
+    def test_reverse_hides_review_draft(self):
+        """T0 合规：反向端点同样只公开 ACTIVE verified。"""
+        from apps.bridges.tests.factories import ProductMethodRelationFactory as PMRFactory
+        ProductMethodRelationFactory(  # REVIEW 草稿
+            product=self.product, method=self.method,
+            relation_type='verified_applicability', status='review',
+        )
         self.client.force_authenticate(None)
         resp = self.client.get(f'{self.base}/methods/{self.method.id}/products/')
         assert resp.status_code == 200
-        data = resp.json()['data']
-        assert 'products' in data
+        for row in resp.json()['data']['products']:
+            assert not (row['relation_type'] == 'verified_applicability'
+                        and row['status'] != 'active')
 
     # ── 创建 verified 草稿：权限 ──
     def test_create_verified_requires_auth(self):
