@@ -28,7 +28,9 @@ class Command(BaseCommand):
         parser.add_argument('--protocol-ids', type=str, default='',
                             help='逗号分隔的协议 ID 列表（优先于 --count）')
         parser.add_argument('--count', type=int, default=10,
-                            help='默认取样数（正文最丰富的 N 个协议）')
+                            help='取样数（objective 最丰富的 N 个协议）')
+        parser.add_argument('--source', type=str, default='',
+                            help='协议源过滤：curated / bioprocorpus（空=全部）')
         parser.add_argument('--report', type=str, default='',
                             help='报告 JSON 输出路径（写前自动建目录）')
 
@@ -69,13 +71,17 @@ class Command(BaseCommand):
         self._write_review_md(rows, options['report'])
 
     def _pick_protocols(self, options):
+        from django.db.models.functions import Length
         ids = [int(x) for x in options['protocol_ids'].split(',') if x.strip()]
         if ids:
             return Protocol.objects.filter(id__in=ids)
-        # 正文最丰富的非测试协议优先（LLM 提取效果最好）
-        return (Protocol.objects.exclude(objective='')
-                .exclude(principle='')
-                .order_by('-objective')[:options['count']])
+        # 取样池：objective 非空（bioprocorpus 仅回填了 abstract 无 principle，
+        # 故 principle 不作硬条件）；按 objective 长度降序取正文最丰富的前 N。
+        qs = Protocol.objects.exclude(objective='')
+        if options.get('source'):
+            qs = qs.filter(source=options['source'])
+        return (qs.annotate(obj_len=Length('objective'))
+                .order_by('-obj_len')[:options['count']])
 
     def _build_report(self, cfg, rows):
         n_rg = sum(len(r['research_goals']) for r in rows)
