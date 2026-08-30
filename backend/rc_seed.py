@@ -8,7 +8,7 @@ Step 4: 126 PRC 候选（关键词规则 → 全部 pending_review，RC-10）
 """
 import os, sys, json, re
 
-BASE = r'C:\Users\yuankaifeng\WorkBuddy\2026-07-08-11-22-32\_audit_tmp'
+BASE = os.environ.get('RC_DATA_DIR', r'C:\Users\yuankaifeng\WorkBuddy\2026-07-08-11-22-32\_audit_tmp')
 DRY = '--apply' not in sys.argv
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
