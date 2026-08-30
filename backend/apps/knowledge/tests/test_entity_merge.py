@@ -263,3 +263,38 @@ class TestChunkFailure:
         assert 'boom' in data['chunk_failures'][0]['error']
         assert s['merged_entities'] == 1
         assert s['processed_clusters'] == 1
+
+
+class TestCrossClusterRepSurvival:
+    @pytest.mark.django_db
+    def test_rep_deleted_by_earlier_cluster_skipped_not_fk_boom(self, tmp_path):
+        """跨簇重叠：簇 A 的代表 X 同时是簇 B 的成员，且 B 的代表 Y 同时是
+        簇 A 的成员。A 在报告中排前先处理，把 Y 合并删除；随后处理 B 时
+        代表 Y 已不存在 → 应幂等跳过（skipped_missing +1），不抛 FK 错误、
+        不污染数据。回归：此前预载快照仍认为 Y 存续，rep.protocols.add()
+        会命中 FK 约束导致整 chunk 回滚。"""
+        x = ResearchGoalFactory(name='Cluster-A Rep X', origin='imported')
+        y = ResearchGoalFactory(name='Cluster-B Rep Y')
+        p1 = ProtocolFactory(name='P-X', slug='p-x')
+        x.protocols.add(p1)  # X 带 protocol：若 B 误用已删代表 Y 收拢，必触发 FK
+
+        # 报告顺序：[A, B]，A 在前
+        cluster_a = _rg_cluster('A', x.id, [x.id, y.id], rep_name='Cluster-A Rep X')
+        cluster_b = _rg_cluster('B', y.id, [x.id, y.id], rep_name='Cluster-B Rep Y')
+        rpt = tmp_path / 'r.json'
+        _write_report(rpt, [cluster_a, cluster_b])
+        out = tmp_path / 'o.json'
+        call_command('entity_merge', report=str(rpt), apply=True,
+                     report_out=str(out))
+
+        data = json.loads(out.read_text(encoding='utf-8'))
+        s = data['stats']
+        # B 的代表 Y 已被 A 合并删除 → B 安全跳过，不抛 FK 错误、无 chunk 回滚
+        assert data['chunk_failures'] == []
+        assert s['skipped_missing'] == 1
+        assert s['processed_clusters'] == 1
+        assert s['merged_entities'] == 1
+        # 数据不被污染：X 存续且收拢了自己的 protocol，Y 已被删
+        assert ResearchGoal.objects.filter(pk=x.id).exists()
+        assert not ResearchGoal.objects.filter(pk=y.id).exists()
+        assert set(x.protocols.all()) == {p1}

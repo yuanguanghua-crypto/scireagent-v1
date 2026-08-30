@@ -67,11 +67,8 @@ class Command(BaseCommand):
         self.stdout.write(
             f'读取完成：总簇 {len(all_clusters)}，size>=2 待处理簇 {len(clusters)}')
 
-        # 2) 预载实体 by id（代表查询一次性，成员按簇 in_bulk 取最新）
-        self.rg_by_id = ResearchGoal.objects.in_bulk()
-        self.ap_by_id = Application.objects.in_bulk()
-
-        # 3) 逐 chunk 合并/统计
+        # 2) 逐 chunk 合并/统计（代表/成员均在簇处理时实时查库，避免
+        #    预载快照掩盖"跨簇重叠导致代表已被删除"的存续状态）
         totals = {k: 0 for k in self._TOTAL_KEYS}
         chunk_failures = []
         for start in range(0, len(clusters), chunk_size):
@@ -131,15 +128,15 @@ class Command(BaseCommand):
         group = cluster.get('group')
         if group == 'rg':
             model = ResearchGoal
-            by_id = self.rg_by_id
         elif group == 'ap':
             model = Application
-            by_id = self.ap_by_id
         else:
             return local
 
-        # 代表：不存在（已被删）→ 跳过该簇（天然幂等）
-        rep = by_id.get(cluster.get('representative_id'))
+        # 代表：apply 前从 DB 实时复验存续。代表可能同时是更早处理的
+        # 簇的成员而被合并删除——预载快照无法察觉，继续用已删代表写库会
+        # 触发 FK 约束导致整 chunk 回滚。实时查库：已删 → 幂等跳过。
+        rep = model.objects.filter(pk=cluster.get('representative_id')).first()
         if rep is None:
             local['skipped_missing'] += 1
             return local
