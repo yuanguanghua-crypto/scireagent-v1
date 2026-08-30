@@ -10,6 +10,9 @@ from apps.knowledge.api.v1.search_grouped_views import search_grouped
 from apps.knowledge.api.v1.graph_views import graph_view
 from apps.knowledge.api.v1.intake_views import KnowledgeIntakeView
 from apps.knowledge.api.v1.dashboard_views import DashboardStatsView
+from apps.knowledge.api.v1.convergence_views import (
+    ConvergenceClassListView, ConvergenceClassDetailView,
+)
 
 router = DefaultRouter()
 router.register('research-goals', ResearchGoalViewSet, basename='research-goal')
@@ -29,5 +32,7 @@ urlpatterns = [
     path('graph', graph_view, name='api-graph'),
     path('knowledge-intake/', KnowledgeIntakeView.as_view(), name='api-knowledge-intake'),
     path('admin/dashboard-stats/', DashboardStatsView.as_view(), name='admin-dashboard-stats'),
+    path('convergence-classes', ConvergenceClassListView.as_view(), name='api-convergence-classes'),
+    path('convergence-classes/<str:class_id>', ConvergenceClassDetailView.as_view(), name='api-convergence-class-detail'),
     path('', include(router.urls)),
 ]
