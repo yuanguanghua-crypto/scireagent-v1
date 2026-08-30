@@ -110,6 +110,21 @@ class ConvergenceClassListAPITest(TestCase):
         self.assertTrue(all(it['group'] == 'rg' for it in items))
         self.assertEqual(resp.json()['data']['total'], 414)
 
+    def test_trailing_slash_url_reachable(self):
+        """带尾斜杠 URL 必须可达（与 DefaultRouter 端点约定一致）。"""
+        resp = self.client.get('/api/v1/convergence-classes/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['success'])
+
+    def test_invalid_group_returns_empty_items(self):
+        """group 非法值：无匹配类，返回空 items + total=0，不抛错。"""
+        resp = self.client.get('/api/v1/convergence-classes/', {'group': 'bogus'})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['data']['items'], [])
+        self.assertEqual(data['data']['total'], 0)
+
     def test_source_filter(self):
         resp = self.client.get('/api/v1/convergence-classes', {'source': 'kmeans'})
         self.assertEqual(resp.status_code, 200)
@@ -184,6 +199,37 @@ class ConvergenceClassDetailAPITest(TestCase):
         self.assertIn('member_total', data['meta'])
         self.assertIn('page', data['meta'])
         self.assertIn('page_size', data['meta'])
+
+    def test_detail_trailing_slash_url_reachable(self):
+        """detail 带尾斜杠 URL 必须可达。"""
+        resp = self.client.get('/api/v1/convergence-classes/rg_c001/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['success'])
+
+    def test_detail_member_pagination_boundaries(self):
+        """成员分页边界：page_size 超上限回退默认 20；page 超总页返回空 members。"""
+        goals = [ResearchGoalFactory(status=ResearchGoal.Status.ACTIVE) for _ in range(25)]
+        sample = _sample_class(
+            class_id='rg_paging', group='rg', entity_ids=[g.id for g in goals],
+        )
+        with _patch_class(sample):
+            # page_size=1000 超上限 → 回退默认 20（首页返回 20 条成员）
+            resp = self.client.get(
+                f'/api/v1/convergence-classes/{sample["class_id"]}/',
+                {'page_size': '1000'},
+            )
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.json()['meta']['page_size'], 20)
+            self.assertEqual(resp.json()['meta']['member_total'], 25)
+            self.assertEqual(len(resp.json()['data']['members']), 20)
+            # page 超总页（25 条 / page_size=20 → 最多 2 页）→ members 为空
+            resp = self.client.get(
+                f'/api/v1/convergence-classes/{sample["class_id"]}/',
+                {'page': '10', 'page_size': '20'},
+            )
+            self.assertEqual(resp.status_code, 200)
+            self.assertEqual(resp.json()['meta']['member_total'], 25)
+            self.assertEqual(resp.json()['data']['members'], [])
 
     def test_members_n_count_rg(self):
         """造 1 个 RG + 2 个 Protocol 并关联，验证成员 n == 2。"""
@@ -309,6 +355,53 @@ class ConvergenceClassFileMissingTest(TestCase):
 
     def test_service_list_empty_when_json_missing(self):
         with self._patch_missing_json():
+            convergence_service._load_classes.cache_clear()
+            try:
+                classes = convergence_service.list_classes()
+            finally:
+                convergence_service._load_classes.cache_clear()
+        self.assertEqual(classes, [])
+
+
+class ConvergenceClassCorruptJsonTest(TestCase):
+    """JSON 结构损坏兜底：classes 非 list → 返回空列表，不抛 500（绝不抛异常契约）。"""
+
+    def setUp(self):
+        self.client = APIClient()
+
+    def _patch_corrupt_content(self):
+        # 让 json.load 读到 {"meta": {}, "classes": "oops"}（classes 被误写成字符串）
+        return mock.patch.object(
+            convergence_service.json, 'load',
+            return_value={'meta': {}, 'classes': 'oops'},
+        )
+
+    def test_list_endpoint_empty_when_classes_not_list(self):
+        with self._patch_corrupt_content():
+            convergence_service._load_classes.cache_clear()
+            try:
+                resp = self.client.get('/api/v1/convergence-classes/')
+            finally:
+                convergence_service._load_classes.cache_clear()
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['data']['items'], [])
+        self.assertEqual(data['data']['total'], 0)
+
+    def test_detail_endpoint_404_not_500_when_classes_corrupt(self):
+        """结构损坏时 detail 不抛 500：无任何类 → 404 信封。"""
+        with self._patch_corrupt_content():
+            convergence_service._load_classes.cache_clear()
+            try:
+                resp = self.client.get('/api/v1/convergence-classes/rg_c001/')
+            finally:
+                convergence_service._load_classes.cache_clear()
+        self.assertEqual(resp.status_code, 404)
+        self.assertFalse(resp.json()['success'])
+
+    def test_service_list_empty_when_classes_corrupt(self):
+        with self._patch_corrupt_content():
             convergence_service._load_classes.cache_clear()
             try:
                 classes = convergence_service.list_classes()

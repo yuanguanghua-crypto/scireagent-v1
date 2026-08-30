@@ -27,6 +27,22 @@ logger = logging.getLogger(__name__)
 _JSON_PATH = settings.BASE_DIR / 'data' / 'convergence_classes.json'
 
 
+def _validate_classes(classes):
+    """结构校验：classes 必须是 dict 列表，且每项含 class_id / entity_ids 字段。
+
+    返回 False 时由 _load_classes 兜底为空列表，避免后续 list_classes /
+    get_class 迭代时对字符串/None 调 .get() 抛 AttributeError/TypeError → 500。
+    """
+    if not isinstance(classes, list):
+        return False
+    for cls in classes:
+        if not isinstance(cls, dict):
+            return False
+        if 'class_id' not in cls or 'entity_ids' not in cls:
+            return False
+    return True
+
+
 @lru_cache(maxsize=1)
 def _load_classes():
     """加载静态收敛类 JSON，返回 classes 列表；任何异常返回 []（绝不抛出）。"""
@@ -34,6 +50,12 @@ def _load_classes():
         with open(_JSON_PATH, encoding='utf-8') as f:
             data = json.load(f)
         classes = data.get('classes', []) or []
+        if not _validate_classes(classes):
+            # 结构损坏（classes 非 list / 元素非 dict / 缺字段）：兜底为空列表
+            logger.warning(
+                'convergence classes JSON structure invalid: %s', _JSON_PATH,
+            )
+            return []
         logger.info('convergence classes loaded: %d (from %s)', len(classes), _JSON_PATH)
         return classes
     except Exception:

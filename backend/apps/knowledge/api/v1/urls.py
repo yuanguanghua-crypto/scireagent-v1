@@ -32,7 +32,10 @@ urlpatterns = [
     path('graph', graph_view, name='api-graph'),
     path('knowledge-intake/', KnowledgeIntakeView.as_view(), name='api-knowledge-intake'),
     path('admin/dashboard-stats/', DashboardStatsView.as_view(), name='admin-dashboard-stats'),
-    path('convergence-classes', ConvergenceClassListView.as_view(), name='api-convergence-classes'),
-    path('convergence-classes/<str:class_id>', ConvergenceClassDetailView.as_view(), name='api-convergence-class-detail'),
+    # 带尾斜杠为主约定（与 DefaultRouter 注册端点一致）；同时保留无斜杠变体兼容旧调用方
+    path('convergence-classes/', ConvergenceClassListView.as_view(), name='api-convergence-classes'),
+    path('convergence-classes', ConvergenceClassListView.as_view(), name='api-convergence-classes-noslash'),
+    path('convergence-classes/<str:class_id>/', ConvergenceClassDetailView.as_view(), name='api-convergence-class-detail'),
+    path('convergence-classes/<str:class_id>', ConvergenceClassDetailView.as_view(), name='api-convergence-class-detail-noslash'),
     path('', include(router.urls)),
 ]

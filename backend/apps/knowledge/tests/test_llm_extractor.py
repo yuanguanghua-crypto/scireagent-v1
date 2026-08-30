@@ -25,6 +25,9 @@ class TestConfig:
 
     def test_key_available_with_defaults(self, monkeypatch):
         monkeypatch.setenv('SCIREAGENT_LLM_API_KEY', 'sk-test')
+        # 封闭性：清除本机 backend/.env 可能配的 base_url/model，确保断言 openai 默认值
+        monkeypatch.delenv('SCIREAGENT_LLM_BASE_URL', raising=False)
+        monkeypatch.delenv('SCIREAGENT_LLM_MODEL', raising=False)
         c = llm_config()
         assert c['available'] is True
         assert c['base_url'] == 'https://api.openai.com/v1'
