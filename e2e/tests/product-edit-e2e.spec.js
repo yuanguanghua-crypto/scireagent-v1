@@ -1,12 +1,23 @@
-// ProductEdit AI Tools E2E — covers gap ④.
-// Three buttons (🧠 AI Tools): Validate / Recommend Protocols / Recommend Literature.
-//   - Validate  & Recommend Protocols run against the OFFLINE real backend (no mock).
-//   - Recommend Literature is an OUTBOUND (PubMed) endpoint → MUST be mocked.
-// We cover edit mode (pk variants) and new/unsaved mode (unsaved variants), plus the
-// loading / success / error states.
+// ProductEdit AI AUTO MATCH E2E。
+//
+// 历史背景：2026-07-17 commit f324de0 将 AI Tools（Validate / Recommend Protocols /
+// Recommend Literature）合并进「AI AUTO MATCH」one-stop enrich，独立的
+// /validate、/recommend-protocols、/recommend-literature 端点与面板已从产品编辑页删除。
+// 旧 spec 的 3 个失败用例断言的是已删除的按钮（getByRole /Validate/ 等超时），根因即
+// 此。故本文件重写为断言当前真实存在的 AI AUTO MATCH 面板
+// （frontend/src/views/workspace/ProductEditPage.vue 的 .pubchem-enrich-section）：
+//   - AI AUTO MATCH 按钮（.file-upload-btn，文案 `AI AUTO MATCH "..."`）
+//   - loading 态（按钮文案 "Searching & matching…" + .ai-loading-spinner）
+//   - 成功态（.pubchem-preview / .source-badge / "Found: ... CID" / Apply All to Form）
+//   - 错误态（.word-status.word-err）
+// 注意：enrich 真实调用依赖外部 LLM API（backend/.env 的 SCIREAGENT_LLM_API_KEY），
+// 真实触发会消耗 token，故所有 AI AUTO MATCH 交互一律 mock（helpers.mockEnrich），
+// 不真实触发 AI 调用。
+// 原「Recommend Literature」相关用例已删除：独立端点已不存在，亦无对应新功能
+// （literature 已并入 enrich 返回的 literature.references，当前无独立按钮）。
 const {
   test, expect, login, gotoWorkspace, cleanupE2EProduct, selectFirstCascader,
-  mockRecommendLiterature, delayRoute,
+  mockEnrich,
 } = require('./helpers')
 
 // Create a minimal product via the UI; returns { id, catNo, name }.
@@ -29,81 +40,65 @@ async function createProductUI(page) {
   return { id, catNo, name }
 }
 
-test.describe('ProductEdit AI Tools (gap ④) — edit mode', () => {
+test.describe('ProductEdit AI AUTO MATCH — edit mode', () => {
   test.beforeEach(async ({ page }) => {
     await login(page)
   })
 
-  test('Validate (loading + success), Recommend Protocols (success), Recommend Literature (mocked success)', async ({ page }) => {
+  test('AI AUTO MATCH 面板/按钮存在，enrich 成功（mocked）渲染结果区', async ({ page }) => {
     const { id, catNo } = await createProductUI(page)
     try {
       await gotoWorkspace(page, `/workspace/products/${id}/edit`)
       await page.waitForSelector('.product-edit', { timeout: 15000 })
 
-      // ── Validate: delay the (real, offline) request to observe the LOADING state ──
-      await delayRoute(page, '**/products/**/validate/**', 1500)
-      const validateBtn = page.getByRole('button', { name: /Validate/ })
-      await validateBtn.click()
-      // loading state: button switches to "Validating…" while the request is in flight
-      await expect(page.getByRole('button', { name: /Validating/ })).toBeVisible({ timeout: 5000 })
-      // success state: validation result block renders with the overall match badge
-      await expect(page.locator('.ai-result-block').first()).toBeVisible({ timeout: 20000 })
-      await expect(page.locator('.ai-badge', { hasText: 'Overall Match' })).toBeVisible()
-      console.log('REPORT: Validate → result block rendered (Overall Match badge present)')
+      // ── 面板与按钮真实存在（不再有旧的 Validate / Recommend 按钮）──
+      await expect(page.locator('h3', { hasText: 'AI AUTO MATCH' })).toBeVisible()
+      const matchBtn = page.getByRole('button', { name: /AI AUTO MATCH/ })
+      await expect(matchBtn).toBeVisible()
 
-      // ── Recommend Protocols: real offline backend ──
-      await page.getByRole('button', { name: /Recommend Protocols/ }).click()
-      const protBlock = page.locator('.ai-result-block', { hasText: 'Recommended Protocols' })
-      await expect(protBlock).toBeVisible({ timeout: 20000 })
-      await expect(page.locator('.ai-rec-item').first()).toBeVisible()
-      await expect(page.locator('.ai-rec-item').first().locator('.ai-badge', { hasText: 'Relevance' })).toBeVisible()
-      console.log('REPORT: Recommend Protocols → ' + (await page.locator('.ai-rec-item').count()) + ' item(s) with relevance score')
-
-      // ── Recommend Literature: OUTBOUND → mocked ──
-      await mockRecommendLiterature(page, {
-        refs: [
-          { pmid: '24151973', title: 'E2E Mock Literature A', authors: 'Doe J', journal: 'Nature', year: 2020 },
-          { pmid: '25959142', title: 'E2E Mock Literature B', authors: 'Lee K', journal: 'Cell', year: 2021 },
-        ],
-      })
-      await page.getByRole('button', { name: /Recommend Literature/ }).click()
-      const litBlock = page.locator('.ai-result-block', { hasText: 'Recommended Literature' })
-      await expect(litBlock).toBeVisible({ timeout: 20000 })
-      // Scope the count to the LITERATURE block — the Protocols block also renders
-      // `.ai-rec-item`, so an unscoped count would include those too.
-      await expect(litBlock.locator('.ai-rec-item')).toHaveCount(2)
-      await expect(litBlock.locator('.ai-rec-item').first()).toContainText('E2E Mock Literature A')
-      console.log('REPORT: Recommend Literature (mocked) → 2 items rendered')
+      // ── mock enrich + 1500ms 延迟以观察 loading 态；不真实触发外部 LLM ──
+      await mockEnrich(page, { delay: 1500 })
+      await matchBtn.click()
+      // loading 态：spinner 出现（aria-label="loading"）
+      await expect(page.locator('.ai-loading-spinner[aria-label="loading"]')).toBeVisible({ timeout: 5000 })
+      // 成功态：结果预览区 + 来源徽标 + Found 状态 + Apply All 按钮
+      await expect(page.locator('.pubchem-preview').first()).toBeVisible({ timeout: 20000 })
+      await expect(page.locator('.source-badge').first()).toContainText('PubChem')
+      // Found 状态：页面上有两个 .word-status.word-ok（Found 与 身份已验证），按文本过滤
+      await expect(page.locator('.word-status.word-ok', { hasText: 'Found: PubChem CID' })).toBeVisible()
+      await expect(page.locator('.word-status.word-ok', { hasText: 'Found: PubChem CID' })).toContainText('999999')
+      await expect(page.getByRole('button', { name: 'Apply All to Form' })).toBeVisible()
+      console.log('REPORT: AI AUTO MATCH → loading + success 态均渲染（enrich 已 mock）')
     } finally {
       await cleanupE2EProduct(page, id, catNo)
     }
   })
 
-  test('Recommend Literature error state shows the error banner (mocked failure)', async ({ page }) => {
+  test('AI AUTO MATCH 失败（mocked）展示错误横幅', async ({ page }) => {
     const { id, catNo } = await createProductUI(page)
     try {
       await gotoWorkspace(page, `/workspace/products/${id}/edit`)
       await page.waitForSelector('.product-edit', { timeout: 15000 })
 
-      await mockRecommendLiterature(page, { failure: true })
-      await page.getByRole('button', { name: /Recommend Literature/ }).click()
+      await mockEnrich(page, { failure: true })
+      await page.getByRole('button', { name: /AI AUTO MATCH/ }).click()
 
       const err = page.locator('.word-status.word-err')
       await expect(err).toBeVisible({ timeout: 20000 })
-      await expect(err).toContainText(/recommend literature failed/i)
-      console.log('REPORT: Recommend Literature error → banner shown')
+      await expect(err).toContainText('Enrich failed')
+      console.log('REPORT: AI AUTO MATCH error → 错误横幅展示')
     } finally {
       await cleanupE2EProduct(page, id, catNo)
     }
   })
 })
 
-test.describe('ProductEdit AI Tools (gap ④) — new / unsaved mode', () => {
+test.describe('ProductEdit AI AUTO MATCH — new / unsaved mode', () => {
   test.beforeEach(async ({ page }) => {
     await login(page)
   })
 
-  test('unsaved variants: Validate, Recommend Protocols, Recommend Literature (mocked)', async ({ page }) => {
+  test('unsaved variant: AI AUTO MATCH（mocked）成功渲染 enrich 结果', async ({ page }) => {
     await gotoWorkspace(page, '/workspace/products/new')
     await page.waitForSelector('.product-edit', { timeout: 15000 })
 
@@ -112,24 +107,11 @@ test.describe('ProductEdit AI Tools (gap ④) — new / unsaved mode', () => {
     await page.locator('input[placeholder="e.g. 1927-31-7"]').fill('62-53-3')
     await page.locator('textarea[placeholder="e.g. C1=CC=C(C=C1)N"]').fill('C1=CC=C(C=C1)N')
 
-    // Validate (unsaved variant, real offline backend)
-    await page.getByRole('button', { name: /Validate/ }).click()
-    await expect(page.locator('.ai-result-block').first()).toBeVisible({ timeout: 20000 })
-    await expect(page.locator('.ai-badge', { hasText: 'Overall Match' })).toBeVisible()
-    console.log('REPORT: unsaved Validate → result block rendered')
-
-    // Recommend Protocols (unsaved variant, real offline backend)
-    await page.getByRole('button', { name: /Recommend Protocols/ }).click()
-    await expect(page.locator('.ai-result-block', { hasText: 'Recommended Protocols' })).toBeVisible({ timeout: 20000 })
-    console.log('REPORT: unsaved Recommend Protocols → block rendered')
-
-    // Recommend Literature (unsaved variant, mocked)
-    await mockRecommendLiterature(page, {
-      refs: [{ pmid: '99999999', title: 'E2E Unsaved Lit', authors: 'Mock A', journal: 'Mock J', year: 2022 }],
-    })
-    await page.getByRole('button', { name: /Recommend Literature/ }).click()
-    await expect(page.locator('.ai-result-block', { hasText: 'Recommended Literature' })).toBeVisible({ timeout: 20000 })
-    console.log('REPORT: unsaved Recommend Literature (mocked) → block rendered')
-    // No product was saved → nothing to clean up.
+    await mockEnrich(page)
+    await page.getByRole('button', { name: /AI AUTO MATCH/ }).click()
+    await expect(page.locator('.pubchem-preview').first()).toBeVisible({ timeout: 20000 })
+    await expect(page.locator('.source-badge').first()).toContainText('PubChem')
+    console.log('REPORT: unsaved AI AUTO MATCH → enrich 结果渲染')
+    // 未保存产品 → 无需清理
   })
 })

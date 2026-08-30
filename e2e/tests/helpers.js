@@ -142,11 +142,15 @@ async function gotoWorkspace(page, path) {
 }
 
 // Always remove the E2E_TEST product we created (success OR failure), so the
-// suite never leaves an orphan behind. Prefers the UI delete; falls back to a
-// session-token API DELETE which is authoritative for the dev (SQLite) DB.
-// The API fallback is guaranteed to run even if the UI delete is skipped or
-// gotoWorkspace threw, and it re-authenticates via the API if the auth-race
-// wiped the localStorage token — so an orphan can never survive a test run.
+// suite never leaves an orphan behind. Steps:
+//  1. Prefer the UI delete (verifies the real delete flow). NOTE: the confirm button
+//     is the English "Permanently delete" (ProductsPage.vue), NOT the Chinese text.
+//  2. Regardless of UI outcome, issue an authoritative `hard-delete` via API.
+//     Rationale: `DELETE /api/v1/products/{id}/` only SOFT-archives (archived=True,
+//     product row + catalog_no stay in DB — this was the root cause of the 20+ orphan
+//     `E2E_TEST_AI_*` rows found by QA), while `POST /{id}/hard-delete/` physically
+//     deletes (admin is a superuser, so the permission check passes). Only the
+//     hard-delete guarantees "no E2E_TEST residue after a run".
 async function cleanupE2EProduct(page, id, catNo) {
   let uiOk = false
   try {
@@ -156,7 +160,7 @@ async function cleanupE2EProduct(page, id, catNo) {
       await row.locator('.menu-trigger').click()
       await row.locator('.menu-item--danger').click()
       await page.locator('.confirm-check input[type="checkbox"]').check()
-      await page.getByRole('button', { name: '永久删除' }).click()
+      await page.getByRole('button', { name: 'Permanently delete' }).click()
       try {
         await expect(row).toHaveCount(0, { timeout: 8000 })
         uiOk = true
@@ -167,31 +171,29 @@ async function cleanupE2EProduct(page, id, catNo) {
   } catch (e) {
     console.log('REPORT: UI cleanup skipped/failed, using API fallback:', e.message)
   }
-  if (!uiOk) {
-    // Authoritative API DELETE against the dev (SQLite) DB via the Vite proxy.
-    let token = await page.evaluate(() => localStorage.getItem('token'))
-    if (!token) {
-      // Session lost (auth-race wiped the token) — re-auth via API for a fresh token.
-      try {
-        const resp = await page.request.post('/api/v1/auth/login', {
-          data: { username: ADMIN_USER, password: ADMIN_PASS },
-        })
-        if (resp.ok()) {
-          const body = await resp.json()
-          token = (body && (body.data && body.data.token)) || (body && body.token) || null
-        }
-      } catch (e) {
-        console.log('REPORT: API re-auth failed:', e.message)
-      }
-    }
-    if (token) {
-      const resp = await page.request.delete(`/api/v1/products/${id}/`, {
-        headers: { Authorization: `Token ${token}` },
+  // Authoritative physical delete against the dev (SQLite) DB via the Vite proxy.
+  let token = await page.evaluate(() => localStorage.getItem('token'))
+  if (!token) {
+    // Session lost (auth-race wiped the token) — re-auth via API for a fresh token.
+    try {
+      const resp = await page.request.post('/api/v1/auth/login', {
+        data: { username: ADMIN_USER, password: ADMIN_PASS },
       })
-      console.log(`REPORT: API fallback delete status=${resp.status()}`)
-    } else {
-      console.log('REPORT: cleanup WARNING — no session token available for API delete (orphan risk)')
+      if (resp.ok()) {
+        const body = await resp.json()
+        token = (body && (body.data && body.data.token)) || (body && body.token) || null
+      }
+    } catch (e) {
+      console.log('REPORT: API re-auth failed:', e.message)
     }
+  }
+  if (token) {
+    const resp = await page.request.post(`/api/v1/products/${id}/hard-delete/`, {
+      headers: { Authorization: `Token ${token}` },
+    })
+    console.log(`REPORT: API hard-delete status=${resp.status()}${uiOk ? ' (UI soft-delete ran first)' : ''}`)
+  } else {
+    console.log('REPORT: cleanup WARNING — no session token available for API hard-delete (orphan risk)')
   }
 }
 
@@ -340,10 +342,73 @@ function delayRoute(page, pattern, ms) {
   })
 }
 
+// ── AI AUTO MATCH (enrich) mock ──
+// Mock the one-stop enrich endpoint `POST /api/v1/products/enrich/` (merged from the
+// former AI Tools: Validate / Recommend Protocols / Recommend Literature, see commit
+// f324de0). The real endpoint calls external LLM / PubChem APIs which would burn tokens
+// in e2e, so every AI AUTO MATCH interaction in the suite is mocked here.
+// Returns a full envelope `{ success, data }` matching what the http.js interceptor
+// unwraps (`resp.data` → `{ chemical, literature, protocols, jena, bioz }`).
+const DEFAULT_ENRICH_DATA = {
+  chemical: {
+    found: true,
+    source: 'pubchem',
+    cid: '999999',
+    resolved_name: 'E2E Mock Compound',
+    identity_verified: true,
+    confidence: 'high',
+    fallback_used: false,
+    cas_resolved: '62-53-3',
+    search_note: null,
+    doc_value_mismatch: false,
+    candidates: [],
+    lipinski: {
+      passed: true,
+      violations: [],
+      details: { mw_ok: true, logp_ok: true, hbd_ok: true, hba_ok: true, rot_ok: true },
+    },
+    mismatches: [],
+    similar_compounds: [],
+    properties: {
+      canonical_smiles: 'C1=CC=C(C=C1)N',
+      molecular_formula: 'C6H7N',
+      molecular_weight: 93.13,
+    },
+  },
+  literature: { references: [] },
+  protocols: [],
+  jena: null,
+  bioz: null,
+}
+function mockEnrich(page, { failure = false, delay = 0, data = null } = {}) {
+  const handler = async (route) => {
+    if (delay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+    if (failure) {
+      // 注意：必须返回 HTTP 500 而非「200 + success:false」。http.js 拦截器对 2xx 响应
+      // 无条件透传（status>=200 直接 return data），200+success:false 会被当作成功，
+      // 前端拿到 resp.data=null 而不会进入 catch 渲染错误态。
+      return route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        json: { meta: { error: { code: 'error', message: 'Enrich failed' } } },
+      })
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      json: { success: true, data: data || DEFAULT_ENRICH_DATA },
+    })
+  }
+  // 注意 `enrich**` 用双星号：URL 以尾斜杠结尾（.../enrich/），单星号 `enrich*` 不匹配 `/`
+  return page.route('**/api/v1/products/enrich**', handler)
+}
+
 module.exports = {
   test, expect, login, gotoWorkspace, cleanupE2EProduct, selectFirstCascader,
   getToken, apiGetList, apiGet, apiDelete, deleteEntityByName,
   cleanupKnowledgeIntakeOrphans, getProductDetail,
-  mockRecommendLiterature, delayRoute, PROCESS_POLYFILL,
+  mockRecommendLiterature, delayRoute, mockEnrich, PROCESS_POLYFILL,
   ADMIN_USER, ADMIN_PASS,
 }

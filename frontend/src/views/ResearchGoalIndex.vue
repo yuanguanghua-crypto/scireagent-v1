@@ -156,7 +156,7 @@ watch(
 
       <!-- Tab 2：收敛类聚合浏览（双层结构 Step 3） -->
       <el-tab-pane label="Browse by Class" name="class">
-        <ConvergenceBrowseTab group="rg" detail-route-name="ResearchGoalDetail" />
+        <ConvergenceBrowseTab group="rg" />
       </el-tab-pane>
     </el-tabs>
   </div>

@@ -8,7 +8,6 @@ import { getConvergenceClasses } from '@/api/convergence'
 // 全部使用本地 ref 状态，不建 Pinia store，保持轻量。
 const props = defineProps({
   group: { type: String, required: true }, // 'rg' | 'ap'
-  detailRouteName: { type: String, default: '' }, // 成员详情路由名（兼容预留）
 })
 
 const router = useRouter()
