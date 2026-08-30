@@ -1,11 +1,18 @@
 <script setup>
-import { onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useResearchGoalsStore } from '@/stores/researchGoals'
 import { formatDate, getStatusType, truncate } from '@/utils/helpers'
+import ConvergenceBrowseTab from '@/components/convergence/ConvergenceBrowseTab.vue'
 
 const router = useRouter()
+const route = useRoute()
 const store = useResearchGoalsStore()
+
+// 双层结构 Step 3：页面顶部加 el-tabs
+// Tab 1「All Research Goals」（原列表内容），Tab 2「Browse by Class」（收敛类聚合浏览）
+// 支持 ?tab=class 查询参数定位聚合 Tab（从收敛类详情页返回时使用）
+const activeTab = ref(route.query.tab === 'class' ? 'class' : 'all')
 
 const statusOptions = [
   { label: 'All', value: '' },
@@ -45,6 +52,9 @@ watch(
 
 <template>
   <div class="research-goal-index">
+    <el-tabs v-model="activeTab" class="index-tabs">
+      <!-- Tab 1：全部 Research Goals（原有内容原样移入） -->
+      <el-tab-pane label="All Research Goals" name="all">
     <div class="page-header">
       <div class="header-info">
         <h2 class="section-title">Research Goals</h2>
@@ -142,6 +152,13 @@ watch(
         @current-change="handlePageChange"
       />
     </div>
+      </el-tab-pane>
+
+      <!-- Tab 2：收敛类聚合浏览（双层结构 Step 3） -->
+      <el-tab-pane label="Browse by Class" name="class">
+        <ConvergenceBrowseTab group="rg" detail-route-name="ResearchGoalDetail" />
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
@@ -149,9 +166,14 @@ watch(
 .research-goal-index {
   max-width: var(--content-max-width);
   margin: 0 auto;
+}
+
+/* Tab 内容沿用原有的纵向 flex 布局（page-header / filter-bar / 表格 / 分页 之间的间距） */
+.index-tabs :deep(.el-tab-pane) {
   display: flex;
   flex-direction: column;
   gap: 24px;
+  padding-top: 16px;
 }
 
 .page-header {

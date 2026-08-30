@@ -39,6 +39,14 @@ const routes = [
     meta: { title: 'Applications', nav: 'public' },
   },
   {
+    path: '/applications/classes/:class_id',
+    name: 'ConvergenceClassDetailAp',
+    component: () => import('@/views/ConvergenceClassDetail.vue'),
+    // group 固定为 ap；class_id 含下划线，用 props 透传保证原始值不被解码丢失
+    props: (route) => ({ group: 'ap', class_id: route.params.class_id }),
+    meta: { title: 'Convergence Class Detail', nav: 'public' },
+  },
+  {
     path: '/applications/:id',
     name: 'ApplicationDetail',
     component: () => import('@/views/ApplicationDetail.vue'),
@@ -91,6 +99,14 @@ const routes = [
     name: 'ResearchGoals',
     component: () => import('@/views/ResearchGoalIndex.vue'),
     meta: { title: 'Research Goals', nav: 'public' },
+  },
+  {
+    path: '/research-goals/classes/:class_id',
+    name: 'ConvergenceClassDetailRg',
+    component: () => import('@/views/ConvergenceClassDetail.vue'),
+    // group 固定为 rg；class_id 含下划线，用 props 透传保证原始值不被解码丢失
+    props: (route) => ({ group: 'rg', class_id: route.params.class_id }),
+    meta: { title: 'Convergence Class Detail', nav: 'public' },
   },
   {
     path: '/research-goals/:id',

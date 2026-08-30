@@ -1,11 +1,18 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useApplicationsStore } from '@/stores/applications'
 import ApplicationCard from '@/components/cards/ApplicationCard.vue'
+import ConvergenceBrowseTab from '@/components/convergence/ConvergenceBrowseTab.vue'
 
 const router = useRouter()
+const route = useRoute()
 const store = useApplicationsStore()
+
+// 双层结构 Step 3：页面顶部加 el-tabs
+// Tab 1「All Applications」（原卡片内容），Tab 2「Browse by Class」（收敛类聚合浏览）
+// 支持 ?tab=class 查询参数定位聚合 Tab（从收敛类详情页返回时使用）
+const activeTab = ref(route.query.tab === 'class' ? 'class' : 'all')
 
 const statusFilters = [
   { key: 'all', label: 'All' },
@@ -46,6 +53,9 @@ watch(
 
 <template>
   <div class="application-index">
+    <el-tabs v-model="activeTab" class="index-tabs">
+      <!-- Tab 1：全部 Applications（原有卡片内容原样移入） -->
+      <el-tab-pane label="All Applications" name="all">
     <div class="page-header">
       <div class="header-row">
         <div>
@@ -111,6 +121,13 @@ watch(
         @current-change="handlePageChange"
       />
     </div>
+      </el-tab-pane>
+
+      <!-- Tab 2：收敛类聚合浏览（双层结构 Step 3） -->
+      <el-tab-pane label="Browse by Class" name="class">
+        <ConvergenceBrowseTab group="ap" detail-route-name="ApplicationDetail" />
+      </el-tab-pane>
+    </el-tabs>
   </div>
 </template>
 
@@ -118,6 +135,11 @@ watch(
 .application-index {
   max-width: var(--content-max-width);
   margin: 0 auto;
+}
+
+/* Tab 内容间距（page-header / 卡片网格 / 分页） */
+.index-tabs :deep(.el-tab-pane) {
+  padding-top: 8px;
 }
 
 .page-header {

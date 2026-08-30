@@ -1,13 +1,11 @@
 <script setup>
 import { ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import AppHeader from './AppHeader.vue'
 import AppFooter from './AppFooter.vue'
 import PublicNav from './PublicNav.vue'
 
 const route = useRoute()
-const authStore = useAuthStore()
 
 // Public pages (no auth needed, transparent nav): Home, Login, Register, Product lists, Knowledge pages
 const isPublicPage = () => route.meta?.nav === 'public'
@@ -18,10 +16,10 @@ const isWorkspace = () => route.path.startsWith('/workspace')
 // Home is a full-bleed marketing page (dark hero under transparent/white nav) — no content padding
 const isHome = () => route.path === '/'
 
-// 匿名用户在 public 页面会渲染固定浮层 PublicNav（position:fixed, 高 68px）。
-// quote-request / search 等内容区顶部留白不足会被遮挡，故在此补上顶部间距。
-const NAV_PAD_PAGES = ['/quote-request', '/search']
-const needsNavPad = () => !authStore.isAuthenticated && isPublicPage() && NAV_PAD_PAGES.includes(route.path)
+// 固定浮层 PublicNav（position:fixed, 高 68px, z-index 100）渲染在非 home 的 public 页面。
+// 内容区顶部留白不足会被遮挡，故统一补顶部间距（覆盖 quote-request/search 等旧路径，
+// 以及 Step 3 起在 ResearchGoals/Applications 顶部新增的 el-tabs，登录用户同样需要）。
+const needsNavPad = () => isPublicPage() && route.path !== '/'
 </script>
 
 <template>
