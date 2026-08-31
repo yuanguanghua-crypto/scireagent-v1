@@ -198,6 +198,8 @@ function stripCategoryPrefix(text) {
 /* ── Load product data ── */
 async function loadProduct(id) {
   await store.fetchProductDetail(id)
+  // 阶段0：详情失败（404 等）时跳过依赖 product 的渲染，避免对空值抛错/空转
+  if (store.productError || !product.value) return
   renderStructure()
   loadCompliance()
   loadVerifiedMethods()
@@ -349,7 +351,7 @@ function onSearch(query) {
 </script>
 
 <template>
-  <div class="pd" v-if="product">
+  <div class="pd" v-if="product && !store.productError">
     <ProductLayout
       :page-title="product.name"
       :page-subtitle="product.catalog_no ? `${product.catalog_no} | ${product.cas || ''}` : ''"
@@ -798,6 +800,11 @@ function onSearch(query) {
 
   <!-- Loading -->
   <LoadingSpinner v-else-if="store.loading" text="Loading..." />
+  <!-- 阶段0：#404/失败时明确错误态，不卡 Loading、不白屏 -->
+  <div v-else-if="store.productError" class="pd-empty">
+    <p class="pd-error-title">Product not found or unavailable</p>
+    <p class="pd-error-sub">The product may have been removed or is no longer active.</p>
+  </div>
   <div v-else class="pd-empty">Product not found</div>
 </template>
 
@@ -1284,6 +1291,8 @@ function onSearch(query) {
 
 /* ── Not found ── */
 .pd-empty { text-align: center; padding: 60px 0; color: var(--color-text-secondary); font-size: 15px; }
+.pd-error-title { font-size: 18px; font-weight: 600; color: var(--color-text-primary, inherit); margin: 0 0 8px; }
+.pd-error-sub { margin: 0; font-size: 14px; color: var(--color-text-secondary); }
 
 /* ── Responsive: single column at 768px ── */
 @media (max-width: 768px) {
