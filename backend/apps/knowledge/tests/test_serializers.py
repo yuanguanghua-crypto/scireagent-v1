@@ -9,6 +9,7 @@ from apps.knowledge.tests.factories import (
     ProtocolFactory, ProtocolStepFactory, ReferenceFactory, CompatibilityFactory
 )
 from apps.bridges.tests.factories import ProductMethodFactory, MethodProtocolFactory
+from apps.commerce.tests.factories import ProductFactory
 from apps.bridges.models import MethodProtocol
 import factory
 from apps.knowledge.models import FacetValue, ProtocolFacet
@@ -334,3 +335,44 @@ class ProtocolDetailSerializerFacetTest(TestCase):
     def test_empty_facets_is_empty_dict(self):
         protocol = ProtocolFactory()
         self.assertEqual(ProtocolDetailSerializer(protocol).data['facets'], {})
+
+
+class ProductStatusFilterTest(TestCase):
+    """阶段0 TDD：三个知识实体详情 serializer 的 get_products 必须过滤 Product.status=active。
+
+    根因：#404 知识页列出非 active 产品（脏态 draft 等）→ 点击后详情 API 404 → 前端卡 Loading。
+    """
+
+    def _link_products(self, method):
+        active = ProductFactory(status='active')
+        inactive = ProductFactory(status='draft')
+        ProductMethodFactory(method=method, product=active)
+        ProductMethodFactory(method=method, product=inactive)
+        return active, inactive
+
+    def _product_ids(self, products):
+        return [p['id'] for p in products]
+
+    def test_application_detail_products_only_active(self):
+        app = ApplicationFactory()
+        method = MethodFactory(application=app)
+        active, inactive = self._link_products(method)
+        ids = self._product_ids(ApplicationDetailSerializer(app).data['products'])
+        self.assertIn(active.id, ids)
+        self.assertNotIn(inactive.id, ids)
+
+    def test_method_detail_products_only_active(self):
+        method = MethodFactory()
+        active, inactive = self._link_products(method)
+        ids = self._product_ids(MethodDetailSerializer(method).data['products'])
+        self.assertIn(active.id, ids)
+        self.assertNotIn(inactive.id, ids)
+
+    def test_protocol_detail_products_only_active(self):
+        method = MethodFactory()
+        protocol = ProtocolFactory()
+        MethodProtocol.objects.create(method=method, protocol=protocol)
+        active, inactive = self._link_products(method)
+        ids = self._product_ids(ProtocolDetailSerializer(protocol).data['products'])
+        self.assertIn(active.id, ids)
+        self.assertNotIn(inactive.id, ids)

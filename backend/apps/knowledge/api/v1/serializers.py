@@ -79,7 +79,7 @@ class ApplicationDetailSerializer(BaseModelSerializer):
         from apps.commerce.models import Product
         method_ids = list(obj.methods.values_list('id', flat=True))
         product_ids = ProductMethod.objects.filter(method_id__in=method_ids).values_list('product_id', flat=True).distinct()
-        return list(Product.objects.filter(id__in=product_ids).values('id', 'name', 'slug', 'catalog_no'))
+        return list(Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value).values('id', 'name', 'slug', 'catalog_no'))
 
 
 class ProtocolStepSerializer(BaseModelSerializer):
@@ -197,7 +197,7 @@ class ProtocolDetailSerializer(BaseModelSerializer):
         from apps.commerce.models import Product
         method_ids = MethodProtocol.objects.filter(protocol=obj).values_list('method_id', flat=True)
         product_ids = ProductMethod.objects.filter(method_id__in=list(method_ids)).values_list('product_id', flat=True).distinct()
-        return list(Product.objects.filter(id__in=product_ids).values('id', 'name', 'slug', 'catalog_no'))
+        return list(Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value).values('id', 'name', 'slug', 'catalog_no'))
 
     def get_methods(self, obj):
         """#494 route B：协议关联方法经 MethodProtocol 桥多对多返回（只读）。
@@ -260,7 +260,7 @@ class MethodDetailSerializer(BaseModelSerializer):
         from apps.bridges.models import ProductMethod
         from apps.commerce.models import Product
         product_ids = ProductMethod.objects.filter(method=obj).values_list('product_id', flat=True).distinct()
-        return list(Product.objects.filter(id__in=product_ids).values('id', 'name', 'slug', 'catalog_no'))
+        return list(Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value).values('id', 'name', 'slug', 'catalog_no'))
 
 
 class ReferenceSerializer(BaseModelSerializer):
