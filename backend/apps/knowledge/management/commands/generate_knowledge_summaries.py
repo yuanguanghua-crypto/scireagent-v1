@@ -45,6 +45,9 @@ class Command(BaseCommand):
                             help='并发 worker 数（默认 8）')
         parser.add_argument('--limit', type=int, default=0,
                             help='最多处理 N 条（0=全部；小批验证用，如 --limit 50）')
+        parser.add_argument('--entity-type', type=str, default='',
+                            choices=['', 'research_goal', 'application'],
+                            help='只处理指定类型（缺省全部；分类型小批验证用）')
         # 测试注入用：call_command('generate_knowledge_summaries', extractor=...)。
         # 声明在 parser 中以便 Django 接受该 kwarg；help=SUPPRESS 不暴露给 --help。
         parser.add_argument('--extractor', dest='extractor', default=None,
@@ -56,6 +59,7 @@ class Command(BaseCommand):
         ckpt_path = options['checkpoint']
         workers = options['workers']
         limit = options['limit']
+        entity_type = options['entity_type']
 
         # extractor：测试注入（call_command 传 extractor=）或按环境变量构造
         extractor = options.get('extractor')
@@ -84,6 +88,8 @@ class Command(BaseCommand):
             elif isinstance(entity, Application):
                 et = 'application'
             else:
+                continue
+            if entity_type and et != entity_type:
                 continue
             key = f'{et}:{entity.id}'
             if key in done:
