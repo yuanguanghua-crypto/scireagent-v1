@@ -183,6 +183,29 @@ class ProtocolLinksSerializerTest(TestCase):
         self.assertEqual(links[0]['link_source'], 'auto')
         self.assertAlmostEqual(links[0]['relevance_score'], 0.9)
 
+    def test_pure_explicit_or_inherited_pp_rows_included(self):
+        """P2-2：纯 EXPLICIT/INHERITED PP 行（无任何 ProductMethod/MethodProtocol 桥链）必须出现在
+        protocol_links。旧 get_protocol_links 仅由 MethodProtocol 桥 ∪ PP AUTO 推导 protocol_ids，
+        会丢弃这类纯 PP 行（丢数据缺陷）；收敛到 build_protocol_links（PP 主源）后应可见。"""
+        product = ProductFactory()
+        explicit_proto = ProtocolFactory(name='Explicit-only Protocol')
+        inherited_proto = ProtocolFactory(name='Inherited-only Protocol')
+        ProductProtocol.objects.create(
+            product=product, protocol=explicit_proto,
+            relevance_score=0.8, tier='document', link_source='explicit',
+            relevance_basis='vendor_only')
+        ProductProtocol.objects.create(
+            product=product, protocol=inherited_proto,
+            relevance_score=0.7, tier='document', link_source='inherited',
+            relevance_basis='vendor_only')
+        self.assertEqual(ProductMethod.objects.filter(product=product).count(), 0)
+        data = ProductDetailSerializer(product).data
+        by_id = {item['id']: item for item in data['protocol_links']}
+        self.assertIn(explicit_proto.id, by_id)
+        self.assertIn(inherited_proto.id, by_id)
+        self.assertEqual(by_id[explicit_proto.id]['link_source'], 'explicit')
+        self.assertEqual(by_id[inherited_proto.id]['link_source'], 'inherited')
+
     def test_sort_full_realistic_ordering(self):
         """#357 回归：真实数据层面跨三档的完整 (-relevance, -score_c, id) 排序断言。"""
         product, protocols = _build_product_with_protocols(5)

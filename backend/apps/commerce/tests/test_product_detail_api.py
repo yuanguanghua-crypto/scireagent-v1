@@ -7,6 +7,12 @@ from rest_framework.test import APIClient
 
 from apps.commerce.models import Product
 from apps.commerce.tests.factories import ProductFactory
+from apps.knowledge.models import ReagentClass
+from apps.knowledge.tests.factories import MethodFactory, ProtocolFactory
+from apps.bridges.tests.factories import (
+    ProductMethodFactory, ProductMethodRelationFactory,
+    ProductProtocolFactory, MethodProtocolFactory,
+)
 
 
 class ProductDetailAPITest(TestCase):
@@ -144,3 +150,125 @@ class ProductDetailAPITest(TestCase):
         related = data['data']['related_products']
         related_ids = [p['id'] for p in related]
         self.assertNotIn(self.product.id, related_ids)
+
+
+class ProductDetailReadThroughTest(TestCase):
+    """P0#3 方案A「读端打通」：详情 API 从 ProductProtocol 直接表 + PMR derived 边读取。
+
+    覆盖四条核心路径：
+    1. ProductProtocol 行 → 顶层 protocols 非空且排序符合 tier/relevance 优先级（weak 沉底）
+    2. PMR derived 边 → methods 包含该 derived 方法（含 source_type 标记）
+    3. 仅旧 ProductMethod 桥 → 不报错且 fallback 生效（仍能看到方法）
+    4. 仅 MethodProtocol 桥（无 PP 行）→ protocols 回退派生链路不丢数据
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.product = ProductFactory(
+            name='Read Through Product',
+            catalog_no='SC8120',
+            cas='99999-00-0',
+            status='active',
+            category_l1='nucleotides_nucleosides',
+        )
+
+    def _get_detail(self):
+        return self.client.get(f'/api/v1/products/{self.product.id}/detail/')
+
+    def test_detail_protocols_read_from_product_protocol_sorted_by_tier(self):
+        """PP 行 → 顶层 protocols 非空，排序 tier 优先（featured 在 weak 之前）。"""
+        featured = ProtocolFactory(status='published')
+        weak = ProtocolFactory(status='published')
+        ProductProtocolFactory(
+            product=self.product, protocol=featured,
+            tier='featured', relevance_score=0.8, link_source='inherited',
+        )
+        ProductProtocolFactory(
+            product=self.product, protocol=weak,
+            tier='weak', relevance_score=0.5, link_source='inherited',
+        )
+        response = self._get_detail()
+        self.assertEqual(response.status_code, 200)
+        protocols = response.json()['data']['protocols']
+        self.assertEqual(len(protocols), 2)
+        self.assertEqual(protocols[0]['id'], featured.id)
+        self.assertEqual(protocols[1]['id'], weak.id)
+
+    def test_detail_derived_methods_from_pmr_edge(self):
+        """PMR derived 边 → methods 含该方法，product.derived_methods 含 source_type 标记。"""
+        method = MethodFactory(status='active')
+        rc = ReagentClass.objects.create(
+            id_code='RC-PMR-T', name='PMR Test RC', slug='pmr-test-rc',
+            behavior_type='method_specific',
+        )
+        ProductMethodRelationFactory(
+            product=self.product, method=method,
+            relation_type='derived_relevance',
+            source_reagent_class=rc,
+            status='active',
+        )
+        response = self._get_detail()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()['data']
+        # compatibility.methods 已合并 PMR derived 方法
+        method_ids = [m['id'] for m in data['compatibility']['methods']]
+        self.assertIn(method.id, method_ids)
+        # product.derived_methods 输出含透明来源标记 source_type='derived'
+        derived = data['product']['derived_methods']
+        dm = next((d for d in derived if d['id'] == method.id), None)
+        self.assertIsNotNone(dm)
+        self.assertEqual(dm['source_type'], 'derived')
+
+    def test_detail_fallback_to_legacy_product_method_bridge(self):
+        """仅旧 ProductMethod 桥 → 不报错且 fallback 生效（仍能看到方法）。"""
+        method = MethodFactory(status='active')
+        ProductMethodFactory(product=self.product, method=method)
+        response = self._get_detail()
+        self.assertEqual(response.status_code, 200)
+        data = response.json()['data']
+        method_ids = [m['id'] for m in data['compatibility']['methods']]
+        self.assertIn(method.id, method_ids)
+        self.assertEqual(data['product']['derived_methods'], [])
+
+    def test_detail_protocols_fallback_to_method_protocol_bridge(self):
+        """仅 MethodProtocol 桥（无 PP 行）→ protocols 回退派生链路不丢数据。"""
+        method = MethodFactory(status='active')
+        protocol = ProtocolFactory(status='published')
+        ProductMethodFactory(product=self.product, method=method)
+        MethodProtocolFactory(method=method, protocol=protocol)
+        response = self._get_detail()
+        self.assertEqual(response.status_code, 200)
+        protocols = response.json()['data']['protocols']
+        self.assertEqual(len(protocols), 1)
+        self.assertEqual(protocols[0]['id'], protocol.id)
+
+    def test_detail_derived_draft_method_passes_status_filter(self):
+        """P2-1：PMR derived 边关联的 draft method 必须出现在 methods 列表。
+
+        全库 derived 边关联的 method 均为 draft 状态，原 status='active' 过滤
+        将其全部滤掉（公开详情页 methods 看不到 derived 方法）——本用例守卫放行。
+        """
+        method = MethodFactory(status='draft')
+        rc = ReagentClass.objects.create(
+            id_code='RC-PMR-D', name='PMR Draft RC', slug='pmr-draft-rc',
+            behavior_type='method_specific',
+        )
+        ProductMethodRelationFactory(
+            product=self.product, method=method,
+            relation_type='derived_relevance',
+            source_reagent_class=rc,
+            status='active',
+        )
+        response = self._get_detail()
+        self.assertEqual(response.status_code, 200)
+        method_ids = [m['id'] for m in response.json()['data']['compatibility']['methods']]
+        self.assertIn(method.id, method_ids)
+
+    def test_detail_deprecated_method_still_filtered(self):
+        """P2-1 边界：只放行 draft，deprecated 已弃用方法仍被滤出 methods 列表。"""
+        method = MethodFactory(status='deprecated')
+        ProductMethodFactory(product=self.product, method=method)
+        response = self._get_detail()
+        self.assertEqual(response.status_code, 200)
+        method_ids = [m['id'] for m in response.json()['data']['compatibility']['methods']]
+        self.assertNotIn(method.id, method_ids)

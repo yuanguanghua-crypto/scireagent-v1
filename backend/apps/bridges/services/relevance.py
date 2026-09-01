@@ -212,6 +212,77 @@ def protocol_link_sort_key(r):
     )
 
 
+def build_protocol_links(product):
+    """构建产品协议链行（P0#3 方案A「读端打通」）。
+
+    数据源：ProductProtocol 直接表（select_related('protocol')，含 INHERITED/EXPLICIT/AUTO
+    全量行）——覆盖全库 23,431 行 PP 真实数据，避免详情页死数据不可见。
+    无 PP 行（recompute 未跑的存量产品）时回退 MethodProtocol 桥派生协议（旧逻辑形状，
+    tier='weak'/score=0），确保任何产品都不丢数据。
+
+    排序：protocol_link_sort_key（weak 恒沉底 → 相关性降序 → score_c 降序 → id 升序），
+    与 ProductDetailSerializer.get_protocol_links 的既有排序规则一致。
+
+    返回行 dict 列表，字段命名与 get_protocol_links 输出一致：
+    id/name/slug/relevance_score/score_a/score_b/score_c/relevance_basis/link_source/tier/literature_count。
+    """
+    from apps.bridges.models import ProductMethod, MethodProtocol, ProductProtocol
+    from apps.knowledge.models import Protocol
+
+    pp_rows = list(
+        ProductProtocol.objects.filter(product=product).select_related('protocol')
+    )
+
+    def _row(pid, proto, pp):
+        if pp is not None:
+            return {
+                'id': proto.id if proto else pid,
+                'name': getattr(proto, 'name', None),
+                'slug': getattr(proto, 'slug', None),
+                'relevance_score': pp.relevance_score,
+                'score_a': pp.score_a,
+                'score_b': pp.score_b,
+                'score_c': pp.score_c,
+                'relevance_basis': pp.relevance_basis,
+                'link_source': pp.link_source,
+                'tier': pp.tier,
+                'literature_count': pp.literature_count,
+            }
+        # 回退（仅 MethodProtocol 桥派生）：重算未跑，诚实以 weak/0 呈现
+        return {
+            'id': proto.id if proto else pid,
+            'name': getattr(proto, 'name', None),
+            'slug': getattr(proto, 'slug', None),
+            'relevance_score': 0.0,
+            'score_a': None,
+            'score_b': None,
+            'score_c': None,
+            'relevance_basis': '',
+            'link_source': ProductProtocol.LinkSource.INHERITED,
+            'tier': ProductProtocol.Tier.WEAK,
+            'literature_count': 0,
+        }
+
+    if pp_rows:
+        rows = [_row(pp.protocol_id, pp.protocol, pp) for pp in pp_rows]
+    else:
+        # fallback：MethodProtocol 桥派生协议
+        method_ids = list(
+            ProductMethod.objects.filter(product=product).values_list('method_id', flat=True)
+        )
+        protocol_ids = list(
+            MethodProtocol.objects.filter(method_id__in=method_ids)
+            .values_list('protocol_id', flat=True).distinct()
+        )
+        if not protocol_ids:
+            return []
+        proto_map = {p.id: p for p in Protocol.objects.filter(id__in=protocol_ids)}
+        rows = [_row(pid, proto_map.get(pid), None) for pid in protocol_ids]
+
+    rows.sort(key=protocol_link_sort_key)
+    return rows
+
+
 def _aggregate_scores(scores, operator='mean'):
     """把一组逐 (商品×协议) 相关性分聚合成单一商品级分（S5）。
 

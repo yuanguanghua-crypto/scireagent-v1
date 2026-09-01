@@ -276,7 +276,7 @@ class ProductDetailAPIView(EnvelopeMixin, APIView):
     def get(self, request, pk):
         from django.shortcuts import get_object_or_404
         from apps.knowledge.models import Application, Method, Protocol, Reference
-        from apps.bridges.models import ProductMethod, MethodProtocol, ProductReference
+        from apps.bridges.models import ProductMethod, ProductReference, ProductProtocol, ProductMethodRelation
         from apps.commerce.api.v1.serializers_v2 import (
             ProductFullSerializer, ApplicationBriefSerializer,
             MethodBriefSerializer, ProtocolBriefSerializer,
@@ -289,20 +289,40 @@ class ProductDetailAPIView(EnvelopeMixin, APIView):
         # A2 死分支清理：Product 状态机无 'published'（那是 Protocol/COA 的枚举），只认 active
         product = get_object_or_404(Product, pk=pk, status='active')
 
-        # Get related entities via bridge tables
-        method_ids = list(
+        # ── P0#3 方案A：读端打通 ──
+        # methods：PMR derived 边（derived_relevance）∪ ProductMethod 桥，按 method id 去重。
+        # 旧 ProductMethod 桥保留：新数据源为空时天然回退到旧路径，任何产品都不丢数据。
+        pmr_derived_ids = list(
+            ProductMethodRelation.objects.filter(
+                product=product,
+                relation_type=ProductMethodRelation.RelationType.DERIVED_RELEVANCE,
+            ).values_list('method_id', flat=True)
+        )
+        bridge_method_ids = list(
             ProductMethod.objects.filter(product=product).values_list('method_id', flat=True)
         )
-        methods = Method.objects.filter(id__in=method_ids, status='active')
+        method_ids = list(dict.fromkeys(pmr_derived_ids + bridge_method_ids))
+        # P2-1：放行 draft method 到公开 methods 列表（PMR derived 边关联的方法目前全库均为
+        # draft 状态，原 status='active' 过滤把它们全部滤掉，公开详情页看不到 derived 方法）。
+        # 仅过滤「已弃用/已归档」状态（deprecated/archived），draft+active 均放行。
+        methods = Method.objects.filter(id__in=method_ids).exclude(
+            status__in=(Method.Status.DEPRECATED, Method.Status.ARCHIVED)
+        )
         applications = Application.objects.filter(
             methods__id__in=method_ids, status='active'
         ).distinct()
 
-        # Protocols via MethodProtocol bridge
-        protocol_ids = list(
-            MethodProtocol.objects.filter(method_id__in=method_ids).values_list('protocol_id', flat=True)
-        )
-        protocols = Protocol.objects.filter(id__in=protocol_ids, status='published')
+        # Protocols：ProductProtocol 直接表（覆盖全库 PP 真实数据）；无 PP 行时
+        # build_protocol_links 内部回退 MethodProtocol 桥派生。排序复用
+        # protocol_link_sort_key（weak 沉底 → 相关性降序），此处按序保 published 协议。
+        from apps.bridges.services.relevance import build_protocol_links
+        protocol_links = build_protocol_links(product)
+        protocol_ids = [r['id'] for r in protocol_links]
+        proto_by_id = {
+            p.id: p
+            for p in Protocol.objects.filter(id__in=protocol_ids, status='published')
+        }
+        protocols = [proto_by_id[pid] for pid in protocol_ids if pid in proto_by_id]
 
         # References via ProductReference bridge
         references = Reference.objects.filter(

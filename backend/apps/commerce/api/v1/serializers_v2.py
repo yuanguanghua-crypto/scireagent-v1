@@ -94,6 +94,9 @@ class ProductFullSerializer(serializers.ModelSerializer):
     product_class_name = serializers.SerializerMethodField()
     product_class_path = serializers.SerializerMethodField()
     structure_svg = serializers.SerializerMethodField()
+    # P0#3 方案A「读端打通」：协议链（ProductProtocol 直接表）+ derived 方法（PMR derived 边）
+    protocol_links = serializers.SerializerMethodField()
+    derived_methods = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -105,6 +108,7 @@ class ProductFullSerializer(serializers.ModelSerializer):
             'category_l1', 'category_l2', 'status', 'product_class_id',
             'product_class_name', 'product_class_path',
             'skus', 'documents', 'created_at', 'updated_at',
+            'protocol_links', 'derived_methods',
             'substructure_tags',
         ]
 
@@ -124,6 +128,40 @@ class ProductFullSerializer(serializers.ModelSerializer):
             path.insert(0, pc.name)
             pc = pc.parent
         return path
+
+    def get_protocol_links(self, obj):
+        """协议链行（ProductProtocol 直接表，读端打通）。
+
+        字段命名与 ProductDetailSerializer.get_protocol_links 一致（id/name/slug/
+        relevance_score/score_a/score_b/score_c/relevance_basis/link_source/tier/
+        literature_count）；排序复用 build_protocol_links 内的 protocol_link_sort_key，
+        避免在 v2 序列化器重复实现排序。
+        """
+        from apps.bridges.services.relevance import build_protocol_links
+        return build_protocol_links(obj)
+
+    def get_derived_methods(self, obj):
+        """PMR derived 边方法列表（每条含 method 基本信息 + source_type='derived'）。
+
+        前端据此给 derived 方法渲染「derived / 派生」透明来源标签。
+        """
+        from apps.bridges.models import ProductMethodRelation
+        edges = ProductMethodRelation.objects.filter(
+            product=obj,
+            relation_type=ProductMethodRelation.RelationType.DERIVED_RELEVANCE,
+        ).select_related('method')
+        out = []
+        for e in edges:
+            m = e.method
+            out.append({
+                'id': m.id,
+                'method_id': m.id,
+                'name': getattr(m, 'name', None),
+                'slug': getattr(m, 'slug', None),
+                'purpose': getattr(m, 'purpose', None),
+                'source_type': 'derived',
+            })
+        return out
 
 
 class CompatibilitySerializer(serializers.Serializer):

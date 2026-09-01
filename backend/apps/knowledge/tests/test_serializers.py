@@ -47,8 +47,13 @@ class ResearchGoalListSerializerTest(TestCase):
 
     def test_application_count_real(self):
         # #495-D：application_count 是真实关联 Application 计数，非死字段。
+        # #P0-1：计数改走 M2M application_collection（T4 顶部链真实关联路径）。
         goal = ResearchGoalFactory()
-        ApplicationFactory.create_batch(3, research_goal=goal)
+        apps = ApplicationFactory.create_batch(3, research_goal=goal)
+        # 仅设 FK（工厂默认）不产生 M2M → 计数为 0（诚实反映 T4 语义）
+        self.assertEqual(ResearchGoalListSerializer(goal).data['application_count'], 0)
+        for app in apps:
+            app.research_goal_collections.add(goal)
         serializer = ResearchGoalListSerializer(goal)
         self.assertEqual(serializer.data['application_count'], 3)
 
@@ -104,11 +109,19 @@ class ResearchGoalDetailSerializerTest(TestCase):
 
 class ApplicationListSerializerTest(TestCase):
     def test_fields(self):
+        # #P0-1：research_goal_id 读 M2M 首个 RG（id 升序稳定）；无 M2M 关联时返回 None
+        # （工厂仅设 FK，不建 M2M——与 T4 顶部链真实关联路径一致）。
         app = ApplicationFactory()
-        serializer = ApplicationListSerializer(app)
-        data = serializer.data
+        data = ApplicationListSerializer(app).data
         self.assertIn('research_goal_id', data)
-        self.assertEqual(data['research_goal_id'], app.research_goal_id)
+        self.assertIsNone(data['research_goal_id'])
+        # 建 M2M 后读首个
+        goal = ResearchGoalFactory()
+        app.research_goal_collections.add(goal)
+        data2 = ApplicationListSerializer(app).data
+        self.assertEqual(data2['research_goal_id'], goal.id)
+        self.assertEqual(data2['research_goal_name'], goal.name)
+        self.assertEqual(data2['research_goals'], [{'id': goal.id, 'name': goal.name}])
 
 
 class ApplicationDetailSerializerTest(TestCase):
@@ -235,6 +248,7 @@ class ProtocolDetailSerializerTest(TestCase):
         # 供前端研究路径（RG→AP→Method→Protocol）单一代表分支渲染。
         goal = ResearchGoalFactory(name='RNA Biology')
         app = ApplicationFactory(name='Library Prep', research_goal=goal)
+        app.research_goal_collections.add(goal)  # #P0-1：上溯改走 M2M（T4 形态）
         method = MethodFactory(name='PCR', application=app)
         protocol = ProtocolFactory()
         MethodProtocol.objects.create(method=method, protocol=protocol)

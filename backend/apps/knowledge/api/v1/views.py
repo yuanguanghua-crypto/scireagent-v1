@@ -1,6 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.db.models import Prefetch
 from core.mixins import EnvelopeMixin
 from core.permissions import IsAdminOrReadOnly
 from core.jsonld import build_method_jsonld, build_protocol_jsonld
@@ -14,6 +15,7 @@ from apps.knowledge.api.v1.serializers import (
 )
 from apps.knowledge import selectors
 from apps.knowledge.api.v1.fixture_visibility import apply_fixture_filter
+from apps.knowledge.api.v1.filters import ApplicationFilter
 
 
 class ResearchGoalViewSet(EnvelopeMixin, viewsets.ModelViewSet):
@@ -45,18 +47,24 @@ class ResearchGoalViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
 
 class ApplicationViewSet(EnvelopeMixin, viewsets.ModelViewSet):
-    queryset = Application.objects.select_related('research_goal').all()
+    # #P0-1：prefetch M2M 反向（research_goal_collections，按 id 升序）替代 FK
+    # select_related，与 API 读取路径（M2M）一致，避免 N+1 且保证读序稳定。
+    _rg_prefetch = Prefetch(
+        'research_goal_collections',
+        queryset=ResearchGoal.objects.order_by('id'),
+    )
+    queryset = Application.objects.prefetch_related(_rg_prefetch).all()
     serializer_class = ApplicationListSerializer
     permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'summary']
     ordering_fields = ['sort_order', 'name']
-    filterset_fields = ['research_goal_id', 'status']
+    filterset_class = ApplicationFilter
 
     def get_queryset(self):
         """公开端点仅返回已发布(ACTIVE)记录；staff 可访问全量。
         S1：测试夹具行默认对所有身份不可见。"""
         qs = apply_fixture_filter(
-            Application.objects.select_related('research_goal').all(), self.request
+            Application.objects.prefetch_related(self._rg_prefetch).all(), self.request
         )
         if self.request.user.is_authenticated and self.request.user.is_staff:
             return qs

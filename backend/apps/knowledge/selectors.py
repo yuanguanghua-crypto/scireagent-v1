@@ -16,11 +16,14 @@ def get_protocols_with_steps(method_id: int) -> QuerySet:
 
 def get_application_detail(application_id: int):
     """获取应用场景详情（含方法和协议）"""
-    return Application.objects.select_related('research_goal').prefetch_related(
+    return Application.objects.prefetch_related(
+        Prefetch('research_goal_collections', queryset=ResearchGoal.objects.order_by('id')),
         Prefetch('methods', queryset=Method.objects.prefetch_related('method_protocols__protocol'))
     ).get(pk=application_id)
 
 
 def get_research_goals_with_applications() -> QuerySet:
     """获取所有研究目标（含应用场景）"""
-    return ResearchGoal.objects.prefetch_related('applications').order_by('priority')
+    return ResearchGoal.objects.prefetch_related(
+        Prefetch('application_collection', queryset=Application.objects.order_by('id'))
+    ).order_by('priority')

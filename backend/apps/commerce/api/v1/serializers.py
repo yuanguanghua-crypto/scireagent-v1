@@ -485,85 +485,14 @@ class ProductDetailSerializer(BaseModelSerializer):
         return list(MethodProtocol.objects.filter(method_id__in=method_ids).values_list('protocol_id', flat=True).distinct())
 
     def get_protocol_links(self, obj):
-        """派生协议集内联摘要列表（#355）。
-
-        排序：全局按相关性降序 (-relevance_score, -score_c, id)，tier 仅用于前端徽标。
-        method_ids 为空（AUTO-only 产品，无方法链）时仍返回 AUTO 自动匹配链接，
-        不再 early-return（#18 产品 Knowledge Links 不可见修复）。
-
-        铁律①：即便产品尚无 ProductProtocol 行（recompute 未跑），也必须返回全部派生协议
-        （回退 tier='weak' [S4]、relevance_score=0、link_source='inherited'、basis=''），不得丢数据。
-        `protocol_ids` 保持向后兼容（仍为 id 列表）。
+        """产品协议链行（#355）。已收敛至 bridges.services.relevance.build_protocol_links 唯一实现
+        （P2-2）：PP 主源（INHERITED/EXPLICIT/AUTO 全量行）+ 无 PP 行时 MethodProtocol 桥 fallback，
+        与详情 API ProductDetailAPIView.protocols 走同一核心逻辑，消除双实现输出不一致。
+        字段契约不变：id/name/slug/relevance_score/score_a/score_b/score_c/relevance_basis/
+        link_source/tier/literature_count；排序复用 build_protocol_links 内 protocol_link_sort_key。
         """
-        from apps.bridges.models import ProductMethod, MethodProtocol, ProductProtocol
-        from apps.knowledge.models import Protocol
-        from apps.bridges.services.relevance import protocol_link_sort_key
-
-        method_ids = list(
-            ProductMethod.objects.filter(product=obj).values_list('method_id', flat=True)
-        )
-        inherited_ids = list(
-            MethodProtocol.objects.filter(method_id__in=method_ids)
-            .values_list('protocol_id', flat=True).distinct()
-        )
-        # #403 落地：并入 AUTO 自动匹配候选（BioProCorpus），继承链 ∪ 自动匹配，
-        # 全量保留不裁剪（铁律①）。AUTO 与 INHERITED 同协议不共存（unique(product,protocol)）。
-        auto_ids = list(
-            ProductProtocol.objects.filter(
-                product=obj, link_source=ProductProtocol.LinkSource.AUTO
-            ).values_list('protocol_id', flat=True)
-        )
-        protocol_ids = list(dict.fromkeys(inherited_ids + auto_ids))  # 保序去重
-        if not protocol_ids:
-            return []
-
-        proto_map = {p.id: p for p in Protocol.objects.filter(id__in=protocol_ids)}
-        # 继承链协议回退原行为：包含其全部 link_source(INHERITED/EXPLICIT)；
-        # AUTO 候选因已并入 protocol_ids 并集，亦自然包含（unique(product,protocol) 保证不共存）。
-        pp_map = {
-            pp.protocol_id: pp
-            for pp in ProductProtocol.objects.filter(
-                product=obj, protocol_id__in=protocol_ids
-            )
-        }
-
-        def _row(pid):
-            pp = pp_map.get(pid)
-            proto = proto_map.get(pid)
-            if pp is not None:
-                return {
-                    'id': proto.id if proto else pid,
-                    'name': getattr(proto, 'name', None),
-                    'slug': getattr(proto, 'slug', None),
-                    'relevance_score': pp.relevance_score,
-                    'score_a': pp.score_a,
-                    'score_b': pp.score_b,
-                    'score_c': pp.score_c,
-                    'relevance_basis': pp.relevance_basis,
-                    'link_source': pp.link_source,
-                    'tier': pp.tier,
-                    'literature_count': pp.literature_count,
-                }
-            # 回退（recompute 未跑）：铁律①全量保留，不丢派生链路
-            return {
-                'id': proto.id if proto else pid,
-                'name': getattr(proto, 'name', None),
-                'slug': getattr(proto, 'slug', None),
-                'relevance_score': 0.0,
-                'score_a': None,
-                'score_b': None,
-                'score_c': None,
-                'relevance_basis': '',
-                'link_source': ProductProtocol.LinkSource.INHERITED,
-                'tier': ProductProtocol.Tier.WEAK,
-                'literature_count': 0,
-            }
-
-        rows = [_row(pid) for pid in protocol_ids]
-        # 排序（S4）：weak 恒沉底（主键=1），其余按相关性降序。
-        # key = (weak_sink, -relevance, -score_c, id)；tier 仅用于前端徽标。
-        rows.sort(key=protocol_link_sort_key)
-        return rows
+        from apps.bridges.services.relevance import build_protocol_links
+        return build_protocol_links(obj)
 
     def get_reference_ids(self, obj):
         from apps.bridges.models import ProductReference

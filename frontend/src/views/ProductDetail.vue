@@ -75,12 +75,63 @@ const relatedDisplayCount = computed(() => {
 const verifiedMethods = ref([])
 const verifiedLoading = ref(false)
 
+/* ── P0#3 方案A：derived 方法透明来源标签 ──
+ * derived_methods：detail API product.derived_methods（source_type='derived'）
+ * related_methods：bridges API /products/{id}/methods/ 的 related_methods（PMR derived 边）
+ * 二者本质同源（PMR derived_relevance 边），合并成 derived 方法 id 集合，为方法列表打标签。
+ * 声明顺序：displayMethods 依赖 methods/derivedMethods/relatedMethods，须在 availableTabs 之前
+ * （availableTabs 被 immediate watch 在 setup 期间求值，晚声明会触发 TDZ）。
+ */
+const relatedMethods = ref([])
+const derivedMethods = computed(() => {
+  const p = detail.value?.product
+  return Array.isArray(p?.derived_methods) ? p.derived_methods : []
+})
+const derivedMethodIds = computed(() => {
+  const ids = new Set()
+  for (const m of derivedMethods.value) {
+    const id = Number(m.method_id ?? m.id)
+    if (!Number.isNaN(id)) ids.add(id)
+  }
+  for (const m of relatedMethods.value) {
+    const id = Number(m.method_id)
+    if (!Number.isNaN(id)) ids.add(id)
+  }
+  return ids
+})
+/* 方法展示列表 = compatibility.methods ∪ derived 方法（PMR 边），按 method id 去重；
+ * derived 方法带 isDerived 标记供模板渲染「derived / 派生」透明来源标签。 */
+const displayMethods = computed(() => {
+  const seen = new Set()
+  const list = []
+  for (const m of methods.value) {
+    const key = Number(m.id)
+    if (Number.isNaN(key) || seen.has(key)) continue
+    seen.add(key)
+    list.push({ ...m, isDerived: derivedMethodIds.value.has(key) })
+  }
+  const extra = [...derivedMethods.value, ...relatedMethods.value]
+  for (const m of extra) {
+    const key = Number(m.method_id ?? m.id)
+    if (Number.isNaN(key) || seen.has(key)) continue
+    seen.add(key)
+    list.push({
+      id: key,
+      name: m.name || m.method_name,
+      slug: m.slug || m.method_slug,
+      purpose: m.purpose,
+      isDerived: true,
+    })
+  }
+  return list
+})
+
 /* ── Knowledge Tabs ── */
 const activeTab = ref('')
 const availableTabs = computed(() => {
   const tabs = []
   if (applications.value.length) tabs.push({ key: 'applications', label: 'Applications' })
-  if (methods.value.length || verifiedMethods.value.length) tabs.push({ key: 'methods', label: 'Methods' })
+  if (displayMethods.value.length || verifiedMethods.value.length) tabs.push({ key: 'methods', label: 'Methods' })
   if (protocols.value.length) tabs.push({ key: 'protocols', label: 'Protocols' })
   if (references.value.length) tabs.push({ key: 'references', label: 'References' })
   if (faq.value.length) tabs.push({ key: 'faq', label: 'FAQ' })
@@ -224,6 +275,7 @@ async function loadVerifiedMethods() {
   try {
     const data = await bridgesApi.getProductMethods(id)
     verifiedMethods.value = (data && data.verified_methods) || []
+    relatedMethods.value = (data && data.related_methods) || []
   } catch (e) {
     console.error('Failed to load verified methods', e)
     verifiedMethods.value = []
@@ -685,7 +737,7 @@ function onSearch(query) {
         <ExpandableSection
           v-if="activeTab === 'methods'"
           title=""
-          :items="methods"
+          :items="displayMethods"
           :default-show="DEFAULT_SHOW"
           item-type="method"
           fallback-msg="Method associations are being mapped for this product."
@@ -698,7 +750,10 @@ function onSearch(query) {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
               </div>
               <div class="pd-card-body">
-                <h3 class="pd-card-title">{{ item.name }}</h3>
+                <h3 class="pd-card-title">
+                  {{ item.name }}
+                  <span v-if="item.isDerived" class="pd-source-tag">derived / 派生</span>
+                </h3>
                 <p v-if="item.purpose" class="pd-card-desc">{{ item.purpose }}</p>
               </div>
               <span class="pd-card-arrow">&rarr;</span>
@@ -1268,6 +1323,22 @@ function onSearch(query) {
 .pd-card-desc { font-size: 12px; color: var(--color-text-secondary); margin: 2px 0 0; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pd-card-meta { font-size: 11px; color: var(--color-text-tertiary); }
 .pd-card-arrow { font-size: 16px; color: var(--color-text-tertiary); flex-shrink: 0; }
+
+/* ── derived 方法透明来源标签（P0#3 方案A） ── */
+.pd-source-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #F1F5F9;
+  color: #475569;
+  border: 1px solid #E2E8F0;
+  vertical-align: middle;
+  margin-left: 6px;
+  letter-spacing: 0.02em;
+}
 
 /* ── References ── */
 .pd-refs-list { display: flex; flex-direction: column; gap: 8px; }
