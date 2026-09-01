@@ -57,6 +57,9 @@ async function apiLogin(page) {
   expect(token).toBeTruthy()
   await page.evaluate((t) => {
     localStorage.setItem('token', t)
+    // 对齐 stores/auth.js 的 cachedIsStaff 机制：守卫（requiresAdmin）依赖同步可读的
+    // is_staff 标记，仅 set token 会被判定为非 staff 而重定向回首页 → .product-edit 永不出现。
+    localStorage.setItem('is_staff', 'true')
   }, token)
   return token
 }
@@ -104,11 +107,20 @@ test.describe('白屏 Bug 修复回归验证', () => {
     const editHtml = await editEl.innerHTML()
     expect(editHtml.length).toBeGreaterThan(0)
 
-    // 断言：结构式编辑器（KetcherEditor 替代）正常渲染
-    const ketcherWrapper = page.locator('.ketcher-wrapper')
-    await expect(ketcherWrapper).toBeVisible()
+    // 断言：KetcherEditor 已移除——原 "Open Structure Editor" 入口按钮不再存在
+    // （白屏修复的核心：KetcherEditor 从 ProductEditPage 移除，改由 StructureViewer 替代）
+    const ketcherBtn = page.locator('button:has-text("Open Structure Editor")')
+    await expect(ketcherBtn).toHaveCount(0)
+    // 断言：StructureViewer（分子预览）正常挂载——.chem-preview 存在。
+    // 注意：新建页 SMILES 为空，StructureViewer 显示 placeholder 空态而非 SVG
+    //（StructureViewer.vue:57-59 空 SMILES 直接 return，:112 渲染 .structure-placeholder）；
+    // 只有输入 SMILES 后才会渲染 svg/img。故断言"非空内容"（placeholder 或 SVG 二选一）。
+    const chemPreview = page.locator('.chem-preview')
+    await expect(chemPreview).toBeVisible()
+    const viewerContent = chemPreview.locator('.structure-placeholder, .structure-svg svg, .structure-svg img').first()
+    await expect(viewerContent).toBeVisible({ timeout: 10000 })
 
-    console.log('REPORT[A1]: 新建产品页通过 — 非白屏，KetcherEditor 渲染正常，console 无错误')
+    console.log('REPORT[A1]: 新建产品页通过 — 非白屏，KetcherEditor 已移除，StructureViewer 渲染正常，console 无错误')
   })
 
   test('A2. 编辑产品页 /workspace/products/:id/edit 正常渲染（含 compliance）', async ({ page }) => {
