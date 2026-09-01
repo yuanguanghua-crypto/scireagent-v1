@@ -70,6 +70,18 @@ def build_prompt(name, objective, principle, reagents):
     )
 
 
+def _strip_fence(text):
+    """防御：去掉 ``` 围栏（纯文本任务兜底清理）。"""
+    if not text.startswith('```'):
+        return text
+    lines = text.splitlines()
+    if lines and lines[0].startswith('```'):
+        lines = lines[1:]
+    if lines and lines[-1].strip() == '```':
+        lines = lines[:-1]
+    return '\n'.join(lines).strip()
+
+
 def parse_llm_json(content):
     """LLM 输出 → dict。容错 markdown 围栏；非法 JSON 抛 ValueError。"""
     text = (content or '').strip()
@@ -155,3 +167,51 @@ class LLMExtractor:
         except (KeyError, IndexError, TypeError):
             raise ValueError(f'LLM 响应结构异常: {str(body)[:200]}')
         return parse_llm_json(content)
+
+    def chat(self, system_prompt, user_prompt, temperature=0):
+        """通用 chat 调用：自定义 system prompt，返回剥离围栏后的纯文本。
+
+        与 extract_topchain 共享瞬态错误重试姿势（2s/4s/8s 指数退避）。
+        供 summary 生成等「自定义 system prompt + 纯文本返回」的任务复用
+        （summary_pilot.call_chat 的正式化版本）。无 key 抛 LLMNotConfigured。
+        """
+        if not self.is_available:
+            raise LLMNotConfigured(
+                f'{ENV_KEY} 未配置——LLM chat 不可用。'
+                '提供 key 后自动恢复（可后期变更，零代码改动）。'
+            )
+        payload = {
+            'model': self.model,
+            'messages': [
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user', 'content': user_prompt},
+            ],
+            'temperature': temperature,
+        }
+        last_err = None
+        for attempt in range(self.RETRIES + 1):
+            try:
+                req = urllib.request.Request(
+                    f'{self.base_url}/chat/completions',
+                    data=json.dumps(payload).encode('utf-8'),
+                    headers={
+                        'Content-Type': 'application/json',
+                        'Authorization': f'Bearer {self.api_key}',
+                    },
+                    method='POST',
+                )
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    body = json.loads(resp.read().decode('utf-8'))
+                break
+            except (TimeoutError, urllib.error.URLError, OSError,
+                    http.client.IncompleteRead, http.client.HTTPException) as e:
+                last_err = e
+                if attempt < self.RETRIES:
+                    time.sleep(2 * (attempt + 1))  # 2s, 4s, 8s 退避
+        else:
+            raise last_err
+        try:
+            content = body['choices'][0]['message']['content']
+        except (KeyError, IndexError, TypeError):
+            raise ValueError(f'LLM 响应结构异常: {str(body)[:200]}')
+        return _strip_fence(content or '')
