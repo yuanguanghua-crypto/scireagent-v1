@@ -320,11 +320,22 @@ class ProtocolDetailSerializer(BaseModelSerializer):
         return list(Reference.objects.filter(q).values('id', 'title', 'journal', 'year', 'doi'))
 
     def get_products(self, obj):
-        from apps.bridges.models import ProductMethod, MethodProtocol
+        from apps.bridges.models import ProductMethod, MethodProtocol, ProductProtocol
         from apps.commerce.models import Product
+        # 方案 Y（缺口 Y）：优先 ProductProtocol 直接表（P0#3 同源），旧桥仅兜底。
+        product_ids = set(
+            ProductProtocol.objects.filter(protocol=obj).values_list('product_id', flat=True)
+        )
         method_ids = MethodProtocol.objects.filter(protocol=obj).values_list('method_id', flat=True)
-        product_ids = ProductMethod.objects.filter(method_id__in=list(method_ids)).values_list('product_id', flat=True).distinct()
-        return list(Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value).values('id', 'name', 'slug', 'catalog_no'))
+        if method_ids:
+            product_ids |= set(
+                ProductMethod.objects.filter(method_id__in=list(method_ids))
+                .values_list('product_id', flat=True)
+            )
+        return list(
+            Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value)
+            .values('id', 'name', 'slug', 'catalog_no')
+        )
 
     def get_methods(self, obj):
         """#494 route B：协议关联方法经 MethodProtocol 桥多对多返回（只读）。

@@ -8,7 +8,7 @@ from apps.knowledge.tests.factories import (
     ResearchGoalFactory, ApplicationFactory, MethodFactory,
     ProtocolFactory, ProtocolStepFactory, ReferenceFactory, CompatibilityFactory
 )
-from apps.bridges.tests.factories import ProductMethodFactory, MethodProtocolFactory
+from apps.bridges.tests.factories import ProductMethodFactory, MethodProtocolFactory, ProductProtocolFactory
 from apps.commerce.tests.factories import ProductFactory
 from apps.bridges.models import MethodProtocol
 import factory
@@ -222,6 +222,16 @@ class ProtocolDetailSerializerTest(TestCase):
         serializer = ProtocolDetailSerializer(protocol)
         product_ids = [p['id'] for p in serializer.data['products']]
         self.assertIn(pm.product_id, product_ids)
+
+    def test_product_ids_from_product_protocol(self):
+        # 缺口 Y：协议详情 products 须读 ProductProtocol 直接表（P0#3 同源），
+        # 而非仅读 ProductMethod 旧桥（生产实测协议 328：直接表 98 关联 vs 旧桥 0）。
+        protocol = ProtocolFactory()
+        product = ProductFactory()
+        ProductProtocolFactory(protocol=protocol, product=product)
+        serializer = ProtocolDetailSerializer(protocol)
+        product_ids = [p['id'] for p in serializer.data['products']]
+        self.assertIn(product.id, product_ids)
 
     def test_reference_ids_from_doi(self):
         from apps.knowledge.models import Reference
