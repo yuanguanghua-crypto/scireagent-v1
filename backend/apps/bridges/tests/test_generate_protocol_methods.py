@@ -235,3 +235,26 @@ class TestCheckpointAndErrors:
         out = str(tmp_path / 't3_idem.jsonl')
         _run(out=out, checkpoint=str(tmp_path / 't3_idem_ckpt.json'), extractor=fake, apply=True)
         assert MethodProtocol.objects.filter(protocol=proto).count() == 1
+
+    def test_duplicate_method_names_do_not_crash(self, tmp_path):
+        """同名 Method 多条 → apply_row 不崩（取其一建桥）。
+
+        实证背景：Method 表 21,302 行 / 仅 1,742 个唯一名（T2 为每个 AP 各建一条，
+        平均每个方法名 12 条记录）。原 apply_row 用 Method.objects.get(name=...)
+        → MultipleObjectsReturned（非 DoesNotExist，except 捕获不到）→ 批跑直接崩。
+        """
+        from apps.bridges.services.protocol_method_generator import ProtocolMethodGenerator
+        proto = ProtocolFactory(
+            name='qPCR Quantification Protocol',
+            status=Protocol.PublicationStatus.PUBLISHED,
+        )
+        MethodFactory(name='Real-Time Quantitative PCR (qPCR)')
+        MethodFactory(name='Real-Time Quantitative PCR (qPCR)')  # 同名第二条
+        assert Method.objects.filter(name='Real-Time Quantitative PCR (qPCR)').count() == 2
+        gen = ProtocolMethodGenerator(extractor=FakeExtractor())
+        row = {
+            'protocol_id': proto.id,
+            'method_names': ['Real-Time Quantitative PCR (qPCR)'],
+        }
+        assert gen.apply_row(row) == 1
+        assert MethodProtocol.objects.filter(protocol=proto).count() == 1

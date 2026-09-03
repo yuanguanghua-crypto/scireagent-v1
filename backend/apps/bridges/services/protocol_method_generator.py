@@ -196,12 +196,15 @@ class ProtocolMethodGenerator:
         protocol = Protocol.objects.get(pk=pid)
         objs = []
         for order, name in enumerate(row['method_names']):
-            try:
-                method = Method.objects.get(
-                    name=name,
-                    status__in=[Method.Status.DRAFT, Method.Status.ACTIVE],
-                )
-            except Method.DoesNotExist:
+            # 同名 Method 可能有多条（T2 为每个 AP 各建一条：实测 21,302 行 /
+            # 1,742 个唯一名）。用 filter().first() 而非 get()，否则
+            # MultipleObjectsReturned 会让整批崩溃（且它不被 DoesNotExist 捕获）。
+            # 取 id 最小的一条：同名方法指向同一实验方法，桥的语义等价。
+            method = Method.objects.filter(
+                name=name,
+                status__in=[Method.Status.DRAFT, Method.Status.ACTIVE],
+            ).order_by('id').first()
+            if method is None:
                 continue  # 词表已变（如归档）→ 宁 miss
             objs.append(MethodProtocol(
                 method=method, protocol=protocol,

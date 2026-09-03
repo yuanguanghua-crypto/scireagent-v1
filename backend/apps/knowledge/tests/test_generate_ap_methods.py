@@ -185,3 +185,55 @@ def test_run_twice_is_idempotent(fake_extractor, ap, out_dir):
     assert len(fake_extractor.calls) == calls_after_first  # 无新增 LLM 调用
     assert Method.objects.count() == 2  # 无重复创建
     assert len(_load_jsonl(out)) == 1   # JSONL 不重复
+
+
+# --------------------------------------------------------------------------- #
+# 方案 B：词表召回（prompt 瘦身）+ error 不进 checkpoint（T2 缺陷修复）
+# --------------------------------------------------------------------------- #
+class FailingExtractor:
+    """恒定抛错的 extractor（模拟 402/429 批量失败）。"""
+    model = 'fake-model'
+    is_available = True
+
+    def chat(self, system_prompt, user_prompt, temperature=0):
+        raise RuntimeError('HTTP 402: Payment Required')
+
+
+def test_recall_limits_prompt_to_candidates(fake_extractor):
+    """方案 B 核心：prompt 只带召回候选（≤TOP_K），不再塞全量词表。
+
+    背景：词表已 21,302 条，全量塞入 = 单次 ~16.9 万 tokens，是成本失控根因。
+    """
+    Method.objects.create(name='PCR')          # 与 AP 名相关 → 应被召回
+    for i in range(80):                        # 撑大词表（无关方法）
+        Method.objects.create(name=f'Unrelated Method {i}')
+    ap = ApplicationFactory(
+        name='PCR Amplification Application', summary='',
+        status=Application.Status.ACTIVE, research_goal=None,
+    )
+    gen = _make_generator(fake_extractor)
+    item = gen.build_item(ap)
+    cands = item['candidates']
+    assert len(Method.objects.all()) > 50          # 词表确实很大
+    assert len(cands) <= 50                        # 候选被截断到 TOP_K
+    assert 'PCR' in cands                          # 相关方法被召回
+    # prompt 只列候选，不列全量词表
+    sp = gen.system_prompt(cands)
+    listed = [ln for ln in sp.splitlines() if ln.startswith('- ')]
+    assert len(listed) <= 50
+    assert '- Unrelated Method 79' not in sp       # 无关词表项不再进 prompt
+
+
+def test_error_row_not_in_checkpoint_done(ap, out_dir):
+    """T2 缺陷修复：error 行不进 checkpoint done → 重启自动重跑。
+
+    原缺陷：generate_ap_methods 无条件 done.add() → 19,720 条 402 失败
+    被永久跳过，形成 69% 静默数据缺口（T3 创建时已修正，T2 补修）。
+    """
+    out = os.path.join(out_dir, 'ap_err.jsonl')
+    ckpt = os.path.join(out_dir, 'ckpt_err.json')
+    _run(FailingExtractor(), out, checkpoint=ckpt)
+    rows = _load_jsonl(out)
+    assert len(rows) == 1 and rows[0]['error']      # 失败行照常写 JSONL
+    done = json.load(open(ckpt, encoding='utf-8'))['done']
+    assert done == []                               # 但不进 done → 重启重跑

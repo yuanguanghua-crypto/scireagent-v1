@@ -109,7 +109,11 @@ class Command(BaseCommand):
             chunk = items[i:i + CHUNK_SIZE]
             rows = self._run_chunk(gen, chunk, workers)
             for row in rows:
-                done.add(f'application:{row["ap_id"]}')
+                # T2 缺陷修复（2026-09-03）：error 行（402/429/空响应）不进 done。
+                # 原实现无条件 done.add() → 19,720 条失败被永久跳过，
+                # 形成 69% 静默数据缺口。现与 T3 一致：失败即重跑。
+                if not row['error']:
+                    done.add(f'application:{row["ap_id"]}')
                 self._append_jsonl(out_path, json.dumps(row, ensure_ascii=False),
                                    append=append_mode or rows_written > 0)
                 rows_written += 1
