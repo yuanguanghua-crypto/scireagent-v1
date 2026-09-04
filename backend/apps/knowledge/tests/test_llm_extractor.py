@@ -166,3 +166,67 @@ class _FakeResp:
 
     def __exit__(self, *exc):
         return False
+
+
+class TestThinkingMode:
+    """思考模式治理（2026-09-04 成本事故修复）。
+
+    根因：deepseek-v4-flash **默认开启思考模式且 effort=high**
+    （官方文档：思考模式开关，默认 enabled / effort 默认 high）。思维链输出
+    按 ¥9/百万（高峰）计费，占单次成本约 80% —— 这是 T2 实测单价
+    （¥0.0116/次）比按 prompt 体量推算（¥0.0008/次）高 14 倍的原因。
+
+    T2/T3/summary 均为抽取生成类任务，不需要深度推理 → chat() 默认关闭思考模式。
+    另：官方文档明确「思考模式不支持 temperature 参数」——关闭后 temperature=0
+    才真正生效，抽取确定性更强（对"宁 miss 不错配"是正向收益）。
+
+    extract_topchain 保持原行为不动（已通过 T4 验收，改它会影响已验证准确性）。
+    """
+
+    @staticmethod
+    def _spy(monkeypatch, captured, content='{"methods": []}'):
+        def spy(req, timeout):
+            captured['payload'] = json.loads(req.data.decode('utf-8'))
+            return _FakeResp(json.dumps(
+                {'choices': [{'message': {'content': content}}]}
+            ))
+        monkeypatch.setattr('urllib.request.urlopen', spy)
+
+    def test_chat_default_disables_thinking(self, monkeypatch):
+        captured = {}
+        self._spy(monkeypatch, captured)
+        ex = LLMExtractor(api_key='sk-test', base_url='https://x/v1', model='m')
+        ex.chat('sys prompt', 'user prompt')
+        assert captured['payload'].get('thinking') == {'type': 'disabled'}, (
+            'chat() 默认必须关闭思考模式——deepseek-v4-flash 默认 effort=high，'
+            '思维链输出按 ¥9/百万计费，是 T2 成本失控根因'
+        )
+
+    def test_chat_can_enable_thinking_when_asked(self, monkeypatch):
+        captured = {}
+        self._spy(monkeypatch, captured)
+        ex = LLMExtractor(api_key='sk-test', base_url='https://x/v1', model='m')
+        ex.chat('sys', 'user', thinking='enabled')
+        assert captured['payload'].get('thinking') == {'type': 'enabled'}
+
+    def test_chat_keeps_temperature(self, monkeypatch):
+        captured = {}
+        self._spy(monkeypatch, captured)
+        ex = LLMExtractor(api_key='sk-test', base_url='https://x/v1', model='m')
+        ex.chat('sys', 'user', temperature=0)
+        assert captured['payload']['temperature'] == 0
+
+    def test_extract_topchain_behavior_unchanged(self, monkeypatch):
+        """回归保护：顶部链提取不加 thinking 字段（保持 T4 验收时行为）。"""
+        captured = {}
+        inner = {'research_goals': [], 'applications': []}
+
+        def spy(req, timeout):
+            captured['payload'] = json.loads(req.data.decode('utf-8'))
+            return _FakeResp(json.dumps(
+                {'choices': [{'message': {'content': json.dumps(inner)}}]}
+            ))
+        monkeypatch.setattr('urllib.request.urlopen', spy)
+        ex = LLMExtractor(api_key='sk-test')
+        ex.extract_topchain('protocol text')
+        assert 'thinking' not in captured['payload']

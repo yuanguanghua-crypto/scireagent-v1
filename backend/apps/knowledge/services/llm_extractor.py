@@ -168,12 +168,26 @@ class LLMExtractor:
             raise ValueError(f'LLM 响应结构异常: {str(body)[:200]}')
         return parse_llm_json(content)
 
-    def chat(self, system_prompt, user_prompt, temperature=0):
+    def chat(self, system_prompt, user_prompt, temperature=0, thinking='disabled'):
         """通用 chat 调用：自定义 system prompt，返回剥离围栏后的纯文本。
 
         与 extract_topchain 共享瞬态错误重试姿势（2s/4s/8s 指数退避）。
         供 summary 生成等「自定义 system prompt + 纯文本返回」的任务复用
         （summary_pilot.call_chat 的正式化版本）。无 key 抛 LLMNotConfigured。
+
+        thinking（2026-09-04 成本事故修复）：deepseek-v4-flash **默认开启思考
+        模式且 effort=high**（官方文档「思考模式开关」：默认 enabled，effort 默认
+        high）。思维链通过 reasoning_content 输出并按 **¥9/百万（高峰时段）** 计费
+        ——实测占单次成本约 80%，是 T2 单价（¥0.0116/次）比按 prompt 体量推算
+        （¥0.0008/次）高 14 倍的根因。
+
+        故 chat() **默认关闭思考模式**（`{'thinking': {'type': 'disabled'}}`）：
+        T2/T3/summary 均为抽取生成类任务，不需要深度推理。附带收益——官方明确
+        「思考模式不支持 temperature 参数」，关闭后 temperature=0 才真正生效，
+        抽取确定性更强（对「宁 miss 不错配」是正向的）。
+
+        调用方若确需推理（如复杂抽取），显式传 thinking='enabled' 即可。
+        extract_topchain 未走本方法，保持原行为（已通过 T4 验收）。
         """
         if not self.is_available:
             raise LLMNotConfigured(
@@ -187,6 +201,7 @@ class LLMExtractor:
                 {'role': 'user', 'content': user_prompt},
             ],
             'temperature': temperature,
+            'thinking': {'type': thinking},
         }
         last_err = None
         for attempt in range(self.RETRIES + 1):
