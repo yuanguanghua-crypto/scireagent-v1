@@ -188,7 +188,7 @@ def test_run_twice_is_idempotent(fake_extractor, ap, out_dir):
 
 
 # --------------------------------------------------------------------------- #
-# 方案 B：词表召回（prompt 瘦身）+ error 不进 checkpoint（T2 缺陷修复）
+# 方案 B（最终）：全词表固定前缀 + error 不进 checkpoint（T2 缺陷修复）
 # --------------------------------------------------------------------------- #
 class FailingExtractor:
     """恒定抛错的 extractor（模拟 402/429 批量失败）。"""
@@ -199,29 +199,28 @@ class FailingExtractor:
         raise RuntimeError('HTTP 402: Payment Required')
 
 
-def test_recall_limits_prompt_to_candidates(fake_extractor):
-    """方案 B 核心：prompt 只带召回候选（≤TOP_K），不再塞全量词表。
+def test_system_prompt_full_lexicon_fixed_prefix(fake_extractor):
+    """方案 B（最终）：system_prompt 把完整词表作固定前缀，逐字节稳定可吃缓存。
 
-    背景：词表已 21,302 条，全量塞入 = 单次 ~16.9 万 tokens，是成本失控根因。
+    质量优先：不再召回 top-50 候选（实测 top-50 召回率仅 93%、产出通用聚类名；
+    全词表召回率 100%、产出领域真实方法名）。吃缓存前提 = 整个跑批期间逐字节不变。
     """
-    Method.objects.create(name='PCR')          # 与 AP 名相关 → 应被召回
-    for i in range(80):                        # 撑大词表（无关方法）
+    Method.objects.create(name='PCR')
+    for i in range(80):                            # 撑大词表（无关方法）
         Method.objects.create(name=f'Unrelated Method {i}')
-    ap = ApplicationFactory(
-        name='PCR Amplification Application', summary='',
-        status=Application.Status.ACTIVE, research_goal=None,
-    )
     gen = _make_generator(fake_extractor)
-    item = gen.build_item(ap)
-    cands = item['candidates']
-    assert len(Method.objects.all()) > 50          # 词表确实很大
-    assert len(cands) <= 50                        # 候选被截断到 TOP_K
-    assert 'PCR' in cands                          # 相关方法被召回
-    # prompt 只列候选，不列全量词表
-    sp = gen.system_prompt(cands)
-    listed = [ln for ln in sp.splitlines() if ln.startswith('- ')]
-    assert len(listed) <= 50
-    assert '- Unrelated Method 79' not in sp       # 无关词表项不再进 prompt
+    sp1 = gen.system_prompt()
+    sp2 = gen.system_prompt()
+    assert sp1 is sp2                             # 实例级缓存命中
+    # 词表项在 "Candidate method names" 标记之后，逐行 `- <name>` 列出
+    marker = 'Candidate method names'
+    method_lines = [ln for ln in sp1[sp1.index(marker):].splitlines()
+                    if ln.startswith('- ')]
+    assert len(method_lines) == 81                # 完整词表全部列出（1 PCR + 80）
+    assert '- PCR' in sp1
+    assert '- Unrelated Method 79' in sp1         # 不再截断/省略
+    # 固定前缀契约：指令部分在前、词表在末尾
+    assert sp1.index(marker) < sp1.index('- PCR')
 
 
 def test_error_row_not_in_checkpoint_done(ap, out_dir):
