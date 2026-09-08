@@ -33,6 +33,11 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from apps.knowledge.models import Protocol, ProtocolStep
+from apps.knowledge.services.protocol_steps_parser import (
+    parse_hierarchical_protocol,
+    natural_key,
+    _clean_title,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -108,7 +113,8 @@ class ParseHierarchicalProtocolTest(TestCase):
         }
         steps = parse_hierarchical_protocol(hp)
         self.assertEqual(len(steps), 1)
-        self.assertEqual(steps[0]['title'], '')
+        # 瑕疵2：无祖先标题时回退为 body 前 60 字符
+        self.assertEqual(steps[0]['title'], 'leaf with no ancestor title')
 
     def test_skips_empty_or_whitespace_body(self):
         from apps.knowledge.services.protocol_steps_parser import parse_hierarchical_protocol
@@ -150,13 +156,51 @@ class ParseHierarchicalProtocolTest(TestCase):
         steps = parse_hierarchical_protocol(hp)
         self.assertEqual(len(steps), 1)
         self.assertEqual(steps[0]['body'], 'leaf under untitled section')
-        self.assertEqual(steps[0]['title'], '')
+        # 瑕疵2：无章节标题时回退为 body 前 60 字符（此处即整段 body）
+        self.assertEqual(steps[0]['title'], 'leaf under untitled section')
 
     def test_natural_key_sort_function(self):
         from apps.knowledge.services.protocol_steps_parser import natural_key
         keys = ['1.10', '1.2', '10.1', '2.1', '1.1']
         self.assertEqual(sorted(keys, key=natural_key),
                          ['1.1', '1.2', '1.10', '2.1', '10.1'])
+
+    # ---- 瑕疵1/2：标题清洗 + 空标题回退 ----
+
+    def test_clean_title_strips_full_html_tags(self):
+        self.assertEqual(_clean_title('<strong>Fixation</strong>'), 'Fixation')
+
+    def test_clean_title_missing_left_bracket(self):
+        # 上游吃掉了左尖括号：<strong> -> strong>，</strong> -> </strong
+        self.assertEqual(_clean_title('strong>Fixation</strong'), 'Fixation')
+
+    def test_clean_title_html_entity_unescape(self):
+        self.assertEqual(_clean_title('&amp; Wash'), '& Wash')
+
+    def test_clean_title_normal_title_unchanged(self):
+        # 正常标题不含 < > 与标签名，必须原样保留，不能被正则吃掉
+        self.assertEqual(_clean_title('Lung section preparation'), 'Lung section preparation')
+        self.assertEqual(
+            _clean_title('Labeling of Tissue Sections with barcode conjugated Ab or un'),
+            'Labeling of Tissue Sections with barcode conjugated Ab or un',
+        )
+
+    def test_clean_title_known_tag_name_residue(self):
+        # 双尖括号都被吃、只剩行首标签名 + 空格
+        self.assertEqual(_clean_title('strong Fixation step'), 'Fixation step')
+
+    def test_empty_title_falls_back_to_body_first60(self):
+        hp = {'1.1': 'short body text'}
+        steps = parse_hierarchical_protocol(hp)
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]['title'], 'short body text')
+
+    def test_empty_title_falls_back_to_body_truncates_long(self):
+        hp = {'1.1': 'x' * 200}
+        steps = parse_hierarchical_protocol(hp)
+        self.assertEqual(len(steps), 1)
+        self.assertEqual(steps[0]['title'], 'x' * 60)
+        self.assertLessEqual(len(steps[0]['title']), 60)
 
 
 # ---------------------------------------------------------------------------

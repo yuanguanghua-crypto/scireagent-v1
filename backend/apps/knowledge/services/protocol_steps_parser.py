@@ -22,9 +22,36 @@ hierarchical_protocol 结构（实测样本）：
 
 输出：list[{'step_no','title','body'}]，step_no 从 1 连续编号。
 """
+import html
+import re
 from typing import Any, Dict, List
 
 TITLE_MAX = 255
+
+# 已知 HTML 标签名（仅用于清理被上游吃掉尖括号后的残片，避免误伤正常英文词）
+_KNOWN_TAGS = r'strong|em|b|i|u|br|p|div|span|table|tr|td|th|ul|ol|li|h[1-6]|a|img|sup|sub|small|code|pre'
+_TAG_RE = re.compile(r'<[^>]*>')                 # 完整标签 <...>
+_FRAG_LT_RE = re.compile(r'</?[a-zA-Z][\w]*')     # 左尖括号在、右尖括号被吃：<strong / </strong
+_FRAG_GT_RE = re.compile(r'/?[a-zA-Z][\w]*>')     # 右尖括号在、左尖括号被吃：strong> / /strong>
+_FRAG_START_RE = re.compile(r'^/?(' + _KNOWN_TAGS + r')\b')  # 行首紧贴内容的标签名残片
+
+
+def _clean_title(s: str) -> str:
+    """清洗章节标题：去 HTML 标签/残片、还原实体、压缩空白。
+
+    上游清洗吃掉了左尖括号，残留形如 `strong>`、`</strong`、`/strong>`；也可能残留
+    完整标签 `<strong>...</strong>` 或 HTML 实体 `&amp;`。正常标题（如
+    `Lung section preparation`）不含 `<`/`>` 与标签名，应原样保留。清洗后为空返回 ''。
+    """
+    if not s:
+        return ''
+    s = html.unescape(s)                       # &amp; -> &, &lt; -> <
+    s = _TAG_RE.sub('', s)                     # 完整标签 <...>
+    s = _FRAG_LT_RE.sub('', s)                 # <strong / </strong（右>被吃）
+    s = _FRAG_GT_RE.sub('', s)                 # strong> / /strong>（左<被吃）
+    s = _FRAG_START_RE.sub('', s)              # 行首标签名残片（强/斜体等）
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s
 
 
 def natural_key(key: Any):
@@ -43,9 +70,9 @@ def natural_key(key: Any):
 
 
 def _section_title(val: Any) -> str:
-    """从章节 dict 中提取 title（去首尾空白）；非 dict 或缺失则返回空串。"""
+    """从章节 dict 中提取 title（清洗 HTML 残片 + 去首尾空白）；非 dict 或缺失则返回空串。"""
     if isinstance(val, dict):
-        return (val.get('title') or '').strip()
+        return _clean_title((val.get('title') or '').strip())
     return ''
 
 
@@ -91,6 +118,9 @@ def parse_hierarchical_protocol(hp: Any) -> List[Dict[str, Any]]:
             # 空 / 纯空白正文跳过
             continue
         title = _inherited_title(key_s, section_titles)
+        # 瑕疵2：无父级章节标题时，回退取 body 前 60 字符（截取自身正文，非编造）
+        if not title:
+            title = body[:60].strip()
         if len(title) > TITLE_MAX:
             title = title[:TITLE_MAX]
         step_no += 1
