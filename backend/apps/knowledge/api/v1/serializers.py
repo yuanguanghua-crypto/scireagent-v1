@@ -193,9 +193,29 @@ class ApplicationDetailSerializer(ApplicationGoalSyncMixin, BaseModelSerializer)
                   'methods', 'protocols', 'products', 'created_at', 'updated_at']
 
     def get_methods(self, obj):
-        # P0/D1-甲：AP 详情方法区只展示 active（draft 完全隐藏，方案 A——66k draft
-        # 不进展示面）。staff 查看 draft 走 /methods/ 端点，不在展示面放行。
-        return list(obj.methods.filter(status='active').values('id', 'name', 'slug'))
+        # P1-1 canonical 收敛：AP 关联的方法里，active 直接输出；draft（T2 补链遗留）
+        # 按名字解析为 canonical（status='active', application=None）实体输出 id/slug，
+        # 恢复 P0 后骤降的覆盖率，同时不把 47k draft 行放进展示面。
+        # 按名字去重（同 AP 下同名 active/draft 只出一个）。
+        from apps.knowledge.services.canonical_methods import canonical_by_name
+        methods = list(obj.methods.all())
+        if not methods:
+            return []
+        canonical = canonical_by_name({m.name for m in methods})
+        out, seen = [], set()
+        for m in methods:
+            if m.status == 'active':
+                triple = {'id': m.id, 'name': m.name, 'slug': m.slug}
+            else:
+                c = canonical.get(m.name)
+                if c is None:
+                    continue  # 噪音名（无 canonical）宁 miss 不错配
+                triple = c
+            if triple['name'] in seen:
+                continue
+            seen.add(triple['name'])
+            out.append(triple)
+        return out
 
     def get_protocols(self, obj):
         from apps.bridges.models import MethodProtocol
@@ -352,6 +372,7 @@ class ProtocolDetailSerializer(BaseModelSerializer):
         from django.db.models import Prefetch
         from apps.bridges.models import MethodProtocol
         from apps.knowledge.models import ResearchGoal
+        from apps.knowledge.services.canonical_methods import canonical_by_name
         rows = (
             MethodProtocol.objects.filter(protocol=obj, status='active')
             .select_related('method__application')
@@ -363,14 +384,34 @@ class ProtocolDetailSerializer(BaseModelSerializer):
             )
             .order_by('display_order', 'method_id')
         )
-        out = []
+        # P1-1：draft method 桥按名字解析 canonical，用 canonical 的 id/slug 输出，
+        # 但 application 上溯仍用原 mp.method.application（canonical.application=None）。
+        # 按 canonical 名去重（多个同名 draft 只出一个）。
+        canonical = canonical_by_name({mp.method.name for mp in rows if mp.method})
+        out, seen = [], set()
         for mp in rows:
-            application = mp.method.application
+            method = mp.method
+            if method is None:
+                continue
+            if method.status == 'active':
+                out_id, out_name, out_slug = method.id, method.name, method.slug
+            else:
+                c = canonical.get(method.name)
+                if c is None:
+                    # 无 canonical：协议侧不回归，仍直接展示原 draft method
+                    # （生产 build_canonical_methods 跑完后同名 draft 会落到 canonical）。
+                    out_id, out_name, out_slug = method.id, method.name, method.slug
+                else:
+                    if c['name'] in seen:
+                        continue  # 按 canonical 名去重（多个同名 draft 只出一个）
+                    seen.add(c['name'])
+                    out_id, out_name, out_slug = c['id'], c['name'], c['slug']
+            application = method.application
             if application is None:
                 out.append({
-                    'id': mp.method_id,
-                    'name': mp.method.name,
-                    'slug': mp.method.slug,
+                    'id': out_id,
+                    'name': out_name,
+                    'slug': out_slug,
                     'application_id': None,
                     'application_name': None,
                     'research_goal_id': None,
@@ -381,9 +422,9 @@ class ProtocolDetailSerializer(BaseModelSerializer):
             rgs = list(application.research_goal_collections.all())
             first = rgs[0] if rgs else None
             out.append({
-                'id': mp.method_id,
-                'name': mp.method.name,
-                'slug': mp.method.slug,
+                'id': out_id,
+                'name': out_name,
+                'slug': out_slug,
                 'application_id': application.id,
                 'application_name': application.name,
                 'research_goal_id': first.id if first else None,

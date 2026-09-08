@@ -126,15 +126,35 @@ def _protocol_neighbors(prid):
     protocol = Protocol.objects.filter(id=prid).first()
     if not protocol:
         return neighbors
-    for mp in protocol.method_protocols.filter(method__status='active').select_related('method'):
-        if mp.method:
-            neighbors.append({
-                'target_type': 'method',
-                'target_id': mp.method.id,
-                'target_label': mp.method.name,
-                'target_slug': mp.method.slug,
-                'relationship': 'belongs_to',
-            })
+    # P1-1：draft method 桥按名字解析 canonical，用 canonical 的 id/name/slug 输出，
+    # 恢复 P0 后图谱侧方法邻居覆盖率（无 application 上溯字段，较简单）。
+    from apps.knowledge.services.canonical_methods import canonical_by_name
+    rows = list(
+        protocol.method_protocols.filter(status='active').select_related('method')
+    )
+    canonical = canonical_by_name({mp.method.name for mp in rows if mp.method})
+    seen = set()
+    for mp in rows:
+        method = mp.method
+        if method is None:
+            continue
+        if method.status == 'active':
+            m_id, m_name, m_slug = method.id, method.name, method.slug
+        else:
+            c = canonical.get(method.name)
+            if c is None:
+                continue  # 噪音名不返回
+            if c['name'] in seen:
+                continue  # 按 canonical 名去重
+            seen.add(c['name'])
+            m_id, m_name, m_slug = c['id'], c['name'], c['slug']
+        neighbors.append({
+            'target_type': 'method',
+            'target_id': m_id,
+            'target_label': m_name,
+            'target_slug': m_slug,
+            'relationship': 'belongs_to',
+        })
     return neighbors
 
 
