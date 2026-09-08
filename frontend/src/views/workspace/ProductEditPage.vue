@@ -13,6 +13,7 @@ import StructureViewer from './components/StructureViewer.vue'
 
 import MultiSourceMatchSection from './components/MultiSourceMatchSection.vue'
 import BiozEvidenceSection from './components/BiozEvidenceSection.vue'
+import VerifiedApplicabilitySection from './components/VerifiedApplicabilitySection.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -1555,6 +1556,12 @@ watch(
         style="margin-top: 8px"
         @adopt="handleAdoptBiozRef"
         @adopt-all="handleAdoptAllBioz"
+      />
+      <!-- Verified Applicability 策展区块（P1-2：创建 verified 草稿入口） -->
+      <VerifiedApplicabilitySection
+        v-if="isEdit"
+        :product-id="productId"
+        style="margin-top: 8px"
       />
 
 

@@ -19,6 +19,12 @@ export function listVerified(params = {}) {
   return http.get('/verified/', { params }).then((r) => r.data)
 }
 
+// 创建 verified REVIEW 草稿（IsAuthenticated）。payload：
+// { product_id, method_id, evidence_type, evidence_reference, evidence_strength, evidence_note }
+export function createVerified(payload) {
+  return http.post('/verified/', payload).then((r) => r.data)
+}
+
 export function approveVerified(id) {
   return http.post(`/verified/${id}/approve/`, {}).then((r) => r.data)
 }

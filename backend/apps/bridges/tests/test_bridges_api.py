@@ -191,3 +191,40 @@ class BridgesApiTestCase(APITestCase):
         assert resp.status_code == 200
         pmr.refresh_from_db()
         assert pmr.status == 'rejected'
+
+    # ── approve 400：evidence 不全不得落半截 ACTIVE（PMR-01 硬约束）──
+    def test_approve_verified_incomplete_evidence_returns_400(self):
+        """ACTIVE verified 必须 evidence 三件套非空；缺 evidence_reference → 400 且不改状态。"""
+        pmr = ProductMethodRelationFactory(
+            product=self.product, method=self.method,
+            evidence_type='pubmed',
+            evidence_reference=None,  # 不完整
+            evidence_strength='high',
+        )
+        self.client.force_authenticate(self.staff)
+        resp = self.client.post(f'{self.base}/verified/{pmr.id}/approve/', {}, format='json')
+        assert resp.status_code == 400
+        assert resp.json()['meta']['error']['code'] == 'validation'
+        pmr.refresh_from_db()
+        assert pmr.status == 'review'  # 不落半截 ACTIVE
+
+    # ── create 400：重复 product+method 唯一约束冲突 ──
+    def test_create_verified_duplicate_returns_400(self):
+        """同一 product+method 已存在 verified → 第二次创建 400（code=unique_conflict）。"""
+        payload = {
+            'product_id': self.product.id, 'method_id': self.method.id,
+            'evidence_type': 'pubmed',
+            'evidence_reference': [{'type': 'PMID', 'value': '1'}],
+            'evidence_strength': 'high',
+        }
+        self.client.force_authenticate(self.user)
+        r1 = self.client.post(f'{self.base}/verified/', payload, format='json')
+        assert r1.status_code == 201
+        # 第一条已落库（验证用，避免在 400 后的 broken transaction 内再查 DB）
+        assert ProductMethodRelation.objects.filter(
+            product=self.product, method=self.method,
+            relation_type='verified_applicability',
+        ).count() == 1
+        r2 = self.client.post(f'{self.base}/verified/', payload, format='json')
+        assert r2.status_code == 400
+        assert r2.json()['meta']['error']['code'] == 'unique_conflict'
