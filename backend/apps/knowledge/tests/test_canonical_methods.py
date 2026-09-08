@@ -128,6 +128,29 @@ class ProtocolDetailCanonicalMethodsTests(TestCase):
         entry = next(e for e in result if e['name'] == 'qPCR')
         self.assertEqual(entry['id'], active.id)
 
+    def test_active_and_draft_same_name_deduped_to_one(self):
+        # 缺陷回归：协议同时关联 active 同名 Method（带 application，生产 10 个 active 之一形态）
+        # 和 draft 同名 Method（有 canonical）。canonical_by_name 只查 application=None 的
+        # active，所以 active 不会被当 canonical 返回 —— 两者并存，必须按输出名去重到一条。
+        rg = ResearchGoalFactory()
+        ap = ApplicationFactory()
+        ap.research_goal_collections.add(rg)
+
+        active = MethodFactory(application=ap, name='PCR', status='active')
+        draft = MethodFactory(application=ap, name='PCR', status='draft')
+        MethodFactory(name='PCR', status='active', application=None)  # canonical
+
+        protocol = ProtocolFactory()
+        MethodProtocol.objects.create(method=active, protocol=protocol, status='active')
+        MethodProtocol.objects.create(method=draft, protocol=protocol, status='active')
+
+        serializer = ProtocolDetailSerializer()
+        result = serializer.get_methods(protocol)
+        pcrs = [e for e in result if e['name'] == 'PCR']
+
+        self.assertEqual(len(pcrs), 1)  # 先到先得：active 先建（id 小）胜出
+        self.assertEqual(pcrs[0]['id'], active.id)
+
 
 class GraphProtocolNeighborsCanonicalTests(TestCase):
     """图谱 _protocol_neighbors：draft method 桥 → canonical id/name/slug。"""

@@ -386,7 +386,7 @@ class ProtocolDetailSerializer(BaseModelSerializer):
         )
         # P1-1：draft method 桥按名字解析 canonical，用 canonical 的 id/slug 输出，
         # 但 application 上溯仍用原 mp.method.application（canonical.application=None）。
-        # 按 canonical 名去重（多个同名 draft 只出一个）。
+        # 统一按最终输出名去重（逻辑见下方 seen，先到先得）。
         canonical = canonical_by_name({mp.method.name for mp in rows if mp.method})
         out, seen = [], set()
         for mp in rows:
@@ -402,10 +402,13 @@ class ProtocolDetailSerializer(BaseModelSerializer):
                     # （生产 build_canonical_methods 跑完后同名 draft 会落到 canonical）。
                     out_id, out_name, out_slug = method.id, method.name, method.slug
                 else:
-                    if c['name'] in seen:
-                        continue  # 按 canonical 名去重（多个同名 draft 只出一个）
-                    seen.add(c['name'])
                     out_id, out_name, out_slug = c['id'], c['name'], c['slug']
+            # 统一按最终输出名去重（先到先得）：active / draft-canonical / draft 兜底
+            # 三分支汇入同一 seen，避免同名 PCR 既出 active 又出 canonical（生产 654 条
+            # active 桥 + 14,508 条 draft 桥，碰撞概率不低）。
+            if out_name in seen:
+                continue
+            seen.add(out_name)
             application = method.application
             if application is None:
                 out.append({
