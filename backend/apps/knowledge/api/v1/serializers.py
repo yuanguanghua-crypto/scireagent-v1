@@ -193,7 +193,9 @@ class ApplicationDetailSerializer(ApplicationGoalSyncMixin, BaseModelSerializer)
                   'methods', 'protocols', 'products', 'created_at', 'updated_at']
 
     def get_methods(self, obj):
-        return list(obj.methods.values('id', 'name', 'slug'))
+        # P0/D1-甲：AP 详情方法区只展示 active（draft 完全隐藏，方案 A——66k draft
+        # 不进展示面）。staff 查看 draft 走 /methods/ 端点，不在展示面放行。
+        return list(obj.methods.filter(status='active').values('id', 'name', 'slug'))
 
     def get_protocols(self, obj):
         from apps.bridges.models import MethodProtocol

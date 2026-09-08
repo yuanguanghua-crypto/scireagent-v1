@@ -189,8 +189,9 @@ class ApplicationAPITest(TestCase):
         self.assertIn('products', resp.json()['data'])
 
     def test_detail_methods_populated(self):
-        app = ApplicationFactory()
-        method = MethodFactory(application=app)
+        # P0：公开读面（含 AP 详情 methods）只展示 active/draft 均需显式公开态
+        app = ApplicationFactory(status='active')
+        method = MethodFactory(application=app, status='active')
         resp = self.client.get(f'/api/v1/applications/{app.id}/')
         data = resp.json()['data']
         method_ids = [m['id'] for m in data['methods']]
@@ -506,13 +507,13 @@ class ProtocolAPITest(TestCase):
         self.client = APIClient()
 
     def test_list(self):
-        ProtocolFactory.create_batch(2)
+        ProtocolFactory.create_batch(2, status='published')
         resp = self.client.get('/api/v1/protocols/')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()['data']), 2)
 
     def test_list_fields(self):
-        ProtocolFactory()
+        ProtocolFactory(status='published')
         resp = self.client.get('/api/v1/protocols/')
         data = resp.json()['data'][0]
         self.assertIn('id', data)
@@ -521,7 +522,7 @@ class ProtocolAPITest(TestCase):
         self.assertNotIn('method_id', data)
 
     def test_detail_includes_steps(self):
-        protocol = ProtocolFactory()
+        protocol = ProtocolFactory(status='published')
         ProtocolStepFactory(protocol=protocol, step_no=1)
         ProtocolStepFactory(protocol=protocol, step_no=2)
         resp = self.client.get(f'/api/v1/protocols/{protocol.id}/')
@@ -530,7 +531,7 @@ class ProtocolAPITest(TestCase):
         self.assertEqual(data['steps'][0]['step_no'], 1)
 
     def test_detail_step_fields(self):
-        protocol = ProtocolFactory()
+        protocol = ProtocolFactory(status='published')
         step = ProtocolStepFactory(protocol=protocol, step_no=1, title='Prepare')
         resp = self.client.get(f'/api/v1/protocols/{protocol.id}/')
         step_data = resp.json()['data']['steps'][0]
@@ -540,20 +541,20 @@ class ProtocolAPITest(TestCase):
         self.assertIn('body', step_data)
 
     def test_detail_includes_references(self):
-        protocol = ProtocolFactory()
+        protocol = ProtocolFactory(status='published')
         resp = self.client.get(f'/api/v1/protocols/{protocol.id}/')
         self.assertIn('references', resp.json()['data'])
 
     def test_detail_includes_products(self):
-        protocol = ProtocolFactory()
+        protocol = ProtocolFactory(status='published')
         resp = self.client.get(f'/api/v1/protocols/{protocol.id}/')
         self.assertIn('products', resp.json()['data'])
 
     def test_protocol_linked_to_method_appears_in_list(self):
         method = MethodFactory()
-        protocol = ProtocolFactory()
+        protocol = ProtocolFactory(status='published')
         MethodProtocol.objects.create(method=method, protocol=protocol)
-        ProtocolFactory()  # unrelated protocol
+        ProtocolFactory(status='published')  # unrelated protocol
         resp = self.client.get('/api/v1/protocols/')
         data = resp.json()['data']
         self.assertEqual(len(data), 2)
@@ -571,13 +572,13 @@ class ProtocolAPITest(TestCase):
         self.assertEqual(len(resp.json()['data']), 1)
 
     def test_search(self):
-        ProtocolFactory(name='RNA Labeling Protocol')
-        ProtocolFactory(name='DNA Extraction')
+        ProtocolFactory(name='RNA Labeling Protocol', status='published')
+        ProtocolFactory(name='DNA Extraction', status='published')
         resp = self.client.get('/api/v1/protocols/?search=RNA')
         self.assertEqual(len(resp.json()['data']), 1)
 
     def test_json_ld_endpoint(self):
-        protocol = ProtocolFactory(name='RNA Protocol')
+        protocol = ProtocolFactory(name='RNA Protocol', status='published')
         resp = self.client.get(f'/api/v1/protocols/{protocol.id}/json-ld/')
         self.assertEqual(resp.status_code, 200)
         data = resp.json()

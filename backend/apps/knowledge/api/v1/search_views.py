@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from django.db.models import Q
 from apps.commerce.models import Product
 from apps.knowledge.models import Application, Method, Protocol, Reference
-from apps.knowledge.api.v1.fixture_visibility import apply_fixture_filter
+from apps.knowledge.api.v1.fixture_visibility import apply_public_visibility
 
 
 @api_view(['GET'])
@@ -18,11 +18,15 @@ def search(request):
     results = []
 
     if not resource_type or resource_type == 'product':
-        products = Product.objects.filter(
-            Q(name__icontains=q) | Q(cas__icontains=q) | Q(smiles__icontains=q) |
-            Q(inchi__icontains=q) | Q(catalog_no__icontains=q) | Q(formula__icontains=q) |
-            Q(overview__icontains=q)
-        ).exclude(archived=True)[:20]
+        # P0：统一入口（staff 全量）；archived 对所有人隐藏（展示决策）
+        products = apply_public_visibility(
+            Product.objects.filter(
+                Q(name__icontains=q) | Q(cas__icontains=q) | Q(smiles__icontains=q) |
+                Q(inchi__icontains=q) | Q(catalog_no__icontains=q) | Q(formula__icontains=q) |
+                Q(overview__icontains=q)
+            ).exclude(archived=True),
+            Product, request,
+        )[:20]
         results.extend([
             {'type': 'product', 'id': p.id, 'name': p.name, 'slug': p.slug,
              'cas': p.cas, 'catalog_no': p.catalog_no, 'formula': p.formula}
@@ -30,28 +34,29 @@ def search(request):
         ])
 
     if not resource_type or resource_type == 'application':
-        # S1：search 端点历史上没有任何可见性过滤，是测试夹具的真实泄漏面。
-        apps = apply_fixture_filter(Application.objects.filter(
+        # S1：夹具过滤 + P0：公开读 draft 不可见（统一入口）
+        apps = apply_public_visibility(Application.objects.filter(
             Q(name__icontains=q) | Q(summary__icontains=q)
-        ), request)[:10]
+        ), Application, request)[:10]
         results.extend([
             {'type': 'application', 'id': a.id, 'name': a.name, 'slug': a.slug}
             for a in apps
         ])
 
     if not resource_type or resource_type == 'method':
-        methods = apply_fixture_filter(Method.objects.filter(
+        methods = apply_public_visibility(Method.objects.filter(
             Q(name__icontains=q) | Q(summary__icontains=q) | Q(purpose__icontains=q)
-        ), request)[:10]
+        ), Method, request)[:10]
         results.extend([
             {'type': 'method', 'id': m.id, 'name': m.name, 'slug': m.slug}
             for m in methods
         ])
 
     if not resource_type or resource_type == 'protocol':
-        protocols = Protocol.objects.filter(
+        # P0：协议公开态 = published（原实现完全无过滤，结构性泄漏点）
+        protocols = apply_public_visibility(Protocol.objects.filter(
             Q(name__icontains=q) | Q(objective__icontains=q)
-        )[:10]
+        ), Protocol, request)[:10]
         results.extend([
             {'type': 'protocol', 'id': p.id, 'name': p.name, 'slug': p.slug, 'version': p.version}
             for p in protocols
@@ -80,9 +85,12 @@ def search_suggest(request):
     if not q or len(q) < 2:
         return Response({'success': True, 'data': [], 'meta': {}})
 
-    products = Product.objects.filter(name__icontains=q).exclude(archived=True)[:5]
-    methods = apply_fixture_filter(
-        Method.objects.filter(name__icontains=q), request
+    products = apply_public_visibility(
+        Product.objects.filter(name__icontains=q).exclude(archived=True),
+        Product, request,
+    )[:5]
+    methods = apply_public_visibility(
+        Method.objects.filter(name__icontains=q), Method, request
     )[:3]
 
     suggestions = []

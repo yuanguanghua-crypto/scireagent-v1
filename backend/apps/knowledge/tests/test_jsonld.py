@@ -115,7 +115,7 @@ class ProtocolJsonLdTest(TestCase):
         self.client = APIClient()
 
     def test_protocol_jsonld_structure(self):
-        protocol = ProtocolFactory(name='RNA Protocol')
+        protocol = ProtocolFactory(name='RNA Protocol', status='published')
         resp = self.client.get(f'/api/v1/protocols/{protocol.id}/json-ld/')
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
@@ -138,7 +138,7 @@ class ProtocolJsonLdTest(TestCase):
         self.assertIn('2.0', data['name'])
 
     def test_protocol_jsonld_with_steps(self):
-        protocol = ProtocolFactory(name='RNA Protocol')
+        protocol = ProtocolFactory(name='RNA Protocol', status='published')
         ProtocolStepFactory(protocol=protocol, step_no=1, title='Step 1', body='Prepare')
         ProtocolStepFactory(protocol=protocol, step_no=2, title='Step 2', body='Execute')
         resp = self.client.get(f'/api/v1/protocols/{protocol.id}/json-ld/')

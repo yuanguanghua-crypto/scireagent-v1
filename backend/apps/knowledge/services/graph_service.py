@@ -7,6 +7,7 @@ from collections import deque
 from apps.knowledge.models import Application, Method, Protocol, Reference
 from apps.commerce.models import Product
 from apps.bridges.models import ProductMethod, MethodProtocol, ProductReference, ProductProduct
+from apps.knowledge.api.v1.fixture_visibility import apply_public_visibility
 
 
 # Entity type → Model mapping
@@ -23,8 +24,8 @@ ENTITY_MODELS = {
 def _product_neighbors(pid):
     """Product → Method (via ProductMethod), Reference (via ProductReference), Product (via ProductProduct)"""
     neighbors = []
-    # Product → Method
-    for pm in ProductMethod.objects.filter(product_id=pid).select_related('method'):
+    # Product → Method（P0：draft 方法不进公开图谱）
+    for pm in ProductMethod.objects.filter(product_id=pid, method__status='active').select_related('method'):
         neighbors.append({
             'target_type': 'method',
             'target_id': pm.method.id,
@@ -74,8 +75,8 @@ def _method_neighbors(mid):
             'target_slug': method.application.slug,
             'relationship': 'belongs_to',
         })
-    # Method → Protocol
-    for mp in MethodProtocol.objects.filter(method_id=mid).select_related('protocol'):
+    # Method → Protocol（P0：只挂 published 协议）
+    for mp in MethodProtocol.objects.filter(method_id=mid, protocol__status='published').select_related('protocol'):
         neighbors.append({
             'target_type': 'protocol',
             'target_id': mp.protocol.id,
@@ -125,7 +126,7 @@ def _protocol_neighbors(prid):
     protocol = Protocol.objects.filter(id=prid).first()
     if not protocol:
         return neighbors
-    for mp in protocol.method_protocols.select_related('method'):
+    for mp in protocol.method_protocols.filter(method__status='active').select_related('method'):
         if mp.method:
             neighbors.append({
                 'target_type': 'method',
@@ -192,10 +193,9 @@ def build_graph(entity_type, entity_id, depth=3, max_nodes=50, max_edges=100):
         return {'nodes': [], 'edges': []}
 
     model = ENTITY_MODELS[entity_type]
-    qs = model.objects.all()
-    # S1：以测试夹具为起点的图谱一律视作不存在，避免残骸经 graph 端点外泄
-    if hasattr(model, 'is_test_fixture'):
-        qs = qs.filter(is_test_fixture=False)
+    # S1：测试夹具为起点的图谱视作不存在；P0（D2）：起点实体一律公开口径
+    # （request 传 None → staff 亦不放行 draft，图谱是公开展示组件）。
+    qs = apply_public_visibility(model.objects.all(), model, None)
     entity = qs.filter(id=entity_id).first()
     if not entity:
         return None  # Not found

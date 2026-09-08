@@ -18,7 +18,7 @@ from django.db.models.functions import Coalesce, Cast
 from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
 from apps.commerce.models import Product
 from apps.knowledge.models import Application, Method, Protocol, Reference
-from apps.knowledge.api.v1.fixture_visibility import apply_fixture_filter
+from apps.knowledge.api.v1.fixture_visibility import apply_public_visibility
 
 
 def _is_postgres():
@@ -41,7 +41,7 @@ def _build_vector(columns):
     )
 
 
-def _search_products_fts(q, limit=10):
+def _search_products_fts(q, limit=10, request=None):
     """PostgreSQL FTS with ranking — computed at query time.
 
     Supplements with substring (icontains) matches on ``catalog_no``/``cas``/
@@ -52,7 +52,9 @@ def _search_products_fts(q, limit=10):
     query = SearchQuery(q)
     vector = _build_vector(_PRODUCT_SEARCH_COLS)
     fts = list(
-        Product.objects.exclude(archived=True)
+        apply_public_visibility(
+            Product.objects.exclude(archived=True), Product, request
+        )
         .annotate(search=vector, score=SearchRank(vector, query))
         .filter(search=query)
         .order_by('-score')
@@ -63,8 +65,10 @@ def _search_products_fts(q, limit=10):
     # Supplement with substring matches not already present in the FTS results.
     seen = {r['id'] for r in fts}
     ql = q.lower()
-    supp = Product.objects.exclude(archived=True).filter(
-        Q(catalog_no__icontains=q) | Q(cas__icontains=q) | Q(name__icontains=q)
+    supp = apply_public_visibility(
+        Product.objects.exclude(archived=True).filter(
+            Q(catalog_no__icontains=q) | Q(cas__icontains=q) | Q(name__icontains=q)
+        ), Product, request,
     ).exclude(id__in=seen).values(
         'id', 'name', 'slug', 'catalog_no', 'cas', 'formula'
     )[: limit - len(fts)]
@@ -79,11 +83,13 @@ def _search_products_fts(q, limit=10):
     return fts
 
 
-def _search_products_icontains(q, limit=10):
+def _search_products_icontains(q, limit=10, request=None):
     """SQLite fallback: icontains with simple relevance score."""
-    qs = Product.objects.exclude(archived=True).filter(
-        Q(name__icontains=q) | Q(cas__icontains=q) | Q(catalog_no__icontains=q) |
-        Q(formula__icontains=q) | Q(overview__icontains=q)
+    qs = apply_public_visibility(
+        Product.objects.exclude(archived=True).filter(
+            Q(name__icontains=q) | Q(cas__icontains=q) | Q(catalog_no__icontains=q) |
+            Q(formula__icontains=q) | Q(overview__icontains=q)
+        ), Product, request,
     )
     results = []
     for p in qs[:limit]:
@@ -106,11 +112,8 @@ def _search_products_icontains(q, limit=10):
 
 
 def _base_qs(model, request):
-    """S1：对带 is_test_fixture 的模型统一施加可见性过滤。"""
-    qs = model.objects.all()
-    if hasattr(model, 'is_test_fixture'):
-        qs = apply_fixture_filter(qs, request)
-    return qs
+    """S1 夹具过滤 + P0 status 公开态过滤（统一入口）。"""
+    return apply_public_visibility(model.objects.all(), model, request)
 
 
 def _search_model_fts(model, q, fields, search_cols, limit=5, request=None):
@@ -194,8 +197,8 @@ def search_grouped(request):
 
     if not type_filter or type_filter == 'product':
         data['products'] = (
-            _search_products_fts(q, 10) if use_fts
-            else _search_products_icontains(q, 10)
+            _search_products_fts(q, 10, request) if use_fts
+            else _search_products_icontains(q, 10, request)
         )
     else:
         data['products'] = []

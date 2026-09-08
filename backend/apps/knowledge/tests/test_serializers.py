@@ -126,8 +126,9 @@ class ApplicationListSerializerTest(TestCase):
 
 class ApplicationDetailSerializerTest(TestCase):
     def test_method_ids_field(self):
-        app = ApplicationFactory()
-        method = MethodFactory(application=app)
+        # P0：AP 详情 methods 只展示 active（draft 完全隐藏）
+        app = ApplicationFactory(status='active')
+        method = MethodFactory(application=app, status='active')
         serializer = ApplicationDetailSerializer(app)
         method_ids = [m['id'] for m in serializer.data['methods']]
         self.assertIn(method.id, method_ids)

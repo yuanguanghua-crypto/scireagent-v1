@@ -14,7 +14,7 @@ from apps.knowledge.api.v1.serializers import (
     ReferenceSerializer, CompatibilitySerializer,
 )
 from apps.knowledge import selectors
-from apps.knowledge.api.v1.fixture_visibility import apply_fixture_filter
+from apps.knowledge.api.v1.fixture_visibility import apply_public_visibility
 from apps.knowledge.api.v1.filters import ApplicationFilter
 
 
@@ -37,13 +37,12 @@ class ResearchGoalViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         staff 可访问全量（含草稿/归档），便于后台管理。
 
         S1：测试夹具行（is_test_fixture=True）对所有身份默认不可见——不依赖
-        status 侥幸；staff 可用 ?include_test_fixtures=1 显式查看以便清理。"""
-        qs = apply_fixture_filter(
-            selectors.get_research_goals_with_applications(), self.request
+        status 侥幸；staff 可用 ?include_test_fixtures=1 显式查看以便清理。
+        P0：统一走 apply_public_visibility。"""
+        return apply_public_visibility(
+            selectors.get_research_goals_with_applications(),
+            ResearchGoal, self.request,
         )
-        if self.request.user.is_authenticated and self.request.user.is_staff:
-            return qs
-        return qs.filter(status=ResearchGoal.Status.ACTIVE)
 
 
 class ApplicationViewSet(EnvelopeMixin, viewsets.ModelViewSet):
@@ -62,13 +61,11 @@ class ApplicationViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         """公开端点仅返回已发布(ACTIVE)记录；staff 可访问全量。
-        S1：测试夹具行默认对所有身份不可见。"""
-        qs = apply_fixture_filter(
-            Application.objects.prefetch_related(self._rg_prefetch).all(), self.request
+        S1：测试夹具行默认对所有身份不可见。P0：统一走 apply_public_visibility。"""
+        return apply_public_visibility(
+            Application.objects.prefetch_related(self._rg_prefetch).all(),
+            Application, self.request,
         )
-        if self.request.user.is_authenticated and self.request.user.is_staff:
-            return qs
-        return qs.filter(status=Application.Status.ACTIVE)
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -86,13 +83,11 @@ class MethodViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         """公开端点仅返回已发布(ACTIVE)记录；staff 可访问全量。
-        S1：测试夹具行默认对所有身份不可见。"""
-        qs = apply_fixture_filter(
-            Method.objects.select_related('application').all(), self.request
+        S1：测试夹具行默认对所有身份不可见。P0：统一走 apply_public_visibility。"""
+        return apply_public_visibility(
+            Method.objects.select_related('application').all(),
+            Method, self.request,
         )
-        if self.request.user.is_authenticated and self.request.user.is_staff:
-            return qs
-        return qs.filter(status=Method.Status.ACTIVE)
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -114,6 +109,14 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     search_fields = ['name', 'objective', 'materials', 'reagents']
     ordering_fields = ['name', 'version']
     filterset_fields = ['status']
+
+    def get_queryset(self):
+        """P0：公开端点仅返回已发布(PUBLISHED)记录；staff 可访问全量。
+        （原实现无任何 get_queryset 过滤，属结构性泄漏点。）"""
+        return apply_public_visibility(
+            Protocol.objects.prefetch_related('steps').all(),
+            Protocol, self.request,
+        )
 
     def get_serializer_class(self):
         if self.action == 'retrieve':

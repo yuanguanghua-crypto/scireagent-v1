@@ -110,21 +110,21 @@ class SearchAPITest(TestCase):
         self.assertEqual(data['data'][0]['type'], 'product')
 
     def test_search_methods(self):
-        MethodFactory(name='Sanger Sequencing')
-        MethodFactory(name='PCR Amplification')
+        MethodFactory(name='Sanger Sequencing', status='active')
+        MethodFactory(name='PCR Amplification', status='active')
         resp = self.client.get('/api/v1/search?q=Sanger')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()['data']), 1)
 
     def test_search_applications(self):
-        ApplicationFactory(name='RNA Labeling')
+        ApplicationFactory(name='RNA Labeling', status='active')
         resp = self.client.get('/api/v1/search?q=RNA')
         data = resp.json()
         self.assertTrue(len(data['data']) > 0)
         self.assertEqual(data['data'][0]['type'], 'application')
 
     def test_search_protocols(self):
-        ProtocolFactory(name='DNA Extraction Protocol')
+        ProtocolFactory(name='DNA Extraction Protocol', status='published')
         resp = self.client.get('/api/v1/search?q=Extraction')
         data = resp.json()
         self.assertTrue(len(data['data']) > 0)
@@ -136,8 +136,8 @@ class SearchAPITest(TestCase):
         self.assertTrue(len(data['data']) > 0)
 
     def test_search_multiple_types(self):
-        ProductFactory(name='Cy3-NHS')
-        MethodFactory(name='Cy3 Labeling Method')
+        ProductFactory(name='Cy3-NHS', status='active')
+        MethodFactory(name='Cy3 Labeling Method', status='active')
         resp = self.client.get('/api/v1/search?q=Cy3')
         data = resp.json()
         types = [r['type'] for r in data['data']]
