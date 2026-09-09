@@ -105,6 +105,69 @@ onMounted(async () => {
         </div>
       </div>
 
+      <!-- Knowledge entity governance (P1-4) -->
+      <div class="section">
+        <h3 class="section-title">知识实体治理</h3>
+
+        <!-- 阶段里程碑（静态，来自四地一致提交记录） -->
+        <div class="gov-pipeline">
+          <div class="gov-stage gov-stage--done">
+            <span class="gov-stage-badge">✓</span>
+            <div class="gov-stage-text">
+              <div class="gov-stage-name">P0 状态可见性收口</div>
+              <div class="gov-stage-ref">52868ca</div>
+            </div>
+          </div>
+          <div class="gov-stage gov-stage--done">
+            <span class="gov-stage-badge">✓</span>
+            <div class="gov-stage-text">
+              <div class="gov-stage-name">P1-1 canonical Method 收敛</div>
+              <div class="gov-stage-ref">ddf0e72</div>
+            </div>
+          </div>
+          <div class="gov-stage gov-stage--done">
+            <span class="gov-stage-badge">✓</span>
+            <div class="gov-stage-text">
+              <div class="gov-stage-name">P2 协议富化回填</div>
+              <div class="gov-stage-ref">2a02c06</div>
+            </div>
+          </div>
+          <div class="gov-stage gov-stage--done">
+            <span class="gov-stage-badge">✓</span>
+            <div class="gov-stage-text">
+              <div class="gov-stage-name">P1-2 verified 破冰</div>
+              <div class="gov-stage-ref">99de748</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 实时治理指标 -->
+        <div class="gov-grid">
+          <div class="gov-card" :class="{ 'gov-card--alert': stats.verified_review > 0 }">
+            <div class="gov-value">{{ stats.verified_review }}</div>
+            <div class="gov-label">verified 待审</div>
+            <router-link v-if="stats.verified_review > 0" to="/workspace/verified" class="gov-action">去审核 →</router-link>
+          </div>
+          <div class="gov-card">
+            <div class="gov-value">{{ stats.verified_active }}</div>
+            <div class="gov-label">verified 已发布</div>
+          </div>
+          <div class="gov-card">
+            <div class="gov-value">{{ stats.canonical_methods }}</div>
+            <div class="gov-label">canonical 方法</div>
+          </div>
+          <div class="gov-card">
+            <div class="gov-value">{{ stats.protocol_steps_coverage }}%</div>
+            <div class="gov-label">协议步骤覆盖率</div>
+            <div class="gov-bar"><div class="gov-bar-fill" :style="{ width: stats.protocol_steps_coverage + '%' }"></div></div>
+          </div>
+          <div class="gov-card" :class="{ 'gov-card--alert': stats.hanging_protocols > 0 }">
+            <div class="gov-value">{{ stats.hanging_protocols }}</div>
+            <div class="gov-label">悬空协议（待补链）</div>
+          </div>
+        </div>
+      </div>
+
       <!-- Knowledge graph -->
       <div class="section">
         <h3 class="section-title">Knowledge Graph</h3>
@@ -168,6 +231,21 @@ onMounted(async () => {
 .recent-table td { border-bottom: 1px solid var(--color-border); color: var(--color-text); }
 .recent-table a { color: var(--color-primary); text-decoration: none; }
 .status-tag { padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+.gov-pipeline { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.gov-stage { display: flex; align-items: center; gap: 10px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; padding: 10px 14px; }
+.gov-stage--done { border-color: var(--color-success-light); }
+.gov-stage-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 999px; background: var(--color-success); color: #fff; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.gov-stage-name { font-size: 13px; font-weight: 600; color: var(--color-text); }
+.gov-stage-ref { font-size: 11px; color: var(--color-text-secondary); font-family: monospace; }
+.gov-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 4px; padding: 16px; }
+.gov-card { border: 1px solid var(--color-border); border-radius: 6px; padding: 14px; background: var(--color-bg); }
+.gov-card--alert { border-color: var(--color-warning); background: var(--color-warning-light); }
+.gov-value { font-size: 24px; font-weight: 700; color: var(--color-text); }
+.gov-label { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+.gov-action { display: inline-block; margin-top: 6px; font-size: 12px; font-weight: 600; color: var(--color-primary); text-decoration: none; }
+.gov-bar { height: 6px; background: var(--color-border); border-radius: 999px; margin-top: 8px; overflow: hidden; }
+.gov-bar-fill { height: 100%; background: var(--color-primary); border-radius: 999px; }
+@media (max-width: 900px) { .gov-grid { grid-template-columns: repeat(2, 1fr); } }
 .status-active { background: var(--color-success-light); color: var(--color-primary-active); }
 .status-draft { background: var(--color-warning-light); color: var(--color-warning); }
 .error { text-align: center; padding: 40px; color: var(--color-text-secondary); }
