@@ -27,6 +27,47 @@ import {
 } from './protocolLinks.js';
 
 // ---------------------------------------------------------------------------
+// chem-specific silent re-rank（读端静默置顶，无徽标）
+// ---------------------------------------------------------------------------
+test('enrichProtocolRow defaults chem_specific to false when missing', () => {
+  const out = enrichProtocolRow({ id: 1, name: 'Proto' });
+  assert.equal(out.chem_specific, false);
+});
+
+test('enrichProtocolRow preserves provided chem_specific=true', () => {
+  const out = enrichProtocolRow({ id: 1, name: 'Proto', chem_specific: true });
+  assert.equal(out.chem_specific, true);
+});
+
+test('sortProtocolLinks chem_specific document ranks before non-chem literature', () => {
+  const rows = [
+    { id: 1, tier: 'literature', relevance_score: 0.9, score_c: 0.0, chem_specific: false },
+    { id: 2, tier: 'document', relevance_score: 0.2, score_c: 0.0, chem_specific: true },
+  ];
+  const ids = sortProtocolLinks(rows).map((r) => r.id);
+  assert.deepEqual(ids, [2, 1]); // document+chem 置顶，越过 literature
+});
+
+test('sortProtocolLinks chem does not lift weak rows', () => {
+  const rows = [
+    { id: 1, tier: 'weak', relevance_score: 0.99, score_c: 0.0, chem_specific: true },
+    { id: 2, tier: 'literature', relevance_score: 0.3, score_c: 0.0, chem_specific: false },
+  ];
+  const ids = sortProtocolLinks(rows).map((r) => r.id);
+  assert.deepEqual(ids, [2, 1]); // weak 恒沉底，chem 顶起对 weak 无效
+});
+
+test('sortProtocolLinks non-weak chem ordering beats relevance within chem band', () => {
+  // 同为非 weak，chem 行越过更高 relevance 的非 chem 行
+  const rows = [
+    { id: 1, tier: 'document', relevance_score: 0.9, score_c: 0.0, chem_specific: false },
+    { id: 2, tier: 'document', relevance_score: 0.1, score_c: 0.0, chem_specific: true },
+  ];
+  const ids = sortProtocolLinks(rows).map((r) => r.id);
+  assert.deepEqual(ids, [2, 1]);
+});
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 test('TIER_RANK: literature > document > featured (ascending priority)', () => {

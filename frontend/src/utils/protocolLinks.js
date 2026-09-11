@@ -5,8 +5,10 @@
 // Contract mirrors backend get_protocol_links (backend serializers.py #355):
 //   row = {id,name,slug,relevance_score,score_a,score_b,score_c,
 //          relevance_basis,link_source,tier}
-//   sort key = (TIER_RANK[tier] asc, -relevance desc, -score_c desc, id asc)
+//   sort key = (weak sink → chem_specific top → TIER_RANK[tier] asc,
+//               -relevance desc, -score_c desc, id asc)
 //   S4: 'weak'（弱相关/仅语义相似/广播桶）TIER_RANK 最高 → 恒沉底。
+//   chem_specific: 读端化学特异置顶（仅非 weak 行参与，静默、无徽标）。
 //
 // Three iron laws honored:
 //   ① maximize data — fold NEVER deletes; every derived link is kept.
@@ -54,16 +56,26 @@ export function enrichProtocolRow(row) {
   if (r.relevance_basis === undefined || r.relevance_basis === null) r.relevance_basis = '';
   if (r.link_source === undefined || r.link_source === null) r.link_source = 'inherited';
   if (r.literature_count === undefined || r.literature_count === null) r.literature_count = 0;
+  if (r.chem_specific === undefined || r.chem_specific === null) r.chem_specific = false;
 
   r.tier_label = TIER_LABEL[r.tier] || '';
   r.link_source_label = LINK_SOURCE_LABEL[r.link_source] || '—';
   return r;
 }
 
-// Sort protocol_link rows by (tier rank asc, relevance desc, score_c desc,
-// id asc). Returns a NEW array; original is untouched.
+// Sort protocol_link rows by (weak sink → chem_specific top → tier rank asc,
+// relevance desc, score_c desc, id asc). Returns a NEW array; original
+// is untouched.
 export function sortProtocolLinks(rows) {
   return [...rows].sort((a, b) => {
+    // S4: weak（弱相关/广播桶）恒沉底
+    const weakA = a.tier === 'weak' ? 1 : 0;
+    const weakB = b.tier === 'weak' ? 1 : 0;
+    if (weakA !== weakB) return weakA - weakB;
+    // 化学特异静默置顶（仅非 weak 行参与）
+    const chemA = a.chem_specific ? 1 : 0;
+    const chemB = b.chem_specific ? 1 : 0;
+    if (chemA !== chemB) return chemB - chemA;
     const rankA = TIER_RANK[a.tier] ?? 2;
     const rankB = TIER_RANK[b.tier] ?? 2;
     if (rankA !== rankB) return rankA - rankB;

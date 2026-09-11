@@ -193,19 +193,25 @@ def fuse_relevance(score_a=None, score_b=0.0, score_c=0.0):
 
 
 def protocol_link_sort_key(r):
-    """Protocol Link 排序键（S4：weak 恒沉底）。
+    """Protocol Link 排序键（S4：weak 恒沉底 + chem-specific 静默置顶）。
 
     返回 tuple 供 list.sort(key=...) 使用：
       1) weak（广播/仅语义相似桶）主键=1，其余=0 —— weak 永远排最后；
-      2) -relevance_score 降序；
-      3) -score_c 降序（第三级，#357）；
-      4) id 升序（稳定终判）。
+      2) chem（化学特异置顶键）：非 weak 且 chem_specific 的行=0，其余=1
+         —— chem_specific 行静默顶到非 weak 区最前；weak 行恒沉底，不可被顶起；
+      3) -relevance_score 降序；
+      4) -score_c 降序（第四级，#357）；
+      5) id 升序（稳定终判）。
 
-    `r` 为序列化行 dict（含 tier/relevance_score/score_c/id）。零假设缺失字段。
+    `r` 为序列化行 dict（含 tier/chem_specific/relevance_score/score_c/id）。
+    零假设缺失字段。
     """
-    sink = 1 if (r.get('tier') == 'weak') else 0
+    is_weak = 1 if (r.get('tier') == 'weak') else 0
+    # chem_specific 仅对非 weak 行生效（weak 恒沉底，不可被顶起）
+    chem = 0 if (r.get('chem_specific') and not is_weak) else 1
     return (
-        sink,
+        is_weak,
+        chem,
         -float(r.get('relevance_score') or 0.0),
         -float(r.get('score_c') or 0.0),
         r.get('id') or 0,
@@ -220,20 +226,27 @@ def build_protocol_links(product):
     无 PP 行（recompute 未跑的存量产品）时回退 MethodProtocol 桥派生协议（旧逻辑形状，
     tier='weak'/score=0），确保任何产品都不丢数据。
 
-    排序：protocol_link_sort_key（weak 恒沉底 → 相关性降序 → score_c 降序 → id 升序），
-    与 ProductDetailSerializer.get_protocol_links 的既有排序规则一致。
+    排序：protocol_link_sort_key（weak 恒沉底 → chem 置顶 → 相关性降序 →
+    score_c 降序 → id 升序），与 ProductDetailSerializer.get_protocol_links 的
+    既有排序规则一致。
 
     返回行 dict 列表，字段命名与 get_protocol_links 输出一致：
-    id/name/slug/relevance_score/score_a/score_b/score_c/relevance_basis/link_source/tier/literature_count。
+    id/name/slug/relevance_score/score_a/score_b/score_c/relevance_basis/
+    link_source/tier/literature_count/chem_specific。
+    （chem_specific 为读端叠加标记，绝不修改 relevance_score/tier/link_source。）
     """
     from apps.bridges.models import ProductMethod, MethodProtocol, ProductProtocol
     from apps.knowledge.models import Protocol
+    from apps.bridges.services.chem_specificity import is_chem_specific
 
     pp_rows = list(
         ProductProtocol.objects.filter(product=product).select_related('protocol')
     )
 
     def _row(pid, proto, pp):
+        # 读端叠加：chem_specific 仅基于既有 PP 行带出的 protocol + 产品子结构标签，
+        # 纯内存判定，不新增 DB 查询（proto 已由 select_related 带出）。
+        chem = is_chem_specific(product, proto) if proto is not None else False
         if pp is not None:
             return {
                 'id': proto.id if proto else pid,
@@ -247,6 +260,7 @@ def build_protocol_links(product):
                 'link_source': pp.link_source,
                 'tier': pp.tier,
                 'literature_count': pp.literature_count,
+                'chem_specific': chem,
             }
         # 回退（仅 MethodProtocol 桥派生）：重算未跑，诚实以 weak/0 呈现
         return {
@@ -261,6 +275,7 @@ def build_protocol_links(product):
             'link_source': ProductProtocol.LinkSource.INHERITED,
             'tier': ProductProtocol.Tier.WEAK,
             'literature_count': 0,
+            'chem_specific': chem,
         }
 
     if pp_rows:
