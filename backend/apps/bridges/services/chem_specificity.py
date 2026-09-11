@@ -164,8 +164,10 @@ def is_chem_specific(product, protocol) -> bool:
     关键词为空 → False（短路，不读协议文本）；否则把 protocol 的
     scope_fields（name/objective/principle，从词表读）拼成一段归一化文本，
     任一关键词子串命中后，再经 domain_gate 校验（默认 proximity：关键词须在
-    ±window 字符内出现核苷酸域术语）。mode='off' 时跳过 gate，精确复现旧行为
-    以便 A/B 对照。签名保持不变。
+    ±window 字符内出现「核苷酸专有」术语）。注意：mode='off' 仅跳过 gate，
+    关键词表本身已在 v2 收紧（移除裸 click/alkyn），故 off 复现的是
+    「关键词收紧后」的行为（实测约 65 条），并非修复前的 110 条——切勿据此
+    与 110 对照。签名保持不变。
     """
     kws = keywords_for_product(product)
     if not kws:

@@ -242,6 +242,70 @@ class TestDomainOkHelper:
 
 
 # ---------------------------------------------------------------------------
+# domain_terms 收紧为「核苷酸专有」词（v3，QA 复核）
+# ---------------------------------------------------------------------------
+class TestNucleotideSpecificGate:
+    def test_azide_labeling_without_nucleotide_does_not_match(self):
+        # #305/#316/#398 签名：azide/click-chemistry 紧贴 labeling 但无核苷酸专有词 → 抑制
+        p = _product({'parsed': True, 'labels': ["2'-Azido"]})
+        proto = _protocol(name='Lung ECM glycan azide labeling',
+                          objective='metabolic labeling with azide of glycans',
+                          principle='')
+        assert is_chem_specific(p, proto) is False
+        p2 = _product({'parsed': True, 'labels': ['Propargyl']})
+        proto2 = _protocol(name='Protein palmitoylation with click chemistry labeling',
+                           objective='copper-catalyzed azide alkyne cycloaddition',
+                           principle='')
+        assert is_chem_specific(p2, proto2) is False
+
+    def test_protein_biotinylation_without_nucleotide_does_not_match(self):
+        # Biotin 蛋白标记家族：biotin + labeling（及 pcr）但无核苷酸专有词 → 抑制
+        p = _product({'parsed': True, 'labels': ['Biotin']})
+        proto = _protocol(name='Surface protein biotinylation',
+                          objective='biotin labeling of cell surface proteins',
+                          principle='')
+        assert is_chem_specific(p, proto) is False
+
+    def test_edu_dna_sentence_still_matches(self):
+        # 真命中（EdU/DNA）：cuaac + dna 仍通过 gate
+        p = _product({'parsed': True, 'labels': ['Propargyl']})
+        proto = _protocol(name='CuAAC click chemistry incorporation of EdU into genomic DNA',
+                          objective='', principle='')
+        assert is_chem_specific(p, proto) is True
+
+    def test_dna_footprinting_sentence_still_matches(self):
+        # 真命中（DNA footprinting）：azide + dna 仍通过 gate
+        p = _product({'parsed': True, 'labels': ["2'-Azido"]})
+        proto = _protocol(name='DNase I footprinting of the dna promoter with azide-labeled oligo',
+                          objective='', principle='')
+        assert is_chem_specific(p, proto) is True
+
+    def test_biotin_dutp_incorporation_sentence_still_matches(self):
+        # 真命中（biotin-dUTP incorporation）：biotin + dutp 仍通过 gate
+        p = _product({'parsed': True, 'labels': ['Biotin']})
+        proto = _protocol(name='Biotin-labelled forward primers',
+                          objective='aminoallyl-dUTP incorporation assay', principle='')
+        assert is_chem_specific(p, proto) is True
+
+    def test_mode_off_short_circuits_gate_but_uses_tightened_keywords(self, monkeypatch):
+        import apps.bridges.services.chem_specificity as cs
+
+        # 收紧后的关键词表：裸 click 已移除（off 仍用收紧关键词，不恢复 110）
+        p = _product({'parsed': True, 'labels': ['Propargyl']})
+        assert 'click' not in keywords_for_product(p)
+        # off 仅跳过 gate：azide/click chemistry 邻近 labeling 也能命中
+        # （约 65 条量级，非修复前 110）
+        lex = dict(load_lexicon())
+        lex['domain_gate'] = {'mode': 'off', 'window': 300}
+        monkeypatch.setattr(cs, 'load_lexicon', lambda: lex)
+        p2 = _product({'parsed': True, 'labels': ["2'-Azido"]})
+        proto = _protocol(name='Lung ECM glycan azide labeling', objective='', principle='')
+        assert is_chem_specific(p2, proto) is True
+        proto_click = _protocol(name='click chemistry conjugation', objective='', principle='')
+        assert is_chem_specific(p, proto_click) is True
+
+
+# ---------------------------------------------------------------------------
 # protocol_link_sort_key
 # ---------------------------------------------------------------------------
 class TestSortKey:

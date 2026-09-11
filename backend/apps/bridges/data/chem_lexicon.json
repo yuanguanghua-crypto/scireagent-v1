@@ -1,5 +1,5 @@
 {
-  "version": "v2",
+  "version": "v3",
   "scope_fields": ["name", "objective", "principle"],
   "labels": {
     "Biotin": ["biotin"],
@@ -10,10 +10,10 @@
   },
   "domain_terms": [
     "nucleotide",
-    "nucleic",
-    "oligonucleotide",
     "nucleoside",
     "nucleobase",
+    "nucleic",
+    "oligonucleotide",
     "rna",
     "dna",
     "mrna",
@@ -30,16 +30,19 @@
     "ntp",
     "dntp",
     "ddntp",
-    "primer",
-    "transcription",
-    "polymerase",
-    "pcr",
-    "sequencing",
+    "uridine",
+    "cytidine",
+    "guanosine",
+    "adenosine",
+    "thymidine",
+    "deoxyuridine",
+    "deoxycytidine",
+    "deoxyguanosine",
+    "deoxyadenosine",
     "sanger",
     "aptamer",
-    "selex",
-    "incorporation",
-    "labeling"
+    "selex"
   ],
-  "domain_gate": {"mode": "proximity", "window": 300}
+  "domain_gate": {"mode": "proximity", "window": 300},
+  "gate_note": "mode='off' disables ONLY the domain gate; the keyword list was also tightened in v2 (bare 'click'/'alkyn' removed from Propargyl & 2'-Azido), so off yields ~65 flags, NOT the pre-fix 110. Never A/B against the original 110."
 }
