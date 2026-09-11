@@ -76,12 +76,96 @@ def _protocol_field(protocol, field):
     return getattr(protocol, field, None)
 
 
+def _find_occurrences(text, term, word_boundary):
+    """在已归一化文本中找出 `term` 的全部起始下标。
+
+    `word_boundary=True` 时要求匹配两侧为非字母数字边界（如 `dna` 不会在
+    `cdna`/`mrna` 内误中、`atp` 不会在 `datp` 内误中）。用于长度 < 5 的短词，
+    严格按契约执行，绝不裸子串。
+    """
+    if not term:
+        return
+    L = len(term)
+    n = len(text)
+    start = 0
+    while True:
+        idx = text.find(term, start)
+        if idx == -1:
+            return
+        if word_boundary:
+            left_ok = idx == 0 or not text[idx - 1].isalnum()
+            right_ok = (idx + L == n) or not text[idx + L].isalnum()
+            if left_ok and right_ok:
+                yield idx
+        else:
+            yield idx
+        start = idx + 1
+
+
+def _any_domain_term(text, domain_terms):
+    """document 模式：归一化文本中出现任一 domain term 即 True。"""
+    for term in domain_terms:
+        if not term:
+            continue
+        wb = len(term) < 5
+        for _ in _find_occurrences(text, term, wb):
+            return True
+    return False
+
+
+def _proximity_match(text, domain_terms, matched_kw, window):
+    """proximity 模式：已命中的化学关键词需在 ±window 字符内出现任一 domain term。
+
+    按关键词区间与 domain term 区间的间隙（gap，重叠则为 0）判定。
+    """
+    kw_ranges = [(i, i + len(matched_kw))
+                 for i in _find_occurrences(text, matched_kw, False)]
+    if not kw_ranges:
+        return False
+    for term in domain_terms:
+        if not term:
+            continue
+        wb = len(term) < 5
+        for dpos in _find_occurrences(text, term, wb):
+            d_start, d_end = dpos, dpos + len(term)
+            for kw_start, kw_end in kw_ranges:
+                gap = max(d_start - kw_end, kw_start - d_end, 0)
+                if gap <= window:
+                    return True
+    return False
+
+
+def _domain_ok(text, gate, domain_terms, matched_kw=None):
+    """纯函数：归一化文本 `text`（已命中某化学关键词）是否满足 domain_gate。
+
+    - 'off'      ：放行（caller 已在 is_chem_specific 中短路，此处仅为完整）；
+    - 'document' ：任一 domain term 出现在文本任意位置即 True；
+    - 'proximity'：某 domain term 落在已命中关键词 ±window 字符内即 True
+                   （需 matched_kw；缺失则保守判 False）；
+    未知 mode 保守判 False（宁 miss 不错配）。
+    """
+    gate = gate or {}
+    mode = gate.get('mode', 'proximity')
+    if mode == 'off':
+        return True
+    if mode == 'document':
+        return _any_domain_term(text, domain_terms)
+    if mode == 'proximity':
+        window = int(gate.get('window', 300))
+        if not matched_kw:
+            return False
+        return _proximity_match(text, domain_terms, matched_kw, window)
+    return False
+
+
 def is_chem_specific(product, protocol) -> bool:
     """协议是否与本品化学结构相关（读端静默置顶判据）。
 
-    关键词为空 → False（短路，不读协议文本）；
-    否则把 protocol 的 scope_fields（name/objective/principle，从词表读）拼成
-    一段文本，先做归一化再小写，任一关键词子串命中即 True。
+    关键词为空 → False（短路，不读协议文本）；否则把 protocol 的
+    scope_fields（name/objective/principle，从词表读）拼成一段归一化文本，
+    任一关键词子串命中后，再经 domain_gate 校验（默认 proximity：关键词须在
+    ±window 字符内出现核苷酸域术语）。mode='off' 时跳过 gate，精确复现旧行为
+    以便 A/B 对照。签名保持不变。
     """
     kws = keywords_for_product(product)
     if not kws:
@@ -94,7 +178,19 @@ def is_chem_specific(product, protocol) -> bool:
         if val:
             parts.append(_normalize(val))
     text = ' '.join(parts)
+    if not text:
+        return False
+    gate = lexicon.get('domain_gate')
+    mode = (gate or {}).get('mode', 'proximity') if gate else 'proximity'
+    # 'off' 精确复现旧行为（无 gate），供 A/B 测量
+    if mode == 'off':
+        for kw in kws:
+            if kw and kw in text:
+                return True
+        return False
+    domain_terms = lexicon.get('domain_terms') or []
     for kw in kws:
         if kw and kw in text:
-            return True
+            if _domain_ok(text, gate, domain_terms, matched_kw=kw):
+                return True
     return False

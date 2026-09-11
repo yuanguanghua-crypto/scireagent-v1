@@ -16,6 +16,7 @@ from apps.bridges.services.chem_specificity import (
     load_lexicon,
     keywords_for_product,
     is_chem_specific,
+    _domain_ok,
 )
 from apps.bridges.services.relevance import (
     protocol_link_sort_key,
@@ -47,9 +48,14 @@ class TestKeywordsForProduct:
         assert 'u' not in kws
         assert 'deoxy' not in kws
         assert 'ntp' not in kws
-        # Propargyl 系列关键词完整展开
-        for kw in ('propargyl', 'alkyn', 'ethynyl', 'click', 'cuaac', 'dbco', 'spaac', 'tetrazine'):
+        # Propargyl 系列关键词完整展开（v2 精简：去掉裸词 click / alkyn）
+        for kw in ('propargyl', 'propynyl', 'ethynyl', 'click chemistry',
+                   'click reaction', 'cuaac', 'dbco', 'spaac', 'tetrazine',
+                   'azide-alkyne', 'azide alkyne', 'bioorthogonal'):
             assert kw in kws, f"缺失 Propargyl 关键词 {kw}"
+        # 裸词 click / alkyn 已被剔除（43% FP 类回归）
+        assert 'click' not in kws
+        assert 'alkyn' not in kws
 
     def test_none_tags_returns_empty(self):
         assert keywords_for_product(_product(None)) == set()
@@ -72,10 +78,17 @@ class TestKeywordsForProduct:
 # is_chem_specific
 # ---------------------------------------------------------------------------
 class TestIsChemSpecific:
-    def test_biotin_positive(self):
+    def test_biotin_positive_in_nucleotide_domain(self):
+        # biotin 关键词在核苷酸域上下文仍命中（gate 放行）
+        p = _product({'parsed': True, 'labels': ['Biotin']})
+        proto = _protocol(name='x', objective='Biotinylation of DNA probes', principle='')
+        assert is_chem_specific(p, proto) is True
+
+    def test_biotin_protein_labeling_suppressed_by_gate(self):
+        # 蛋白 biotinylation 非核苷酸域 → 被 domain_gate 正确抑制（宁 miss 不错配）
         p = _product({'parsed': True, 'labels': ['Biotin']})
         proto = _protocol(name='x', objective='Cell surface protein biotinylation', principle='')
-        assert is_chem_specific(p, proto) is True
+        assert is_chem_specific(p, proto) is False
 
     def test_2f_fluoro_negative(self):
         # 防回退：2'-F 标签绝不能用裸词 fluoro 误配 immunofluorescence
@@ -106,10 +119,126 @@ class TestIsChemSpecific:
         assert is_chem_specific(p, proto) is True
 
     def test_normalization_principle_scope_field(self):
-        # 命中也可发生在 principle 字段上
+        # 命中也可发生在 principle 字段上；文本含核苷酸域术语（dna/labeling）
+        # 通过 proximity gate
         p = _product({'parsed': True, 'labels': ['Propargyl']})
-        proto = _protocol(name='Unrelated title', objective='', principle='CuAAC click cycloaddition of the alkyne')
+        proto = _protocol(name='Unrelated title', objective='',
+                          principle='CuAAC click cycloaddition of the alkyne for DNA labeling')
         assert is_chem_specific(p, proto) is True
+
+
+# ---------------------------------------------------------------------------
+# domain gate（v2 核苷酸域门控）
+# ---------------------------------------------------------------------------
+class TestDomainGate:
+    def test_bare_click_no_longer_matches(self):
+        # 43% FP 类回归：Propargyl / 2'-Azido 词表已剔除裸词 click
+        p = _product({'parsed': True, 'labels': ['Propargyl']})
+        assert 'click' not in keywords_for_product(p)
+        p2 = _product({'parsed': True, 'labels': ["2'-Azido"]})
+        assert 'click' not in keywords_for_product(p2)
+        proto = _protocol(name='click to download supplementary files', objective='', principle='')
+        assert is_chem_specific(p, proto) is False
+        assert is_chem_specific(p2, proto) is False
+
+    def test_click_to_download_never_triggers(self):
+        # 协议 #378 真实 FP：补充文件区的 "click to download" 不应命中
+        p = _product({'parsed': True, 'labels': ['Propargyl']})
+        proto = _protocol(
+            name='Isolating and culturing dendritic cells',
+            objective='click to download the supplementary table',
+            principle='',
+        )
+        assert is_chem_specific(p, proto) is False
+
+    def test_nucleotide_context_hit_matches_under_proximity(self):
+        # 2'-Azido + azide 邻近 dna → 命中
+        p = _product({'parsed': True, 'labels': ["2'-Azido"]})
+        proto = _protocol(name='Click chemistry labeling of DNA with azide', objective='', principle='')
+        assert is_chem_specific(p, proto) is True
+        # Propargyl + 5-ethynyl-dUTP 核苷酸上下文（EdU 类） → 命中
+        p2 = _product({'parsed': True, 'labels': ['Propargyl']})
+        proto2 = _protocol(name='5-ethynyl-dUTP incorporation into DNA', objective='', principle='')
+        assert is_chem_specific(p2, proto2) is True
+
+    def test_non_nucleotide_domain_azide_does_not_match(self):
+        # 蛋白棕榈酰化（含 azide 但非核苷酸域，且无任何 domain term） → 抑制
+        p = _product({'parsed': True, 'labels': ["2'-Azido"]})
+        proto = _protocol(
+            name='Protein palmitoylation analysis',
+            objective='metabolic azide tagging of palmitoylated proteins',
+            principle='',
+        )
+        assert is_chem_specific(p, proto) is False
+        # 肺 ECM 糖链 azide 修饰（非核苷酸域，且无任何 domain term） → 抑制
+        p2 = _product({'parsed': True, 'labels': ['Propargyl']})
+        proto2 = _protocol(
+            name='Lung ECM glycan azide modification',
+            objective='copper-free click chemistry on glycans',
+            principle='',
+        )
+        assert is_chem_specific(p2, proto2) is False
+
+    def test_mode_off_reproduces_legacy_behavior(self, monkeypatch):
+        import apps.bridges.services.chem_specificity as cs
+
+        p = _product({'parsed': True, 'labels': ["2'-Azido"]})
+        proto = _protocol(name='azide click chemistry', objective='', principle='')
+        # 默认 proximity：无核苷酸域术语 → False
+        assert is_chem_specific(p, proto) is False
+        # mode=off 精确复现旧行为（裸 azide 命中即 True）
+        lex = dict(load_lexicon())
+        lex['domain_gate'] = {'mode': 'off', 'window': 300}
+        monkeypatch.setattr(cs, 'load_lexicon', lambda: lex)
+        assert is_chem_specific(p, proto) is True
+
+    def test_non_ascii_normalization_still_works(self):
+        # U+2010 连字符（5‑Propargylamino‑dUTP）归一化后 propargyl + dutp 命中
+        p = _product({'parsed': True, 'labels': ['Propargyl']})
+        proto = _protocol(name='5\u2010Propargylamino\u2010dUTP labeling', objective='', principle='')
+        assert is_chem_specific(p, proto) is True
+        # U+2019 撇号（2\u2019-azido-dUTP）
+        p2 = _product({'parsed': True, 'labels': ["2'-Azido"]})
+        proto2 = _protocol(name='2\u2019-azido-dUTP labeling', objective='', principle='')
+        assert is_chem_specific(p2, proto2) is True
+
+
+class TestDomainOkHelper:
+    def test_off_mode_passes(self):
+        assert _domain_ok('azide modification', {'mode': 'off'}, [], matched_kw='azide') is True
+
+    def test_proximity_pass_when_domain_term_near(self):
+        assert _domain_ok('azide labeling of dna',
+                          {'mode': 'proximity', 'window': 300},
+                          ['dna'], matched_kw='azide') is True
+
+    def test_proximity_fail_when_no_domain_term(self):
+        assert _domain_ok('azide modification of proteins',
+                          {'mode': 'proximity', 'window': 300},
+                          ['dna'], matched_kw='azide') is False
+
+    def test_proximity_window_enforced(self):
+        far = 'azide ' + ('x' * 500) + ' dna'
+        assert _domain_ok(far, {'mode': 'proximity', 'window': 300},
+                          ['dna'], matched_kw='azide') is False
+        assert _domain_ok(far, {'mode': 'proximity', 'window': 1000},
+                          ['dna'], matched_kw='azide') is True
+
+    def test_document_mode(self):
+        assert _domain_ok('protein azide labeling', {'mode': 'document'},
+                          ['dna'], matched_kw='azide') is False
+        assert _domain_ok('labeling of dna', {'mode': 'document'},
+                          ['dna'], matched_kw='azide') is True
+
+    def test_short_domain_term_word_boundary(self):
+        # dna 不可在 cdna / mrna 内误中
+        assert _domain_ok('mrna azide', {'mode': 'document'}, ['dna'], matched_kw='azide') is False
+        assert _domain_ok('cdna azide', {'mode': 'document'}, ['dna'], matched_kw='azide') is False
+        assert _domain_ok('dna azide', {'mode': 'document'}, ['dna'], matched_kw='azide') is True
+
+    def test_unknown_mode_conservative(self):
+        # 未知 mode 保守判 False（宁 miss 不错配）
+        assert _domain_ok('azide dna', {'mode': 'bogus'}, ['dna'], matched_kw='azide') is False
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +288,7 @@ class TestBuildProtocolLinksIntegration:
     def test_chem_specific_true_for_matching_protocol(self):
         p, _ = self._make(
             {'parsed': True, 'labels': ['Biotin'], 'axes': {}},
-            {'name': 'Biotinylation assay', 'objective': 'Label surface proteins'},
+            {'name': 'Biotinylation assay', 'objective': 'Label DNA probes with biotin'},
         )
         rows = build_protocol_links(p)
         assert len(rows) == 1
