@@ -232,6 +232,7 @@ class Command(BaseCommand):
             ref_action = 'reuse_db'
             is_db = True
         else:  # ('sim', ref_id) —— 本 run 内先前计划新建的引用，复用，不重复计数
+            counts['refs_reused_from_plan'] += 1
             ref_id = res[1]
             ref_action = 'reuse_planned'
             is_db = False
@@ -301,6 +302,7 @@ class Command(BaseCommand):
             'records_raw': 0,
             'records_unique': 0,
             'refs_reused_from_db': 0,
+            'refs_reused_from_plan': 0,
             'refs_planned_new': 0,
             'dup_within_product': 0,
             'skipped_no_title': 0,
@@ -430,9 +432,13 @@ class Command(BaseCommand):
 
         # ---------- 审计输出 ----------
         if out_path:
-            with open(out_path, 'w', encoding='utf-8') as f:
-                for line in plan_lines:
-                    f.write(json.dumps(line, ensure_ascii=False) + '\n')
+            try:
+                with open(out_path, 'w', encoding='utf-8') as f:
+                    for line in plan_lines:
+                        f.write(json.dumps(line, ensure_ascii=False) + '\n')
+            except OSError as e:
+                # 发生在落库闸门之前 → 不会留下半写状态
+                raise CommandError(f"--out 路径不可写：{out_path}（{e}）")
             self.stdout.write(
                 f"\n处置计划已写出：{out_path}（{len(plan_lines)} 行，"
                 f"{'preview' if not apply else 'applied'} 模式）"
@@ -530,7 +536,15 @@ class Command(BaseCommand):
 
         self.stdout.write("\n[文献]")
         self.stdout.write(f"  refs_reused_from_db（复用已有）：{counts['refs_reused_from_db']}")
+        self.stdout.write(f"  refs_reused_from_plan（复用本run计划新建）：{counts['refs_reused_from_plan']}")
         self.stdout.write(f"  refs_planned_new（计划新建）：{counts['refs_planned_new']}")
+        self.stdout.write(
+            "  口径自洽：records_unique = "
+            f"{counts['refs_reused_from_db']} + {counts['refs_reused_from_plan']}"
+            f" + {counts['refs_planned_new']} = "
+            f"{counts['refs_reused_from_db'] + counts['refs_reused_from_plan'] + counts['refs_planned_new']}"
+            f"（应为 {counts['records_unique']}）"
+        )
         self.stdout.write(f"  dup_within_product（产品内重复）：{counts['dup_within_product']}")
         self.stdout.write(f"  skipped_no_title（空标题跳过）：{counts['skipped_no_title']}")
 
