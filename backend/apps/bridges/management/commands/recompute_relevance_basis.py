@@ -23,7 +23,6 @@ relevance_basis 与已存 score_a/score_b/score_c 矛盾（陈旧值）。
     python manage.py recompute_relevance_basis --apply --out audit.jsonl
 """
 import json
-import os
 
 from django.core.management.base import BaseCommand
 

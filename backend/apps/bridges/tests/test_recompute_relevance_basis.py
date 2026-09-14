@@ -66,8 +66,8 @@ class RecomputeRelevanceBasisDryRunTest(TestCase):
         self.assertIn('扫描总行数', text)
         self.assertIn('失配', text)
         self.assertIn('终态分布', text)
-        # 3 条失配（前 3 条）
-        self.assertIn('3', text)
+        # 3 条失配（前 3 条）——必须精确断言计数行，断言裸字符 '3' 不足为证
+        self.assertIn('失配（需修正）行数：3', text)
 
 
 class RecomputeRelevanceBasisApplyTest(TestCase):
@@ -101,9 +101,8 @@ class RecomputeRelevanceBasisApplyTest(TestCase):
         call_command('recompute_relevance_basis', '--apply', stdout=io.StringIO())
         out2 = io.StringIO()
         call_command('recompute_relevance_basis', '--apply', stdout=out2)
-        # 第二次运行：变化数必须为 0
+        # 第二次运行：变化数必须为 0（精确断言计数行，不用裸字符 '0'）
         self.assertIn('失配（需修正）行数：0', out2.getvalue())
-        self.assertIn('0', out2.getvalue())
 
     def test_apply_does_not_touch_other_fields(self):
         # 哨兵值：apply 绝不得改动这些字段（score_a/b/c/relevance_score/tier/link_source）
@@ -114,6 +113,8 @@ class RecomputeRelevanceBasisApplyTest(TestCase):
             link_source='auto',
             relevance_basis='vendor_only',
         )
+        before_updated = ProductProtocol.objects.get(id=pp.id).updated_at
+        before_computed = ProductProtocol.objects.get(id=pp.id).computed_at
         call_command('recompute_relevance_basis', '--apply')
         pp.refresh_from_db()
         # basis 被修正
@@ -125,6 +126,12 @@ class RecomputeRelevanceBasisApplyTest(TestCase):
         self.assertAlmostEqual(pp.score_a, 0.5)
         self.assertAlmostEqual(pp.score_b, 0.3)
         self.assertAlmostEqual(pp.score_c, 0.111)
+        # 契约（有意为之，非疏漏）：bulk_update(fields=['relevance_basis']) 不刷 auto_now 时间戳。
+        # 语义解释：本次只"修复标签"，三轴分数未被重算，故 computed_at（计算时间）保持原值更准确；
+        # 且全仓无任何业务代码读取 ProductProtocol 的 updated_at/computed_at（已 grep 核实），
+        # 故不刷新不产生功能影响。若未来引入依赖这两个时间戳的增量同步，须改本测试并同步改命令。
+        self.assertEqual(pp.updated_at, before_updated)
+        self.assertEqual(pp.computed_at, before_computed)
 
     def test_already_correct_rows_not_counted(self):
         # 本就正确的行不应计入变更
