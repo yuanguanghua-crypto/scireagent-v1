@@ -23,14 +23,22 @@
   cd backend && DB_ENGINE=sqlite PYTHONDONTWRITEBYTECODE=1 \
       venv/Scripts/python.exe -B manage.py crawl_europepmc_evidence \
       [--apply] [--limit N] [--only-products SC8001,SC8002] \
-      [--force] [--max-per-product 25] [--out plan.jsonl]
+      [--force] [--max-per-product 25] [--out plan.jsonl] [--no-verify]
 默认 dry-run：只打印计划，绝不写库。
+
+★逐字核验闸门（默认开启，见 apps/bridges/services/epmc_verify.py）：
+  EPMC 的引号短语检索**并非严格逐字**，实测约 10% 命中的记录里根本没有那个产品名；
+  且论文很少按厂商目录名写（`N1-Methylpseudo-UTP` 会写成 `n1-methylpseudouridine`/`m1ψ`）。
+  故落库前逐条取 EPMC OA 全文，按「目录名 + 实证同义词（data/epmc_product_synonyms.json）
+  + 去 Cy 染料后缀的基名」核验；只有 verified 才写缓存，unverified/unknown 一律丢弃
+  （宁 miss 不错配）。`--no-verify` 仅供调试。
 """
 import json
 import re
 
 from django.core.management.base import BaseCommand, CommandError
 
+from apps.bridges.services import epmc_verify
 from apps.commerce.models import Product
 from apps.documents.models import DataSourceCache
 from apps.documents.services.datasource_cache import get_cache, set_cache
@@ -98,6 +106,7 @@ def parse_epmc_results(payload) -> list:
             "pubdate": str(r.get("pubYear") or "").strip(),
             "authors": _authors_list(r.get("authorString")),
             "_index": "europepmc",
+            "_pmcid": (r.get("pmcid") or "").strip(),          # 供 --verify 取 OA 全文
         })
     return out
 
@@ -135,6 +144,11 @@ class Command(BaseCommand):
         parser.add_argument("--out", default=None,
                             help="Write one JSONL line per product,含完整 records "
                                  "(供注入生产 DataSourceCache 用)。")
+        parser.add_argument("--no-verify", action="store_true",
+                            help="关闭逐字核验闸门（默认开启：只保留产品名/实证同义词"
+                                 "确在 EPMC OA 全文出现的记录）。")
+        parser.add_argument("--aliases", default=None,
+                            help="别名表 JSON 路径（默认 data/epmc_product_synonyms.json）。")
 
     def handle(self, *args, **options):
         apply = options["apply"]
@@ -157,7 +171,11 @@ class Command(BaseCommand):
 
         fetched = written = skipped_existing = no_hit = failed = 0
         total_records = 0
+        products_all_dropped = 0
+        v_verified = v_unverified = v_unknown = 0
         lines = []
+        verify = not options["no_verify"]
+        aliases = epmc_verify.load_aliases(options["aliases"])
 
         for p in product_list:
             key = p.catalog_no
@@ -186,15 +204,33 @@ class Command(BaseCommand):
             if not recs:
                 no_hit += 1
                 lines.append({"catalog_no": key, "name": name, "records": 0,
-                              "written": False})
+                              "written": False, "verdicts": {}})
                 continue
             recs = recs[:max_per]
+
+            verdicts = {"verified": 0, "unverified": 0, "unknown": 0}
+            if verify:
+                checked = epmc_verify.verify_records(recs, key, name, aliases)
+                for _rec, verdict, _evidence in checked:
+                    verdicts[verdict] = verdicts.get(verdict, 0) + 1
+                recs = [r for r, verdict, _ in checked if verdict == "verified"]
+            v_verified += verdicts["verified"]
+            v_unverified += verdicts["unverified"]
+            v_unknown += verdicts["unknown"]
+
+            if not recs:
+                # 命中全部未过核验闸门（宁 miss）→ 不写缓存，
+                # 否则又会造出一批"查得到名字却不在原文"的不可信行。
+                products_all_dropped += 1
+                lines.append({"catalog_no": key, "name": name, "records": 0,
+                              "written": False, "verdicts": verdicts, "items": []})
+                continue
             total_records += len(recs)
             if apply:
                 set_cache("pubmed", key, "sku", recs)
                 written += 1
             lines.append({"catalog_no": key, "name": name, "records": len(recs),
-                          "written": bool(apply),
+                          "written": bool(apply), "verdicts": verdicts,
                           "sample": [r["pmid"] or r["doi"] for r in recs[:5]],
                           "items": recs})   # 完整记录，供导出注入生产
 
@@ -204,11 +240,17 @@ class Command(BaseCommand):
                     f.write(json.dumps(ln, ensure_ascii=False) + "\n")
 
         mode = "APPLY" if apply else "DRY-RUN"
+        gate = "ON" if verify else "OFF"
         self.stdout.write(self.style.SUCCESS(
-            f"\n[{mode}] products={len(product_list)} queried={fetched} "
+            f"\n[{mode}] verify={gate} products={len(product_list)} queried={fetched} "
             f"with_records={fetched - no_hit} no_hit={no_hit} "
             f"written={written} skipped_existing={skipped_existing} failed={failed} "
             f"records={total_records}"))
+        if verify:
+            self.stdout.write(
+                f"[核验] 候选={v_verified + v_unverified + v_unknown} "
+                f"verified={v_verified} unverified={v_unverified} unknown={v_unknown} "
+                f"→ 落库={total_records}；全部被丢弃而未写的产品={products_all_dropped}")
         self.stdout.write(
             "下一步：本机导出这些行 → 注入生产 DataSourceCache → "
             "生产跑 adopt_cached_evidence --source pubmed --apply")

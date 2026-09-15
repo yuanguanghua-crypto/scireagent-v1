@@ -10,12 +10,17 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from apps.bridges.management.commands import crawl_europepmc_evidence as mod
+from apps.bridges.services import epmc_verify
 from apps.commerce.models import Product
 from apps.documents.models import DataSourceCache
 from apps.documents.services.datasource_cache import get_cache, set_cache
 
 PATCH_TARGET = ("apps.bridges.management.commands."
                 "crawl_europepmc_evidence.request_with_resilience")
+# 逐字核验闸门要取 OA 全文；测试统一 patch 成一段"含全部测试产品名"的假全文。
+VERIFY_PATCH = "apps.bridges.services.epmc_verify.fetch_fulltext"
+FAKE_FULLTEXT = epmc_verify.canonical(
+    "5-Methoxy-UTP 5-Propargylamino-CTP-Cy5 Biotin-11-ATP Biotin-11-GTP")
 
 
 def _resp(payload, ok=True):
@@ -30,10 +35,10 @@ def _payload(records):
 
 
 def _rec(pmid="100", title="A paper", journal="Nat Commun", year="2021",
-         authors="Ann A, Bob B.", doi="10.1/x", source="MED"):
+         authors="Ann A, Bob B.", doi="10.1/x", source="MED", pmcid="PMC1"):
     return {"id": pmid, "pmid": pmid, "title": title, "journalTitle": journal,
             "pubYear": year, "authorString": authors, "doi": doi,
-            "source": source}
+            "source": source, "pmcid": pmcid}
 
 
 class ParseEpmcResultsTest(TestCase):
@@ -48,6 +53,7 @@ class ParseEpmcResultsTest(TestCase):
         self.assertEqual(r["pubdate"], "2021")
         self.assertEqual(r["authors"], ["Ann A", "Bob B"])
         self.assertEqual(r["_index"], "europepmc")    # 真实索引来源，供审计
+        self.assertEqual(r["_pmcid"], "PMC1")         # 供 --verify 取 OA 全文
 
     def test_drops_record_without_title(self):
         recs = mod.parse_epmc_results(_payload([_rec(title=""), _rec(title="Keep")]))
@@ -81,6 +87,10 @@ class CrawlCommandTest(TestCase):
     def setUp(self):
         self.p = Product.objects.create(
             name="5-Methoxy-UTP", catalog_no="SC-T1", slug="sc-t1", status="draft")
+        # 核验闸门默认开启：统一给假全文，使测试产品名"逐字可核验"
+        patcher = patch(VERIFY_PATCH, return_value=FAKE_FULLTEXT)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def _run(self, *args, **kwargs):
         call_command("crawl_europepmc_evidence", *args, **kwargs)
@@ -190,3 +200,59 @@ class CrawlCommandTest(TestCase):
             self.assertEqual(rows[0]["items"][0]["_index"], "europepmc")
         finally:
             os.remove(path)
+
+
+class VerificationGateTest(TestCase):
+    """核验闸门：EPMC 引号检索非严格逐字 → 只有"名字/实证同义词确在 OA 全文"的才可写。"""
+
+    def setUp(self):
+        Product.objects.create(
+            name="5-Methoxy-UTP", catalog_no="SC-V1", slug="sc-v1", status="draft")
+
+    def _run(self, *args):
+        call_command("crawl_europepmc_evidence", *args)
+
+    def test_name_absent_from_fulltext_is_dropped(self):
+        with patch(PATCH_TARGET, return_value=_resp(_payload([_rec()]))), \
+             patch(VERIFY_PATCH, return_value=epmc_verify.canonical(
+                 "an unrelated paper about tongues")):
+            self._run("--apply", "--only-products", "SC-V1")
+        self.assertIsNone(get_cache("pubmed", "SC-V1", "sku"))
+
+    def test_unavailable_fulltext_is_dropped(self):
+        # 非 OA（全文取不到）→ unknown → 丢弃；不允许"无法核验就放行"
+        with patch(PATCH_TARGET, return_value=_resp(_payload([_rec()]))), \
+             patch(VERIFY_PATCH, return_value=""):
+            self._run("--apply", "--only-products", "SC-V1")
+        self.assertIsNone(get_cache("pubmed", "SC-V1", "sku"))
+
+    def test_only_verified_records_are_written(self):
+        good = _rec(pmid="200", pmcid="PMC1")
+        bad = _rec(pmid="300", pmcid="PMC_bad")
+
+        def fake_ft(pmcid, **kw):
+            if pmcid == "PMC1":
+                return FAKE_FULLTEXT
+            return epmc_verify.canonical("nothing relevant here")
+
+        with patch(PATCH_TARGET, return_value=_resp(_payload([good, bad]))), \
+             patch(VERIFY_PATCH, side_effect=fake_ft):
+            self._run("--apply", "--only-products", "SC-V1")
+        data = get_cache("pubmed", "SC-V1", "sku").get_data()
+        self.assertEqual([r["pmid"] for r in data], ["200"])
+
+    def test_no_verify_flag_bypasses_gate(self):
+        with patch(PATCH_TARGET, return_value=_resp(_payload([_rec()]))), \
+             patch(VERIFY_PATCH, return_value=""):
+            self._run("--apply", "--no-verify", "--only-products", "SC-V1")
+        self.assertEqual(len(get_cache("pubmed", "SC-V1", "sku").get_data()), 1)
+
+    def test_alias_table_rescues_naming_variant(self):
+        # SC8012 的论文写 n1-methylpseudouridine 而非目录名 → 实证别名表应救回
+        Product.objects.create(name="N1-Methylpseudo-UTP", catalog_no="SC8012",
+                               slug="sc-8012", status="draft")
+        with patch(PATCH_TARGET, return_value=_resp(_payload([_rec()]))), \
+             patch(VERIFY_PATCH, return_value=epmc_verify.canonical(
+                 "the ivt mix contained n1-methylpseudouridine (m1\u03c8)")):
+            self._run("--apply", "--only-products", "SC8012")
+        self.assertEqual(len(get_cache("pubmed", "SC8012", "sku").get_data()), 1)

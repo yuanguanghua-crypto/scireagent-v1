@@ -1,0 +1,22 @@
+{
+  "version": "v1",
+  "note": "EPMC 命中'逐字可核验'闸门用的别名表。仅收录【有实证】的公认同义词/写法变体：每一条都来自 2026-09-15 对 16 条 unverified 记录的 OA 全文逐条试词（见 .workbuddy/tmp/epmc_alias_out.txt）。原则=宁 miss 不错配：宁可漏掉，绝不把'名字其实不在原文'的记录放进来。新增别名必须先给全文证据。",
+  "aliases": {
+    "SC8012": ["n1-methylpseudouridine", "1-methylpseudouridine", "methylpseudouridine", "m1\u03c8", "m1\u03c8tp"],
+    "SC8013": ["5-methoxyuridine", "5-methoxy-uridine", "5mou"],
+    "SC8102": ["7-propargylamino-dgtp"],
+    "SC8053": ["5-propynyl dctp", "5-propynyl-dctp", "propynyl-dctp"]
+  },
+  "rejected": {
+    "SC8059": {
+      "alias": "o6-methyl-dgtp",
+      "reason": "SC8059 是 O6-Methyl-GTP（核糖），命中的论文提及的是 O6-methyl-dGTP（脱氧）—— 糖型不同，属 P0 同类陷阱，拒收。"
+    }
+  },
+  "notes": {
+    "SC8012": "6/6 unverified 全部为真阳性：论文写 n1-methylpseudouridine / m1\u03c8 / m1\u03c8tp；PMID 39105751 甚至点名 TriLink 的 n1-methylpseudo-utp。",
+    "SC8013": "5 条中仅 1 条真（5moU-substituted IVT mRNA）；其余 4 条全文连 5mou 都没有 → EPMC 松匹配，丢弃。",
+    "SC8102": "论文用简名 7-propargylamino-dGTP（与 7-Deaza-7-Propargylamino-dGTP 同物，7-位取代只存在于 7-deaza 骨架上）。",
+    "SC8053": "论文写作 5-propynyl dctp（空格）。保留带连字符与裸 propynyl-dctp 三种写法；不收裸 'propynyl'（过泛）。"
+  }
+}
