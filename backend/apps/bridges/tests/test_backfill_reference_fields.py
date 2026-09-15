@@ -9,10 +9,13 @@
 - Reference.doi 唯一：回填冲突时跳过 doi，其余字段照常写，不整批失败。
 - --limit / --ids 生效。
 
-全部用例用 monkeypatch 打桩 core.datasource_client.request_with_resilience，
-伪造带 .raise_for_status() / .json() 的 response 对象，**禁止发真实网络请求**。
+全部用例用 unittest.mock.patch 打桩 **core.datasource_client.request_with_resilience**
+（pytest 本环境不向 unittest.TestCase 注入 monkeypatch 固件，故用 patch.object 等价替换，
+目标仍是该模块级函数），伪造带 .raise_for_status() / .json() 的 response 对象，
+**禁止发真实网络请求**。参考同目录 test_adopt_cached_evidence.py 风格。
 """
 import io
+from unittest.mock import patch
 
 import core.datasource_client
 from django.core.management import call_command
@@ -64,8 +67,12 @@ def _entry(pmid, *, pubdate="", elocationid="", authors=None, source="",
 
 
 class BackfillReferenceFieldsTests(TestCase):
-    # monkeypatch 目标固定为 core.datasource_client.request_with_resilience
-    PATCH_TARGET = "core.datasource_client.request_with_resilience"
+    # 打桩目标固定为 core.datasource_client.request_with_resilience（与规格一致）
+    def _stub(self, payload_or_fn):
+        fn = payload_or_fn if callable(payload_or_fn) else _make_fake(payload_or_fn)
+        p = patch.object(core.datasource_client, 'request_with_resilience', fn)
+        p.start()
+        self.addCleanup(p.stop)
 
     def _run(self, *args, **opts):
         out = io.StringIO()
@@ -78,18 +85,13 @@ class BackfillReferenceFieldsTests(TestCase):
         defaults.update(kw)
         return Reference.objects.create(**defaults)
 
-    def _stub(self, monkeypatch, payload):
-        monkeypatch.setattr(
-            core.datasource_client, 'request_with_resilience',
-            _make_fake(payload))
-
     # ---- 1. dry-run 绝不写库 ----
-    def test_dry_run_never_writes(self, monkeypatch):
+    def test_dry_run_never_writes(self):
         ref = self._mk(pmid="111")
         payload = {"111": _entry("111", pubdate="2024 Jan",
                                  elocationid="doi:10.1/x",
                                  authors=["A B"], source="Nature")}
-        self._stub(monkeypatch, payload)
+        self._stub(payload)
         out = self._run()
         ref.refresh_from_db()
         self.assertIsNone(ref.year)
@@ -99,7 +101,7 @@ class BackfillReferenceFieldsTests(TestCase):
         self.assertIn("dry-run", out)
 
     # ---- 2. --apply 只填空字段，已有非空值不被覆盖 ----
-    def test_apply_fills_only_empty_fields(self, monkeypatch):
+    def test_apply_fills_only_empty_fields(self):
         empty = self._mk(pmid="111")
         full = self._mk(pmid="222", year=2001, doi="10.exist/1",
                         authors="Keep Me", journal="KeepJ")
@@ -109,7 +111,7 @@ class BackfillReferenceFieldsTests(TestCase):
             "222": _entry("222", pubdate="1999", elocationid="doi:10.other/9",
                           authors=["Z"], source="OtherJ"),
         }
-        self._stub(monkeypatch, payload)
+        self._stub(payload)
         out = self._run('--apply')
         empty.refresh_from_db()
         full.refresh_from_db()
@@ -125,7 +127,7 @@ class BackfillReferenceFieldsTests(TestCase):
         self.assertIn("apply", out)
 
     # ---- 3. pubdate 三种格式解析 ----
-    def test_pubdate_formats(self, monkeypatch):
+    def test_pubdate_formats(self):
         a = self._mk(pmid="1")
         b = self._mk(pmid="2")
         c = self._mk(pmid="3")
@@ -136,7 +138,7 @@ class BackfillReferenceFieldsTests(TestCase):
             "3": _entry("3", pubdate="2023 Dec 15"),
             "4": _entry("4", pubdate=""),          # 解析不出 → 不动
         }
-        self._stub(monkeypatch, payload)
+        self._stub(payload)
         self._run('--apply')
         for ref, want in ((a, 2024), (b, 2024), (c, 2023)):
             ref.refresh_from_db()
@@ -145,7 +147,7 @@ class BackfillReferenceFieldsTests(TestCase):
         self.assertIsNone(d.year)
 
     # ---- 4. doi 两路来源（elocationid / articleids）----
-    def test_doi_from_elocationid_and_articleids(self, monkeypatch):
+    def test_doi_from_elocationid_and_articleids(self):
         a = self._mk(pmid="1")
         b = self._mk(pmid="2")
         payload = {
@@ -153,7 +155,7 @@ class BackfillReferenceFieldsTests(TestCase):
             "2": _entry("2", elocationid="",
                         articleids=[{"idtype": "doi", "value": "10.2/aid"}]),
         }
-        self._stub(monkeypatch, payload)
+        self._stub(payload)
         self._run('--apply')
         a.refresh_from_db()
         b.refresh_from_db()
@@ -161,13 +163,13 @@ class BackfillReferenceFieldsTests(TestCase):
         self.assertEqual(b.doi, "10.2/aid")
 
     # ---- 5. doi 冲突 → 跳过 doi，其余照写，不报错 ----
-    def test_doi_conflict_skipped_but_other_fields_written(self, monkeypatch):
+    def test_doi_conflict_skipped_but_other_fields_written(self):
         target = self._mk(pmid="111")
         self._mk(pmid="222", doi="10.dup/1")
         payload = {"111": _entry("111", pubdate="2020",
                                  elocationid="doi:10.dup/1",
                                  authors=["A"], source="J")}
-        self._stub(monkeypatch, payload)
+        self._stub(payload)
         self._run('--apply')
         target.refresh_from_db()
         self.assertIsNone(target.doi)          # 冲突 → 不写 doi
@@ -176,14 +178,14 @@ class BackfillReferenceFieldsTests(TestCase):
         self.assertEqual(target.journal, "J")
 
     # ---- 6a. --ids 只处理指定行 ----
-    def test_ids_filter(self, monkeypatch):
+    def test_ids_filter(self):
         a = self._mk(pmid="111")
         b = self._mk(pmid="222")
         payload = {
             "111": _entry("111", pubdate="2024"),
             "222": _entry("222", pubdate="2024"),
         }
-        self._stub(monkeypatch, payload)
+        self._stub(payload)
         self._run('--apply', ids=str(b.id))
         a.refresh_from_db()
         b.refresh_from_db()
@@ -191,30 +193,28 @@ class BackfillReferenceFieldsTests(TestCase):
         self.assertEqual(b.year, 2024)
 
     # ---- 6b. --limit 生效（按 id 升序取前 N）----
-    def test_limit(self, monkeypatch):
+    def test_limit(self):
         a = self._mk(pmid="111")
         b = self._mk(pmid="222")
         payload = {
             "111": _entry("111", pubdate="2024"),
             "222": _entry("222", pubdate="2024"),
         }
-        self._stub(monkeypatch, payload)
+        self._stub(payload)
         self._run('--apply', limit=1)
         a.refresh_from_db()
         b.refresh_from_db()
         self.assertEqual(a.year, 2024)
         self.assertIsNone(b.year)
 
-    # ---- 7. 无 pmid 的行不在目标集合（不发请求）----
-    def test_rows_without_pmid_skipped(self, monkeypatch):
-        # 用真实 spy 替换，确认根本没发网络请求
+    # ---- 7. 无 pmid 的行不在目标集合（不触达网络）----
+    def test_rows_without_pmid_skipped(self):
         sentinel = {"called": 0}
-        real = core.datasource_client.request_with_resilience
 
         def _spy(*args, **kwargs):
             sentinel["called"] += 1
-            return real(*args, **kwargs)
-        monkeypatch.setattr(core.datasource_client, 'request_with_resilience', _spy)
+            return _FakeResp({"result": {}})
+        self._stub(_spy)
         no_pmid = self._mk(title="NoPmid", year=None)
         out = self._run('--apply')
         no_pmid.refresh_from_db()
@@ -223,28 +223,29 @@ class BackfillReferenceFieldsTests(TestCase):
         self.assertEqual(sentinel["called"], 0)
 
     # ---- 8. --ids 非法输入 → 友好报错，不写库 ----
-    def test_invalid_ids_reports_error(self, monkeypatch):
+    def test_invalid_ids_reports_error(self):
         self._mk(pmid="111")
         out = io.StringIO()
-        # 非法 --ids 在解析即报错，不应触达网络
-        monkeypatch.setattr(core.datasource_client, 'request_with_resilience',
-                            _make_fake({}))
+
+        def _must_not_call(*args, **kwargs):
+            raise AssertionError("不应触达网络")
+        self._stub(_must_not_call)
         call_command('backfill_reference_fields', '--ids', 'a,b',
                      stdout=out, stderr=out)
         self.assertIn("--ids", out.getvalue())
 
     # ---- 9. 批次失败不阻塞（异常被吞、只报错）----
-    def test_batch_failure_does_not_crash(self, monkeypatch):
+    def test_batch_failure_does_not_crash(self):
         self._mk(pmid="111")
 
         def _boom(*args, **kwargs):
             raise RuntimeError("boom")
-        monkeypatch.setattr(core.datasource_client, 'request_with_resilience', _boom)
+        self._stub(_boom)
         # 不应抛异常
         self._run('--apply')
 
     # ---- 10. 报告含"将回填"预测 + (apply) before→after ----
-    def test_report_contains_predictions_and_before_after(self, monkeypatch):
+    def test_report_contains_predictions_and_before_after(self):
         self._mk(pmid="111", year=None, doi=None, authors="", journal="")
         self._mk(pmid="222", year=None, doi=None, authors="", journal="")
         payload = {
@@ -253,7 +254,7 @@ class BackfillReferenceFieldsTests(TestCase):
             "222": _entry("222", pubdate="2021", elocationid="doi:10.a/2",
                           authors=["R S"], source="J2"),
         }
-        self._stub(monkeypatch, payload)
+        self._stub(payload)
         out = self._run('--apply')
         # 预测分列
         self.assertIn("year", out)
