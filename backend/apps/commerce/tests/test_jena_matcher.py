@@ -300,8 +300,8 @@ class BiotiumExEmTest(TestCase):
 
         曾因给 matched source 追加 ex_em/cas_source/product_type/match_quality
         字段却未升 MAPPER_VERSION（保持 "4"），导致 Redis 中旧 v4 缺字段缓存被
-        继续命中返回。本测试注入 mapper_version="4" 且缺四字段的陈旧项，断言
-        match_jena 因版本不符（!= "5"）强制重查，返回含完整字段的结果。
+        继续命中返回。本测试注入陈旧版本（"4"）且缺四字段的缓存项，断言
+        match_jena 因版本不符（!= 当前 MAPPER_VERSION）强制重查，返回含完整字段的结果。
         """
         from apps.documents.services.datasource_cache import set_cache
         # 该 fixture 下 ex_em=490/525 命中 biotium（无 CAS，走第4级光谱近似）
@@ -314,7 +314,9 @@ class BiotiumExEmTest(TestCase):
         }
         set_cache("jena_match", "anything|ex_em:490/525", "name", stale)
         r = jena_matcher.match_jena("anything", namespace="name", ex_em="490/525")
-        self.assertEqual(r["mapper_version"], "5")
+        # 版本无关断言：守卫的是"陈旧版本必须被重查"，不绑定具体版本号
+        # （旧写法硬编码 "5"，每次 bump 都会误报，已修）。
+        self.assertEqual(r["mapper_version"], jena_matcher.MAPPER_VERSION)
         biot = next(s for s in r["sources"] if s["vendor"] == "biotium")
         self.assertTrue(biot["matched"])
         # 重查后必须带 Biotium 接入新增的四字段

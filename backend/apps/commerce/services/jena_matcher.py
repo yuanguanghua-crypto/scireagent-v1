@@ -27,7 +27,11 @@ JENA_MATCH_TTL = 60 * 60 * 24 * 30
 #   2026-07-29 bump 4→5：Biotium 接入给 _match_jena_no_cache 的 matched source 追加了
 #   ex_em/cas_source/product_type/match_quality 字段（见 line 190-197 字段块）。
 #   该 schema 变更必须升版本，否则 Redis 中旧 v4 缺字段缓存会因版本号不变被继续命中返回。
-MAPPER_VERSION = "5"
+#   2026-09-15 bump 5→6：新增**取代基一致性闸门**（jena_index.substituents_conflict），
+#   拒收"短名包含"错配（生产 6 例：3'-Azido-ddATP→ddATP、2'-Amino-dGTP→纯 dGTP、
+#   5-Bromo-ddUTP→ddUTP、Desthiobiotin-11-UTP→Biotin-11-UTP 等）。匹配结果会变，
+#   必须失效 Redis/DB 中 v5 的旧（错）结果，否则修复不生效。
+MAPPER_VERSION = "6"
 
 
 _MODIFIER_STOPWORDS = {
@@ -102,6 +106,7 @@ def _match_jena_no_cache(identifier: str, synonyms: list, request_name: str = No
     from apps.commerce.services.jena_index import (
         extract_nucleotide_signature,
         signatures_conflict,
+        substituents_conflict,
     )
 
     # 兼容单供应商（JenaIndex）和多供应商（MultiVendorIndex）
@@ -142,11 +147,14 @@ def _match_jena_no_cache(identifier: str, synonyms: list, request_name: str = No
                 cand = index.lookup(identifier, namespace="name")
             if cand is not None:
                 cand_sig = extract_nucleotide_signature(cand.product_name)
-                if not signatures_conflict(req_sig, cand_sig):
+                if (not signatures_conflict(req_sig, cand_sig)
+                        and not substituents_conflict(request_name or identifier,
+                                                      cand.product_name)):
                     record = cand
                     match_key = "name"
                 else:
-                    # 糖型/碱基冲突被拒（#473-B1：暴露拒因供前端透明标注）
+                    # 糖型/碱基或取代基冲突被拒（#473-B1 拒因透明标注 + P0 取代基闸门：
+                    # 防"短名包含"错配，如 3'-Azido-ddATP ⊃ ddATP）
                     rejected_conjugate = True
 
         # 优先级 3: synonyms 匹配（加修饰词一致性约束，防不同修饰产品错配）
@@ -160,11 +168,13 @@ def _match_jena_no_cache(identifier: str, synonyms: list, request_name: str = No
                 if cand is not None:
                     cand_sig = extract_nucleotide_signature(cand.product_name)
                     if (not signatures_conflict(req_sig, cand_sig)
+                            and not substituents_conflict(request_name or identifier,
+                                                          cand.product_name)
                             and not _modifiers_conflict(request_name or identifier, cand.product_name)):
                         record = cand
                         match_key = f"synonym:{syn}"
                         break
-                    # 候选存在但糖型/碱基或修饰词冲突 → 记录拒因（#473-B1）
+                    # 候选存在但糖型/碱基、取代基或修饰词冲突 → 记录拒因（#473-B1）
                     rejected_conjugate = True
 
         # 优先级 4: Ex/Em 光谱近似匹配（Biotium 专属次级键，D2）。

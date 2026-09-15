@@ -713,6 +713,61 @@ def signatures_conflict(req_sig: set, cand_sig: set) -> bool:
     return req_sig.isdisjoint(cand_sig)
 
 
+# ── 取代基/标记一致性闸门（P0：修"短名包含"错配）────────────────────────────
+# 背景（2026-09-15 生产实测，6 例真实错配）：
+#   signatures_conflict 只区分「碱基 + 糖型（脱氧/核糖）」，对同一骨架上的**取代基**无感，
+#   而 name 路径的部分匹配是 `q in pn or pn in q`——候选的**短名**会嵌进请求的**长修饰名**：
+#     3'-Azido-ddATP  ⊃ ddATP         → jena NU-1015（纯 ddATP）  ✗
+#     3'-Amino-ddCTP  ⊃ ddCTP         → jena NU-1016              ✗
+#     3'-Amino-ddGTP  ⊃ ddGTP         → jena NU-1017              ✗
+#     5-Bromo-ddUTP   ⊃ ddUTP         → jena NU-1021              ✗
+#     Desthiobiotin-11-UTP ⊃ Biotin-11-UTP → biotium Biotin-11-UTP ✗
+#     2'-Amino-dGTP   ⊂ 2'-amino-2'-deoxyguanosine-5'-triphosphate（synonym 子串）
+#                                     → trilink N-2503（纯 dGTP） ✗
+# 规则（宁 miss 不错配）：请求名里的**每一个**取代基词都必须在候选名里出现；
+#   任一缺席 → 判冲突、拒收。请求无取代基词时不作约束（保持保守，不误杀）。
+# 词表为"最长匹配优先"：命中词若被另一命中词包含（biotin ⊂ desthiobiotin、
+#   amino ⊂ propargylamino、aza ⊂ deaza、methyl ⊂ hydroxymethyl）则丢弃短词，
+#   否则 desthiobiotin 会被 biotin 蒙混过关。
+_SUBSTITUENT_VOCAB = (
+    # 糖环/磷酸取代基
+    "azido", "amino", "fluoro", "bromo", "iodo", "chloro", "thio",
+    "methoxy", "hydroxy", "hydroxymethyl", "methylthio", "phosphonate",
+    # 碱基取代基
+    "methyl", "carboxy", "formyl", "aza", "deaza", "propynyl",
+    "propargylamino", "propargyl", "aminoallyl", "mercapto", "pseudo",
+    # 标记/偶联基团
+    "biotin", "desthiobiotin", "digoxigenin", "fluorescein",
+    "cy3", "cy5", "sulfo", "atto", "alexa", "rhodamine",
+)
+
+
+def substituents_of(name: str) -> set:
+    """抽取名称中的取代基/标记词（最长匹配优先，见 _SUBSTITUENT_VOCAB 注释）。"""
+    if not name:
+        return set()
+    n = str(name).lower()
+    hits = {t for t in _SUBSTITUENT_VOCAB if t in n}
+    # 丢弃被更长的命中词包含的短词（biotin⊂desthiobiotin、amino⊂propargylamino…）
+    return {t for t in hits if not any(t != o and t in o for o in hits)}
+
+
+def substituents_conflict(req_name: str, cand_name: str) -> bool:
+    """请求含取代基词、而候选名未包含其中任一词 → True（候选缺少请求的修饰）。
+
+    与 signatures_conflict 互补：后者管碱基/糖型，本函数管同一骨架上的取代基/标记。
+    仅在 name / synonym 松匹配路径生效；CAS 精确命中不加此约束
+    （同一化合物的命名差异不算错配）。
+    """
+    if not req_name or not cand_name:
+        return False
+    req = substituents_of(req_name)
+    if not req:
+        return False
+    cand_lower = str(cand_name).lower()
+    return not any(t in cand_lower for t in req)
+
+
 def map_category_l1(category_path) -> str:
     """jena category_path 任意段 → 平台 CategoryL1 枚举值。匹配不上返回空。
 
