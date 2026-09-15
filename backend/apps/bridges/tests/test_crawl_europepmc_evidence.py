@@ -30,9 +30,10 @@ def _payload(records):
 
 
 def _rec(pmid="100", title="A paper", journal="Nat Commun", year="2021",
-         authors="Ann A, Bob B.", doi="10.1/x"):
+         authors="Ann A, Bob B.", doi="10.1/x", source="MED"):
     return {"id": pmid, "pmid": pmid, "title": title, "journalTitle": journal,
-            "pubYear": year, "authorString": authors, "doi": doi}
+            "pubYear": year, "authorString": authors, "doi": doi,
+            "source": source}
 
 
 class ParseEpmcResultsTest(TestCase):
@@ -52,8 +53,17 @@ class ParseEpmcResultsTest(TestCase):
         recs = mod.parse_epmc_results(_payload([_rec(title=""), _rec(title="Keep")]))
         self.assertEqual([r["title"] for r in recs], ["Keep"])
 
-    def test_drops_record_without_pmid_and_doi(self):
-        recs = mod.parse_epmc_results(_payload([_rec(pmid="", doi="")]))
+    def test_drops_preprint_source(self):
+        """PPR（预印本）id 不是 PMID —— 必须丢弃，否则污染 pmid 字段。"""
+        recs = mod.parse_epmc_results(_payload([
+            _rec(pmid="PPR907590", source="PPR"),
+            _rec(pmid="200", source="PMC"),
+            _rec(pmid="300", source="MED"),
+        ]))
+        self.assertEqual([r["pmid"] for r in recs], ["200", "300"])
+
+    def test_drops_non_numeric_pmid(self):
+        recs = mod.parse_epmc_results(_payload([_rec(pmid="abc", source="MED")]))
         self.assertEqual(recs, [])
 
     def test_tolerates_garbage_payload(self):
@@ -160,3 +170,23 @@ class CrawlCommandTest(TestCase):
         with patch(PATCH_TARGET, return_value=_resp(_payload(many))):
             self._run("--apply", "--max-per-product", "3")
         self.assertEqual(len(get_cache("pubmed", "SC-T1", "sku").get_data()), 3)
+
+    def test_out_dumps_full_records_for_injection(self):
+        """--out 必须落完整 records（items），供导出注入生产 DataSourceCache。"""
+        import json
+        import os
+        import tempfile
+
+        fd, path = tempfile.mkstemp(suffix=".jsonl")
+        os.close(fd)
+        try:
+            with patch(PATCH_TARGET, return_value=_resp(_payload([_rec(), _rec(pmid="101")]))):
+                self._run("--only-products", "SC-T1", "--out", path)
+            rows = [json.loads(l) for l in open(path, encoding="utf-8") if l.strip()]
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["catalog_no"], "SC-T1")
+            self.assertEqual(rows[0]["records"], 2)
+            self.assertEqual([r["pmid"] for r in rows[0]["items"]], ["100", "101"])
+            self.assertEqual(rows[0]["items"][0]["_index"], "europepmc")
+        finally:
+            os.remove(path)

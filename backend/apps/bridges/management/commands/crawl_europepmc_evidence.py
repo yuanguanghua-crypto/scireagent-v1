@@ -60,10 +60,17 @@ def _authors_list(author_string) -> list:
     return [p for p in parts if p]
 
 
+# 只接受 PubMed / PubMed Central 记录：EPMC 的 source 字段取值有 MED/PMC/PPR/AGR/PAT 等，
+# 其中 PPR = 预印本（id 形如 PPR907590，**不是 PMID**）。既往实现会把 PPR id 写进 pmid
+# 字段污染语义，故按 source 白名单 + pmid 必须为纯数字双重把关（宁 miss 不错配）。
+_EPMC_OK_SOURCES = {"MED", "PMC"}
+
+
 def parse_epmc_results(payload) -> list:
     """Europe PMC search 响应 → adopt 可用的记录列表（pubmed 槽位形状）。
 
-    只保留 title 非空且 (pmid 或 doi) 存在的记录；其余丢弃（宁 miss 不错配）。
+    只保留：source ∈ {MED, PMC}（排除 PPR 预印本等）、title 非空、pmid 为纯数字。
+    其余丢弃（宁 miss 不错配）。因此每条入库记录都是真实 PubMed 记录。
     """
     if not isinstance(payload, dict):
         return []
@@ -74,13 +81,15 @@ def parse_epmc_results(payload) -> list:
     for r in results:
         if not isinstance(r, dict):
             continue
+        if (r.get("source") or "").strip().upper() not in _EPMC_OK_SOURCES:
+            continue
         title = (r.get("title") or "").strip()
         if not title:
             continue
-        pmid = str(r.get("pmid") or r.get("id") or "").strip()
-        doi = (r.get("doi") or "").strip()
-        if not pmid and not doi:
+        pmid = str(r.get("pmid") or "").strip()
+        if not pmid.isdigit():
             continue
+        doi = (r.get("doi") or "").strip()
         out.append({
             "pmid": pmid,
             "title": title,
@@ -124,7 +133,8 @@ class Command(BaseCommand):
         parser.add_argument("--page-size", type=int, default=25,
                             help="EPMC pageSize per request (default 25).")
         parser.add_argument("--out", default=None,
-                            help="Write one JSONL line per product (plan/detail).")
+                            help="Write one JSONL line per product,含完整 records "
+                                 "(供注入生产 DataSourceCache 用)。")
 
     def handle(self, *args, **options):
         apply = options["apply"]
@@ -185,7 +195,8 @@ class Command(BaseCommand):
                 written += 1
             lines.append({"catalog_no": key, "name": name, "records": len(recs),
                           "written": bool(apply),
-                          "sample": [r["pmid"] or r["doi"] for r in recs[:5]]})
+                          "sample": [r["pmid"] or r["doi"] for r in recs[:5]],
+                          "items": recs})   # 完整记录，供导出注入生产
 
         if out_path:
             with open(out_path, "w", encoding="utf-8") as f:
