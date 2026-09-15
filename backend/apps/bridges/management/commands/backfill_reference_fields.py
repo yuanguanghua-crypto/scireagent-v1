@@ -22,6 +22,7 @@ year / doi / authors / journal —— **只填空字段、绝不覆盖已有非�
     python manage.py backfill_reference_fields --limit 50
     python manage.py backfill_reference_fields --ids 1,2,3
 """
+import core.datasource_client  # 通过模块属性调用，便于测试 monkeypatch core.datasource_client.request_with_resilience
 import re
 
 from django.core.management.base import BaseCommand
@@ -29,7 +30,6 @@ from django.db import IntegrityError
 from django.db.models import Q
 
 from apps.knowledge.models import Reference
-from core.datasource_client import request_with_resilience
 
 ESUMMARY_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
 BATCH_SIZE = 100        # esummary 单次 id 上限
@@ -77,7 +77,7 @@ def _parse_authors(entry: dict) -> str:
 def _fetch_batch(pmids: list) -> dict:
     """调 esummary，返回 result 字典（含 pmid → entry）。异常向调用方抛出。"""
     params = {"db": "pubmed", "id": ",".join(pmids), "retmode": "json"}
-    r = request_with_resilience(
+    r = core.datasource_client.request_with_resilience(
         "GET", ESUMMARY_URL, source="pubmed", timeout=20, params=params)
     r.raise_for_status()
     data = r.json() or {}
