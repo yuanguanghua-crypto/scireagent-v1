@@ -115,38 +115,48 @@ def cache_dir() -> str:
         tempfile.gettempdir(), "scireagent_epmc_fulltext")
 
 
-def fetch_fulltext(pmcid: str, timeout: float = 45.0) -> str:
+def _write_cache(dirpath: str, path: str, content: str) -> None:
+    try:
+        os.makedirs(dirpath, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+    except Exception:
+        pass
+
+
+def fetch_fulltext(pmcid: str, timeout: float = 45.0, retries: int = 5) -> str:
     """取 EPMC OA 全文并 canonical 化；不可得返回 ""（非 OA / 404 均为空）。
 
-    带磁盘缓存：同一 pmcid 只取一次（166 条命中里不少共用同一篇，实测省 ~30% 请求）。
+    带磁盘缓存：同一 pmcid 只取一次（166 条命中里不少共用同一篇）。**负结果也缓存**
+    （`{pmcid}.none`）——EPMC 的 404 表示该篇不在 OA 子集，是确定性结果，重复取只是浪费；
+    但 5xx（瞬时）**不缓存**，下次仍会重试。
     """
     if not pmcid:
         return ""
     d = cache_dir()
     path = os.path.join(d, f"{pmcid}.txt")
+    miss = os.path.join(d, f"{pmcid}.none")
     if os.path.exists(path):
         try:
             with open(path, encoding="utf-8") as f:
                 return f.read()
         except Exception:
             pass
+    if os.path.exists(miss):
+        return ""
     try:
         resp = request_with_resilience(
             "GET", EPMC_FULLTEXT_URL.format(pmcid=pmcid), source="europepmc",
-            timeout=timeout, headers={"User-Agent": _UA},
+            timeout=timeout, retries=retries, headers={"User-Agent": _UA},
         )
     except Exception:
         return ""
     if resp.status_code != 200:
-        # 404 = 不在 EPMC OA 子集（永久不可得）；5xx 已经在容错层重试过
-        return ""
+        if resp.status_code == 404:      # 确定性：不在 EPMC OA 子集
+            _write_cache(d, miss, "")
+        return ""                        # 5xx 等瞬时失败不缓存
     txt = canonical(resp.text)
-    try:
-        os.makedirs(d, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(txt)
-    except Exception:
-        pass
+    _write_cache(d, path, txt)
     return txt
 
 

@@ -107,6 +107,20 @@ class FetchFulltextTest(TestCase):
         with patch(FETCH, return_value=self._resp(404, "no")):
             self.assertEqual(epmc_verify.fetch_fulltext("PMCx"), "")
 
+    def test_404_is_cached_negatively(self):
+        # 404 = 确定性（不在 OA 子集）→ 缓存负结果，不重复取
+        with patch(FETCH, return_value=self._resp(404, "no")) as m:
+            epmc_verify.fetch_fulltext("PMCz")
+            epmc_verify.fetch_fulltext("PMCz")
+        self.assertEqual(m.call_count, 1)
+
+    def test_5xx_is_not_cached(self):
+        # 5xx 瞬时 → 不缓存，下次仍重试
+        with patch(FETCH, return_value=self._resp(503, "busy")) as m:
+            epmc_verify.fetch_fulltext("PMC5z")
+            epmc_verify.fetch_fulltext("PMC5z")
+        self.assertEqual(m.call_count, 2)
+
     def test_exception_returns_empty(self):
         with patch(FETCH, side_effect=ConnectionError("boom")):
             self.assertEqual(epmc_verify.fetch_fulltext("PMCy"), "")
