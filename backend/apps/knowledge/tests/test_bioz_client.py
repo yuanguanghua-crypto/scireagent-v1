@@ -99,6 +99,36 @@ class BiozClientTest(TestCase):
         records = BiozClient().search_by_sku("NU-1138")
         self.assertEqual(records, [])
 
+    @patch("apps.knowledge.services.bioz_client.request_with_resilience")
+    def test_empty_result_is_not_cached(self, mock_req):
+        """200 但零记录 → **不得**写 L1，否则一次查空锁死 TTL 14 天。"""
+        from apps.documents.services.datasource_cache import get_cache
+
+        mock_resp = MagicMock()
+        mock_resp.ok = True
+        mock_resp.json.return_value = {"records": []}
+        mock_req.return_value = mock_resp
+
+        c = BiozClient()
+        c.search_by_sku("NU-9999", vendor="Jena Bioscience")
+        c.search_by_sku("NU-9999", vendor="Jena Bioscience")
+        # 未缓存 → 第二次仍应重新请求
+        self.assertEqual(mock_req.call_count, 2)
+        self.assertIsNone(get_cache("bioz", "Jena Bioscience:NU-9999", "sku"))
+
+    @patch("apps.knowledge.services.bioz_client.request_with_resilience")
+    def test_nonempty_result_is_still_cached(self, mock_req):
+        """有结果仍走 L1（回归守卫：修复不得破坏缓存收益）。"""
+        mock_resp = MagicMock()
+        mock_resp.ok = True
+        mock_resp.json.return_value = _SAMPLE_PAYLOAD
+        mock_req.return_value = mock_resp
+
+        c = BiozClient()
+        c.search_by_sku("NU-1138", vendor="Jena Bioscience")
+        c.search_by_sku("NU-1138", vendor="Jena Bioscience")
+        self.assertEqual(mock_req.call_count, 1)
+
     def test_empty_catalog_no_request(self):
         """空 catalog_no → 直接返回 []，不请求"""
         with patch("apps.knowledge.services.bioz_client.request_with_resilience") as m:

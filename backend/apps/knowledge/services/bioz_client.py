@@ -80,10 +80,15 @@ class BiozClient:
 
         records = self._parse_records(payload)
 
-        try:
-            set_cache("bioz", cache_key, "sku", records)
-        except Exception as e:
-            logger.debug(f"Bioz cache set skipped for {cache_key}: {e}")
+        # 只缓存"有结果"的查询。Bioz 对未收录的 SKU 返回 null / {"records": []}，
+        # 若把空结果也写入 L1（TTL 14 天、is_stale=False），**一次查空即锁死 14 天**；
+        # 且 rekey_bioz_by_sc 会把该空值复制成 <SC catalog_no> 别名，使产品级证据恒为 0。
+        # 2026-09-15 实测：47 个零证据产品全部被这样锁死（缓存键=SC 号、内容=[]）。
+        if records:
+            try:
+                set_cache("bioz", cache_key, "sku", records)
+            except Exception as e:
+                logger.debug(f"Bioz cache set skipped for {cache_key}: {e}")
 
         return records
 
