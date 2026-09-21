@@ -1,4 +1,5 @@
 import os
+from django.http import Http404
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -61,6 +62,21 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             return ProductCreateUpdateSerializer
         return ProductListSerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        """S2：公开 retrieve 对软删（archived）产品返回 404。
+
+        红线：不改 get_queryset 的 archived 分支（它被 destroy/restore/hard-delete 共享，
+        一旦在非 list 分支加过滤会导致 restore 取不到对象 → 回收站锁死）。
+        这里改为对象级判断：取到对象后，仅对「非 staff」且 archived 的产品抛 404；
+        staff 仍可 200（回收站 UI 依赖）。
+        """
+        instance = self.get_object()
+        user = request.user
+        if instance.archived and not (user and user.is_authenticated and user.is_staff):
+            raise Http404
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
     def get_queryset(self):
         qs = super().get_queryset()
         user = self.request.user
@@ -76,7 +92,9 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
                 qs = qs.exclude(archived=True)
         query = self.request.query_params.get('search', '')
         if query:
-            qs = selectors.filter_products(query)
+            # S2：必须保留基础 qs（含上面 exclude(archived=True) 与分类过滤），
+            # 旧写法 `qs = selectors.filter_products(query)` 会整段覆盖、丢掉 archived 排除。
+            qs = selectors.filter_products(query, base_qs=qs)
         # Filter by category_l1 slug → recursive descendant match
         cat1 = self.request.query_params.get('category_l1', '')
         if cat1:
@@ -287,7 +305,8 @@ class ProductDetailAPIView(EnvelopeMixin, APIView):
         from apps.commerce.services.product_relationship_service import get_related_products
 
         # A2 死分支清理：Product 状态机无 'published'（那是 Protocol/COA 的枚举），只认 active
-        product = get_object_or_404(Product, pk=pk, status='active')
+        # S2：公开聚合详情同样必须排除软删（archived=True）产品。
+        product = get_object_or_404(Product, pk=pk, status='active', archived=False)
 
         # ── P0#3 方案A：读端打通 ──
         # methods：PMR derived 边（derived_relevance）∪ ProductMethod 桥，按 method id 去重。

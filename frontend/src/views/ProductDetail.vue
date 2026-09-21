@@ -34,6 +34,10 @@ const researchCart = useResearchPathStore()
 const product = computed(() => store.currentProduct)
 const detail = computed(() => store.productDetail)
 
+/* S2：归档/不可用产品兜底 —— 接口 404（store.productError）或 payload.archived=true
+   时走空态，不渲染可能被软删产品的内容。 */
+const unavailable = computed(() => store.productError || product.value?.archived === true)
+
 /* ── V1.2 aggregated data from detail API ── */
 const applications = computed(() => detail.value?.applications || [])
 const protocols = computed(() => detail.value?.protocols || [])
@@ -403,7 +407,7 @@ function onSearch(query) {
 </script>
 
 <template>
-  <div class="pd" v-if="product && !store.productError">
+  <div class="pd" v-if="product && !unavailable">
     <ProductLayout
       :page-title="product.name"
       :page-subtitle="product.catalog_no ? `${product.catalog_no} | ${product.cas || ''}` : ''"
@@ -856,9 +860,9 @@ function onSearch(query) {
   <!-- Loading -->
   <LoadingSpinner v-else-if="store.loading" text="Loading..." />
   <!-- 阶段0：#404/失败时明确错误态，不卡 Loading、不白屏 -->
-  <div v-else-if="store.productError" class="pd-empty">
+  <div v-else-if="unavailable" class="pd-empty">
     <p class="pd-error-title">Product not found or unavailable</p>
-    <p class="pd-error-sub">The product may have been removed or is no longer active.</p>
+    <p class="pd-error-sub">This product may have been removed, archived, or is no longer available.</p>
   </div>
   <div v-else class="pd-empty">Product not found</div>
 </template>

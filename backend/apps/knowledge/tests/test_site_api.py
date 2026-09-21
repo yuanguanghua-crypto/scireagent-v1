@@ -3,7 +3,7 @@ from rest_framework.test import APIClient
 from apps.knowledge.tests.factories import (
     ApplicationFactory, MethodFactory, ProtocolFactory, ReferenceFactory
 )
-from apps.commerce.tests.factories import ProductFactory
+from apps.commerce.tests.factories import ProductFactory, SKUFactory
 
 
 class SiteHomeAPITest(TestCase):
@@ -60,6 +60,20 @@ class SiteHomeAPITest(TestCase):
         self.assertIn('success', data)
         self.assertIn('data', data)
         self.assertIn('meta', data)
+
+    def test_home_stats_and_featured_exclude_archived(self):
+        """S2 路径 5/6：首页推荐位与统计（product/sku）排除归档产品。"""
+        live = ProductFactory(status='active', display_priority=100)
+        SKUFactory(product=live)
+        SKUFactory(product=live)
+        arch = ProductFactory(status='active', display_priority=200, archived=True)
+        SKUFactory(product=arch)
+        data = self.client.get('/api/v1/site/home').json()['data']
+        # 推荐位不含归档产品
+        self.assertNotIn(arch.id, [p['id'] for p in data['featured_products']])
+        # 统计只计未归档产品（1 条 live）与其 SKU（2 条）
+        self.assertEqual(data['stats']['products'], 1)
+        self.assertEqual(data['stats']['skus'], 2)
 
 
 class SiteNavigationAPITest(TestCase):
@@ -239,3 +253,11 @@ class SitemapAPITest(TestCase):
         content = resp.content.decode()
         # Home URL should always be present
         self.assertIn('<url>', content)
+
+    def test_sitemap_excludes_archived_products(self):
+        """S2 路径 8：sitemap 不含归档产品 URL；未归档 active 产品仍在。"""
+        live = ProductFactory(status='active')
+        arch = ProductFactory(status='active', archived=True)
+        content = self.client.get('/api/v1/sitemap.xml').content.decode()
+        self.assertIn(f'/products/{live.id}</loc>', content)
+        self.assertNotIn(f'/products/{arch.id}</loc>', content)

@@ -84,7 +84,7 @@ def site_home(request):
     # Featured products (by display_priority) — prefetch SKUs to avoid N+1
     featured_products = list(
         Product.objects
-        .filter(status='active')
+        .filter(status='active', archived=False)
         .select_related('product_class__parent__parent')
         .prefetch_related('skus')
         .order_by('-display_priority', 'name')[:20]
@@ -136,14 +136,16 @@ def site_home(request):
     references = Reference.objects.order_by('-year', '-id')[:5]
 
     # Stats — aggregate counts from all relevant models
-    sku_count = Product.objects.filter(status__in=['active', 'published']).aggregate(
+    sku_count = Product.objects.filter(
+        status__in=['active', 'published'], archived=False
+    ).aggregate(
         total=Count('skus__id', distinct=True)
     )['total'] or 0
     # S1：统计口径必须排除测试夹具残骸，否则首页 areas/goals 会把 e2e 残留计入
     area_count = ResearchGoal.objects.public().count()
     method_count = Method.objects.public().filter(status='active').count()
     protocol_count = Protocol.objects.filter(status='published').count()
-    product_count = Product.objects.filter(status__in=['active', 'published']).count()
+    product_count = Product.objects.filter(status__in=['active', 'published'], archived=False).count()
 
     # Stats payload — aligned with frontend StatsBar
     stats_payload = {
@@ -168,6 +170,7 @@ def site_home(request):
         count = Product.objects.filter(
             product_class_id__in=descendant_ids,
             status__in=['active', 'published'],
+            archived=False,
         ).count() if descendant_ids else 0
         categories_payload.append({**meta, 'count': count})
 
@@ -331,7 +334,7 @@ def sitemap_xml(request):
         urls.append(f'{base_url}/protocols/{protocol.id}')
 
     # Products
-    for product in Product.objects.filter(status__in=['active', 'published']):
+    for product in Product.objects.filter(status__in=['active', 'published'], archived=False):
         urls.append(f'{base_url}/products/{product.id}')
 
     xml = '<?xml version="1.0" encoding="UTF-8"?>\n'

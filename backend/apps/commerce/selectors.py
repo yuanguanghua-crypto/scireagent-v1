@@ -35,9 +35,14 @@ def get_descendant_product_class_ids(root) -> list:
     return ids
 
 
-def filter_products(query: str = '', filters: dict = None) -> QuerySet:
-    """筛选/搜索产品"""
-    qs = Product.objects.select_related('product_class').all()
+def filter_products(query: str = '', filters: dict = None, base_qs: QuerySet = None) -> QuerySet:
+    """筛选/搜索产品
+
+    base_qs：可选的基础 QuerySet。传入时在其之上叠加搜索/过滤，避免覆盖调用方
+    已施加的可见性约束（例如视图 queryset 里的 exclude(archived=True)）。
+    不传时保持原行为（从全表起）。
+    """
+    qs = base_qs if base_qs is not None else Product.objects.select_related('product_class').all()
     if query:
         qs = qs.filter(
             Q(name__icontains=query) |
