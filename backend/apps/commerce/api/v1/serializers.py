@@ -103,7 +103,7 @@ class ProductListSerializer(BaseModelSerializer):
         fields = [
             'id', 'name', 'slug', 'catalog_no', 'cas', 'smiles', 'synonyms', 'inchi',
             'formula', 'molecular_weight', 'purity', 'concentration', 'storage',
-            'shipping', 'lead_time', 'status', 'research_use_only',
+            'shipping', 'lead_time', 'status', 'archived', 'research_use_only',
             'product_class_id', 'product_class_name', 'category_l1', 'category_l2',
             'sku_summary', 'created_at', 'updated_at', 'is_complete', 'incomplete_items',
             'sds_published', 'coa_published_count', 'aggregate_relevance_score',

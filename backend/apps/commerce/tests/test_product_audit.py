@@ -14,6 +14,7 @@ from rest_framework.test import APIClient
 from apps.accounts.tests.factories import UserFactory
 from apps.commerce.models import Product, SKU, AuditLog
 from apps.commerce.tests.factories import ProductFactory, SKUFactory
+from apps.commerce.api.v1.serializers import ProductListSerializer
 
 
 class ProductSoftDeleteTest(TestCase):
@@ -58,6 +59,24 @@ class ProductSoftDeleteTest(TestCase):
         resp = self.client.get('/api/v1/products/?archived=1')
         names = [p['name'] for p in resp.json()['data']]
         self.assertIn('Soft Delete Me', names)
+
+    def test_list_serializer_exposes_archived_field(self):
+        """S1 回收站 UI 前置：列表序列化器必须暴露 archived 字段（前端据此客户端分区）。"""
+        self.assertIn('archived', ProductListSerializer.Meta.fields)
+
+    def test_archived_flag_present_in_payload_via_param(self):
+        """?archived=1（staff）返回的 payload 带 archived=True；默认列表不含该条。"""
+        self.product.archived = True
+        self.product.save()
+        self.client.force_authenticate(user=self.staff)
+        resp = self.client.get('/api/v1/products/?archived=1')
+        rows = {p['name']: p for p in resp.json()['data']}
+        self.assertIn('Soft Delete Me', rows)
+        self.assertIs(rows['Soft Delete Me']['archived'], True)
+        # 默认列表（不带 ?archived=1）必须仍然看不到它
+        resp_default = self.client.get('/api/v1/products/')
+        default_names = [p['name'] for p in resp_default.json()['data']]
+        self.assertNotIn('Soft Delete Me', default_names)
 
     def test_restore_unarchives(self):
         """restore action 取消归档，产品回到列表"""

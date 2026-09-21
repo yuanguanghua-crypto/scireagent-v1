@@ -29,7 +29,10 @@ module.exports = defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { browserName: 'chromium' },
+      // 本机未安装 Playwright bundled 浏览器（%LOCALAPPDATA%\ms-playwright 不存在），
+      // 改用系统已装的 Microsoft Edge（channel: 'msedge'）。
+      // 运行：npx playwright test --project=chromium
+      use: { browserName: 'chromium', channel: 'msedge' },
     },
     // 阶段 9 启用（需先 npx playwright install firefox webkit）：
     { name: 'firefox', use: { browserName: 'firefox' } },

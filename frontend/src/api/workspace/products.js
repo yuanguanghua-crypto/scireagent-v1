@@ -31,3 +31,13 @@ export function reactivateProduct(id) {
 export function deleteProduct(id) {
   return http.delete(`/products/${id}/`)
 }
+
+// S1 回收站：staff-only。?archived=1 只是「不再隐藏」，返回全部产品
+// （含正常 + 回收站），前端自行按 archived 字段分区。
+export function getArchivedProducts(params = {}) {
+  return http.get('/products/', { params: { ...params, archived: 1, page_size: params.page_size || 500 } })
+}
+
+export function restoreProduct(id) {
+  return http.post(`/products/${id}/restore/`)
+}

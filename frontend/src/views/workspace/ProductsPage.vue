@@ -1,23 +1,41 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/http'
 import { toast, LoadingSpinner, EmptyState } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
-import { archiveProduct, reactivateProduct, deleteProduct } from '@/api/workspace/products'
+import { archiveProduct, reactivateProduct, deleteProduct, getArchivedProducts, restoreProduct } from '@/api/workspace/products'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 
 if (!auth.isStaff) {
   router.replace('/')
 }
 
-const products = ref([])
+// ── 单一数据源 + 客户端分区（在售 / 回收站）────────
+// staff-only ?archived=1 返回全部产品（正常+回收站），前端据 archived 自行分区，
+// 一次请求同时拿到两个集合 → 切换零延迟、计数准确。
+const allProducts = ref([])
+const viewMode = ref(route.query.view === 'recycle' ? 'recycle' : 'active')
+const products = computed(() => viewMode.value === 'recycle'
+  ? allProducts.value.filter(p => p.archived === true)
+  : allProducts.value.filter(p => p.archived !== true))
+const recycleCount = computed(() => allProducts.value.filter(p => p.archived === true).length)
+
 const loading = ref(true)
 const error = ref('')
 const selectedIds = ref(new Set())
+
+function setView(mode) {
+  viewMode.value = mode
+  selectedIds.value = new Set()
+  closeMenu()
+  statusFilter.value = 'all'
+  router.replace({ query: mode === 'recycle' ? { view: 'recycle' } : {} })
+}
 
 // ── Sorting ──────────────────────────────────────
 const sortField = ref('catalog_no')
@@ -102,7 +120,7 @@ const statusOptions = [
   { value: 'active', label: 'Active' },
   { value: 'draft', label: 'Draft' },
   { value: 'deprecated', label: 'Deprecated' },
-  { value: 'archived', label: 'Archived' },
+  { value: 'archived', label: 'Unpublished' },
 ]
 
 const filteredProducts = computed(() => {
@@ -208,9 +226,9 @@ async function applyBatchLink() {
       await http.put(`/products/${pid}/`, { method_ids: methodIds, protocol_ids: protocolIds })
     }
     showBatchLinkPanel.value = false
-    const resp = await http.get('/products/', { params: { page_size: 500 } })
+    const resp = await getArchivedProducts()
     if (resp.data) {
-      products.value = Array.isArray(resp.data) ? resp.data : (resp.data.results || [])
+      allProducts.value = Array.isArray(resp.data) ? resp.data : (resp.data.results || [])
     }
   } catch (e) {
     // P0-3: now supports research_goal_ids as well
@@ -223,9 +241,9 @@ async function applyBatchLink() {
 
 onMounted(async () => {
   try {
-    const resp = await http.get('/products/', { params: { page_size: 500 } })
+    const resp = await getArchivedProducts()
     if (resp.data) {
-      products.value = Array.isArray(resp.data) ? resp.data : (resp.data.results || [])
+      allProducts.value = Array.isArray(resp.data) ? resp.data : (resp.data.results || [])
     }
   } catch (e) {
     error.value = 'Failed to load products'
@@ -236,9 +254,9 @@ onMounted(async () => {
 
 // ── 列表刷新 ───────────────────────────────────────
 async function refreshProducts() {
-  const resp = await http.get('/products/', { params: { page_size: 500 } })
+  const resp = await getArchivedProducts()
   if (resp.data) {
-    products.value = Array.isArray(resp.data) ? resp.data : (resp.data.results || [])
+    allProducts.value = Array.isArray(resp.data) ? resp.data : (resp.data.results || [])
   }
 }
 
@@ -340,8 +358,8 @@ async function confirmArchive() {
     await refreshProducts()
     showArchiveDialog.value = false
     selectedIds.value = new Set()
-    if (fail === 0) toast.success(`Archived ${ok} products`)
-    else toast.warning(`Archived ${ok}, failed ${fail}`)
+    if (fail === 0) toast.success(`Unpublished ${ok} products`)
+    else toast.warning(`Unpublished ${ok}, failed ${fail}`)
   } finally {
     archiveLoading.value = false
   }
@@ -375,10 +393,55 @@ async function confirmDelete() {
     await refreshProducts()
     showDeleteDialog.value = false
     selectedIds.value = new Set()
-    if (fail === 0) toast.success(`Deleted ${ok} products`)
-    else toast.warning(`Deleted ${ok}, failed ${fail}`)
+    if (fail === 0) toast.success(`Moved ${ok} products to the recycle bin`)
+    else toast.warning(`Moved ${ok}, failed ${fail}`)
   } finally {
     deleteLoading.value = false
+  }
+}
+
+// ── 回收站：恢复 ───────────────────────────────────
+const showRestoreDialog = ref(false)
+const restoreTargets = ref([])        // [{ id, name }]
+const restoreLoading = ref(false)
+const restoreOverlay = ref(null)
+const restoreAttrs = useDialogA11y(showRestoreDialog, restoreOverlay, {
+  titleId: 'restore-title',
+  close: () => { showRestoreDialog.value = false },
+})
+
+function openRestoreOne(product) {
+  restoreTargets.value = [{ id: product.id, name: product.name }]
+  showRestoreDialog.value = true
+  closeMenu()
+}
+
+function openBatchRestore() {
+  const ids = Array.from(selectedIds.value)
+  restoreTargets.value = ids.map(id => {
+    const p = allProducts.value.find(x => x.id === id)
+    return { id, name: p?.name || `#${id}` }
+  })
+  showRestoreDialog.value = true
+}
+
+async function confirmRestore() {
+  restoreLoading.value = true
+  let ok = 0, fail = 0
+  try {
+    for (const t of restoreTargets.value) {
+      try {
+        await restoreProduct(t.id)
+        ok++
+      } catch { fail++ }
+    }
+    await refreshProducts()
+    showRestoreDialog.value = false
+    selectedIds.value = new Set()
+    if (fail === 0) toast.success(`Restored ${ok} products`)
+    else toast.warning(`Restored ${ok}, failed ${fail}`)
+  } finally {
+    restoreLoading.value = false
   }
 }
 </script>
@@ -388,8 +451,17 @@ async function confirmDelete() {
     <LoadingSpinner v-if="loading" text="Loading..." />
     <div v-else-if="error" class="error">{{ error }}</div>
     <template v-else>
+      <!-- Recycle bin notice banner -->
+      <div v-if="viewMode === 'recycle'" class="recycle-banner" role="note">
+        Recycle bin: {{ recycleCount }} products. Deleted products are hidden from the storefront and from the Products list. No data is removed — SKUs, documents, knowledge links, cart references and order history are all preserved.
+      </div>
+
       <!-- Filters -->
       <div class="filters-bar">
+        <div class="view-toggle">
+          <button type="button" :class="['view-toggle__btn', { 'is-active': viewMode === 'active' }]" @click="setView('active')">Products</button>
+          <button type="button" :class="['view-toggle__btn', { 'is-active': viewMode === 'recycle' }]" @click="setView('recycle')">Recycle Bin ({{ recycleCount }})</button>
+        </div>
         <select v-model="statusFilter" class="filter-select">
           <option v-for="o in statusOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
         </select>
@@ -398,11 +470,14 @@ async function confirmDelete() {
         </select>
         <span class="filter-count">{{ filteredProducts.length }} products</span>
         <template v-if="selectedCount > 0">
-          <button class="btn btn-ghost btn-sm" @click="openBatchLink">Batch Link</button>
-          <button class="btn btn-ghost btn-sm" @click="openBatchArchive">Batch archive</button>
-          <button class="btn btn-danger-ghost btn-sm" @click="openBatchDelete">Batch delete</button>
+          <template v-if="viewMode === 'active'">
+            <button class="btn btn-ghost btn-sm" @click="openBatchLink">Batch Link</button>
+            <button class="btn btn-ghost btn-sm" @click="openBatchArchive">Batch archive</button>
+            <button class="btn btn-danger-ghost btn-sm" @click="openBatchDelete">Batch delete</button>
+          </template>
+          <button v-else class="btn btn-primary btn-sm" @click="openBatchRestore">Restore selected</button>
         </template>
-        <router-link to="/workspace/products/new" class="btn btn-primary btn-sm" style="margin-left: auto">+ New Product</router-link>
+        <router-link v-if="viewMode === 'active'" to="/workspace/products/new" class="btn btn-primary btn-sm" style="margin-left: auto">+ New Product</router-link>
       </div>
 
       <!-- Table with sortable headers -->
@@ -423,7 +498,7 @@ async function confirmDelete() {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="p in filteredProducts" :key="p.id" @click="goToProduct(p.id)" class="clickable-row">
+          <tr v-for="p in filteredProducts" :key="p.id" @click="viewMode === 'active' && goToProduct(p.id)" class="clickable-row">
             <td class="col-check" @click.stop><input type="checkbox" :checked="selectedIds.has(p.id)" @change="toggleSelect(p.id)" /></td>
             <td class="col-code">{{ p.catalog_no }}</td>
             <td class="col-name">{{ p.name }}</td>
@@ -445,10 +520,13 @@ async function confirmDelete() {
             <td class="col-action row-actions" @click.stop>
               <button class="menu-trigger" @click="toggleMenu(p.id)">Actions ▾</button>
               <div v-if="openMenuId === p.id" class="menu-popover">
-                <button class="menu-item" @click="goToProduct(p.id); closeMenu()">Edit</button>
-                <button v-if="p.status !== 'archived'" class="menu-item" @click="openArchiveOne(p)">Archive</button>
-                <button v-else class="menu-item" @click="reactivate(p)">Republish</button>
-                <button class="menu-item menu-item--danger" @click="openDeleteOne(p)">Delete</button>
+                <template v-if="viewMode === 'active'">
+                  <button class="menu-item" @click="goToProduct(p.id); closeMenu()">Edit</button>
+                  <button v-if="p.status !== 'archived'" class="menu-item" @click="openArchiveOne(p)">Unpublish</button>
+                  <button v-else class="menu-item" @click="reactivate(p)">Republish</button>
+                  <button class="menu-item menu-item--danger" @click="openDeleteOne(p)">Move to Recycle Bin</button>
+                </template>
+                <button v-else class="menu-item" @click="openRestoreOne(p)">Restore</button>
               </div>
             </td>
           </tr>
@@ -481,10 +559,10 @@ async function confirmDelete() {
     <!-- Archive confirm dialog -->
     <div v-if="showArchiveDialog" ref="archiveOverlay" class="dialog-overlay" v-bind="archiveAttrs" @click.self="showArchiveDialog = false">
       <div class="dialog">
-        <h3 id="archive-title">Confirm archive</h3>
-        <p class="dialog-sub">After archiving, the product is hidden from the storefront but all data and order history are kept; you can republish at any time.</p>
+        <h3 id="archive-title">Confirm unpublish</h3>
+        <p class="dialog-sub">After unpublishing, the product is hidden from the storefront but all data and order history are kept; you can republish it at any time.</p>
         <div class="archive-list">
-          <p>Will archive <strong>{{ archiveTargets.length }}</strong> products:</p>
+          <p>Will unpublish <strong>{{ archiveTargets.length }}</strong> products:</p>
           <ul>
             <li v-for="t in archiveTargets.slice(0, 8)" :key="t.id">{{ t.name }}</li>
             <li v-if="archiveTargets.length > 8">… {{ archiveTargets.length - 8 }} more</li>
@@ -493,41 +571,60 @@ async function confirmDelete() {
         <div class="dialog-actions">
           <button class="btn btn-ghost" @click="showArchiveDialog = false">Cancel</button>
           <button class="btn btn-primary" @click="confirmArchive" :disabled="archiveLoading">
-            {{ archiveLoading ? 'Archiving…' : 'Confirm archive' }}
+            {{ archiveLoading ? 'Unpublishing…' : 'Unpublish' }}
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Delete confirm dialog -->
+    <!-- Move to recycle bin confirm dialog -->
     <div v-if="showDeleteDialog" ref="deleteOverlay" class="dialog-overlay" v-bind="deleteAttrs" @click.self="showDeleteDialog = false">
       <div class="dialog">
-        <h3 id="delete-title">Confirm delete</h3>
-        <div class="dialog-warn" role="alert">
-          <p><strong>This action cannot be undone.</strong> Deleting also removes the product's SKUs, documents, knowledge links and cart references; historical order records are kept but the item becomes empty.</p>
-        </div>
+        <h3 id="delete-title">Move to recycle bin</h3>
+        <p class="dialog-sub">These products are moved to the recycle bin and hidden from the storefront and the Products list. No data is removed — SKUs, documents, knowledge links, cart references and order history are all preserved. You can restore them from the Recycle Bin at any time.</p>
         <template v-if="deleteTarget?.batch">
-          <p>Will permanently delete <strong>{{ deleteTarget.batch.length }}</strong> products:</p>
+          <p>Will move <strong>{{ deleteTarget.batch.length }}</strong> products to the recycle bin:</p>
           <ul class="delete-list">
             <li v-for="t in deleteTarget.batch.slice(0, 8)" :key="t.id">{{ t.name }}</li>
             <li v-if="deleteTarget.batch.length > 8">… {{ deleteTarget.batch.length - 8 }} more</li>
           </ul>
         </template>
         <template v-else>
-          <p>Will permanently delete product: <strong>{{ deleteTarget?.name }}</strong></p>
+          <p>Will move product to the recycle bin: <strong>{{ deleteTarget?.name }}</strong></p>
         </template>
         <label class="confirm-check">
           <input type="checkbox" v-model="deleteConfirmChecked" />
-          I understand the consequences and confirm permanent deletion
+          I understand these products will be moved to the recycle bin
         </label>
         <div class="dialog-actions">
           <button class="btn btn-ghost" @click="showDeleteDialog = false">Cancel</button>
           <button
-            class="btn btn-danger"
+            class="btn btn-primary"
             @click="confirmDelete"
             :disabled="deleteLoading || !deleteConfirmChecked"
           >
-            {{ deleteLoading ? 'Deleting…' : 'Permanently delete' }}
+            {{ deleteLoading ? 'Moving…' : 'Move to recycle bin' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Restore confirm dialog -->
+    <div v-if="showRestoreDialog" ref="restoreOverlay" class="dialog-overlay" v-bind="restoreAttrs" @click.self="showRestoreDialog = false">
+      <div class="dialog">
+        <h3 id="restore-title">Restore from recycle bin</h3>
+        <p class="dialog-sub">Restored products return to the Products list. Products whose status is Active become visible on the storefront again; drafts stay hidden.</p>
+        <div class="restore-list">
+          <p>Will restore <strong>{{ restoreTargets.length }}</strong> products:</p>
+          <ul>
+            <li v-for="t in restoreTargets.slice(0, 8)" :key="t.id">{{ t.name }}</li>
+            <li v-if="restoreTargets.length > 8">… {{ restoreTargets.length - 8 }} more</li>
+          </ul>
+        </div>
+        <div class="dialog-actions">
+          <button class="btn btn-ghost" @click="showRestoreDialog = false">Cancel</button>
+          <button class="btn btn-primary" @click="confirmRestore" :disabled="restoreLoading">
+            {{ restoreLoading ? 'Restoring…' : 'Restore' }}
           </button>
         </div>
       </div>
@@ -539,6 +636,12 @@ async function confirmDelete() {
 .products-page { max-width: 1400px; }
 .table-wrapper { border: 1px solid var(--color-border); border-radius: 12px; overflow: hidden; }
 .filters-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.view-toggle { display: inline-flex; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; }
+.view-toggle__btn { padding: 6px 12px; border: none; background: var(--color-surface); color: var(--color-text-secondary); font-size: 13px; cursor: pointer; }
+.view-toggle__btn + .view-toggle__btn { border-left: 1px solid var(--color-border); }
+.view-toggle__btn:hover { background: var(--color-bg); }
+.view-toggle__btn.is-active { background: var(--color-primary); color: var(--color-primary-fg); }
+.recycle-banner { background: var(--color-warning-bg); border-left: 3px solid var(--color-warning); border-radius: 6px; padding: 10px 12px; margin-bottom: 16px; font-size: 13px; color: var(--color-text); }
 .filter-select { padding: 6px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 13px; background: var(--color-surface); color: var(--color-text); }
 .filter-count { font-size: 13px; color: var(--color-text-secondary); }
 .products-table { width: 100%; border-collapse: collapse; background: var(--color-surface); }
@@ -571,7 +674,7 @@ async function confirmDelete() {
 .dialog-sub { color: var(--color-text-secondary); font-size: 13px; margin: 8px 0 12px; }
 .dialog-warn { background: var(--color-danger-bg); border-left: 3px solid var(--color-danger); padding: 10px 12px; border-radius: 6px; margin: 8px 0 12px; font-size: 13px; color: var(--color-danger); }
 .dialog-warn p { margin: 0; }
-.archive-list ul, .delete-list { margin: 6px 0; padding-left: 20px; font-size: 13px; color: var(--color-text-secondary); max-height: 160px; overflow-y: auto; }
+.archive-list ul, .delete-list, .restore-list ul { margin: 6px 0; padding-left: 20px; font-size: 13px; color: var(--color-text-secondary); max-height: 160px; overflow-y: auto; }
 .confirm-check { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--color-text); margin: 12px 0; cursor: pointer; }
 .tag { padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; }
 .tag-complete { background: var(--color-success-bg); color: var(--color-primary-active); }

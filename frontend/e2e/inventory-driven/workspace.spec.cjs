@@ -112,35 +112,58 @@ test.describe('阶段3 Workspace 研究员穷举', () => {
     expect(errors).toEqual([]);
   });
 
-  test('Products: 操作菜单 → 下架 → 确认弹层打开 → 取消', async ({ page }) => {
+  test('Products: 操作菜单 → Unpublish → 确认弹层打开 → 取消', async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/products');
-    // 先过滤 active，确保第一行可下架（archived 行的“下架”按钮不渲染）
+    // 先过滤 active，确保第一行可下架（archived 行只渲染 Republish）
     await page.locator('.filter-select').first().selectOption('active');
     await expect(page.locator('.products-table tbody tr').first()).toBeVisible({ timeout: 10000 });
     await page.locator('.products-table tbody tr').first().locator('.menu-trigger').click();
-    await page.getByRole('button', { name: '下架' }).click();
+    await page.getByRole('button', { name: 'Unpublish' }).click();
     await expect(page.locator('#archive-title')).toBeVisible({ timeout: 5000 });
-    await page.getByRole('button', { name: '取消' }).click();
+    await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.locator('#archive-title')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
-  test('Products: 操作菜单 → 删除 → 确认弹层 + 勾选框门控删除按钮', async ({ page }) => {
+  test('Products: 操作菜单 → Move to Recycle Bin → 确认弹层 + 勾选框门控按钮', async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/products');
     await expect(page.locator('.products-table tbody tr').first()).toBeVisible({ timeout: 10000 });
     await page.locator('.products-table tbody tr').first().locator('.menu-trigger').click();
-    await page.getByRole('button', { name: '删除' }).click();
-    await expect(page.getByText('确认删除')).toBeVisible({ timeout: 5000 });
-    const deleteBtn = page.getByRole('button', { name: '永久删除' });
-    await expect(deleteBtn).toBeDisabled();
+    await page.getByRole('button', { name: 'Move to Recycle Bin' }).click();
+    await expect(page.locator('#delete-title')).toBeVisible({ timeout: 5000 });
+    const moveBtn = page.getByRole('button', { name: 'Move to recycle bin' });
+    await expect(moveBtn).toBeDisabled();
     await page.locator('.confirm-check input[type="checkbox"]').check();
-    await expect(deleteBtn).toBeEnabled();
-    await page.getByRole('button', { name: '取消' }).click();
-    await expect(page.getByText('确认删除')).toHaveCount(0);
+    await expect(moveBtn).toBeEnabled();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.locator('#delete-title')).toHaveCount(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('Products: 回收站视图 → 展示已删产品并可恢复', async ({ page }) => {
+    const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
+    await loginAsStaff(page);
+    await gotoPage(page, '/workspace/products?view=recycle');
+    // 切换控件存在且 Recycle Bin 处于激活态
+    const recycleBtn = page.getByRole('button', { name: /Recycle Bin/ });
+    await expect(recycleBtn).toBeVisible({ timeout: 10000 });
+    await expect(recycleBtn).toHaveClass(/is-active/);
+    // 回收站至少有一条软删产品
+    await expect(page.locator('.products-table tbody tr').first()).toBeVisible({ timeout: 10000 });
+    expect(await page.locator('.products-table tbody tr').count()).toBeGreaterThan(0);
+    // 行内菜单只提供 Restore，不提供 Move to Recycle Bin
+    await page.locator('.products-table tbody tr').first().locator('.menu-trigger').click();
+    await expect(page.getByRole('button', { name: 'Restore' })).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('button', { name: 'Move to Recycle Bin' })).toHaveCount(0);
+    // 打开恢复确认弹窗 → 取消关闭
+    await page.getByRole('button', { name: 'Restore' }).click();
+    await expect(page.locator('#restore-title')).toBeVisible({ timeout: 5000 });
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.locator('#restore-title')).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 
