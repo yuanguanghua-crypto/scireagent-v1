@@ -44,6 +44,11 @@ factory-boy==3.3.0
 # Cheminformatics
 rdkit
 
+# ML —— 仅离线命令 annotate_protocol_facets 的 KMeans 用（无运行时/API 依赖；
+# 该命令 lazy import，故缺失时容器仍能正常启动，只在跑该命令时才报 ModuleNotFoundError）。
+# 版本与本地 venv 对齐，保证 dev↔prod 一致。
+scikit-learn==1.7.1
+
 # Document processing & cheminformatics libraries (added: were missing after venv rebuild due to guarded imports)
 django-unfold==0.96.0
 python-docx==1.2.0
