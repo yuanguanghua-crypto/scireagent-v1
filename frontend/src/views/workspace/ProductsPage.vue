@@ -292,7 +292,11 @@ async function applyBatchLink() {
       if (batchLinkProtocolId.value && !protocolIds.includes(Number(batchLinkProtocolId.value))) {
         protocolIds.push(Number(batchLinkProtocolId.value))
       }
-      await http.put(`/products/${pid}/`, { method_ids: methodIds, protocol_ids: protocolIds })
+      // ★ 2026-09-22 修 **B11**：原先用 `http.put()`（**全量更新**）却只传两个字段
+      //   ⇒ 实测 **6ms 返回 400**：`"name: This field is required.; slug: This field is required."`
+      //   ⇒ Batch Link 的 Apply **必然失败**（与下拉是否为空无关）。改用 `patch`（局部更新）
+      //   —— 语义也更贴："只改桥，不动其它字段"。
+      await http.patch(`/products/${pid}/`, { method_ids: methodIds, protocol_ids: protocolIds })
     }
     showBatchLinkPanel.value = false
     applyProductsResponse(await getArchivedProducts())

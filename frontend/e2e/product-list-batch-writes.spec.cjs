@@ -82,14 +82,14 @@ test.describe('Part 2 · 批量真实写（D11 / F2 / D12）', () => {
   })
 
   // ── F2：Batch Link Apply ⇒ 桥表 Δ+1（product 不变）──────────
-  // ✅ B10 已修（下拉已有数据，H1g 与截图均可证）。
-  // ★★ 但仍有**第二个阻塞** ⇒ test.fixme 保留，理由登记台账 **B11**：
-  //   `ProductsPage.vue:290` `applyBatchLink` 用 `http.put()`（**全量更新**）却只传
-  //   `{method_ids, protocol_ids}` ⇒ 实测 **6ms 返回 400**：
-  //   `"name: This field is required.; slug: This field is required."`
-  //   ⇒ **Apply 必然失败**（弹层不关、UI 报错），与下拉是否为空无关。
-  //   **B11 修复后把 fixme 改回 test 即转绿**（本用例断言口径已按"能选到 Method"写好）。
-  test.fixme('F2 @write @local-only Batch Link Apply 1 条夹具 ⇒ product_method Δ+1、product Δ0（阻塞于 B11）', async ({ page }) => {
+  // ✅ 2026-09-22 **B10 + B11 + B8 均已修** ⇒ fixme 翻回 test。
+  //   B10：下拉恒空（`loadKnowledgeOptions` 多一层 `.data`）
+  //   B11：`applyBatchLink` 用 `put`（全量更新）只传 2 字段 ⇒ 6ms 400；已改 `patch`
+  //   B8 ：`PATCH` 走同步重算，原先 **268 次独立提交**（cProfile: commit 占 97%）⇒ 23–46s，
+  //        超过前端 axios 15s 超时 ⇒ **UI 报失败而服务端已落库**（幻影失败）。
+  //        已把重算循环并入一个 `transaction.atomic()` ⇒ **23–46s → <1.1s**。
+  //   本用例同时是 B11+B8 的**端到端闸门**：若 PATCH 仍慢于 15s，弹层不会关闭 ⇒ 必红。
+  test('F2 @write @local-only Batch Link Apply 1 条夹具 ⇒ product_method Δ+1、product Δ0', async ({ page }) => {
     const f = await fixture('F2')
     test.skip(!f, '夹具创建失败')
     await loginAsStaff(page)
