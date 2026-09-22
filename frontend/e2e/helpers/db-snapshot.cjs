@@ -81,4 +81,28 @@ function dbSnapshot(tables) {
   return snap
 }
 
-module.exports = { dbSnapshot, assertLocalTarget, BACKEND }
+/**
+ * 通用**只读**查询口：把任意 Python 片段跑进本地 dev 的 manage.py shell，
+ * 取回它打印的 `__SNAP__` JSON。用于需要计数以外的断言（字段指纹 / 序列普查 / 审计内容）。
+ *
+ * ⚠️ 纪律：传入代码**只允许 SELECT / ORM 读**，禁止 save/create/update/delete。
+ *    （本函数不做语义审查，靠调用方自律；URL 只读用例一律不加 `@write`。）
+ * @param {string} pyCode 需 `import json` 并 `print('__SNAP__' + json.dumps(...))`
+ * @returns {any} 解析后的 JSON
+ */
+function dbQuery(pyCode) {
+  assertLocalTarget()
+  const out = execFileSync(PY, ['-B', 'manage.py', 'shell', '-c', pyCode], {
+    cwd: BACKEND,
+    env: { ...process.env, DB_ENGINE: 'sqlite', PYTHONDONTWRITEBYTECODE: '1' },
+    encoding: 'utf8',
+    timeout: 60000,
+  })
+  const line = String(out).split(/\r?\n/).find((l) => l.startsWith('__SNAP__'))
+  if (!line) {
+    throw new Error('dbQuery 未取到标记行；原始输出前 300 字：' + String(out).slice(0, 300))
+  }
+  return JSON.parse(line.slice('__SNAP__'.length))
+}
+
+module.exports = { dbSnapshot, dbQuery, assertLocalTarget, BACKEND }
