@@ -1,11 +1,11 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/http'
 import { toast, LoadingSpinner, EmptyState } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
-import { archiveProduct, reactivateProduct, deleteProduct, getArchivedProducts, restoreProduct, discontinueProduct } from '@/api/workspace/products'
+import { archiveProduct, reactivateProduct, deleteProduct, getArchivedProducts, discontinueProduct, batchRestoreProducts } from '@/api/workspace/products'
 
 const router = useRouter()
 const route = useRoute()
@@ -25,6 +25,23 @@ const products = computed(() => viewMode.value === 'recycle'
   : allProducts.value.filter(p => p.archived !== true))
 const recycleCount = computed(() => allProducts.value.filter(p => p.archived === true).length)
 
+// ── 截断检测（Q5/Y3）────────────────────────────────
+// 后端 StandardPagination.max_page_size = 500，请求已顶格；总数在 meta.pagination.count。
+// 若 count > 实际拿到条数 ⇒ 说明被截断，必须告知用户（此前 count 被丢弃、静默截断）。
+const PAGE_LIMIT = 500
+const totalCount = ref(null)
+const truncated = computed(() =>
+  typeof totalCount.value === 'number' && totalCount.value > allProducts.value.length)
+
+/** 统一消化列表响应：写 allProducts + 记录 totalCount（三处取数共用） */
+function applyProductsResponse(resp) {
+  if (!resp) return
+  if (Array.isArray(resp.data)) allProducts.value = resp.data
+  else if (resp.data && Array.isArray(resp.data.results)) allProducts.value = resp.data.results
+  const c = resp?.meta?.pagination?.count
+  totalCount.value = typeof c === 'number' ? c : null
+}
+
 const loading = ref(true)
 const error = ref('')
 const selectedIds = ref(new Set())
@@ -36,6 +53,18 @@ function setView(mode) {
   statusFilter.value = 'all'
   router.replace({ query: mode === 'recycle' ? { view: 'recycle' } : {} })
 }
+
+// Y5：URL 是视图状态的唯一可分享来源 —— 浏览器**前进/后退**改变 ?view= 时必须同步视图，
+// 否则会出现「URL 已变、列表没变」（此前 viewMode 只在 setup 读一次 query，无 watch）。
+// 与 setView 构成双向对齐。
+watch(() => route.query.view, (v) => {
+  const mode = v === 'recycle' ? 'recycle' : 'active'
+  if (mode !== viewMode.value) {
+    viewMode.value = mode
+    selectedIds.value = new Set()
+    closeMenu()
+  }
+})
 
 // ── Sorting ──────────────────────────────────────
 const sortField = ref('catalog_no')
@@ -133,11 +162,43 @@ const filteredProducts = computed(() => {
     case 'incomplete': list = list.filter(p => !p.is_complete); break
     case 'no-cas': list = list.filter(p => !p.cas); break
     case 'no-smiles': list = list.filter(p => !p.smiles); break
-    case 'no-link': list = list.filter(p => !(p.incomplete_items || []).some(i => i.includes('关联')) && p.is_complete); break
+    // Q3/Y2：「无知识链接」= 列表 Knowledge Link 列的聚合值为空。
+    // 与列显示同口径（`aggregate_relevance_score`），不再依赖 incomplete_items 里的
+    // 中文文案做字符串匹配（旧实现 `i.includes('关联')` 会因文案改动而静默失效，
+    // 且 is_complete 的 5 条件本就不含知识链接 ⇒ 语义失真）。
+    case 'no-link': list = list.filter(p => p.aggregate_relevance_score === null || p.aggregate_relevance_score === undefined); break
     case 'no-category': list = list.filter(p => !p.product_class_id); break
   }
   return list
 })
+
+// ── Q1：空态分场景 ────────────────────────────────
+// 单一文案会误导：回收站为空与「筛选条件」无关；而「在售视图为空但库里有产品」
+// 意味着全部进了回收站（当前生产就是这个状态）—— 必须给出明确出口。
+const emptyKind = computed(() => {
+  if (allProducts.value.length === 0) return 'none-at-all'
+  if (products.value.length === 0) {
+    return viewMode.value === 'recycle' ? 'recycle-empty' : 'all-in-recycle'
+  }
+  if (filteredProducts.value.length === 0) return 'filtered-out'
+  return null
+})
+const emptyTitle = computed(() => ({
+  'none-at-all': 'No products yet',
+  'recycle-empty': 'Recycle bin is empty',
+  'all-in-recycle': 'No products in the catalog',
+  'filtered-out': 'No products match the current filters',
+}[emptyKind.value] || 'No products'))
+const emptyDescription = computed(() => ({
+  'none-at-all': 'Create your first product to get started.',
+  'recycle-empty': 'Products you move to the recycle bin will appear here and can be restored at any time.',
+  'all-in-recycle': `All ${recycleCount.value} products are currently in the recycle bin. Storefront shows nothing until they are restored.`,
+  'filtered-out': 'Try clearing the status / completeness filters.',
+}[emptyKind.value] || ''))
+function clearFilters() {
+  statusFilter.value = 'all'
+  completenessFilter.value = 'all'
+}
 
 const allSelected = computed({
   get() {
@@ -226,10 +287,7 @@ async function applyBatchLink() {
       await http.put(`/products/${pid}/`, { method_ids: methodIds, protocol_ids: protocolIds })
     }
     showBatchLinkPanel.value = false
-    const resp = await getArchivedProducts()
-    if (resp.data) {
-      allProducts.value = Array.isArray(resp.data) ? resp.data : (resp.data.results || [])
-    }
+    applyProductsResponse(await getArchivedProducts())
   } catch (e) {
     // P0-3: now supports research_goal_ids as well
     const msg = 'Batch link failed: ' + (e.response?.data?.meta?.error?.message || e.message)
@@ -241,10 +299,7 @@ async function applyBatchLink() {
 
 onMounted(async () => {
   try {
-    const resp = await getArchivedProducts()
-    if (resp.data) {
-      allProducts.value = Array.isArray(resp.data) ? resp.data : (resp.data.results || [])
-    }
+    applyProductsResponse(await getArchivedProducts())
   } catch (e) {
     error.value = 'Failed to load products'
   } finally {
@@ -254,10 +309,7 @@ onMounted(async () => {
 
 // ── 列表刷新 ───────────────────────────────────────
 async function refreshProducts() {
-  const resp = await getArchivedProducts()
-  if (resp.data) {
-    allProducts.value = Array.isArray(resp.data) ? resp.data : (resp.data.results || [])
-  }
+  applyProductsResponse(await getArchivedProducts())
 }
 
 // ── 行内操作下拉菜单 ───────────────────────────────
@@ -441,19 +493,25 @@ function openBatchRestore() {
 
 async function confirmRestore() {
   restoreLoading.value = true
-  let ok = 0, fail = 0
   try {
-    for (const t of restoreTargets.value) {
-      try {
-        await restoreProduct(t.id)
-        ok++
-      } catch { fail++ }
-    }
+    const ids = restoreTargets.value.map(t => t.id)
+    // Q6：改用后端**幂等**批量端点。此前逐条循环 `restoreProduct` ⇒ 若被重复触发，
+    // 单条 `restore/` 会无条件再写一条 RESTORE 审计（端点本身非幂等）。
+    const resp = await batchRestoreProducts(ids)
+    const data = resp?.data || {}
+    const restored = data.restored ?? 0
+    const skipped = data.skipped ?? 0
+    const notFound = data.not_found || []
     await refreshProducts()
     showRestoreDialog.value = false
     selectedIds.value = new Set()
-    if (fail === 0) toast.success(`Restored ${ok} products`)
-    else toast.warning(`Restored ${ok}, failed ${fail}`)
+    const extra = []
+    if (skipped) extra.push(`${skipped} already active`)
+    if (notFound.length) extra.push(`${notFound.length} not found`)
+    if (extra.length) toast.warning(`Restored ${restored} (${extra.join(', ')})`)
+    else toast.success(`Restored ${restored} products`)
+  } catch (e) {
+    toast.error('Restore failed: ' + (e.response?.data?.meta?.error?.message || e.message))
   } finally {
     restoreLoading.value = false
   }
@@ -492,6 +550,12 @@ async function confirmRestore() {
           <button v-else class="btn btn-primary btn-sm" @click="openBatchRestore">Restore selected</button>
         </template>
         <router-link v-if="viewMode === 'active'" to="/workspace/products/new" class="btn btn-primary btn-sm" style="margin-left: auto">+ New Product</router-link>
+      </div>
+
+      <!-- Q5/Y3：分页上限截断告警（总数取自 meta.pagination.count，此前被丢弃 ⇒ 静默截断） -->
+      <div v-if="truncated" class="truncate-notice" role="alert">
+        Showing the first {{ PAGE_LIMIT }} of {{ totalCount }} products — the list is truncated.
+        Server-side filtering / pagination is required before the catalog grows past this limit.
       </div>
 
       <!-- Table with sortable headers -->
@@ -536,11 +600,12 @@ async function confirmRestore() {
               <div v-if="openMenuId === p.id" class="menu-popover">
                 <template v-if="viewMode === 'active'">
                   <button class="menu-item" @click="goToProduct(p.id); closeMenu()">Edit</button>
-                  <button v-if="p.status !== 'archived'" class="menu-item" @click="openArchiveOne(p)">Unpublish</button>
-                  <button v-else class="menu-item" @click="reactivate(p)">Republish</button>
+                  <!-- Q2：Unpublish 仅对「在售/草稿」有意义（deprecated 已经不在售，再下架无意义） -->
+                  <button v-if="p.status === 'active' || p.status === 'draft'" class="menu-item" @click="openArchiveOne(p)">Unpublish</button>
+                  <button v-if="p.status === 'archived'" class="menu-item" @click="reactivate(p)">Republish</button>
                   <!-- S4-4f 退出目录（停产）：货号不释放、页面保留，与「回收站」语义区分 -->
                   <button v-if="p.status !== 'deprecated'" class="menu-item" @click="discontinue(p)">Discontinue</button>
-                  <button v-else class="menu-item" @click="reactivate(p)">Reopen</button>
+                  <button v-if="p.status === 'deprecated'" class="menu-item" @click="reactivate(p)">Reopen</button>
                   <button class="menu-item menu-item--danger" @click="openDeleteOne(p)">Move to Recycle Bin</button>
                 </template>
                 <button v-else class="menu-item" @click="openRestoreOne(p)">Restore</button>
@@ -550,7 +615,32 @@ async function confirmRestore() {
         </tbody>
       </table>
       </div>
-      <EmptyState v-else title="No products match the current filters" icon="Goods" />
+      <EmptyState
+        v-else
+        :title="emptyTitle"
+        :description="emptyDescription"
+        icon="Goods"
+      >
+        <template #action>
+          <router-link
+            v-if="emptyKind === 'none-at-all'"
+            to="/workspace/products/new"
+            class="btn btn-primary btn-sm"
+          >+ New Product</router-link>
+          <button
+            v-else-if="emptyKind === 'all-in-recycle'"
+            type="button"
+            class="btn btn-primary btn-sm"
+            @click="setView('recycle')"
+          >Go to Recycle Bin ({{ recycleCount }})</button>
+          <button
+            v-else-if="emptyKind === 'filtered-out'"
+            type="button"
+            class="btn btn-ghost btn-sm"
+            @click="clearFilters"
+          >Clear filters</button>
+        </template>
+      </EmptyState>
     </template>
 
     <!-- Batch Knowledge Link Dialog -->
@@ -659,6 +749,8 @@ async function confirmRestore() {
 .view-toggle__btn:hover { background: var(--color-bg); }
 .view-toggle__btn.is-active { background: var(--color-primary); color: var(--color-primary-fg); }
 .recycle-banner { background: var(--color-warning-bg); border-left: 3px solid var(--color-warning); border-radius: 6px; padding: 10px 12px; margin-bottom: 16px; font-size: 13px; color: var(--color-text); }
+/* Q5/Y3：截断告警（与回收站横幅同族但在其下方，语义是「数据不全」） */
+.truncate-notice { background: var(--color-warning-bg); border-left: 3px solid var(--color-warning); border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 13px; color: var(--color-text); }
 .filter-select { padding: 6px 12px; border: 1px solid var(--color-border); border-radius: 8px; font-size: 13px; background: var(--color-surface); color: var(--color-text); }
 .filter-count { font-size: 13px; color: var(--color-text-secondary); }
 .products-table { width: 100%; border-collapse: collapse; background: var(--color-surface); }

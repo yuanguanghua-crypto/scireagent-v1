@@ -49,3 +49,14 @@ export function getArchivedProducts(params = {}) {
 export function restoreProduct(id) {
   return http.post(`/products/${id}/restore/`)
 }
+
+/**
+ * Q6：批量恢复 —— 走**幂等**端点，替代前端逐条循环 `restoreProduct`。
+ *  - 幂等：已在售（archived=false）的对象计入 `skipped`，且**不重复写 RESTORE 审计**
+ *    （单条 `restore/` 是无条件写审计的，非幂等）
+ *  - 容错：不存在 / 非法 id 计入 `not_found`，不会让整批失败
+ * 返回 { restored, skipped, not_found }
+ */
+export function batchRestoreProducts(ids) {
+  return http.post('/products/batch-restore/', { ids })
+}
