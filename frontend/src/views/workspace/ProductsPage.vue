@@ -51,7 +51,10 @@ function setView(mode) {
   selectedIds.value = new Set()
   closeMenu()
   statusFilter.value = 'all'
-  router.replace({ query: mode === 'recycle' ? { view: 'recycle' } : {} })
+  // 用 push（非 replace）：`?view=` 是**可分享的深链状态**，既然进了 URL 就应进历史。
+  // 若用 replace，用户误点 Recycle Bin 后按 Back 会被**踢出列表页**（退回 Dashboard）、
+  // 丢失上下文。配套：下方 watch(route.query.view) 让 Back/Forward 真正驱动视图。
+  router.push({ query: mode === 'recycle' ? { view: 'recycle' } : {} })
 }
 
 // Y5：URL 是视图状态的唯一可分享来源 —— 浏览器**前进/后退**改变 ?view= 时必须同步视图，

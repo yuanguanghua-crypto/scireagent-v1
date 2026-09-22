@@ -134,12 +134,18 @@ test.describe('产品列表页 7 项修复', () => {
     await recycleBtn.click()
     await expect(recycleBtn).toHaveClass(/is-active/)
     await expect(page).toHaveURL(/view=recycle/)
-    expect(errors).toEqual([])
 
-    // ⚠️ 说明：`setView` 用 `router.replace`（不进历史），且全仓**无第二处**跳转到 `?view=`，
-    //    因此「浏览器后退切 query ⇒ 视图不同步」在当前代码下**无可达路径**。本轮加的
-    //    `watch(route.query.view)` 属**防御性**修复，故此处不构造 back/forward 断言；
-    //    是否把 `replace` 改为 `push`（让"后退返回上一个页签"生效）待用户决策。
+    // ★ 承重断言（setView 改 push 后成立）：历史栈此时为
+    //    [ …A:?view=recycle(深链) → B:/products(点 Products) → C:?view=recycle(点 Recycle) ]
+    //    故 goBack() 应回到 **B（无 query ⇒ Products 视图）**，goForward() 回到 C。
+    //    若 setView 仍是 replace，这里根本不会留下 B/C 两条历史 ⇒ 断言必失败。
+    await page.goBack()
+    await expect(page).not.toHaveURL(/view=recycle/)
+    await expect(productsBtn).toHaveClass(/is-active/, { timeout: 5000 })
+    await page.goForward()
+    await expect(page).toHaveURL(/view=recycle/)
+    await expect(recycleBtn).toHaveClass(/is-active/, { timeout: 5000 })
+    expect(errors).toEqual([])
   })
 
   // ── Q1：空态分场景 ─────────────────────────────────
