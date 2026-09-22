@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "node node_modules/@playwright/test/cli.js test --project=chromium --reporter=line",
+    "test:e2e:readonly": "node node_modules/@playwright/test/cli.js test -g \"@readonly\" --project=chromium --reporter=line",
+    "test:e2e:write": "node node_modules/@playwright/test/cli.js test -g \"@write\" --project=chromium --reporter=line",
+    "test:e2e:prod": "node node_modules/@playwright/test/cli.js test -g \"@prod-ok\" --project=chromium --reporter=line"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.12.1",
