@@ -1,5 +1,6 @@
-from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
+from django.db import IntegrityError
+from rest_framework import serializers, status
+from rest_framework.exceptions import APIException, ValidationError
 from core.serializers import BaseModelSerializer
 from core.svg_sanitizer import sanitize_svg
 from apps.commerce.models import Product, SKU, ProductClass, CatalogGroup, ProductDocument
@@ -144,6 +145,19 @@ class ProductListSerializer(BaseModelSerializer):
         ).count()
 
 
+class ProductNumberConflict(APIException):
+    """货号 / slug 与已存在记录（**含回收站行**）冲突 → 409。
+
+    语义：**货号是产品的永久身份**（印在瓶签 / COA / SDS / 订单 / 文献引用上），
+    归档（archived=True）**不释放编号**。命中回收站行时**不再静默复活**
+    （旧行为会覆盖旧数据且不产生 CREATE 审计），而是明确告知三条出路：
+    恢复（restore）/ 改用新编号 / 先 hard-delete 再重来。
+    """
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = '产品编号冲突'
+    default_code = 'product_number_conflict'
+
+
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     skus = SKUCreateSerializer(many=True, required=False)
     # 显式声明 product_class_id 为可写：ModelSerializer 会把 FK 的 _id 字段默认设为只读，
@@ -155,15 +169,20 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     research_goal_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=None)
     application_ids = serializers.ListField(child=serializers.IntegerField(), required=False, default=None)
 
-    # catalog_no 唯一性：列级唯一约束仍含 archived(软删)行，导致"删后重导"时唯一校验
-    # 在 is_valid 阶段被拦截、create() 的归档恢复逻辑无法执行。此处改用仅查未归档行的
-    # UniqueValidator：命中未归档(active)行仍报唯一冲突；命中 archived 行则放行，
-    # 交由 create() 执行 un-archive 恢复更新（软删除审计铁律下 archived 仍占 catalog_no）。
+    # ── 编号唯一性口径：货号 / slug 均为「全表永久唯一」（回收站行照常占位）────────
+    # 语义：**货号是产品的永久身份**（印在瓶签 / COA / SDS / 订单 / 文献引用上），
+    # 归档（archived=True）**不释放编号** —— 否则同一货号会指向另一个分子，
+    # 客户手里的 SC8001 与它的 COA 对不上。真实网站绝不允许。
+    #
+    # 旧实现把 catalog_no 放宽成 filter(archived=False)，使 app 层口径 ≠ DB 层列级
+    # UNIQUE，只能靠 create() 的「静默复活分支」掩盖 —— 代价是无 CREATE 审计 +
+    # 旧数据被静默覆盖。现改为与 DB 同口径，并统一由 validate() 给出可操作的 409。
+    #
+    # 两字段都显式声明且 validators=[]：唯一性判定收归 validate() 一处，
+    # 避免 DRF 自动 UniqueValidator 先抛出不可操作的 400；DB 列级 UNIQUE 仍作最后兜底。
+    slug = serializers.SlugField(max_length=255, validators=[])
     catalog_no = serializers.CharField(
-        max_length=64, required=False, allow_null=True, allow_blank=True,
-        validators=[UniqueValidator(
-            queryset=Product.objects.filter(archived=False),
-            message='产品 with this 目录号 already exists')],
+        max_length=64, required=False, allow_null=True, allow_blank=True, validators=[],
     )
 
     class Meta:
@@ -266,6 +285,45 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         if changed:
             product.save(update_fields=['seo_title', 'seo_description'])
 
+    # 编号字段的中文标签（错误消息用）
+    _NUMBER_FIELD_LABELS = {'catalog_no': '货号', 'slug': 'slug'}
+
+    def validate(self, attrs):
+        """唯一性口径 = **全表**（含回收站行），与 DB 列级 UNIQUE 一致。
+
+        - 命中**回收站行** → 409 + 可操作出路（restore / 换编号 / hard-delete 重来）
+        - 命中**未被软删的行** → 400（真重复）
+        - 更新时自身编号未改动 → 不误报
+        """
+        attrs = super().validate(attrs)
+        instance = self.instance
+        for field in ('catalog_no', 'slug'):
+            if field not in attrs:
+                continue                      # 本次未提交该字段 → 不校验
+            value = attrs.get(field)
+            if value in (None, ''):
+                continue                      # 空值不参与唯一性判定
+            if instance is not None and getattr(instance, field) == value:
+                continue                      # 与自身相同 → 不是冲突
+            qs = Product.objects.filter(**{field: value})
+            if instance is not None:
+                qs = qs.exclude(pk=instance.pk)
+            hit = qs.first()
+            if hit is None:
+                continue
+            label = self._NUMBER_FIELD_LABELS[field]
+            if hit.archived:
+                raise ProductNumberConflict(
+                    f'{label}「{value}」已存在（在回收站中，product id={hit.id}）。'
+                    f'货号是产品的永久身份，归档不会释放编号：'
+                    f'① 要重新上架它 → POST /api/v1/products/{hit.id}/restore/；'
+                    f'② 这是另一个产品 → 请改用新的{label}；'
+                    f'③ 只想重来一次 → 先对旧记录 hard-delete（仅超管）。'
+                )
+            raise ValidationError(
+                {field: f'{label}「{value}」已被现有产品占用（product id={hit.id}）。'})
+        return attrs
+
     def create(self, validated_data):
         method_ids = validated_data.pop('method_ids', None)
         protocol_ids = validated_data.pop('protocol_ids', None)
@@ -273,27 +331,15 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         application_ids = validated_data.pop('application_ids', None)
         skus_data = validated_data.pop('skus', [])
 
-        # 软删除恢复：删除审计铁律下 DELETE 仅置 archived=True，归档行仍占 catalog_no
-        # （唯一约束是列级、不看 archived）。若 catalog_no 仅存在于 archived 行，则恢复该
-        # 商品并用新数据更新，而非触发唯一约束冲突；保留原商品 id 与关联（桥接/SDS/COA）。
-        # 若命中未归档（active）行则放行至下方 create，由唯一约束正常报冲突（真重复）。
-        catalog_no = validated_data.get('catalog_no')
-        if catalog_no:
-            dup = Product.objects.filter(catalog_no=catalog_no).first()
-            if dup is not None and dup.archived:
-                restore_data = dict(validated_data)
-                restore_data['method_ids'] = method_ids
-                restore_data['protocol_ids'] = protocol_ids
-                restore_data['research_goal_ids'] = research_goal_ids
-                restore_data['application_ids'] = application_ids
-                # 仅当本次确实带了 skus 才同步；空列表视为"保留既有"，
-                # 避免误删归档商品原有的 SKU（update 对空列表会判全部 stale 而删除）。
-                if skus_data:
-                    restore_data['skus'] = skus_data
-                dup.archived = False
-                return self.update(dup, restore_data)
-
-        product = Product.objects.create(**validated_data)
+        # 编号冲突已在 validate() 阶段以 409 / 400 返回（全表口径，含回收站行），
+        # 故此处**不再**做"命中归档行就静默复活并覆盖"—— 那会绕过 CREATE 审计、
+        # 静默改写旧行数据。保留 DB 列级 UNIQUE 的竞态兜底：并发写入不该以 500 收场。
+        try:
+            product = Product.objects.create(**validated_data)
+        except IntegrityError as exc:
+            raise ProductNumberConflict(
+                '编号冲突（并发写入）：货号或 slug 已被占用。请重试，或改用新的编号。'
+            ) from exc
         for sku_data in skus_data:
             SKU.objects.create(
                 product=product, **{k: v for k, v in sku_data.items() if k != 'id'})
@@ -324,7 +370,12 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.save()
+        try:
+            instance.save()
+        except IntegrityError as exc:
+            raise ProductNumberConflict(
+                '编号冲突（并发写入）：货号或 slug 已被占用。请重试，或改用新的编号。'
+            ) from exc
 
         if skus_data is not None:
             # 增量同步：保留既有 SKU（避免删光重建导致 SKU id 变化、Batch/Coa 级联丢失，
