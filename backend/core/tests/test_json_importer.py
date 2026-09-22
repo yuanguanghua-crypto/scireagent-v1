@@ -7,6 +7,7 @@ from django.test import TestCase
 
 from core.json_validator import validate_graph_json
 from core.json_importer import import_graph_json
+from apps.commerce.models import Product
 
 
 SAMPLE_VALID_JSON = {
@@ -122,3 +123,31 @@ class InvalidDataTest(TestCase):
         }
         report = import_graph_json(data)
         self.assertFalse(report.success)
+
+
+class ImportGraphArchivedNumberTest(TestCase):
+    """旁路修复（B′ 口径）：JSON 导入（含 admin 侧上传入口）命中**回收站**里的货号，
+    必须「跳过并上报」，绝不能静默 `update_or_create` 复活/覆盖旧行。
+
+    该路径经 `apps/knowledge/admin_views.py` 的 staff 上传入口可达，是 B′ 之外的一扇门。
+    """
+
+    def test_import_archived_catalog_no_is_skipped_not_overwritten(self):
+        p = Product.objects.create(
+            catalog_no='SC8001', slug='sc8001-old', name='Old Product', status='active')
+        p.archived = True
+        p.save()
+
+        report = import_graph_json(SAMPLE_VALID_JSON)
+
+        # ① 旧行原封不动
+        p.refresh_from_db()
+        self.assertTrue(p.archived, '归档行不得被导入静默复活')
+        self.assertEqual(p.name, 'Old Product', '归档行数据不得被静默覆盖')
+
+        # ② 计入报告并置 success=False（框架既有逻辑：有 errors 即 False）
+        self.assertEqual(report.imported['Product'], 0)
+        self.assertFalse(report.success)
+        self.assertTrue(
+            any('SC8001' in e and '回收站' in e for e in report.errors),
+            f'报告应说明跳过的货号与原因，实际: {report.errors}')

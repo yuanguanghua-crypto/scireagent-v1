@@ -72,7 +72,7 @@ _id_map: dict[str, dict[str, int]] = {
 
 # ── Importers ─────────────────────────────────────────────────────────────────
 
-def _import_goals(entities: list[dict]) -> tuple[int, int]:
+def _import_goals(entities: list[dict], report=None) -> tuple[int, int]:
     """Import ResearchGoal entities. Returns (created, updated)."""
     created = updated = 0
     for entity in entities:
@@ -92,7 +92,7 @@ def _import_goals(entities: list[dict]) -> tuple[int, int]:
     return created, updated
 
 
-def _import_applications(entities: list[dict]) -> tuple[int, int]:
+def _import_applications(entities: list[dict], report=None) -> tuple[int, int]:
     """Import Application entities, linking to ResearchGoal."""
     created = updated = 0
     for entity in entities:
@@ -114,7 +114,7 @@ def _import_applications(entities: list[dict]) -> tuple[int, int]:
     return created, updated
 
 
-def _import_methods(entities: list[dict]) -> tuple[int, int]:
+def _import_methods(entities: list[dict], report=None) -> tuple[int, int]:
     """Import Method entities, linking to Application."""
     created = updated = 0
     for entity in entities:
@@ -143,7 +143,7 @@ def _import_methods(entities: list[dict]) -> tuple[int, int]:
     return created, updated
 
 
-def _import_protocols(entities: list[dict]) -> tuple[int, int]:
+def _import_protocols(entities: list[dict], report=None) -> tuple[int, int]:
     """Import Protocol entities, linking to Method."""
     created = updated = 0
     for entity in entities:
@@ -172,13 +172,35 @@ def _import_protocols(entities: list[dict]) -> tuple[int, int]:
     return created, updated
 
 
-def _import_products(entities: list[dict]) -> tuple[int, int]:
-    """Import Product entities."""
+def _import_products(entities: list[dict], report=None) -> tuple[int, int]:
+    """Import Product entities.
+
+    唯一性口径（与 API 侧 B′ 一致）：货号是产品的永久身份，归档不释放编号。
+    命中**回收站**里的货号 → **跳过并上报**，绝不静默 `update_or_create` 复活/覆盖旧行
+    （该路径经 `apps/knowledge/admin_views.py` 的 staff 上传入口可达）。
+    """
     created = updated = 0
     for entity in entities:
+        catalog_no = entity.get('catalog_no', '')
+        archived_holder = (
+            Product.objects.filter(catalog_no=catalog_no, archived=True).first()
+            if catalog_no else None
+        )
+        if archived_holder is not None:
+            # 批量导入不能整体失败 → 跳过 + 计入 report.errors（框架据此把 success 置 False）
+            if report is not None:
+                report.errors.append(
+                    f'Product {catalog_no}: 该货号已存在但处于回收站'
+                    f'（product id={archived_holder.id}），已跳过本次导入。'
+                    f'货号是产品的永久身份，归档不会释放编号：'
+                    f'如需重新上架请先 restore'
+                    f'（POST /api/v1/products/{archived_holder.id}/restore/），或改用新货号。'
+                )
+            continue
+
         defaults = {
             'name': entity['name'],
-            'catalog_no': entity.get('catalog_no', ''),
+            'catalog_no': catalog_no,
             'cas': entity.get('cas_no', ''),
             'formula': entity.get('formula', ''),
             'purity': entity.get('purity', ''),
@@ -188,7 +210,7 @@ def _import_products(entities: list[dict]) -> tuple[int, int]:
             'status': 'active',
         }
         obj, was_created = Product.objects.update_or_create(
-            catalog_no=entity.get('catalog_no', ''),
+            catalog_no=catalog_no,
             defaults=defaults,
         )
         _id_map['Product'][entity['id']] = obj.id
@@ -199,7 +221,7 @@ def _import_products(entities: list[dict]) -> tuple[int, int]:
     return created, updated
 
 
-def _import_skus(entities: list[dict]) -> tuple[int, int]:
+def _import_skus(entities: list[dict], report=None) -> tuple[int, int]:
     """Import SKU entities, linking to Product."""
     created = updated = 0
     for entity in entities:
@@ -277,7 +299,7 @@ def import_graph_json(data: dict) -> ImportReport:
             continue
 
         try:
-            created, updated = importer(entities)
+            created, updated = importer(entities, report)
             report.imported[entity_type] = created
             report.updated[entity_type] = updated
         except Exception as e:

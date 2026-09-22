@@ -35,6 +35,8 @@ class CSVImportReport:
     success: bool = True
     products_created: int = 0
     products_updated: int = 0
+    # 命中「回收站」里的货号 → 跳过（货号是永久身份，归档不释放编号）
+    products_skipped_archived: int = 0
     skus_created: int = 0
     skus_updated: int = 0
     errors: list[str] = field(default_factory=list)
@@ -42,9 +44,13 @@ class CSVImportReport:
 
     def __str__(self) -> str:
         status = 'SUCCESS' if self.success else 'COMPLETED WITH ERRORS'
+        skipped = (
+            f', {self.products_skipped_archived} skipped (in recycle bin)'
+            if self.products_skipped_archived else ''
+        )
         return (
             f'[{status}] '
-            f'Products: {self.products_created} created, {self.products_updated} updated, '
+            f'Products: {self.products_created} created, {self.products_updated} updated{skipped}, '
             f'SKUs: {self.skus_created} created, {self.skus_updated} updated, '
             f'Errors: {len(self.errors)}'
         )
@@ -126,6 +132,22 @@ def _import_product(catalog_no: str, rows: list[dict], report: CSVImportReport) 
         product_class = ProductClass.objects.filter(
             slug=category_l1_slug, parent__isnull=True
         ).first()
+
+    # ── 唯一性口径（与 API 侧 B′ 一致）：货号是产品的永久身份，归档不释放编号 ──
+    # 命中回收站里的货号 → **跳过并上报**，绝不静默 update_or_create 复活/覆盖旧行。
+    # 批量导入不能整体失败，故语义为「跳过 + 计入报告 + success=False（让操作者必须看到）」。
+    archived_holder = Product.objects.filter(catalog_no=catalog_no, archived=True).first()
+    if archived_holder is not None:
+        report.products_skipped_archived += 1
+        report.success = False
+        report.errors.append(
+            f'Product {catalog_no}: 该货号已存在但处于回收站'
+            f'（product id={archived_holder.id}），已跳过本次导入。'
+            f'货号是产品的永久身份，归档不会释放编号：'
+            f'如需重新上架请先 restore'
+            f'（POST /api/v1/products/{archived_holder.id}/restore/），或改用新货号。'
+        )
+        return
 
     # Create or update product
     product, was_created = Product.objects.update_or_create(

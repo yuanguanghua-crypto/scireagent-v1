@@ -101,3 +101,50 @@ Good Product,SC100,,SKU001,10 µL,50,USD
 ,SC200,,SKU002,10 µL,50,USD"""
         report = import_products_csv(csv_data)
         self.assertGreaterEqual(report.products_created, 1)
+
+
+class CSVImportArchivedNumberTest(TestCase):
+    """旁路修复（B′ 口径）：CSV 重导命中**回收站**里的货号，必须「跳过并上报」，
+    绝不能静默 `update_or_create` 复活/覆盖旧行。
+
+    语义依据：货号是产品的永久身份，归档（archived=True）不释放编号。
+    批量导入不能整体失败 → 语义取「跳过 + 计入报告 + success=False（让操作者必须看到）」。
+    """
+
+    def _archive(self, catalog_no, name):
+        p = Product.objects.create(
+            catalog_no=catalog_no, slug=f'{catalog_no.lower()}-old', name=name, status='active')
+        p.archived = True
+        p.save()
+        return p
+
+    def test_reimport_archived_catalog_no_is_skipped_not_overwritten(self):
+        p = self._archive('SC8047', 'Old ATP')
+        report = import_products_csv(SAMPLE_CSV)
+
+        # ① 旧行原封不动（不复活、不覆盖）
+        p.refresh_from_db()
+        self.assertTrue(p.archived, '归档行不得被导入静默复活')
+        self.assertEqual(p.name, 'Old ATP', '归档行数据不得被静默覆盖')
+
+        # ② 跳过被完整上报
+        self.assertEqual(report.products_skipped_archived, 1)
+        self.assertFalse(report.success)
+        joined = ' '.join(report.errors)
+        self.assertIn('SC8047', joined)
+        self.assertIn('回收站', joined)
+        self.assertIn('restore', joined)
+
+        # ③ 跳过是"整条跳过"——该产品的 SKU 不得被半途建出来
+        self.assertFalse(SKU.objects.filter(sku_code='ATP-10UL').exists())
+
+        # ④ 同一批里的其它货号不受牵连
+        self.assertTrue(Product.objects.filter(catalog_no='SC8048', archived=False).exists())
+
+    def test_normal_reimport_still_updates(self):
+        """命中在售行仍走「重导即刷新」——不放宽口径，也不过度封锁。"""
+        import_products_csv(SAMPLE_CSV)
+        report2 = import_products_csv(SAMPLE_CSV)
+        self.assertEqual(report2.products_skipped_archived, 0)
+        self.assertTrue(report2.success)
+        self.assertEqual(report2.products_updated, 2)
