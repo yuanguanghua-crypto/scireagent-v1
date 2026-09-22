@@ -9,8 +9,10 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from apps.accounts.tests.factories import UserFactory
-from apps.commerce.models import Product, SKU
+from apps.commerce.models import Product, SKU, AuditLog
 from apps.commerce.tests.factories import ProductFactory, SKUFactory
+from apps.bridges.models import ProductReagentClass
+from apps.knowledge.models import ReagentClass
 
 
 class ProductArchiveTest(TestCase):
@@ -272,3 +274,79 @@ class ProductPublicStatusFilterTest(TestCase):
         resp = self.client.get('/api/v1/products/')
         names = {p['name'] for p in resp.json()['data']}
         self.assertEqual(names, {'Active', 'Draft', 'Archived', 'Deprecated'})
+
+
+class ProductHardDeleteProtectedTest(TestCase):
+    """hard-delete 的两个缺陷（批甲 **B1 / B2**，2026-09-22 修复）。
+
+    - **B1**：被 `PROTECT` 关联挡住时，原先**未捕获 `ProtectedError`** ⇒ 返回 **500**
+      （DEBUG 下还吐堆栈页），且 B′ 的 409 文案恰让用户"先 hard-delete 旧记录" ⇒ **走进死路**。
+      现在应为 **409** + 可操作文案。
+    - **B2**：原先"**先写审计、再 `delete()`**" ⇒ 删除失败时那条 `HARD_DELETE` 审计**已落库**
+      ⇒ 审计谎称"已物理删除"而产品仍在（**幻影审计**，生产/dev 实测 4 例）。
+      现在两步同处一个 `transaction.atomic()` ⇒ 删除失败即**整体回滚**，审计不残留。
+
+    挡路的关联来源：`ProductReagentClass.product`
+    （`apps/bridges/models.py:420`，`on_delete=PROTECT`）。
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.superuser = UserFactory(is_staff=True, is_superuser=True)
+
+    def _hard_delete(self, pid):
+        self.client.force_authenticate(user=self.superuser)
+        return self.client.post(f'/api/v1/products/{pid}/hard-delete/')
+
+    def _attach_reagent_class(self, product):
+        rc = ReagentClass.objects.create(
+            id_code='RC-HD-TEST', name='Hard-delete Test RC', slug='rc-hd-test',
+        )
+        return ProductReagentClass.objects.create(product=product, reagent_class=rc)
+
+    # ── B1：应为 409（而不是 500）────────────────────────────
+    def test_hard_delete_blocked_by_protected_fk_returns_409(self):
+        p = ProductFactory()
+        self._attach_reagent_class(p)
+        resp = self._hard_delete(p.id)
+        self.assertEqual(
+            resp.status_code, status.HTTP_409_CONFLICT,
+            '被 PROTECT 关联挡住应返回 409，而不是 500（B1）',
+        )
+        # ⚠️ 本项目信封的 `meta.error.code` 是**按 HTTP 状态码派生**的
+        #   （`core/exceptions.py:26-36`，409 → 'conflict'），**完全不读 `default_code`**
+        #   ⇒ 这里只能断言 'conflict'；语义细节由 status + message 承载
+        #   （与 B′ 的 C2b/C2c 同口径；其判据行本就写 code=conflict）。
+        self.assertEqual(resp.json()['meta']['error']['code'], 'conflict')
+
+    def test_409_message_is_actionable(self):
+        """文案必须给得出路，否则研究员无从下手（与 B′ 的 409 体例一致）。"""
+        p = ProductFactory()
+        self._attach_reagent_class(p)
+        msg = self._hard_delete(p.id).json()['meta']['error']['message']
+        self.assertIn('软归档', msg)
+        self.assertIn('ProductReagentClass', msg)
+
+    def test_hard_delete_without_dependents_still_200(self):
+        """反例：无 PROTECT 关联时，硬删必须**照常 200**（别把正常路径改坏）。"""
+        p = ProductFactory()
+        resp = self._hard_delete(p.id)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertFalse(Product.objects.filter(id=p.id).exists())
+
+    # ── B2：失败后不得留下幻影审计，且产品仍须存在 ─────────────
+    def test_blocked_hard_delete_leaves_no_phantom_audit(self):
+        p = ProductFactory()
+        self._attach_reagent_class(p)
+        self._hard_delete(p.id)
+        self.assertTrue(
+            Product.objects.filter(id=p.id).exists(),
+            '删除失败 ⇒ 产品必须仍在（不得半删）',
+        )
+        self.assertEqual(
+            AuditLog.objects.filter(
+                action=AuditLog.ACTION_HARD_DELETE, object_id=p.id,
+            ).count(),
+            0,
+            'B2 幻影审计：删除失败时不得留下 HARD_DELETE 审计（事务必须整体回滚）',
+        )

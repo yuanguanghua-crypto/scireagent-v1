@@ -158,6 +158,28 @@ class ProductNumberConflict(APIException):
     default_code = 'product_number_conflict'
 
 
+class ProductHasDependents(APIException):
+    """被 `PROTECT` 关联挡住、无法物理删除 → **409**（附带可操作出路）。
+
+    ★ 2026-09-22 修 B1：`hard_delete` 此前**未捕获 `ProtectedError`** ⇒ 被
+    `ProductReagentClass.product`（`apps/bridges/models.py:420`，`on_delete=PROTECT`）挡住时
+    返回 **500**（DEBUG 下还吐 38KB 堆栈页）。更糟的是 B′ 的 409 文案恰好让用户
+    "先对旧记录 hard-delete" ⇒ **走进死路**。本异常把该情形变成**可操作的 409**。
+    """
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = '产品存在受保护的关联数据'
+    default_code = 'product_has_dependents'
+
+    def __init__(self, blocked):
+        types = '、'.join(blocked) if blocked else '未知关联'
+        super().__init__(
+            f'该产品被关联数据保护，不能物理删除（{types}）。'
+            '① 只想下架 → 用软归档（DELETE /products/{id}/）；'
+            '② 确实要物理删除 → 先解除上述关联；'
+            '③ 编号本就永久保留，无需为了释放编号而硬删。'
+        )
+
+
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     skus = SKUCreateSerializer(many=True, required=False)
     # 显式声明 product_class_id 为可写：ModelSerializer 会把 FK 的 _id 字段默认设为只读，

@@ -1,4 +1,6 @@
 import os
+from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.http import Http404
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -26,6 +28,7 @@ class IsSuperUser(BasePermission):
 from apps.commerce.api.v1.serializers import (
     ProductListSerializer, ProductDetailSerializer, ProductCreateUpdateSerializer,
     SKUSerializer, ProductClassSerializer, CatalogGroupSerializer, ProductDocumentSerializer,
+    ProductHasDependents,
 )
 from apps.commerce import selectors
 
@@ -235,11 +238,26 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             permission_classes=[IsSuperUser])
     def hard_delete(self, request, pk=None):
         """物理删除（仅超管 IsAdminUser）。仍写审计（带操作人）；
-        post_delete 兜底信号对同一对象不再重复记，避免噪声。"""
+        post_delete 兜底信号对同一对象不再重复记，避免噪声。
+
+        ★ 2026-09-22 修 **B1 + B2**（同一处一次改）：
+        - **B1**：原先未捕获 `ProtectedError` ⇒ 被 `PROTECT` 关联（如
+          `ProductReagentClass.product`，`apps/bridges/models.py:420`）挡住时返回 **500**。
+          现在捕获并抛 `ProductHasDependents` ⇒ **409 + 三条出路**。
+        - **B2**：原先"**先写审计、再 delete**"，删除失败时那条 `HARD_DELETE` 审计**已落库**
+          ⇒ 审计谎称"已物理删除"而产品仍在（**幻影审计**，实测 4 例）。
+          现在两步同处一个 `transaction.atomic()` ⇒ 删除失败即**整体回滚**，审计不会残留。
+        """
         product = self.get_object()
-        AuditLog.log(request.user, AuditLog.ACTION_HARD_DELETE, product)
-        product._explicit_hard_delete_logged = True  # 抑制兜底信号重复记
-        product.delete()
+        try:
+            with transaction.atomic():
+                AuditLog.log(request.user, AuditLog.ACTION_HARD_DELETE, product)
+                product._explicit_hard_delete_logged = True  # 抑制兜底信号重复记
+                product.delete()
+        except ProtectedError as exc:
+            # 只报**关联类型名**（不泄具体对象 repr），并按名称去重排序，便于断言与阅读
+            blocked = sorted({type(obj).__name__ for obj in exc.protected_objects})
+            raise ProductHasDependents(blocked) from exc
         return Response(
             {'success': True, 'data': {'deleted': str(product), 'hard': True}},
             status=status.HTTP_200_OK,
