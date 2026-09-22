@@ -187,7 +187,10 @@ test.describe('Part1 · 新建页组 D「AI AUTO MATCH」生产只读', () => {
     } catch {
       test.skip(true, '上游冷启动超时/504（该 name-only 查询实测约 50s）')
     }
-    await expect(nf).toContainText('not found in PubChem')
+    // ⚠️ 用**不区分大小写**的正则：UI 实际文案是 "Not found in PubChem. …"（大写 N），
+    //    而 `toContainText` **区分大小写** ⇒ 原写法 `'not found in PubChem'`（小写 n）必挂。
+    //    此前该分支一直被 504 跳过（`test.skip`）⇒ 这个大小写 bug 被掩蔽，直到线上真返回"未找到"才暴露。
+    await expect(nf).toContainText(/not found in pubchem/i)
     await expect(page.locator(`${PANEL} .word-status`).filter({ hasText: '身份已验证' })).toHaveCount(0)
   })
 
