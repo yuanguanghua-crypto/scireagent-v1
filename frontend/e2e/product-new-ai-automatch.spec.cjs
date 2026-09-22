@@ -298,6 +298,28 @@ test.describe('Part1 · 新建页组 D「AI AUTO MATCH」生产只读', () => {
     if (r.status !== 200) test.skip(true, `enrich 未 200（status=${r.status}），Δ0 判据不足`)
     expectDelta(before, prodCounts(), zeroSpec(before), 'D16 enrich 未 Import')
   })
+
+  // ── D14c：★ **B5 闸门** —— 新建态"采纳文献"不得打到 `/products/null/` ────────
+  //   组件 `BiozEvidenceSection` 本就设计为 `canAdopt=false` 时**禁用 Adopt 并给 tooltip**
+  //   （`:title="!canAdopt ? 'Save the product before adopting' : ''"`），
+  //   但父组件曾**硬编码 `:can-adopt="true"`** ⇒ 新建态按钮可点
+  //   ⇒ 必打 `/products/null/adopt-bioz-refs/` ⇒ **404**（B5）。已修为 `:can-adopt="!!productId"`。
+  //   本闸门只做**只读**观测：全程不得出现 `/products/null/` 请求；Bioz 段若渲染，其 Adopt 必须 disabled。
+  test('D14c @readonly @prod-ok 新建态：不得发出 /products/null/ 请求；Bioz 若渲染则 Adopt 必须 disabled（B5）', async ({ page, request }) => {
+    const nullHits = []
+    page.on('request', (r) => { if (r.url().includes('/products/null/')) nullHits.push(r.url()) })
+    await loginProd(page, request)
+    await fillIds(page, { name: NAME, cas: CAS })
+    const btn = page.locator(`${PANEL} button.file-upload-btn`)
+    if (await btn.count()) { await btn.click().catch(() => {}); await page.waitForTimeout(9000) }
+    if (await page.locator('.bioz-section').count()) {
+      const adoptBtns = page.locator('.bioz-adopt-one, .bioz-adopt-all')
+      for (let i = 0; i < (await adoptBtns.count()); i++) {
+        await expect(adoptBtns.nth(i), '新建态 Adopt 必须 disabled（canAdopt=false）').toBeDisabled()
+      }
+    }
+    expect(nullHits, `新建态不得请求 /products/null/，实际：${JSON.stringify(nullHits)}`).toEqual([])
+  })
 })
 
 /**

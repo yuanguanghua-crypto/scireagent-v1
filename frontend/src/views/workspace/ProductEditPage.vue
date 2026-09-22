@@ -829,6 +829,13 @@ function _toSnakeRef(r) {
 }
 
 async function handleAdoptBiozRef({ ref, index }) {
+  // ★ 2026-09-22 修 B5：新建态 `productId` 为 null ⇒ 原先会打 `/products/null/adopt-bioz-refs/`
+  //   **必然 404**（而 Bioz 段在新建态是**渲染出来的**，用户看得到一个必然失败的按钮）。
+  //   采纳文献是"往该产品挂 Reference"，前提是该产品已存在 ⇒ 先保存再采纳。
+  if (!productId.value) {
+    setFeedback('error', '请先保存产品，再采纳文献')
+    return
+  }
   wrapRef.value?.setAdoptingAll?.(true)
   try {
     const resp = await adoptBiozRefs(productId.value, [_toSnakeRef(ref)])
@@ -849,6 +856,11 @@ async function handleAdoptBiozRef({ ref, index }) {
 
 async function handleAdoptAllBioz({ refs }) {
   if (!refs?.length) return
+  // ★ 2026-09-22 修 B5：同 handleAdoptBiozRef —— 新建态无 productId ⇒ 不能让请求打到 /products/null/
+  if (!productId.value) {
+    setFeedback('error', '请先保存产品，再采纳文献')
+    return
+  }
   wrapRef.value?.setAdoptingAll?.(true)
   try {
     const resp = await adoptBiozRefs(productId.value, refs.map(_toSnakeRef))
@@ -1552,7 +1564,7 @@ watch(
         v-if="pubchemEnrichResult && !pubchemEnrichResult.applied"
         ref="wrapRef"
         :bioz="enrichBioz"
-        :can-adopt="true"
+        :can-adopt="!!productId"
         style="margin-top: 8px"
         @adopt="handleAdoptBiozRef"
         @adopt-all="handleAdoptAllBioz"
