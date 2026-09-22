@@ -213,6 +213,35 @@ class ProductNumberUniquenessContractTest(TestCase):
         p.refresh_from_db()
         self.assertEqual(p.catalog_no, 'SC-UPD-2', '冲突时不得写入')
 
+    # ── ⑤ 409 文案承诺的三条「出路」必须真的可用（S5.1）────────────
+    def test_restore_path_from_409_advice_works(self):
+        """出路①：按 409 提示调 restore → 归档行复活，编号仍归它。"""
+        p = ProductFactory(catalog_no='SC-ADV-1', slug='sc-adv-1', status='active')
+        p.archived = True
+        p.save()
+        self.client.force_authenticate(user=self.staff)
+        resp = self.client.post(f'/api/v1/products/{p.pk}/restore/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        p.refresh_from_db()
+        self.assertFalse(p.archived)
+
+    def test_hard_delete_path_from_409_advice_works(self):
+        """出路③：先 hard-delete（仅超管）→ 编号被释放 → 同货号可重新 create。
+
+        这条必须是绿的：它是 409 文案对研究员作出的承诺。
+        """
+        superuser = UserFactory(is_staff=True, is_superuser=True)
+        p = ProductFactory(catalog_no='SC-ADV-2', slug='sc-adv-2', status='active')
+        p.archived = True
+        p.save()
+        self.client.force_authenticate(user=superuser)
+        resp = self.client.post(f'/api/v1/products/{p.pk}/hard-delete/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        resp2 = self._post_create({
+            'name': 'Reborn', 'catalog_no': 'SC-ADV-2', 'slug': 'sc-adv-2', 'status': 'draft'})
+        self.assertEqual(resp2.status_code, status.HTTP_201_CREATED,
+                         'hard-delete 后编号应被释放（409 文案承诺的出路③）')
+
 
 class ProductPublicStatusFilterTest(TestCase):
     """前台列表状态过滤隐患修复"""

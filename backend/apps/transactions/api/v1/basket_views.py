@@ -35,17 +35,22 @@ def _get_session_key(request) -> str:
 
 
 def _get_basket_queryset(request):
-    """Return the basket QuerySet scoped to the current user or session."""
+    """Return the basket QuerySet scoped to the current user or session.
+
+    S5.3：**读取侧过滤**掉指向已归档（回收站）产品的行 —— 产品软删不级联清理 `basket`
+    （FK 是 CASCADE，但软删不触发），故购物车会残留"已下架"行（实测生产 5 条）。
+    这里只过滤、**不删数据**（不做级联删除）；失效行仍留在库中。
+    """
     if request.user.is_authenticated:
         return Basket.objects.filter(
-            user=request.user
+            user=request.user, product__archived=False
         ).select_related('product', 'sku')
 
     session_key = _get_session_key(request)
     if not session_key:
         return Basket.objects.none()
     return Basket.objects.filter(
-        session_key=session_key, user__isnull=True
+        session_key=session_key, user__isnull=True, product__archived=False
     ).select_related('product', 'sku')
 
 

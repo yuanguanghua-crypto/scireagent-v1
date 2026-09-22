@@ -195,6 +195,42 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         serializer = self.get_serializer(product)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['post'], url_path='batch-restore')
+    def batch_restore(self, request):
+        """批量从回收站恢复（S5.2）。
+
+        - **幂等**：对已 `archived=False` 的对象**不重复写 RESTORE 审计**，计入 `skipped`
+        - **容错**：不存在的 id 记入 `not_found`，不让整批失败
+        - 取证沿用 S3：`AuditLog.log()` 必须在置 `archived=False` **之前**调用
+        - 不触碰 `get_queryset`（红线）；本动作 `detail=False`，直接查 `Product.objects`
+        """
+        ids = request.data.get('ids')
+        if not isinstance(ids, list) or not ids:
+            return self.error_response(
+                'ids 必须是非空数组', code='VALIDATION_ERROR', status_code=400)
+
+        clean_ids = [i for i in ids if isinstance(i, int) and not isinstance(i, bool)]
+        found = {p.pk: p for p in Product.objects.filter(pk__in=clean_ids)}
+
+        restored = skipped = 0
+        not_found = []
+        for pk in ids:
+            product = found.get(pk) if isinstance(pk, int) and not isinstance(pk, bool) else None
+            if product is None:
+                not_found.append(pk)
+                continue
+            if not product.archived:
+                skipped += 1          # 幂等：已在售 → 不改、不写审计
+                continue
+            AuditLog.log(request.user, AuditLog.ACTION_RESTORE, product)
+            product.archived = False
+            product.save(update_fields=['archived'])
+            restored += 1
+
+        return self.success_response({
+            'restored': restored, 'skipped': skipped, 'not_found': not_found,
+        })
+
     @action(detail=True, methods=['post'], url_path='hard-delete',
             permission_classes=[IsSuperUser])
     def hard_delete(self, request, pk=None):
