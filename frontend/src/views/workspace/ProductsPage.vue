@@ -5,7 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/http'
 import { toast, LoadingSpinner, EmptyState } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
-import { archiveProduct, reactivateProduct, deleteProduct, getArchivedProducts, restoreProduct } from '@/api/workspace/products'
+import { archiveProduct, reactivateProduct, deleteProduct, getArchivedProducts, restoreProduct, discontinueProduct } from '@/api/workspace/products'
 
 const router = useRouter()
 const route = useRoute()
@@ -376,6 +376,20 @@ async function reactivate(product) {
   closeMenu()
 }
 
+// S4-4f 退出目录（停产）：status='deprecated'。与「回收站」不同 —— 货号不释放、
+// 公开详情页保留（只是退出店铺列表与在售状态）。真实网站里这才是「下架商品」的正解，
+// 回收站只用于撤销误操作。
+async function discontinue(product) {
+  try {
+    await discontinueProduct(product.id)
+    await refreshProducts()
+    toast.success(`${product.name} discontinued`)
+  } catch (e) {
+    toast.error('Discontinue failed: ' + (e.response?.data?.meta?.error?.message || e.message))
+  }
+  closeMenu()
+}
+
 async function confirmDelete() {
   if (!deleteConfirmChecked.value) return
   deleteLoading.value = true
@@ -524,6 +538,9 @@ async function confirmRestore() {
                   <button class="menu-item" @click="goToProduct(p.id); closeMenu()">Edit</button>
                   <button v-if="p.status !== 'archived'" class="menu-item" @click="openArchiveOne(p)">Unpublish</button>
                   <button v-else class="menu-item" @click="reactivate(p)">Republish</button>
+                  <!-- S4-4f 退出目录（停产）：货号不释放、页面保留，与「回收站」语义区分 -->
+                  <button v-if="p.status !== 'deprecated'" class="menu-item" @click="discontinue(p)">Discontinue</button>
+                  <button v-else class="menu-item" @click="reactivate(p)">Reopen</button>
                   <button class="menu-item menu-item--danger" @click="openDeleteOne(p)">Move to Recycle Bin</button>
                 </template>
                 <button v-else class="menu-item" @click="openRestoreOne(p)">Restore</button>

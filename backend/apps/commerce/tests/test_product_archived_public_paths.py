@@ -77,3 +77,33 @@ class S2ArchivedLeakPathsTest(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         archived.refresh_from_db()
         self.assertFalse(archived.archived)
+
+    # ── S4-4f：「退出目录 / 停产」(status='deprecated') 与「回收站」(archived) 语义区分 ──
+
+    def test_detail_deprecated_200_page_kept(self):
+        """deprecated（停产/退出目录）的详情页**保留**（200），与 archived 的 404 区分。
+
+        这才是真实网站的「停产」语义：页面留着供客户与文献引用查阅，只是不再在售；
+        货号也因此**不释放**（唯一性口径见 B′）。
+        """
+        p = ProductFactory(
+            name='Discontinued One', slug='discontinued-one', status='deprecated')
+        resp = self.client.get(f'/api/v1/products/{p.pk}/detail/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        # 响应形态：{success, data: {product: {...}, applications: [...], ...}}
+        self.assertEqual(resp.json()['data']['product']['status'], 'deprecated',
+                         '前端需要 status 才能显示 Discontinued 提示')
+
+    def test_detail_draft_still_404(self):
+        """回归：draft 仍不得公开访问（只放行 active / deprecated）。"""
+        p = ProductFactory(name='Draft One', slug='draft-one', status='draft')
+        resp = self.client.get(f'/api/v1/products/{p.pk}/detail/')
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_deprecated_excluded_from_public_list(self):
+        """退出目录的商品不得出现在店铺列表（列表口径仍是仅 active）。"""
+        ProductFactory(
+            name='Discontinued In List', slug='discontinued-in-list', status='deprecated')
+        resp = self.client.get('/api/v1/products/')
+        names = [p['name'] for p in resp.json()['data']]
+        self.assertNotIn('Discontinued In List', names)

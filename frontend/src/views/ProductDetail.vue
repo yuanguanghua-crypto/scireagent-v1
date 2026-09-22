@@ -38,6 +38,10 @@ const detail = computed(() => store.productDetail)
    时走空态，不渲染可能被软删产品的内容。 */
 const unavailable = computed(() => store.productError || product.value?.archived === true)
 
+/* S4-4f：「退出目录 / 停产」= status='deprecated'（与回收站的 unavailable 区分）。
+   真实网站语义：**页面保留**（不 404），但必须明确告知不再在售。 */
+const isDiscontinued = computed(() => product.value?.status === 'deprecated')
+
 /* ── V1.2 aggregated data from detail API ── */
 const applications = computed(() => detail.value?.applications || [])
 const protocols = computed(() => detail.value?.protocols || [])
@@ -408,6 +412,11 @@ function onSearch(query) {
 
 <template>
   <div class="pd" v-if="product && !unavailable">
+    <!-- S4-4f：停产/退出目录 —— 页面保留但明确告知不再在售（编号不释放） -->
+    <div v-if="isDiscontinued" class="pd-discontinued" role="status">
+      This product has been discontinued and is no longer available for purchase.
+      Specifications are retained for reference.
+    </div>
     <ProductLayout
       :page-title="product.name"
       :page-subtitle="product.catalog_no ? `${product.catalog_no} | ${product.cas || ''}` : ''"
@@ -1368,6 +1377,18 @@ function onSearch(query) {
 .pd-empty { text-align: center; padding: 60px 0; color: var(--color-text-secondary); font-size: 15px; }
 .pd-error-title { font-size: 18px; font-weight: 600; color: var(--color-text-primary, inherit); margin: 0 0 8px; }
 .pd-error-sub { margin: 0; font-size: 14px; color: var(--color-text-secondary); }
+
+/* S4-4f：停产/退出目录提示条 */
+.pd-discontinued {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--color-warning-border, #e6a23c);
+  background: var(--color-warning-bg, rgba(230, 162, 60, 0.12));
+  color: var(--color-text-primary, inherit);
+  font-size: 14px;
+  line-height: 1.5;
+}
 
 /* ── Responsive: single column at 768px ── */
 @media (max-width: 768px) {

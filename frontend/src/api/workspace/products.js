@@ -28,6 +28,14 @@ export function reactivateProduct(id) {
   return http.patch(`/products/${id}/`, { status: 'active' })
 }
 
+// S4-4f 退出目录（停产/弃用）：status='deprecated'。
+// 与「回收站」语义不同：**编号不释放**（唯一性全表永久）、**页面保留**
+// （公开详情仍 200，前端显示 Discontinued 提示），只是退出店铺列表与在售状态。
+// 这才是真实网站里「从目录移除」的正确动作 —— 回收站只用于撤销误操作。
+export function discontinueProduct(id) {
+  return http.patch(`/products/${id}/`, { status: 'deprecated' })
+}
+
 export function deleteProduct(id) {
   return http.delete(`/products/${id}/`)
 }

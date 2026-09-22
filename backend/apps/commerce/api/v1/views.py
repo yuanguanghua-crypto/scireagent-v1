@@ -350,7 +350,13 @@ class ProductDetailAPIView(EnvelopeMixin, APIView):
 
         # A2 死分支清理：Product 状态机无 'published'（那是 Protocol/COA 的枚举），只认 active
         # S2：公开聚合详情同样必须排除软删（archived=True）产品。
-        product = get_object_or_404(Product, pk=pk, status='active', archived=False)
+        # S4-4f：「退出目录 / 停产」= status='deprecated' —— 与 archived 区分：
+        #   · archived   → 404（回收站，误操作缓冲）
+        #   · deprecated → **200，页面保留**（真实网站语义：停产页面留着、编号不释放，
+        #                  只是退出店铺列表与在售状态）
+        #   draft 仍不放行。
+        product = get_object_or_404(
+            Product, pk=pk, status__in=['active', 'deprecated'], archived=False)
 
         # ── P0#3 方案A：读端打通 ──
         # methods：PMR derived 边（derived_relevance）∪ ProductMethod 桥，按 method id 去重。
