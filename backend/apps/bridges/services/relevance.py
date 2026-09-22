@@ -461,21 +461,28 @@ def recompute_product(product, embedding_fn=None):
         return 0
 
     bioz_lits = load_product_bioz(product)
+
+    # ★ 2026-09-22 修 **B8**（两段式，关键）：
+    #   原先**每个协议一次 `update_or_create`** ⇒ 一次独立事务提交 = N+1 写入 × N 次提交。
+    #   cProfile 实测（SC8075，268 个协议）：`commit` 累计 **7.76s / 共 9.21s（97%）**。
+    #   教训（第一版改错）：**不能把整个循环直接包进 `atomic()`** —— 那样会把 268 个协议的
+    #   CPU 计算（轴 A/B/C + 嵌入）也关进事务，**写锁被连续持有**；而本地 dev 的 E2E 快照助手
+    #   是独立进程在读同一个 SQLite ⇒ 实测立刻出现 `database is locked` ⇒ create 500 + worker 挂死。
+    #   ⇒ 正解：**CPU 在事务外算好，事务里只做写入**（锁只覆盖写入，不覆盖计算）。
+    rows = []
+    for pid in protocol_ids:
+        protocol = Protocol.objects.filter(id=pid).first()
+        if protocol is None:
+            continue
+        s_a = compute_axis_a(product, protocol)
+        s_b, lit_n = compute_axis_b(product, protocol, bioz_lits=bioz_lits)
+        s_c = compute_axis_c(product, protocol, embedding_fn=embedding_fn)
+        fused = fuse_relevance(score_a=s_a, score_b=s_b, score_c=s_c)
+        rows.append((protocol, fused, lit_n))
+
     n = 0
-    # ★ 2026-09-22 修 **B8**：原先**每个协议一次 `update_or_create`** ⇒ 一次独立事务提交。
-    #   cProfile 实测（SC8075，268 个派生协议）：`commit` 累计 **7.76s / 共 9.21s（97%）**，
-    #   即 N+1 写入 × N 次提交。整个循环包进**一个 `transaction.atomic()`** ⇒ 提交从 268 次降到 1 次。
-    #   ⚠️ 对 SQLite（本地 dev）收益最大（commit ≈ 29ms/次）；生产 PG 的 commit 便宜得多，
-    #      故 B8 的"生产严重度"仍需在 PG 上实测确认（本函数不改语义，只改提交粒度）。
-    with transaction.atomic():
-        for pid in protocol_ids:
-            protocol = Protocol.objects.filter(id=pid).first()
-            if protocol is None:
-                continue
-            s_a = compute_axis_a(product, protocol)
-            s_b, lit_n = compute_axis_b(product, protocol, bioz_lits=bioz_lits)
-            s_c = compute_axis_c(product, protocol, embedding_fn=embedding_fn)
-            fused = fuse_relevance(score_a=s_a, score_b=s_b, score_c=s_c)
+    with transaction.atomic():                      # 只包写入 ⇒ 提交从 268 次降到 1 次
+        for protocol, fused, lit_n in rows:
             ProductProtocol.objects.update_or_create(
                 product=product, protocol=protocol,
                 defaults={

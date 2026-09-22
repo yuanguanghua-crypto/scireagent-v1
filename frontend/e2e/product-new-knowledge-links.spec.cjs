@@ -174,7 +174,10 @@ test.describe('Part 1 · 组 E 知识关联（5. Knowledge Links）', () => {
   //    （实测 UI 首项 method54 含 752 条 MethodProtocol ⇒ PUT ≈28s）⇒ 请求被客户端 abort
   //    （`net::ERR_ABORTED`），UI 报 `Save failed: timeout of 15000ms exceeded`。缺陷修复（重算异步化
   //    或该请求放宽超时）后本用例即应转正。证据与文件:行号见文末「发现」#6/#7。
-  test.fixme('E2b @write @local-only [缺陷] 下拉 Link 已有 Method ⇒ 保存后 product_method Δ+1', async ({ page, request: req }) => {
+  // ✅ 2026-09-22 **B8 已修**（`relevance.recompute_product` 的 N+1 提交 ⇒ 两段式，
+  //   268 协议 9.21s → 0.75s）⇒ 本条的阻塞消失，fixme 翻回 test。
+  //   背景：原先保存时同步重算 ~28s > 前端 axios 15s 超时 ⇒ **UI 报失败而服务端已落库**（幻影失败）。
+  test('E2b @write @local-only 下拉 Link 已有 Method ⇒ 保存后 product_method Δ+1', async ({ page, request: req }) => {
     const errors = consoleErrors(page, WL2)
     const api = await staffApi(req)
     const f = await fixtureProduct(api, 'E2B')
