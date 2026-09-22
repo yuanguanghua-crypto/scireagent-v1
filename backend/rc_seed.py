@@ -21,6 +21,7 @@ from django.db import transaction
 RC = apps.get_model('knowledge', 'ReagentClass')
 Method = apps.get_model('knowledge', 'Method')
 Product = apps.get_model('commerce', 'Product')
+SKU = apps.get_model('commerce', 'SKU')
 MRC = apps.get_model('bridges', 'MethodReagentClass')
 PRC = apps.get_model('bridges', 'ProductReagentClass')
 
@@ -138,6 +139,26 @@ def classify(text):
 
 
 def main():
+    # ★ 2026-09-22 修 **B3**（fail-fast 守卫）：本脚本会写 **权威知识表**（ReagentClass /
+    #   MethodReagentClass / ProductReagentClass）。若在含 E2E 测试夹具的库上运行，
+    #   会把夹具当真实产品处理、污染数据面（实测曾在 dev 把 PRC 刷到 `E2E-` 夹具上，
+    #   `ProductReagentClass` 149→145 那批就是这么来的）。
+    #   ⇒ 检测到夹具就**拒绝运行**（fail-fast），而不是"静默排除夹具" ——
+    #     后者防不住更危险的情形：**在错误的数据库上跑种子**（写权威表，不可逆）。
+    #   ⚠️ 两条口径都查：产品货号前缀 `E2E-`，以及 **挂在真实产品上的 `E2E-` SKU**
+    #     （2026-07-11 那条遗留 `E2E-SKU-…` 就属于后者，只查货号会漏）。
+    _fx_product = Product.objects.filter(catalog_no__startswith='E2E-').count()
+    _fx_sku = SKU.objects.filter(sku_code__startswith='E2E-').count()
+    if _fx_product or _fx_sku:
+        raise SystemExit(
+            '拒绝在此库运行 RC 种子：检测到 E2E 测试夹具 '
+            f'(product.catalog_no 前缀 E2E- = {_fx_product} 条；sku.sku_code 前缀 E2E- = {_fx_sku} 条)。\n'
+            '本脚本会写**权威知识表**，夹具混入会污染数据面。\n'
+            '  出处：请先清理夹具（E2E 的 cleanupByPrefix），或改指向干净的库。\n'
+            "  只读确认：Product.objects.filter(catalog_no__startswith='E2E-').count() 与 "
+            "SKU.objects.filter(sku_code__startswith='E2E-').count()"
+        )
+
     # 预载 DB 已有关系（code 级，兼容 dry-run 未保存实例）
     existing_mrc = set(MRC.objects.select_related('method', 'reagent_class')
                        .values_list('method__slug', 'reagent_class__id_code'))

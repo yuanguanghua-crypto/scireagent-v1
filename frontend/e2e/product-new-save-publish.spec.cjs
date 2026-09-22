@@ -165,7 +165,13 @@ test.describe('Part 1 · 组 I 保存与发布', () => {
     //   （2026-09-22 合并跑时 I4 曾失败而单独跑通过，此断言用于自证根因。）
     console.log('__E2E__ I4_PUT ' + JSON.stringify({ status: resp.status(), url: resp.url() }))
     expect(resp.status(), 'I4 Publish 的 PUT 应 2xx（否则 DB 不会变 active）').toBeLessThan(300)
-    expect(productField(f.id, 'status'), 'I4 DB status 应变 active（L1 §I4）').toBe('active')
+    // ★ 2026-09-22 修：把"读一次 DB"改成**轮询**。I4 曾在 12-spec 合并跑时**间歇失败**
+    //   （期望 active 实得 draft，单独/整文件跑均通过）。若是**读库过早**（race），轮询直接消除；
+    //   若真是接口没生效，15s 轮询后仍失败并给出最终值 —— 与上面的 2xx 断言配合，一次即可定性。
+    await expect.poll(() => productField(f.id, 'status'), {
+      timeout: 15000, intervals: [200, 500, 1000],
+      message: 'I4 DB status 应变 active（L1 §I4）',
+    }).toBe('active')
     await api.dispose(); expect(errors).toEqual([])
   })
 
