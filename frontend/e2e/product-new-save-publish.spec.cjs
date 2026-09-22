@@ -156,10 +156,15 @@ test.describe('Part 1 · 组 I 保存与发布', () => {
     await publishBtn(page).click()
     const dlg = dialog(page)
     await expect(dlg.locator('.dialog-warn'), 'I4 完整 ⇒ 无缺项警示').toHaveCount(0)
-    await Promise.all([
+    const [resp] = await Promise.all([
       page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().includes('/api/v1/products/')),
       dlg.locator('button', { hasText: 'Confirm Publish' }).click(),
     ])
+    // ★ 断言 PUT 本身成功 —— 原实现接受**任意**状态码 ⇒ 若 PUT 失败，
+    //   失败会**伪装**成"DB status 没变"，无法区分"接口挂了"与"读库过早"。
+    //   （2026-09-22 合并跑时 I4 曾失败而单独跑通过，此断言用于自证根因。）
+    console.log('__E2E__ I4_PUT ' + JSON.stringify({ status: resp.status(), url: resp.url() }))
+    expect(resp.status(), 'I4 Publish 的 PUT 应 2xx（否则 DB 不会变 active）').toBeLessThan(300)
     expect(productField(f.id, 'status'), 'I4 DB status 应变 active（L1 §I4）').toBe('active')
     await api.dispose(); expect(errors).toEqual([])
   })
