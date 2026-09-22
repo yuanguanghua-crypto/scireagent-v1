@@ -71,9 +71,35 @@ cd /e/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/frontend   # �
 | `BASE_URL` | `http://localhost:5173` | 前端地址；生产填 `https://scireagent.com` |
 | `E2E_USER` / `E2E_PASS` | `admin` / `admin123` | 应用层登录账号（staff/superuser） |
 | `E2E_API_BASE` | `http://localhost:8000` | **API 根**（`helpers/api.cjs` 自动补 `/api/v1`） |
+| `E2E_BASIC_USER` / `E2E_BASIC_PASS` | 空 | **仅生产需要**：nginx Basic Auth 凭据（本地留空） |
 | `E2E_DOCX_DIR` | `E:\试剂网站的\试剂产品说明文档` | docx 语料目录（**不进 repo**） |
 
 > ⚠️ 生产工作台需**应用层**登录（与 nginx Basic Auth 是两套）；凭据按纪律**不写进仓库**。
+
+### ★ 两层认证的正确配方（2026-09-22 实测，R2 必需）
+
+nginx Basic 与应用层 token **都想占 `Authorization` 头** ⇒ 会互相覆盖。前端早已规避
+（`src/utils/http.js:21-26` 原话：*"Use X-Auth-Token (not Authorization) so it does NOT clash
+with the nginx HTTP Basic Auth popup"*）。**E2E 必须照抄这个约定**：
+
+| 层 | 头 | 取值 |
+|---|---|---|
+| 应用层 | **`X-Auth-Token`** | `/auth/login` 返回的 token |
+| nginx | `Authorization: Basic …` | `E2E_BASIC_USER`/`E2E_BASIC_PASS` |
+
+**实测对照（同一 token）**：`-H "Authorization: Token …"` ⇒ **401**（nginx，Basic 被覆盖）；
+`-H "X-Auth-Token: …"` ⇒ **200 + JSON**。`helpers/api.cjs` 已按此实现（`buildHeaders()`）。
+
+> 本地 dev 无 nginx ⇒ `E2E_BASIC_*` 留空即可，`X-Auth-Token` 同样被后端接受（已实测）。
+
+### ★ 生产数据实况（2026-09-22 只读实测）——**期望值必须现算，禁止硬编码**
+
+- `?archived=1&page_size=500` ⇒ `meta.pagination.count = 125`，返回 125 条，其中
+  **`archived=true` 有 125 条、`archived=false` 有 0 条**（⇒ 生产 **Products 视图恒为 0 行**、
+  **Recycle Bin 恒为 125 行**）
+- `status` 分布：`active 109` / `archived 10` / `draft 6`
+- ⇒ **所有 @prod-ok 用例必须「先调 A-API 现算期望，再与 U-UI 比对」**，不得写死 125/0；
+  零行时要有 `if (n === 0) test.skip(...)` 之类的显式分支，不要用空断言假装通过。
 
 ---
 
