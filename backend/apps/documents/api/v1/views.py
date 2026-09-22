@@ -126,8 +126,21 @@ class CoaViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='download')
     def download(self, request, pk=None):
-        """下载 COA PDF"""
+        """下载 COA PDF
+
+        ★ 2026-09-22 修 B9：加**发布状态门控**。
+        此前只判 `pdf_path` 是否存在，而本 ViewSet 的 `IsAdminOrReadOnly` 放行**匿名 GET**、
+        `withdraw_coa` 又刻意**保留 pdf**（见 services/workflow.py:118-124），
+        ⇒ 已撤回(draft) 的 COA **仍可被匿名下载**（实测 200 + application/pdf），
+        违反 L1 `COA_SDS_PRD.md:80`「仅 status=PUBLISHED 允许下载」。
+
+        口径（2026-09-22 用户拍板）：**对外一律 404；staff 仍可下载**（内部复核与审计需留痕，
+        故**不删 pdf**、只加门控）。
+        """
         coa = self.get_object()
+        is_staff = bool(getattr(request.user, 'is_authenticated', False) and request.user.is_staff)
+        if coa.status != Coa.Status.PUBLISHED and not is_staff:
+            return Response({'error': '该 COA 尚未发布'}, status=status.HTTP_404_NOT_FOUND)
         if not coa.pdf_path:
             return Response({'error': 'PDF 尚未生成'}, status=status.HTTP_404_NOT_FOUND)
         filepath = os.path.join(settings.MEDIA_ROOT, coa.pdf_path)

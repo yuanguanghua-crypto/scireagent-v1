@@ -311,9 +311,10 @@ test.describe('Part 1 · 组 H 合规 SDS / COA（9. Compliance）', () => {
     await api.dispose()
   })
 
-  // ── H9b2：★ 真缺陷 —— L1 说仅 PUBLISHED 可下载；L2 下载端点不校验发布状态 ⇒ 已撤回(draft) COA 仍可匿名下载 ──
-  //   详见文末「发现 #2」；修好后把 test.fixme 改回 test 即转绿。**不为绿灯放宽断言。**
-  test.fixme('H9b2 @write @local-only 【纠错候选】已撤回(draft) COA 的 PDF 不应可匿名下载（L1 COA_SDS_PRD §80）', async ({ request }) => {
+  // ── H9b2：✅ 2026-09-22 B9 已修（`documents/api/v1/views.py` download() 加发布状态门控）──
+  //   口径：对外一律 404；**staff 仍可下载**（内部复核/审计留痕，故不删 pdf、只加门控）。
+  //   此前下载端点只判 `pdf_path` 是否存在 ⇒ 已撤回(draft) 的 COA 可被匿名下载（200 + PDF）。
+  test('H9b2 @write @local-only 已撤回(draft) COA 的 PDF 不应可匿名下载（L1 COA_SDS_PRD :80）', async ({ request }) => {
     const api = await staffApi(request)
     const f = await mkProductSku(api, 'H9C')
     const coaId = await approvedCoa(api, f)
