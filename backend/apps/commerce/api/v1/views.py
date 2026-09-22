@@ -142,6 +142,9 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     def archive(self, request, pk=None):
         """下架产品：status 置为 archived，前台不可见，保留全部数据，可恢复。"""
         product = self.get_object()
+        # S3：该动作此前只 save(status) 而**不写审计** —— 是一次无痕 UPDATE，补齐。
+        # 必须在变更**前**调用，快照才是变更前的 status。
+        AuditLog.log(request.user, AuditLog.ACTION_UPDATE, product)
         product.status = Product.Status.ARCHIVED
         product.save(update_fields=['status'])
         serializer = self.get_serializer(product)
@@ -153,8 +156,13 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         AuditLog.log(self.request.user, AuditLog.ACTION_CREATE, instance)
 
     def perform_update(self, serializer):
+        # S3：UPDATE 必须在 save() **之前**取 before 快照，否则读到的已是新值。
+        before = AuditLog.build_snapshot(serializer.instance)
         instance = serializer.save()
-        AuditLog.log(self.request.user, AuditLog.ACTION_UPDATE, instance)
+        AuditLog.log(
+            self.request.user, AuditLog.ACTION_UPDATE, instance,
+            snapshot={'before': before, 'after': AuditLog.build_snapshot(instance)},
+        )
 
     def perform_destroy(self, instance):
         """Plan B：默认软归档（archived=True），不物理删除，可恢复 + 审计。

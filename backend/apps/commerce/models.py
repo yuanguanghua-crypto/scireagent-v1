@@ -342,15 +342,54 @@ class AuditLog(TimeStampedModel):
 
     @classmethod
     def log(cls, user, action, instance, snapshot=None):
-        """显式写一条审计记录。user 来自 request，避免依赖 signal。"""
+        """显式写一条审计记录。user 来自 request，避免依赖 signal。
+
+        S3：`snapshot` 缺省时**自动抓取**白名单字段快照（此前缺省即 `{}`，
+        导致审计答得出"谁/何时/删了哪个 id"，却答不出"删除前的字段值"）。
+
+        ⚠️ 调用方负责**取证时机**：
+          - DELETE / RESTORE / HARD_DELETE：必须在**变更前**调用本方法；
+          - UPDATE：用 `build_snapshot()` 在 `save()` 前取 before，再显式传
+            `{'before': …, 'after': …}`。
+        """
         return cls.objects.create(
             user=user if getattr(user, 'is_authenticated', False) else None,
             action=action,
             content_type=ContentType.objects.get_for_model(type(instance)),
             object_id=instance.pk,
             object_repr=str(instance),
-            snapshot=snapshot or {},
+            snapshot=snapshot if snapshot is not None else cls.build_snapshot(instance),
         )
+
+    # 审计快照的字段白名单（S3）：足以还原"变更前的关键字段值"，又不至于变成整行 dump
+    SNAPSHOT_FIELDS = (
+        'name', 'slug', 'catalog_no', 'cas', 'smiles', 'status', 'archived',
+        'purity', 'concentration', 'storage', 'shipping',
+    )
+
+    @classmethod
+    def build_snapshot(cls, instance):
+        """把实例的关键字段抽成 **JSON 可序列化** 的 dict。
+
+        - 只取 `SNAPSHOT_FIELDS` 白名单
+        - `Decimal` / `date` / `datetime` 一律 `str()` / `isoformat()` 化，
+          否则 JSONField 落库会抛 TypeError
+        - 实例上不存在的字段自动跳过（本白名单面向 Product，但方法保持通用）
+        """
+        import datetime as _dt
+        from decimal import Decimal as _Decimal
+
+        snap = {}
+        for field in cls.SNAPSHOT_FIELDS:
+            if not hasattr(instance, field):
+                continue
+            value = getattr(instance, field)
+            if isinstance(value, _Decimal):
+                value = str(value)
+            elif isinstance(value, (_dt.datetime, _dt.date)):
+                value = value.isoformat()
+            snap[field] = value
+        return snap
 
 
 @receiver(post_delete, sender=Product)
