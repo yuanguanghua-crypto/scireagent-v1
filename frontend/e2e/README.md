@@ -40,6 +40,10 @@ cd /e/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/frontend   # �
 2. **输出必须重定向到文件，不要管道给 `tail`** —— 实测 `… | tail -20` 会因泄露的浏览器子进程
    占住管道而**挂死 12 分钟**；改 `> 文件` 后 11 秒完成。
 3. **必须显式 `--project=chromium`** —— config 里还有 firefox/webkit（本机无对应浏览器）。
+4. **★ 必须串行（`workers: 1`，已在 `playwright.config.cjs` 锁死）** —— 本套 spec 共用**同一个本地
+   dev 库**，而大量用例用 `snapshotDb()` 做「表计数 Δ」断言。默认并行时，A 用例的夹具增删会落进
+   B 用例的 before/after 窗口 ⇒ **假失败**（2026-09-22 实测：单跑 14+6 全过；并行跑同一对 spec
+   出现 `product` Δ+1 / Δ−1 / Δ+2 三条假失败）。**排查口诀：单跑过、合跑挂 ⇒ 先怀疑并行**。
 
 > 生产环境（R2 只读 / R3 真实写）另见下方 §3 环境变量；nginx Basic Auth 由
 > `httpCredentials` 处理（尚未进 spec 基建，用脚本时手工传）。

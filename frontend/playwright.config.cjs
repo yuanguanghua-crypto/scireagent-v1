@@ -19,6 +19,12 @@ module.exports = defineConfig({
   timeout: 45000,
   expect: { timeout: 10000 },
   retries: 1,
+  // ★ 必须串行（2026-09-22 实测教训）：本套 spec 共用**同一个本地 dev 库**，
+  //   而大量用例用 `snapshotDb()` 做「表计数 Δ」断言（只读零写入 / 审计 Δ+1 / Δ0）。
+  //   默认并行 workers 会让 A 用例的夹具增删落进 B 用例的 before/after 窗口
+  //   ⇒ 假失败（实测：单跑 14+6 全过，并行跑出现 Δ+1 / Δ-1 / Δ+2）。
+  //   ⇒ 任何依赖 DB 快照 Δ 的断言都要求串行；此处统一锁死为 1 worker。
+  workers: 1,
   use: {
     baseURL: process.env.BASE_URL || 'http://localhost:5173',
     headless: true,
