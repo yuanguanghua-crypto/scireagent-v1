@@ -233,10 +233,15 @@ async function loadKnowledgeOptions() {
       http.get('/methods/', { params: { page_size: 200 } }),
       http.get('/protocols/', { params: { page_size: 500 } }),
     ])
-    goals.value = (g.data?.data?.results || g.data?.data || [])
-    applications.value = (a.data?.data?.results || a.data?.data || [])
-    methods.value = (m.data?.data?.results || m.data?.data || [])
-    protocols.value = (p.data?.data?.results || p.data?.data || [])
+    // ★ 2026-09-22 修 B10：共享 `http` 实例的响应拦截器**已把信封解包**
+    //   （`utils/http.js:73-75`：`if (data && data.success) return data`），
+    //   调用方拿到的是 **body** ⇒ 这里只能取 `.data`，**不能再多一层 `.data`**。
+    //   此前写成 `g.data?.data` ⇒ 恒落 `|| []` ⇒ 四个下拉恒空 ⇒ Batch Link 整块不可用。
+    //   （同文件 `applyProductsResponse`(:37-43) 就是按 `resp.data`/`resp.meta` 写的，本处与之对齐。）
+    goals.value = (g.data?.results || g.data || [])
+    applications.value = (a.data?.results || a.data || [])
+    methods.value = (m.data?.results || m.data || [])
+    protocols.value = (p.data?.results || p.data || [])
   } catch (e) { /* ignore */ }
 }
 

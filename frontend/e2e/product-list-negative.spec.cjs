@@ -176,18 +176,20 @@ test.describe('Part 2 · 组 H 负向与不变量', () => {
     }, 'H1f 打开弹层')
   })
 
-  // ★ test.fixme：**Batch Link 整块当前不可用**（真实缺陷，台账 **B10**）——
-  //   `ProductsPage.vue:236-239` `loadKnowledgeOptions()` 多写一层 `.data`，而共享 `http`
-  //   实例的拦截器已解包信封（`utils/http.js:73-75`）⇒ 四个下拉恒空 ⇒ 选不到 Method
-  //   ⇒ 本用例的"预览不写库"不变量**当前无法被触发**。B10 修复后改回 test 即转绿。
-  test.fixme('H1g @readonly Batch Link 预览：Δ0（预览不写库）—— 阻塞于 B10', async ({ page }) => {
+  // ✅ 2026-09-22 B10 已修（`ProductsPage.vue:236-239`）⇒ 本闸门 fixme 翻回 test。
+  //   此前 Batch Link 四下拉恒空 ⇒ 选不到 Method ⇒ "预览不写库"这条不变量无法被触发。
+  test('H1g @readonly Batch Link 预览：Δ0（预览不写库）', async ({ page }) => {
     await loginAsStaff(page)
     await goto(page, '/workspace/products')
     await waitLoaded(page)
     await page.locator('.products-table tbody td.col-check input[type=checkbox]').first().check()
     await page.getByRole('button', { name: 'Batch Link', exact: true }).click()
     await expect(page.locator('#batch-title')).toBeVisible()
-    const mSel = page.locator('.batch-link-form label', { hasText: 'Method' }).locator('select')
+    // ★ 定位 Method 下拉：**不要用 `hasText: 'Method'`**（`hasText` 会连 `<option>` 文本一起算，
+    //   别的 label 名字里含 "Method" 时会匹配到 2 个 ⇒ strict mode violation）。
+    //   改用「必填占位项 `— Required —`」锚定，与位置/名称解耦（模板见 ProductsPage.vue:655-658）。
+    const mSel = page.locator('.batch-link-form select')
+      .filter({ has: page.locator('option', { hasText: '— Required —' }) })
     await expect(mSel.locator('option')).not.toHaveCount(1, { timeout: 20000 })
     await mSel.selectOption(await mSel.locator('option').nth(1).getAttribute('value'))
     await expectNoWrites(async () => {

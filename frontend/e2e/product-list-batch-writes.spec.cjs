@@ -82,15 +82,14 @@ test.describe('Part 2 · 批量真实写（D11 / F2 / D12）', () => {
   })
 
   // ── F2：Batch Link Apply ⇒ 桥表 Δ+1（product 不变）──────────
-  // ★★ test.fixme：**Batch Link 整块当前不可用**（真实缺陷，台账 **B10**）
-  //   根因：`ProductsPage.vue:236-239` `loadKnowledgeOptions()` 多写了一层 `.data`
-  //   （`g.data?.data?.results || g.data?.data`），而共享 `http` 实例的响应拦截器
-  //   **已把信封解包**（`utils/http.js:73-75` `if (data && data.success) return data`）
-  //   ⇒ 四处恒落 `|| []` ⇒ 四个下拉恒空 ⇒ `Preview` 永远 `:disabled` ⇒ **无法 Apply**。
-  //   （同文件 `:37-43` `applyProductsResponse` 按 `resp.data`/`resp.meta` 写，两处约定自相矛盾。）
-  //   探针实测：四接口浏览器侧全部 200 且带数据、零 console error，但 6s 后 select 仍只有占位项。
-  //   **B10 修复后把 fixme 改回 test 即转绿**（本用例的断言口径已按"能选到 Method"写好）。
-  test.fixme('F2 @write @local-only Batch Link Apply 1 条夹具 ⇒ product_method Δ+1、product Δ0（阻塞于 B10）', async ({ page }) => {
+  // ✅ B10 已修（下拉已有数据，H1g 与截图均可证）。
+  // ★★ 但仍有**第二个阻塞** ⇒ test.fixme 保留，理由登记台账 **B11**：
+  //   `ProductsPage.vue:290` `applyBatchLink` 用 `http.put()`（**全量更新**）却只传
+  //   `{method_ids, protocol_ids}` ⇒ 实测 **6ms 返回 400**：
+  //   `"name: This field is required.; slug: This field is required."`
+  //   ⇒ **Apply 必然失败**（弹层不关、UI 报错），与下拉是否为空无关。
+  //   **B11 修复后把 fixme 改回 test 即转绿**（本用例断言口径已按"能选到 Method"写好）。
+  test.fixme('F2 @write @local-only Batch Link Apply 1 条夹具 ⇒ product_method Δ+1、product Δ0（阻塞于 B11）', async ({ page }) => {
     const f = await fixture('F2')
     test.skip(!f, '夹具创建失败')
     await loginAsStaff(page)
@@ -99,7 +98,12 @@ test.describe('Part 2 · 批量真实写（D11 / F2 / D12）', () => {
     await checkRow(page, f.cat)
     await page.getByRole('button', { name: 'Batch Link', exact: true }).click()
     await expect(page.locator('#batch-title')).toBeVisible()
-    const mSel = page.locator('.batch-link-form label', { hasText: 'Method' }).locator('select')
+    // ★ 定位 Method 下拉：**不要用 `hasText: 'Method'`** —— `hasText` 会连 label 内
+    //   `<option>` 的文本一起算，某个 Research Goal / Application 名字里含 "Method" 时
+    //   会匹配到 2 个 label ⇒ strict mode violation（B10 修好、选项真的有数据后才暴露）。
+    //   改用「必填占位项 `— Required —`」锚定，与位置和名称都解耦（模板见 ProductsPage.vue:655-658）。
+    const mSel = page.locator('.batch-link-form select')
+      .filter({ has: page.locator('option', { hasText: '— Required —' }) })
     await expect(mSel.locator('option')).not.toHaveCount(1, { timeout: 20000 })
     await mSel.selectOption(await mSel.locator('option').nth(1).getAttribute('value'))
     await page.getByRole('button', { name: 'Preview', exact: true }).click()
