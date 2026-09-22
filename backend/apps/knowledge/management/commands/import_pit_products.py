@@ -109,7 +109,14 @@ class Command(BaseCommand):
                 overview=clean(pdata.get('overview', '')),
                 research_use_only=pdata.get('research_use_only', True),
                 product_class=product_class,
-                status='published',  # PIT data is already reviewed
+                # ⚠️ 必须写**合法**枚举值（draft/active/deprecated/archived）。
+                # 原为 status='published' —— 该值不在枚举内，是非法的中间态：
+                #   · site_views 公开面按 status__in=['active','published'] 过滤，
+                #     非法值会让这些产品在被清洗前短暂上站、清洗后又消失；
+                #   · 既有 normalize_product_status 的口径是「非法 + 未归档 → draft
+                #     （不得自动上站，需人工定夺）」。
+                # 故直接写 draft：行为等价（去掉非法中间态），且导入后由研究员人工审核再 Publish。
+                status='draft',
             )
             created_products += 1
 
