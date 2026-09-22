@@ -19,12 +19,13 @@ const PY = path.join(BACKEND, 'venv', 'Scripts', 'python.exe')
 /** 默认快照的表 → ORM 计数表达式 */
 const DEFAULT_PY = [
   "import json",
-  "from apps.commerce.models import Product, AuditLog",
+  "from apps.commerce.models import Product, AuditLog, SKU",
   "from apps.bridges.models import ProductProtocol, ProductMethod, ProductMethodRelation",
   "print('__SNAP__' + json.dumps({",
   "  'product': Product.objects.count(),",
   "  'product_archived': Product.objects.filter(archived=True).count(),",
   "  'product_active': Product.objects.filter(archived=False).count(),",
+  "  'sku': SKU.objects.count(),",
   "  'audit_log': AuditLog.objects.count(),",
   "  'product_protocol': ProductProtocol.objects.count(),",
   "  'product_method': ProductMethod.objects.count(),",

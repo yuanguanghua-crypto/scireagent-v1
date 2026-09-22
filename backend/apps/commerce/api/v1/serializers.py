@@ -1,4 +1,4 @@
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException, ValidationError
 from core.serializers import BaseModelSerializer
@@ -356,15 +356,27 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         # 编号冲突已在 validate() 阶段以 409 / 400 返回（全表口径，含回收站行），
         # 故此处**不再**做"命中归档行就静默复活并覆盖"—— 那会绕过 CREATE 审计、
         # 静默改写旧行数据。保留 DB 列级 UNIQUE 的竞态兜底：并发写入不该以 500 收场。
+        # ★ 2026-09-22 修 **B6**：原先 `SKU.objects.create` 落在 `try` **之外**、且整段**无事务**
+        #   ⇒ 重复 `sku_code` 抛 `IntegrityError` 变成 **500**，而刚建的**产品行已落库**
+        #   却没有任何 SKU（**非原子**，实测留下"0-SKU 产品行"）。
+        #   现在两步同处一个 `transaction.atomic()`，并把 IntegrityError **按字段归属**分流：
+        #     · 命中 `sku_code` ⇒ **400**（嵌套字段值非法。`SKUCreateSerializer` 刻意移除了
+        #       UniqueValidator 以兼容"草稿→发布 sku_code 不变"，故冲突只可能在**写入时**暴露）
+        #     · 其它（货号 / slug 并发竞态）⇒ 沿用 **409** `ProductNumberConflict`
         try:
-            product = Product.objects.create(**validated_data)
+            with transaction.atomic():
+                product = Product.objects.create(**validated_data)
+                for sku_data in skus_data:
+                    SKU.objects.create(
+                        product=product, **{k: v for k, v in sku_data.items() if k != 'id'})
         except IntegrityError as exc:
+            if 'sku_code' in str(exc):
+                raise ValidationError(
+                    {'skus': ['SKU 编号已存在，请改用新的 sku_code。']}
+                ) from exc
             raise ProductNumberConflict(
                 '编号冲突（并发写入）：货号或 slug 已被占用。请重试，或改用新的编号。'
             ) from exc
-        for sku_data in skus_data:
-            SKU.objects.create(
-                product=product, **{k: v for k, v in sku_data.items() if k != 'id'})
 
         # Sync method bridges only if any method-related field was explicitly provided.
         # Explicit empty list clears all bridges; omitting all fields preserves existing.

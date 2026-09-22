@@ -28,7 +28,7 @@
 const { test, expect, request } = require('@playwright/test')
 const { BASE_URL, loginAsStaff, ADMIN_USER, ADMIN_PASS } = require('./helpers/auth')
 const { getToken, apiContext } = require('./helpers/api')
-const { expectApi, expectDelta, expectNoWrites, consoleErrors } = require('./helpers/assertions.cjs')
+const { expectApi, snapshotDb, expectDelta, expectNoWrites, consoleErrors } = require('./helpers/assertions.cjs')
 const { dbQuery } = require('./helpers/db-snapshot.cjs')
 const { catalogNo, slug, cleanupByPrefix } = require('./fixtures/index.cjs')
 
@@ -212,11 +212,9 @@ test.describe('Part 1 · 组 F SKU（7. SKUs）', () => {
   })
 
   // ── F5：重复 sku_code ⇒ L1 期望 400（unique 约束 models.py:247）────
-  // ★ test.fixme：断言本身是对的（L1 §F5 + models.py:247 unique），但**当前代码是 500**——
-  //   真实缺陷已登记《2026-09-22_纠错攒批台账与纠偏归属判定.md》**B6**
-  //   （`serializers.py:37-44` 移除 UniqueValidator + `:343-345` 未捕获 IntegrityError + 无 ATOMIC_REQUESTS，
-  //    且失败后留"0-SKU 产品行"）。**B6 修复后把 fixme 改回 test 即可转绿。**
-  test.fixme('F5 @write @local-only 重复 sku_code ⇒ L1 期望 400（现为 500，见台账 B6）', async ({ request: req }) => {
+  // ✅ 2026-09-22 B6 已修（`serializers.py` create 里把"建产品 + 建 SKU"放进 `transaction.atomic()`，
+  //   并把 IntegrityError 按字段归属分流：命中 sku_code ⇒ 400）⇒ fixme 翻回 test。
+  test('F5 @write @local-only 重复 sku_code ⇒ 400（不再是 500）', async ({ request: req }) => {
     const api = await staffApi(req); const dup = `${catalogNo('F5')}-DUP`
     await fixtureProduct(api, 'F5', [{ sku_code: dup }])      // 占位：先落一个 DUP
     const resp = await api.post('/products/', {
@@ -224,6 +222,20 @@ test.describe('Part 1 · 组 F SKU（7. SKUs）', () => {
     })
     say('F5_DUP', { status: resp.status(), body: (await resp.text()).slice(0, 300) })
     await expectApi(resp, { status: 400, json: { 'meta.error.code': 'validation_error' }, label: 'F5 重复 sku_code' })
+    await api.dispose()
+  })
+
+  // ── F5c：★ B6 的**原子性**闸门 —— 冲突失败后不得留下"0-SKU 产品行" ──
+  //   原先 `SKU.objects.create` 在 try 之外且无事务 ⇒ 产品行已落库却无 SKU（非原子）。
+  test('F5c @write @local-only 重复 sku_code 失败后 ⇒ product 计数不变（无 0-SKU 残留）', async ({ request: req }) => {
+    const api = await staffApi(req); const dup = `${catalogNo('F5C')}-DUP`
+    await fixtureProduct(api, 'F5C', [{ sku_code: dup }])
+    const before = snapshotDb()
+    const resp = await api.post('/products/', {
+      data: { name: 'E2E F5C dup', catalog_no: catalogNo('F5D'), slug: slug('F5D'), skus: [{ sku_code: dup }] },
+    })
+    await expectApi(resp, { status: 400, label: 'F5c 冲突应 400' })
+    expectDelta(before, snapshotDb(), { product: 0, sku: 0 }, 'F5c 事务回滚（不留 0-SKU 产品行）')
     await api.dispose()
   })
 
