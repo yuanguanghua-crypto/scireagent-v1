@@ -24,17 +24,13 @@ const { runSync } = require('./sync-spawn.cjs')
 /**
  * 同步执行 ssh，**但不给子进程建 stdio 管道**。
  *
- * ★ 2026-09-23 修 D16「`spawnSync ssh EBUSY`」：
- *   本机（WorkBuddy 会话内）实测 —— `execFileSync`/`spawnSync` 在**默认 `stdio:'pipe'`** 下
- *   会稳定抛 `EBUSY`；而把输出**重定向到临时文件**（`stdio:['ignore', fd, fd2]`，不建管道）
- *   就恢复正常（同一条 `ssh -V` 实测 `status=0`）。
- *   证据链（全部实测）：
- *     · `stdio:'ignore'` / `'inherit'` / **文件 fd** ⇒ 一律 OK；默认 pipe ⇒ 一律 EBUSY
- *     · 清空 `NODE_OPTIONS`（去掉注入的 shim）**仍** EBUSY ⇒ 不是 node shim
- *     · 目标换成项目内 venv python、或绝对路径/反斜杠路径 ⇒ **仍** EBUSY ⇒ 不是目标/路径形态
- *     · Python 侧 `subprocess.run(['ssh','-V'])` 正常；node 的**异步** `spawn` 也正常
- *   细节与影响面见 `e2e/README.md` 坑14。**实现已抽到 `helpers/sync-spawn.cjs`**（与
- *   `db-snapshot.cjs` 共用同一份，避免两份实现漂移）；本函数只负责绑定 ssh 参数。
+ * ★ 2026-09-23 修 D16「`spawnSync ssh EBUSY`」：真因是**子进程的 stdin 管道**
+ *   （`stdio[0]==='pipe'`，即 `spawnSync`/`execFileSync` 的**默认值**）——
+ *   实测：仅 stdin 管道 ⇒ EBUSY；仅 stdout / 仅 stderr 管道 ⇒ OK（且能正常读回输出）。
+ *   ⇒ 修法 = `stdio[0]='ignore'`（这些调用从不往 stdin 写数据，零损失）。
+ *   实现统一收口在 **`helpers/sync-spawn.cjs` 的 `runSync()`**（`prod-db.cjs` 与
+ *   `db-snapshot.cjs` 及多个 spec 共用同一份，避免实现漂移）；本函数只负责绑定 ssh 参数。
+ *   完整判别矩阵与已排除项见 `e2e/README.md` 坑14。
  */
 function runSshSync(args, timeoutMs = 60000) {
   return runSync('ssh', args, { timeout: timeoutMs, label: 'ssh' })
