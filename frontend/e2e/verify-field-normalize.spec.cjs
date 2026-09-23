@@ -11,8 +11,8 @@ const { test, expect } = require('@playwright/test');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const API_BASE = 'http://localhost:8000/api/v1';
-const ADMIN_USER = process.env.E2E_USER || 'admin';
-const ADMIN_PASS = process.env.E2E_PASS || 'AdminPass123!';
+// 单一口径：凭据取自 helpers/auth.cjs（2026-09-23 修复：此处曾硬编码过期密码 'AdminPass123!' ⇒ 登录 401 ⇒ 假红）
+const { ADMIN_USER, ADMIN_PASS } = require('./helpers/auth');
 
 async function loginAsStaff(page) {
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
@@ -27,12 +27,14 @@ async function loginAsStaff(page) {
 const PREFIX = 'E2E-NORM-';
 const ts = Date.now();
 
-test.describe('字段兜底归一化验证', { tag: ['@obsolete'] }, () => {
+// 用例级 tier（2026-09-23 复核，实跑证据）：
+//   · D1 会真实 POST /products/ 建产品并清理 ⇒ @write；D2 是纯函数复刻断言 ⇒ @readonly。
+test.describe('字段兜底归一化验证', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsStaff(page);
   });
 
-  test('D1. slug + sku_code 兜底，POST 不再 400', async ({ page, request }) => {
+  test('D1. slug + sku_code 兜底，POST 不再 400', { tag: ['@write', '@local-only'] }, async ({ page, request }) => {
     const token = await page.evaluate(() => localStorage.getItem('token'));
 
     // 跑前清理同前缀残留
@@ -92,7 +94,7 @@ test.describe('字段兜底归一化验证', { tag: ['@obsolete'] }, () => {
     try { await request.delete(`${API_BASE}/products/${createdId}/`, { headers: { Authorization: `Token ${token}` } }); } catch {}
   });
 
-  test('D2. 中文 storage/shipping 归一化规则（与组件内实现一致）', async () => {
+  test('D2. 中文 storage/shipping 归一化规则（与组件内实现一致）', { tag: ['@readonly', '@local-only'] }, async () => {
     // 复刻 normalizeStorage / normalizeShipping 逻辑做断言（与 ProductEditPage.vue 内实现一致）
     const storageOpts = ['-20°C', '-20°C, protect from light', '-80°C', '4°C', '4°C, protect from light', 'Room temperature', 'Room temperature, dry'];
     const shippingOpts = ['Dry Ice', 'Blue Ice', 'Ambient', 'Cold Pack'];

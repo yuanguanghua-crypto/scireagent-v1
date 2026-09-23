@@ -10,8 +10,8 @@
 const { test, expect } = require('@playwright/test');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
-const ADMIN_USER = process.env.E2E_USER || 'admin';
-const ADMIN_PASS = process.env.E2E_PASS || 'AdminPass123!';
+// 单一口径：凭据取自 helpers/auth.cjs（2026-09-23 修复：此处曾硬编码过期密码 'AdminPass123!' ⇒ 登录 401 ⇒ 假红）
+const { ADMIN_USER, ADMIN_PASS } = require('./helpers/auth');
 
 async function loginAsStaff(page) {
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
@@ -23,12 +23,18 @@ async function loginAsStaff(page) {
   ]);
 }
 
-test.describe('弹窗无障碍能力', { tag: ['@obsolete'] }, () => {
+// 用例级 tier（2026-09-23 复核，实跑证据）：
+//   · :31「缺失字段弹窗」 —— 该弹窗已按设计移除（ProductEditPage.vue:2064 注释：
+//     「必填字段缺失不再弹独立弹窗」，Save Draft 直接标红、Publish 走发布确认框）
+//     ⇒ `.missing-list` / `.dialog-actions button '去补充'` / aria-labelledby='missing-title'
+//     所依赖的实体不复存在 ⇒ 维持 @obsolete（理由见 GATE.md §4）。
+//   · :65「GoalsPage 编辑弹窗」 —— 依赖仍存在的 `#entity-editor-title` 编辑器弹窗 ⇒ 实跑绿 ⇒ 捞回。
+test.describe('弹窗无障碍能力', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsStaff(page);
   });
 
-  test('缺失字段弹窗：ARIA 属性 + role=alert + ESC 关闭 + focus 管理', async ({ page }) => {
+  test('缺失字段弹窗：ARIA 属性 + role=alert + ESC 关闭 + focus 管理', { tag: ['@obsolete'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/workspace/products/new`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.edit-form', { timeout: 10000 });
 
@@ -62,7 +68,7 @@ test.describe('弹窗无障碍能力', { tag: ['@obsolete'] }, () => {
     await expect(saveBtn).toBeFocused({ timeout: 3000 });
   });
 
-  test('GoalsPage 编辑弹窗：ARIA + ESC 关闭', async ({ page }) => {
+  test('GoalsPage 编辑弹窗：ARIA + ESC 关闭', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/workspace/goals`, { waitUntil: 'domcontentloaded' });
     // 等表格或空文本加载
     await page.waitForSelector('.entity-page', { timeout: 10000 });
