@@ -19,8 +19,10 @@
  *     --project=chromium --reporter=list --retries=0 --output=test-results-b5 > ../../_b5.log 2>&1
  */
 const { test, expect } = require('@playwright/test')
-const { BASE_URL, loginAsStaff } = require('./helpers/auth')
-const { consoleErrors } = require('./helpers/assertions.cjs')
+const { BASE_URL, loginAsStaff, ADMIN_USER, ADMIN_PASS } = require('./helpers/auth')
+const { getToken, apiContext } = require('./helpers/api')
+const { consoleErrors, snapshotDb, expectDelta } = require('./helpers/assertions.cjs')
+const { cleanupByPrefix } = require('./fixtures/index.cjs')
 
 const WL = ['wasm streaming compile failed', 'falling back to ArrayBuffer instantiation']
 const goto = (page, p) => page.goto(`${BASE_URL}${p}`, { waitUntil: 'domcontentloaded' })
@@ -71,5 +73,45 @@ test.describe('Part 1 · 新建态 Bioz 采纳守卫（B5）', () => {
     await expect(page.locator('.bioz-nosave-hint'), '应显示"先保存产品"提示').toBeVisible()
     expect(nullHits, `新建态不得请求 /products/null/，实际：${JSON.stringify(nullHits)}`).toEqual([])
     expect(errors).toEqual([])
+  })
+
+  // ── D14（动作清单普查批次）：**编辑态点 `Adopt` ⇒ 真的写 Reference** ──────────────
+  //   此前该 spec 只覆盖"新建态必须禁用"（守卫），`linkAppMethods` 之外最后一个"从未点击"的写动作之一。
+  //   接口路径已 Read 核实：`aiTools.js:91` → `POST /products/{id}/adopt-bioz-refs/`
+  //   （body `{references:[…], citation_role}`；成功回调在 `ProductEditPage.vue:843-847` 标 `✓ Stored`）。
+  //   写库证据走**接口契约**（响应 `data.adopted >= 1` —— 这就是"写了 Reference"的定义）＋ UI 徽标 ＋ `product Δ0`。
+  test('D14 @write @local-only 编辑态点 Adopt ⇒ POST adopt-bioz-refs 200 + adopted≥1 + 标 ✓ Stored', async ({ page, request }) => {
+    const errors = consoleErrors(page, WL)
+    const api = await apiContext(await getToken(request, ADMIN_USER, ADMIN_PASS))
+    const cat = `E2E-D14-${Date.now()}`
+    const created = await api.post('/products/', {
+      data: { name: `E2E D14 ${cat}`, catalog_no: cat, slug: cat.toLowerCase() },
+    })
+    expect(created.status(), 'D14 夹具应 201').toBe(201)
+    const id = (await created.json()).data.id
+
+    await page.route(/\/products\/enrich\//, (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(CANNED) }))
+    await loginAsStaff(page)
+    await goto(page, `/workspace/products/${id}/edit`)
+    // 编辑页的 enrich 面板**常驻**（09-23 纠偏①）⇒ 填个标识即可触发；Bioz 段随后渲染
+    await page.locator(`input[placeholder="e.g. 2'-Amino-ATP"]`).fill('E2E-D14')
+    await page.locator('.pubchem-enrich-section button.file-upload-btn').click()
+    const bioz = page.locator('.bioz-section')
+    await expect(bioz, 'D14 编辑态应渲染 Bioz 段（stub 有 1 条文献）').toBeVisible({ timeout: 15000 })
+
+    const before = snapshotDb()
+    const [resp] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'POST' && /\/adopt-bioz-refs\/$/.test(r.url())),
+      bioz.locator('.bioz-adopt-one').first().click(),
+    ])
+    expect(resp.status(), 'D14 Adopt 的 POST 应 200').toBe(200)
+    const body = await resp.json()
+    expect(body?.data?.adopted, 'D14 应至少写入 1 条 Reference（接口契约）').toBeGreaterThanOrEqual(1)
+    await expect(bioz.getByText('✓ Stored').first(), 'D14 采纳后该条应标 ✓ Stored').toBeVisible({ timeout: 10000 })
+    expectDelta(before, snapshotDb(), { product: 0 }, 'D14 Adopt 不新建产品')
+    expect(errors).toEqual([])
+    await cleanupByPrefix(api, { label: 'D14' })
+    await api.dispose()
   })
 })
