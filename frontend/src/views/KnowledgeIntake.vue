@@ -140,11 +140,8 @@ async function copyToSimilar() {
     message.value = { type: 'err', text: 'No similar products found' }
     return
   }
-  // (1) 写前确认：明确告知将被写入的目标条数；用户取消则**不做任何写入**。
-  const proceed = window.confirm(
-    `Copy knowledge to ${similar.length} similar product(s)?`
-  )
-  // (2) 硬上限：超过则**一条都不写**（无论确认结果），并把**实际条数与上限**告知用户。
+  // (1) 硬上限：超过则**一条都不写**，先把**实际条数与上限**告知用户。
+  //     必须排在确认弹窗**之前**，否则会"先弹确认、再拒绝"，白问用户一次。
   if (similar.length > MAX_COPY_TARGETS) {
     message.value = {
       type: 'err',
@@ -152,6 +149,10 @@ async function copyToSimilar() {
     }
     return
   }
+  // (2) 写前确认：明确告知将被写入的目标条数；用户取消则**不做任何写入**。
+  const proceed = window.confirm(
+    `Copy knowledge to ${similar.length} similar product(s)?`
+  )
   if (!proceed) return
   // (3) 逐条计数：成功/失败分别累计，结束时如实汇报（不再只丢一句 "Copy failed"）。
   saving.value = true
