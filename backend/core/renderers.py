@@ -8,6 +8,11 @@ class EnvelopeRenderer(JSONRenderer):
 
         if response is not None and hasattr(response, 'data'):
             status_code = response.status_code
+            # RFC 9110：204 No Content / 304 Not Modified 不得携带消息体。
+            # 必须在包信封之前返回，否则 204 会带上 {"success":true,...} 的 body，
+            # 使严格 HTTP 客户端（如 Playwright request）抛 Parse Error。
+            if status_code in (204, 304):
+                return b''
             if isinstance(data, dict) and 'success' in data:
                 # Already wrapped
                 pass
