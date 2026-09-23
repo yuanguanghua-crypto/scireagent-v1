@@ -404,3 +404,36 @@ node node_modules/@playwright/test/cli.js test -g "@local-only" --grep-invert "@
 - 本文档：`frontend/e2e/GATE.md`
 - 未改：`frontend/e2e/gate-audit.cjs`、`frontend/package.json`、`frontend/src/**`、`backend/**`
   （实跑产物在 `frontend/e2e/_qa_r3.._qa_r8/` 与 `_qa_r*_*.log`，临时目录不入库）
+
+---
+
+## 8. 待办（2026-09-23 记录，**尚未投入**）
+
+### 8.1 ◻ 跨浏览器闸门尚未建立（chromium/msedge 之外的 firefox / webkit）
+
+**现状**：本闸门**只在 `chromium` project（实际走系统 Edge）**跑过。`firefox` / `webkit` 两个 project 此前因"本机未安装 Playwright bundled 浏览器"从未启用；
+2026-09-23 已 `npx playwright install firefox webkit`（⇒ `firefox-1522` / `webkit-2287`），**前置条件已满足**，但**基线尚未建立**。
+
+**已确证的结论（两条，均实测）**：
+1. ✅ **应用在 firefox / webkit 下能正常渲染** —— 用**静态托管的 dist** 探测，两浏览器结果一致：
+   `appChildren=1 · appHtmlLen=20935 · hasLayout=true · title="Home - LabPro Global"`。
+2. ❌ **`Vite dev server(5173)` + Playwright Firefox/WebKit 这条路走不通**：FF 下所有模块加载报
+   `Loading module from "…/@vite/client" was blocked because of a disallowed MIME type ("")` + `NS_ERROR_CORRUPTED_CONTENT`（WK 为 404 / 请求取消）⇒ 整站不渲染。
+   **对照取证**：同一 URL 用 curl 换 Firefox UA / Edge UA 均正确返回 `Content-Type: text/javascript`（23740 B）
+   ⇒ **服务器无问题，损坏发生在浏览器进程内**（疑似本机安全栈对这两个进程的响应拦截）。
+
+**一次无效尝试（留作教训）**：用 `python -m http.server 8123 -d dist`（dist 构建为**绝对** `http://localhost:8000/api/v1`）跑
+`applayout-navpad-check` + `workspace-entity-crud` ⇒ **7 firefox + 7 webkit，用例名逐一对应**。
+**"对称失败"= 不是浏览器差异**，而是 **harness 自身引入了跨源**（dist 在 8123、API 在 8000）⇒ **不能据此判跨浏览器**。
+
+**要做成有效跨浏览器闸门，需要（harness 改动，不动产品）**：
+- dist 用 **相对** base（`/api/v1`，即保持 `public/runtime-config.js` 占位符），**不要**注入绝对地址；
+- 由**带 `/api` 代理的预览服务器**托管（`vite preview` + `preview.proxy`，或把 `frontend/dist` 挂进 Django 静态路由），使 **dist 与 API 同源**；
+- 再跑：`--project=firefox --project=webkit`（可沿用 `-g "@local-only" --grep-invert "@obsolete"`），并记录**独立的跨浏览器基线**；
+- ⚠️ **风险提示**：任何为跨浏览器测试而**改动 `frontend/dist` 的构建变体**（例如注入本地 API base）都**必须在测试后还原为生产 base 变体**，
+  因为 `frontend/dist` 是**部署上传源**；已核验的还原判据：源码占位符 0 改动 + `dist/runtime-config.js` 含生产 base ×2 + `index.html md5 = 21f3c6b40fa9c99373c67de0309a3ba5` + `assets` 132。
+
+### 8.2 ◻ 其他已记录但未做的小项
+- `verify-dialog-a11y:31` 与 `verify-dialog-style:72`：依赖**按设计已移除**的"缺失必填字段"阻断弹窗（`ProductEditPage.vue:2064` 注释）。
+  若要复活，需按**当前告知模式**重写断言（属"功能定义偏差"，需产品判定）。
+- `product-detail-structure-image`：dev 库 0 条带 `structure_image` 的产品 + 用例硬编码 slug 不存在 ⇒ 需**造数据**或改断言口径。
