@@ -27,11 +27,19 @@ const API_BASE = 'http://localhost:8000/api/v1';
 // ⇒ 登录 401 ⇒ 反复跳 /login ⇒ `waitForURL` 超时 ⇒ 本文件 6 条用例长期假红。
 const { ADMIN_USER, ADMIN_PASS } = require('./helpers/auth');
 
-// 已知数据基线（来自数据库快照）
-const EDIT_PRODUCT_ID = 21;        // 5‑Propargylamino‑CTP, class_id=9 (Nucleotides & Nucleosides)
+// 已知数据基线（2026-09-23 经 GET /api/v1/products/ 实测核对）
+// ⚠️ 锚点会随 dev 库数据漂移腐烂：以下每条用例都带**运行期前置校验**（不满足即 fail，不 skip），
+//    使下一次腐烂立刻响，而不是变成"假绿/长期假红"。
+//
+// ⚠️ 用例创建的产品货号/slug 必须**每次运行唯一**（RUN_TAG）：
+//    后端 delete = **软归档**（archived=1，行不删除，见 backend/.../views.py perform_destroy），
+//    而 catalog_no/slug 的唯一约束把归档行也算 ⇒ 固定货号会让本文件"首跑绿、次跑 409"。
+const RUN_TAG = Date.now().toString(36);
+const EDIT_PRODUCT_ID = 23;        // SC8003 / '5‑Propargylamino‑CTP-Cy3' / class_id=9 (Nucleotides & Nucleosides, L1 根)
 const EDIT_CLASS_NAME = 'Nucleotides & Nucleosides';
-const INCOMPLETE_PUBLISHED_ID = 23; // active 但缺 cas/smiles
+const INCOMPLETE_PUBLISHED_ID = 39; // SC8020 / 'Sulfo-Cy5 dUTP' / active / cas='' ⇒ 触发 incomplete-banner
 const JENA_L1_NAME = 'Nucleotides & Nucleosides';
+const JENA_L1_SLUG = 'nucleotides_nucleosides'; // class 9 的 slug（L1 根，parent_id IS NULL）
 
 // ── 登录 helper：走真实 UI 登录页，确保 store 正确初始化（isStaff 等） ──
 async function loginAsStaff(page) {
@@ -71,6 +79,19 @@ function traceApi(page) {
       console.log(`[API] ${r.request().method()} ${r.url()} → ${r.status()}`);
     }
   });
+}
+
+// ── 运行期前置校验 helper ──
+// 用登录后的 localStorage token 直连 8000 读实体；锚点腐烂时由调用方 fail（不 skip）。
+// 注意：这里的 apiRequest 是 Playwright 的 `request` **夹具实例**（APIRequestContext），
+//       不是 `require('@playwright/test').request` 模块——夹具没有 .newContext()，直接用 .get()。
+async function apiGet(apiRequest, page, path) {
+  const token = await page.evaluate(() => localStorage.getItem('token'));
+  const r = await apiRequest.get(`${API_BASE}${path}`, { headers: { Authorization: `Token ${token}` } });
+  const status = r.status();
+  let body = null;
+  if (status === 200) { try { body = (await r.json()).data; } catch { body = null; } }
+  return { status, body };
 }
 
 // ── el-cascader 交互 helper ──
@@ -120,9 +141,10 @@ test.describe('产品分类 Cascader 全流程', () => {
     await page.waitForSelector('.edit-form', { timeout: 10000 });
 
     // 填最小必填字段（含 slug — 后端 slug blank=False，前端无自动生成，这里显式填以隔离 cascader 验证）
+    // 货号/slug/sku 带 RUN_TAG：避免软归档残留撞唯一约束（见文件头注释）
     await page.locator('input[placeholder*="Amino-ATP"]').fill('E2E Test Product');
-    await page.locator('input[placeholder*="SC8043"]').first().fill('E2E-TEST-001');
-    await page.locator('input[placeholder*="auto-generated-if-empty"]').fill('e2e-test-001');
+    await page.locator('input[placeholder*="SC8043"]').first().fill(`E2E-TEST-${RUN_TAG}`);
+    await page.locator('input[placeholder*="auto-generated-if-empty"]').fill(`e2e-test-${RUN_TAG}`);
 
     // 选择分类：L1 = Nucleotides & Nucleosides, L2 = Fluorescent Nucleotides
     await selectCascaderPath(page, ['Nucleotides & Nucleosides', 'Fluorescent Nucleotides']);
@@ -134,7 +156,7 @@ test.describe('产品分类 Cascader 全流程', () => {
 
     // 添加默认 SKU（completeness 需要）
     await page.locator('button', { hasText: '+ Add SKU' }).click();
-    await page.locator('.sku-table input').first().fill('E2E-TEST-001-1'); // sku_code
+    await page.locator('.sku-table input').first().fill(`E2E-TEST-${RUN_TAG}-1`); // sku_code
 
     // 保存草稿（POST 创建，返回 201）
     traceApi(page);
@@ -176,14 +198,15 @@ test.describe('产品分类 Cascader 全流程', () => {
   // ═══════════════════════════════════════════
   test('2. 编辑回填：L2 叶子分类产品，cascader 反显分类路径', async ({ page }) => {
     // 通过 API 创建一个 L2 叶子分类产品（product_class_id=84 Fluorescent Nucleotides）
+    // 货号/slug/sku 带 RUN_TAG：避免软归档残留撞唯一约束（见文件头注释）
     const token = await page.evaluate(() => localStorage.getItem('token'));
     const ctx = await request.newContext();
     const createResp = await ctx.post(`${API_BASE}/products/`, {
       headers: { Authorization: `Token ${token}`, 'Content-Type': 'application/json' },
       data: {
-        name: 'E2E Edit Backfill', slug: 'e2e-edit-backfill', catalog_no: 'E2E-EDIT-001',
+        name: 'E2E Edit Backfill', slug: `e2e-edit-${RUN_TAG}`, catalog_no: `E2E-EDIT-${RUN_TAG}`,
         status: 'draft', product_class_id: 84,
-        skus: [{ sku_code: 'E2E-EDIT-001-1', pack_size: '1', currency: 'USD', price: '10', is_default: true }],
+        skus: [{ sku_code: `E2E-EDIT-${RUN_TAG}-1`, pack_size: '1', currency: 'USD', price: '10', is_default: true }],
         method_ids: [], protocol_ids: [],
       },
     });
@@ -215,15 +238,26 @@ test.describe('产品分类 Cascader 全流程', () => {
   });
 
   // ═══════════════════════════════════════════
-  // 2b. 【验证发现】L1 根分类产品 cascader 回填为空（真实 bug 记录）
-  //     历史 109 个产品 product_class_id 全落在 L1 根，编辑页 cascader 显示空。
-  //     根因：el-cascader checkStrictly:false 只回显叶片路径；后端 _findIdPath 对 L1 id
-  //           返回 [id] 单节点，Element Plus 认为未选完整分支，显示空。
-  //     需后端/前端二选一修复：(a) 回填时检查 id 在 cascader 树末端才生效；
-  //     (b) cascader 加 checkStrictly:true 允许单选任意层级。
+  // 2b. L1 根分类产品编辑页 cascader 正常回填 L1
+  //     历史（checkStrictly:false 时代）：L1 根 product_class_id 经 _findIdPath 返回单节点
+  //       [id]，el-cascader 认为非完整分支 ⇒ 回填为空（曾记为 bug）。
+  //     现状：el-cascader 已改为 checkStrictly:true（commit aa57ef0, 2026-07-13），
+  //       允许选中任意层级 ⇒ L1 根单层路径可回显，输入框显示 L1 名。
+  //     ⚠ 本用例自带运行期前置校验：product 必须存在、非 archived、且其分类为 L1 根；
+  //       不满足即 fail（不 skip）——锚点腐烂立刻响。
   // ═══════════════════════════════════════════
-  test('2b. 【已知问题】L1 根分类产品编辑页 cascader 回填为空', async ({ page }) => {
-    const editUrl = `${BASE_URL}/workspace/products/${EDIT_PRODUCT_ID}/edit`;  // id=21, class_id=9 (L1 根)
+  test('2b. L1 根分类产品编辑页 cascader 回填 L1（checkStrictly:true 修复原"回填为空"）', async ({ page, request }) => {
+    // 运行期前置校验（fail 不 skip）
+    const { status, body: p } = await apiGet(request, page, `/products/${EDIT_PRODUCT_ID}/`);
+    expect(status, `前置：product ${EDIT_PRODUCT_ID} 应存在（GET 200），实得 ${status}`).toBe(200);
+    expect(p && p.status, `前置：product ${EDIT_PRODUCT_ID} 不应为 archived`).not.toBe('archived');
+    const cls = await apiGet(request, page, `/product-classes/${p.product_class_id}/`);
+    expect(cls.status, `前置：class ${p.product_class_id} 应存在`).toBe(200);
+    expect(cls.body && cls.body.parent_id,
+      `前置：product ${EDIT_PRODUCT_ID} 的分类 (id=${p.product_class_id}) 必须是 L1 根（parent_id IS NULL）`,
+    ).toBeNull();
+
+    const editUrl = `${BASE_URL}/workspace/products/${EDIT_PRODUCT_ID}/edit`;
     await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.edit-form', { timeout: 10000 });
 
@@ -231,9 +265,9 @@ test.describe('产品分类 Cascader 全流程', () => {
     const nameInput = page.locator('input[placeholder*="Amino-ATP"]').first();
     await expect(nameInput).toHaveValue(/Propargylamino/, { timeout: 10000 });
 
-    // cascader 输入框应为空 — L1 根在 checkStrictly:false 下无法回显
+    // 现状：checkStrictly:true 下 L1 根单层路径可回显 ⇒ 输入框显示 L1 名（不再为空）
     const cascaderInput = page.locator('.el-cascader input').first();
-    await expect(cascaderInput).toHaveValue('', { timeout: 3000 });
+    await expect(cascaderInput).toHaveValue(/Nucleotides/, { timeout: 10000 });
   });
 
   // ═══════════════════════════════════════════
@@ -263,21 +297,24 @@ test.describe('产品分类 Cascader 全流程', () => {
     await page.waitForSelector('.edit-form', { timeout: 10000 });
 
     // 填齐完整条件：name, catalog_no, cas, smiles, product_class_id, default sku
+    // 货号/slug/sku 带 RUN_TAG：避免软归档残留撞唯一约束（见文件头注释）
     await page.locator('input[placeholder*="Amino-ATP"]').fill('E2E Publish Test');
-    await page.locator('input[placeholder*="SC8043"]').first().fill('E2E-PUB-001');
+    await page.locator('input[placeholder*="SC8043"]').first().fill(`E2E-PUB-${RUN_TAG}`);
     await page.locator('input[placeholder*="1927-31-7"]').first().fill('150718-26-6');
     await page.locator('textarea[placeholder*="C1=CC"]').fill('C1=CC=C(C=C1)N');
-    await page.locator('input[placeholder*="auto-generated-if-empty"]').fill('e2e-pub-001');
+    await page.locator('input[placeholder*="auto-generated-if-empty"]').fill(`e2e-pub-${RUN_TAG}`);
     await selectCascaderPath(page, ['Nucleotides & Nucleosides', 'Fluorescent Nucleotides']);
     await page.locator('button', { hasText: '+ Add SKU' }).click();
-    await page.locator('.sku-table input').first().fill('E2E-PUB-001-1');
+    await page.locator('.sku-table input').first().fill(`E2E-PUB-${RUN_TAG}-1`);
 
     // 等待完整性条变绿
     await expect(page.locator('.completeness-bar')).toHaveClass(/completeness-ok/, { timeout: 5000 });
     await expect(page.locator('.completeness-bar')).toContainText('Complete');
 
     // Publish 按钮可点且文本为 Publish
-    const publishBtn = page.locator('.form-actions button', { hasText: /^Publish$/ });
+    // ⚠ 按可访问名精确匹配：该按钮 textContent 为 "\n          Publish\n        "（含首尾空白），
+    //   hasText 正则 /^Publish$/ 会因空白匹配不到（ProductEditPage.vue:2058-2060）。
+    const publishBtn = page.locator('.form-actions').getByRole('button', { name: 'Publish', exact: true });
     await expect(publishBtn).toBeEnabled();
 
     // 点 Publish → 弹确认框 → 确认（创建 POST 201）
@@ -285,6 +322,7 @@ test.describe('产品分类 Cascader 全流程', () => {
     await page.waitForSelector('.dialog', { timeout: 5000 });
     const [pubResp] = await Promise.all([
       waitForProductSave(page, 'POST'),
+      // 发布确认框内按钮文案经核对确为 "Confirm Publish"（ProductEditPage.vue:2085），无需改
       page.locator('.dialog button', { hasText: 'Confirm Publish' }).click(),
     ]);
     expect([200, 201]).toContain(pubResp.status());
@@ -314,34 +352,61 @@ test.describe('产品分类 Cascader 全流程', () => {
   // ═══════════════════════════════════════════
   // 5. 列表页分类列 — ProductsPage 显示 product_class_name
   // ═══════════════════════════════════════════
-  test('5. 列表页：分类列显示 product_class_name', async ({ page }) => {
+  test('5. 列表页：分类列显示 product_class_name', async ({ page, request }) => {
+    // 前置（fail 不 skip）：SC8003 对应 product 23 必须存在且 non-archived，否则列表页不渲染该行
+    const { status, body: p } = await apiGet(request, page, `/products/${EDIT_PRODUCT_ID}/`);
+    expect(status, `前置：product ${EDIT_PRODUCT_ID} 应存在（GET 200），实得 ${status}`).toBe(200);
+    expect(p && p.status,
+      `前置：SC8003 (product ${EDIT_PRODUCT_ID}) 必须 non-archived，实得 status=${p && p.status}`,
+    ).not.toBe('archived');
+
     await page.goto(`${BASE_URL}/workspace/products`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.products-table', { timeout: 10000 });
 
-    // 找到产品 21 的行（catalog SC8001），验证 Category 列显示分类名
-    const row = page.locator('.products-table tbody tr', { hasText: 'SC8001' }).first();
+    // 找到 SC8003 的行，验证 Category 列显示分类名
+    const row = page.locator('.products-table tbody tr', { hasText: 'SC8003' }).first();
     await expect(row).toBeVisible({ timeout: 10000 });
 
-    // Category 是第 7 列（checkbox / catalog / name / cas / complete / status / category）
+    // Category 是第 7 列（checkbox / catalog / name / cas / complete / status / category）——
+    // 表头顺序见 ProductsPage.vue:578-584（<th>Category</th> 为下标 6），渲染 product_class_name
     const cells = row.locator('td');
     const categoryCell = cells.nth(6);
     await expect(categoryCell).toContainText(EDIT_CLASS_NAME);
   });
 
   // ═══════════════════════════════════════════
-  // 6. Jena 回填 — AI AUTO MATCH 命中后 apply 映射 cascader L1
+  // 6. Jena 回填 — AI AUTO MATCH 命中后 apply 把 category_l1 映射到 cascader L1
+  //     依赖 **stub**（page.route 注入合成信封），不再依赖"活 jena 命中"：
+  //       dev 库 jena 索引已不命中原锚点名（数据漂移），且原命中文案组件已换。
+  //     ⚠ 实际渲染组件是 MultiSourceMatchSection（.ms-section / "Matched by …" / .ms-apply-btn）；
+  //       JenaMatchSection.vue（.jena-section / "Matched (...)" / .jena-apply-btn）已**无任何引用**
+  //       （死代码），据其断言的旧写法必然 404。
+  //     现状：enrich 返回 jena.matched + normalized.category_l1(L1 根 slug) 时，
+  //       ProductEditPage.vue:584-586 自动调 applyJenaCategoryL1 ⇒ cascader 选 L1 根；
+  //       el-cascader 已 checkStrictly:true（aa57ef0）⇒ L1 根单层路径可回显。
   // ═══════════════════════════════════════════
-  // 已知问题：jena 返回的 category_l1 是 L1 根分类（nucleotides_nucleosides），
-  // 但 el-cascader 当前配置为 checkStrictly:false（仅叶子可选），L1 根节点无法
-  // 被选中/回显。applyJenaCategoryL1() 把 categoryCascaderValue 设为 [l1.value]，
-  // cascader 不渲染单层路径，输入框仍为空。与 Test 2b 同根因。
-  // 修复路径：(a) jena apply 时沿 cascader 树向下找第一个叶子后代；
-  // (b) cascader 加 checkStrictly:true 允许单选任意层级。
-  test('6. 【已知问题】Jena 回填：apply 后 cascader 选中 L1 根分类失败（checkStrictly:false 限制）', async ({ page }) => {
+  test('6. Jena 回填：apply L1 根分类后 cascader 选中 L1（checkStrictly:true）', async ({ page }) => {
+    // 可控 stub：让依赖数据的路径确定（参考 product-new-ai-automatch.spec.cjs 的 D13 回放式 stub）
+    await page.route(/\/products\/enrich\//, route => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true, meta: {}, data: {
+          jena: {
+            matched: true, match_key: 'catalog', catalog_no: 'NU-833',
+            product_name: 'ATP-ATTO-540Q', cas_number: '1234-56-7',
+            normalized: {
+              purity: '>=95%', storage_condition: 'store at -20C',
+              shipping_condition: 'shipped at ambient', category_l1: JENA_L1_SLUG,
+            },
+          },
+        },
+      }),
+    }));
+
     await page.goto(`${BASE_URL}/workspace/products/new`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.edit-form', { timeout: 10000 });
 
-    // 用 jena 索引中真实命中的产品名（ATP-ATTO-540Q → catalog NU-833, L1 nucleotides_nucleosides）
     await page.locator('input[placeholder*="Amino-ATP"]').fill('ATP-ATTO-540Q');
     await page.locator('input[placeholder*="SC8043"]').first().fill('E2E-JENA-001');
 
@@ -350,34 +415,47 @@ test.describe('产品分类 Cascader 全流程', () => {
     await expect(cascaderInput).toHaveValue('');
 
     // 触发 AI AUTO MATCH（按钮文本含产品名，用 role+name 正则）
-    const enrichBtn = page.getByRole('button', { name: /AI AUTO MATCH/ });
-    await enrichBtn.click();
+    await page.getByRole('button', { name: /AI AUTO MATCH/ }).click();
 
-    // 等待 Jena 匹配区出现 "命中" 标记（enrich 可能较慢，给足超时）
-    const jenaSection = page.locator('.jena-section');
-    await expect(jenaSection).toBeVisible({ timeout: 60000 });
-    await expect(jenaSection).toContainText('命中', { timeout: 10000 });
+    // stub 命中 ⇒ 渲染 Supplier Spec Match 分组（真实组件文案为 "Matched by <key>"）
+    const msSection = page.locator('.ms-section');
+    await expect(msSection).toBeVisible({ timeout: 20000 });
+    await expect(msSection).toContainText('Matched by');
+    await expect(msSection).toContainText('NU-833');
 
-    // 点击 "仅填空字段 Apply"
-    const applyBtn = jenaSection.locator('button', { hasText: 'Apply' });
+    // 现状：category_l1= L1 根 slug 时自动 applyJenaCategoryL1 ⇒ checkStrictly:true 下 cascader 回显 L1 名
+    await expect(cascaderInput).toHaveValue(/Nucleotides/, { timeout: 10000 });
+
+    // 点击 "Apply from jena"（多源分组组件实际文案；子串 "Apply" 亦可命中）
+    const applyBtn = msSection.locator('button', { hasText: 'Apply' });
     await expect(applyBtn).toBeVisible();
     await applyBtn.click();
 
-    // 已知问题断言：jena category_l1 是 L1 根，checkStrictly:false 下 cascader
-    // 无法回显单层级，输入框仍为空（与 Test 2b 同根因）。此断言锁定当前行为，
-    // 待 cascader 改 checkStrictly:true 或 jena apply 改走叶子后代后需同步更新。
-    await expect(cascaderInput).toHaveValue('', { timeout: 3000 });
+    // apply 后仍为 L1 根选中（无回归）。注：不再断言"输入框为空"——那是 checkStrictly:false 时代的旧行为。
+    await expect(cascaderInput).toHaveValue(/Nucleotides/);
   });
 
   // ═══════════════════════════════════════════
   // 7. 发布不完整警告 — 已发布但缺推荐字段
   // ═══════════════════════════════════════════
-  test('7. 发布不完整警告：已发布缺字段产品显示 incomplete-banner', async ({ page }) => {
+  test('7. 发布不完整警告：已发布缺字段产品显示 incomplete-banner', async ({ page, request }) => {
+    // 前置（fail 不 skip）：product 必须 active + non-archived + 确实缺 ≥1 个受检字段
+    //（受检字段判定见 ProductEditPage.vue:944-956；缺字段清单见 :225-234 suggestionsMissing）
+    const { status, body: p } = await apiGet(request, page, `/products/${INCOMPLETE_PUBLISHED_ID}/`);
+    expect(status, `前置：product ${INCOMPLETE_PUBLISHED_ID} 应存在（GET 200），实得 ${status}`).toBe(200);
+    expect(p && p.status, `前置：product ${INCOMPLETE_PUBLISHED_ID} 必须 active`).toBe('active');
+    const missingCore = ['cas', 'smiles', 'formula', 'molecular_weight'].filter(k => !p[k]);
+    const noLinks = !(p.method_ids || []).length && !(p.protocol_ids || []).length;
+    const noSeo = !p.seo_title && !p.seo_description;
+    expect(missingCore.length > 0 || noLinks || noSeo,
+      `前置：product ${INCOMPLETE_PUBLISHED_ID} 必须缺 ≥1 个受检字段（cas/smiles/formula/mw/知识链接/SEO），否则 banner 不渲染`,
+    ).toBe(true);
+
     const editUrl = `${BASE_URL}/workspace/products/${INCOMPLETE_PUBLISHED_ID}/edit`;
     await page.goto(editUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.edit-form', { timeout: 10000 });
 
-    // 产品 23 是 active 但缺 cas/smiles，应显示 incomplete-banner
+    // product 39 是 active 但缺 cas，应显示 incomplete-banner
     const banner = page.locator('.incomplete-banner');
     await expect(banner).toBeVisible({ timeout: 10000 });
     await expect(banner).toContainText('published but is missing');

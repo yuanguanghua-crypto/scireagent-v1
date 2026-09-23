@@ -1,6 +1,6 @@
 /**
  * 临时验证 spec — 三项前端改动：
- *   A. 保存失败弹窗 + 字段标红
+ *   A. 空表单保存：告知模式（标红 + warn 提示），不弹阻断弹窗
  *   B. SEO 自动生成按钮在新建页可见并可工作（保存后）
  *   C. AI AUTO MATCH 载入动画
  *
@@ -30,38 +30,36 @@ test.describe('前端三项改进验证', () => {
     await loginAsStaff(page);
   });
 
-  test('A. 保存失败弹窗 + 字段标红', async ({ page }) => {
+  test('A. 空表单保存：告知模式（标红 + 提示），不弹阻断弹窗', async ({ page }) => {
+    // ⚠ 挂起创建请求 POST /api/v1/products/：实测空表单点 Save Draft 后，后端 400（name 必填）
+    //   的 error toast 会在 ~50ms 内覆盖 warn toast，使"warn 级反馈"无法稳定观察。
+    //   本用例只验证前端"告知模式"（标红 + 提示 + 不阻断），**不断言保存结果**——
+    //   空表单 name 必填 ⇒ 后端校验必不通过 ⇒ 不会落库（slug 由 ensureSlug 兜底生成，非阻断原因）。
+    await page.route(/\/api\/v1\/products\/$/, () => { /* 挂起，不 fulfill/abort */ });
+
     await page.goto(`${BASE_URL}/workspace/products/new`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('.edit-form', { timeout: 10000 });
 
     // 不填任何字段，直接点 Save Draft
     await page.locator('.form-actions button', { hasText: 'Save Draft' }).click();
 
-    // 弹窗出现
-    await expect(page.locator('.dialog')).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.dialog h3')).toContainText('请补全必填字段');
+    // 告知模式：warn 级反馈（容器 .toast + 类 toast-warn；文案见 ProductEditPage.vue:1277）
+    const toast = page.locator('.toast');
+    await expect(toast).toHaveClass(/toast-warn/);
+    await expect(toast).toContainText('required fields unfilled');
+    await expect(toast).toContainText('kept available');
 
-    // 关闭弹窗
-    await page.locator('.dialog button', { hasText: '去补充' }).click();
-    await expect(page.locator('.dialog')).not.toBeVisible({ timeout: 3000 });
+    // 行为变更锁定：必填字段缺失**不再弹独立阻断弹窗**
+    //（ProductEditPage.vue:2064 注释 + saveDraft 告知模式 :1264-1277）
+    await expect(page.locator('.dialog')).toHaveCount(0);
 
-    // 必填字段应被标红：检查 name 输入框有 field-missing class
-    const nameInput = page.locator('input[placeholder*="Amino-ATP"]').first();
-    await expect(nameInput).toHaveClass(/field-missing/);
+    // 标红：仅 product_class_id 绑定 `field-missing` 类（ProductEditPage.vue:1802，实测）
+    await expect(page.locator('.el-cascader').first()).toHaveClass(/field-missing/);
 
-    // CAS 输入框标红
-    const casInput = page.locator('input[placeholder*="1927-31-7"]').first();
-    await expect(casInput).toHaveClass(/field-missing/);
-
-    // SMILES textarea 标红
-    const smilesInput = page.locator('textarea[placeholder*="C1=CC"]');
-    await expect(smilesInput).toHaveClass(/field-missing/);
-
-    // 填入 Name 后，标红应消除（动态）
-    await nameInput.fill('Test Product XYZ');
-    // missingFields 是数组，填值后 collectMissing 不再返回 name，但 missingFields 不会自动更新
-    // 我们的设计：missingFields 只在 saveDraft 时重置，所以填值后标红仍在，直到下次 saveDraft
-    // 这是可接受的——弹窗关闭后用户去填，标红作为持续提醒
+    // 其余必填项用 `.field-error` 文本标记（name/catalog_no/smiles/product_class_id/default_sku，
+    // 见 :1717/:1721/:1744/:1806/:1910，实测共 5 处）。注：CAS（:1723-1726）只有格式校验 span，
+    // 未绑定任何"缺失"标记，故不断言其标红。
+    await expect(page.locator('.field-error')).toHaveCount(5);
   });
 
   test('B. SEO 自动生成按钮在新建页可见（禁用状态，提示先保存）', async ({ page }) => {
