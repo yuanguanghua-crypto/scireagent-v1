@@ -291,6 +291,56 @@ test.describe('Part 1 · 组 E 知识关联（5. Knowledge Links）', () => {
     await page.unroute('**/products/enrich/')
     expect(errors).toEqual([])
   })
+
+  // ── D15（动作清单普查批次）：协议 `🔽 Import to Knowledge Base` ⇒ **真的写库** ──────
+  //   此前从未被点击（动作层最后一个未触及动作）。取证（全部 Read 核实）：
+  //   · 区渲染：`enrichProtocols = pubchemEnrichResult.protocols`（`ProductEditPage.vue:521`），
+  //     条件 `length > 0 && (!applied || pendingCorpus.length)`（`:1649`）⇒ stub 里给 `protocols` 即可渲染
+  //   · 行字段：`title` / `source` / `steps[{step_no, body}]` / `abstract` / `reagents` / `equipment`；
+  //     **`id` 不能是整数** ⇒ 才会显示"候选 · 未入库"（`:1660`）
+  //   · 按钮在**折叠体内**（`:1671` 起）⇒ 必须先点 `.protocol-card-header` 展开
+  //   · 接口：`POST /products/import-protocol/`（`aiTools.js:72`）；`product_id: isEdit ? id : null`（`:491`）
+  //     ⇒ 新建页传 `null` 是**设计内分支**（注释明确"新建成品为 null，保存时按数组重建"）
+  test('D15 @write @local-only 点协议 Import to Knowledge Base ⇒ POST 200 + protocol 表 Δ+1 + 标 ✓ Imported', async ({ page }) => {
+    const errors = consoleErrors(page, WL2)
+    const protoTitle = `E2E D15 Protocol ${RUN_TS}`
+    await page.route('**/products/enrich/', (route) =>
+      route.fulfill({
+        status: 200,
+        json: {
+          success: true,
+          data: {
+            chemical: { found: false },
+            protocols: [{
+              title: protoTitle, source: 'E2E', method_hint: `E2E D15 Method ${RUN_TS}`,
+              abstract: 'E2E stub protocol（候选，未入库）', reagents: 'stub reagent',
+              equipment: 'stub equipment', steps: [{ step_no: 1, body: 'stub step body' }],
+            }],
+          },
+        },
+      }))
+    await loginAsStaff(page); await goto(page, '/workspace/products/new')
+    await fillNew(page, catalogNo('D15'))
+    await page.locator(SEL.enrichBtn).click()
+
+    const card = page.locator('.protocol-card').first()
+    await expect(card, 'D15 应渲染协议卡片（stub 带 protocols）').toBeVisible({ timeout: 15000 })
+    await expect(card, 'D15 候选应标"未入库"').toContainText('未入库')
+    await card.locator('.protocol-card-header').click() // 展开 ⇒ 按钮才在 DOM 里
+
+    const protoCount = () =>
+      dbQuery(`import json\nfrom apps.knowledge.models import Protocol\nprint('__SNAP__' + json.dumps(Protocol.objects.count()))`)
+    const before = await protoCount()
+    const [resp] = await Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'POST' && /\/products\/import-protocol\/$/.test(r.url())),
+      card.getByRole('button', { name: /Import to Knowledge Base/ }).click(),
+    ])
+    expect(resp.status(), 'D15 Import 的 POST 应 200').toBe(200)
+    expect(await protoCount(), 'D15 导入后 protocol 表应 Δ+1（真写库）').toBe(before + 1)
+    await expect(card.getByText('✓ Imported'), 'D15 导入后该条应标 ✓ Imported').toBeVisible({ timeout: 10000 })
+    expect(errors).toEqual([])
+    await page.unroute('**/products/enrich/')
+  })
 })
 
 /* ────────────────────────────────────────────────────────────────────────────
