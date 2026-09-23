@@ -57,7 +57,7 @@ class KnowledgeIntakeView(EnvelopeMixin, APIView):
                 goal, _ = _get_or_create_unique(
                     ResearchGoal,
                     name,
-                    {'summary': '', 'status': 'active'},
+                    {'summary': '', 'status': 'draft'},
                 )
                 goals.append(goal)
 
@@ -73,7 +73,7 @@ class KnowledgeIntakeView(EnvelopeMixin, APIView):
                     {
                         'summary': '',
                         'research_goal': goal,
-                        'status': 'active',
+                        'status': 'draft',
                     },
                 )
                 apps.append(app)
@@ -93,7 +93,7 @@ class KnowledgeIntakeView(EnvelopeMixin, APIView):
                         'advantages': data.get('key_advantages', ''),
                         'limitations': data.get('key_limitations', ''),
                         'application': app,
-                        'status': 'active',
+                        'status': 'draft',
                     },
                 )
                 methods.append(method)
@@ -117,7 +117,7 @@ class KnowledgeIntakeView(EnvelopeMixin, APIView):
                         'reagents': data.get('protocol_materials', ''),
                         'troubleshooting': '',
                         'version': '1.0',
-                        'status': 'published',
+                        'status': 'draft',
                     },
                 )
                 protocols.append(protocol)
