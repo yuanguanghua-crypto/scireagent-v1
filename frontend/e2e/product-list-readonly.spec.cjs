@@ -26,7 +26,18 @@ const { expectApi, expectNoWrites, consoleErrors } = require('./helpers/assertio
 const { catalogNo, slug, skuCode, PREFIX } = require('./fixtures/index.cjs')
 
 const WL = ['wasm streaming compile failed', 'falling back to ArrayBuffer instantiation']
-const goto = (page, p) => page.goto(`${BASE_URL}${p}`, { waitUntil: 'domcontentloaded' })
+// ★ 2026-09-23：原实现只等 `domcontentloaded` ⇒ **页面数据尚未加载完就断言** ⇒ 结构性 flaky：
+//   A1/A2 紧接着就断 `.view-toggle__btn` 的 class，机器慢时直接 `element(s) not found`
+//   （实测截图停在 "Loading..."）；A3 亦曾在**登录未成功**（登录页 + `Action failed`）时继续往下跑。
+//   ⇒ 统一在 goto 后等**页面骨架就绪**：工作台列表页优先 `.filters-bar`，退化到回收站横幅/侧栏；
+//     若 30s 内都等不到（例如未登录被踢回登录页、或后端 5xx 错误态），**就地报错**而不是让后续断言给出误导性的失败。
+const goto = async (page, p) => {
+  await page.goto(`${BASE_URL}${p}`, { waitUntil: 'domcontentloaded' })
+  await expect(
+    page.locator('.filters-bar, .recycle-banner, .error, .sidebar, .app-shell').first(),
+    `goto(${p}) 后页面骨架未就绪（可能未登录或后端异常）`
+  ).toBeVisible({ timeout: 30000 })
+}
 
 /** 带 staff token 的 API 上下文（A-API 的统一入口） */
 async function staffApi(request) {
@@ -69,14 +80,33 @@ test.describe('P1 师范用例 · 列表页只读集', () => {
   })
 
   // ── A3 + H1（N-负向 + D-DB）：一行化零写入断言 ────────
-  test('A3 @readonly 视图切换双向同步 URL，且全程零写入（H1）', async ({ page }) => {
+  test('A3 @readonly 视图切换双向同步 URL + 切换清空选中/重置筛选（A3↑），全程零写入', async ({ page }) => {
     const errors = consoleErrors(page, WL)
     await loginAsStaff(page)
     await goto(page, '/workspace/products')
+    // ★ A3↑ 前置：先勾选 1 行 + 把状态筛选改成 active，否则"被清空/被重置"不可观测。
+    const boxes = page.locator('.products-table tbody td.col-check input[type=checkbox]')
+    await expect(boxes.first(), '列表应先加载出可见行').toBeVisible({ timeout: 15000 })
+    await boxes.first().check()
+    await expect(page.getByRole('button', { name: 'Batch archive', exact: true }),
+      'A3↑ 前置：勾选 1 行后应出现批量按钮').toBeVisible({ timeout: 10000 })
+    await page.locator('.filters-bar select').first().selectOption('active')
+
     await expectNoWrites(async () => {
       await page.locator('.view-toggle__btn', { hasText: 'Recycle Bin' }).click()
       await expect(page).toHaveURL(/view=recycle/)
       await expect(page.locator('.recycle-banner')).toBeVisible()
+
+      // ★ A3↑：切视图必须**同时**清空选中 + 关闭菜单 + 重置筛选（代码在 `setView()`）：
+      //   ① 选中被清空 → active 视图的批量按钮消失；② 且**不得**残留选中使 recycle 视图冒出
+      //   `Restore selected`（那会让用户在新视图里对旧选中误操作）；③ 状态筛选回 `all`。
+      await expect(page.getByRole('button', { name: 'Batch archive', exact: true }),
+        'A3↑ 切视图应清空选中（active 批量按钮消失）').toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Restore selected', exact: true }),
+        'A3↑ 不得残留选中（否则 recycle 视图会冒出 Restore selected）').toHaveCount(0)
+      await expect(page.locator('.filters-bar select').first(),
+        'A3↑ statusFilter 应重置为 all').toHaveValue('all')
+
       await page.locator('.view-toggle__btn', { hasText: 'Products' }).click()
       await expect(page).not.toHaveURL(/view=recycle/)
     }, 'A3 视图切换')

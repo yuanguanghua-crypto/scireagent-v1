@@ -15,6 +15,7 @@
 const { test, expect } = require('@playwright/test')
 const { BASE_URL, loginAsStaff, ADMIN_USER, ADMIN_PASS } = require('./helpers/auth')
 const { getToken, apiContext } = require('./helpers/api')
+const { expectNoWrites } = require('./helpers/assertions.cjs')
 
 const goto = (page, p) => page.goto(`${BASE_URL}${p}`, { waitUntil: 'domcontentloaded' })
 const waitLoaded = (page) => expect(page.locator('.filters-bar')).toBeVisible({ timeout: 15000 })
@@ -85,6 +86,10 @@ test.describe('Part 2 · 其余缺口（只读扩展集）', () => {
     await expect(page.getByRole('link', { name: '+ New Product', exact: true })).toHaveCount(0)
     await page.locator('.view-toggle__btn', { hasText: 'Products' }).click()
     await expect(page.getByRole('link', { name: '+ New Product', exact: true })).toHaveCount(1)
+    // ── **A7↑**（覆盖矩阵 P2 升级）：点 `+ New Product` ⇒ 应**真的跳转**到新建页 ──
+    //   原断言只查"链接存在"，与剧本「点击 ⇒ 跳 /workspace/products/new」差一半。
+    await page.getByRole('link', { name: '+ New Product', exact: true }).click()
+    await expect(page, 'A7↑ 点 + New Product 应跳转到新建页').toHaveURL(/\/workspace\/products\/new$/)
   })
 
   // ── B1/B2：6 个可排序列，每列升降各验一次真实行序 ──
@@ -318,5 +323,88 @@ test.describe('Part 2 · 其余缺口（只读扩展集）', () => {
     await expect(row).toHaveCount(1)
     await row.locator('.menu-trigger').click()
     await expect(row.locator('.menu-popover').getByRole('button', { name: 'Unpublish', exact: true })).toHaveCount(0)
+  })
+
+  // ── 以下 4 条：覆盖矩阵 §3.2（P2 抽样批）──────────────────────────
+  // 代码事实（已 Read 核实，勿凭剧本行号）：`ProductsPage.vue:556` 批量条 `v-if="selectedCount > 0"`，
+  // 且 `v-if="viewMode === 'active'"` 才渲染 Batch Link / Batch archive / Batch delete 三颗，
+  // 否则渲染 `Restore selected`（`:562` 的 v-else）；行勾选 = `tbody td.col-check input[type=checkbox]`。
+
+  // ── C3：勾选 1 行 ⇒ 三个批量按钮**同时出现** ─────────────────────────
+  test('C3 @readonly 勾选 1 行 ⇒ Batch Link / Batch archive / Batch delete 三按钮同时出现', async ({ page }) => {
+    await loginAsStaff(page)
+    await goto(page, '/workspace/products')
+    await waitLoaded(page)
+    const boxes = page.locator('.products-table tbody td.col-check input[type=checkbox]')
+    test.skip((await boxes.count()) === 0, '无可见行，无法勾选')
+    const names = ['Batch Link', 'Batch archive', 'Batch delete']
+    for (const n of names) {
+      await expect(page.getByRole('button', { name: n, exact: true }), `未勾选时不应出现 ${n}`).toHaveCount(0)
+    }
+    await boxes.first().check()
+    for (const n of names) {
+      await expect(page.getByRole('button', { name: n, exact: true }),
+        `勾选 1 行后应出现 ${n}`).toBeVisible({ timeout: 10000 })
+    }
+  })
+
+  // ── C2：取消全选 ⇒ 全部取消 + 批量按钮消失 ──────────────────────────
+  test('C2 @readonly 取消全选 ⇒ 各行取消勾选 + 批量按钮消失', async ({ page }) => {
+    await loginAsStaff(page)
+    await goto(page, '/workspace/products')
+    await waitLoaded(page)
+    const boxes = page.locator('.products-table tbody td.col-check input[type=checkbox]')
+    const n = await boxes.count()
+    test.skip(n === 0, '无可见行，无法验证全选')
+    const head = page.locator('.products-table thead .col-check input[type=checkbox]')
+    await head.check()
+    await expect(page.locator('.products-table tbody td.col-check input:checked'),
+      '全选后应勾满当前 filtered 行').toHaveCount(n)
+    await head.uncheck()
+    expect(await page.locator('.products-table tbody td.col-check input:checked').count(),
+      '取消全选后应一格不剩').toBe(0)
+    await expect(page.getByRole('button', { name: 'Batch archive', exact: true }),
+      '无选中 ⇒ 批量按钮应消失').toHaveCount(0)
+  })
+
+  // ── C4：切换视图 ⇒ 选中被清空 + 批量按钮消失 ────────────────────────
+  // ⚠️ 这条防的是一个**具体故障**：若切视图不清选中，recycle 视图会显示 `Restore selected`
+  //    ⇒ 用户可能在**新视图**里对**旧选中**误操作。仅断"active 批量按钮消失"是不够的
+  //    （那可能只是视图分支不同），所以**同时**断 recycle 侧不出现 `Restore selected`。
+  test('C4 @readonly 勾选后切视图 ⇒ 选中清空（recycle 不得出现 Restore selected）', async ({ page }) => {
+    await loginAsStaff(page)
+    await goto(page, '/workspace/products')
+    await waitLoaded(page)
+    const boxes = page.locator('.products-table tbody td.col-check input[type=checkbox]')
+    test.skip((await boxes.count()) === 0, '无可见行，无法勾选')
+    await boxes.first().check()
+    await expect(page.getByRole('button', { name: 'Batch archive', exact: true })).toBeVisible({ timeout: 10000 })
+
+    await page.locator('.view-toggle__btn', { hasText: 'Recycle Bin' }).click()
+    await expect(page).toHaveURL(/view=recycle/)
+    await expect(page.getByRole('button', { name: 'Batch archive', exact: true }),
+      'active 视图的批量按钮应消失').toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Restore selected', exact: true }),
+      '切视图后不得残留选中（否则会冒出 Restore selected）').toHaveCount(0)
+  })
+
+  // ── D1：行内 `Edit` ⇒ 跳编辑页 + 零写入 ─────────────────────────────
+  test('D1 @readonly 行内菜单 Edit ⇒ 跳 /workspace/products/{id}/edit 且零写入', async ({ page, request }) => {
+    await loginAsStaff(page)
+    const api = await staffApi(request)
+    const target = (await fetchAll(api)).find((p) => p.archived !== true)
+    await api.dispose()
+    test.skip(!target, 'dev 库无可见产品，无法验证 Edit 跳转')
+    await goto(page, '/workspace/products')
+    await waitLoaded(page)
+    const row = page.locator('.products-table tbody tr').filter({ hasText: target.catalog_no })
+    await expect(row).toHaveCount(1)
+    await expectNoWrites(async () => {
+      await row.locator('.menu-trigger').click()
+      await row.locator('.menu-popover').getByRole('button', { name: 'Edit', exact: true }).click()
+      await expect(page, 'D1 Edit 应跳到该产品的编辑页').toHaveURL(
+        new RegExp(`/workspace/products/${target.id}/edit$`)
+      )
+    }, 'D1 Edit 跳转')
   })
 })
