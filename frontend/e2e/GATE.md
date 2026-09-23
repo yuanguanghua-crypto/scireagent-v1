@@ -132,7 +132,7 @@ npm run test:e2e:local
 | 39 | `verify-dialog-style.spec.cjs` | readonly(部分) | 3 | 3 passed | :30/:59 改锚 Publish 确认弹窗；:95 toast；:72 维持排除（见 §4.1） |
 | 40 | `verify-field-normalize.spec.cjs` | write/readonly | 2 | 2 passed | D1 真实 POST ⇒ `@write`；D2 纯函数 ⇒ `@readonly` |
 
-> **合计**：40 文件 / **468 例** 被 `-g "@local-only" --grep-invert "@obsolete"` 选中
+> **合计**：40 文件 / **469 例** 被 `-g "@local-only" --grep-invert "@obsolete"` 选中（2026-09-23 晚：原 468 + 结构图 1 例捞回）
 > （第一轮 30 文件 / 298 例 ＋ 第二轮 7 文件 / 132 例 ＋ **第三轮净增 38 例**：
 > 原 7 文件由 132→164，新增 `verify-dialog-a11y`/`verify-dialog-style`/`verify-field-normalize` 3 文件 / 6 例）。
 
@@ -149,13 +149,13 @@ npm run test:e2e:local
 第三轮（2026-09-23）对第二轮 42 例**逐条定性并尽量捞回**：**捞回 38 例**（见 §3）、
 **删除非测试脚本 1 例**、**维持排除 3 例**（见下）。
 
-### 4.1 本轮**维持 `@obsolete`** 的用例（3 例，理由经证据更新）
+### 4.1 本轮**维持 `@obsolete`** 的用例（**2 例**，理由经证据更新；原第 1 例已在修复一个真缺陷后**捞回**）
 
 | # | 文件 | 用例 | 类别 | 实测 | 最终理由（经证据支撑） |
 |---|---|---|---|---|---|
-| 1 | `product-detail-structure-image.spec.cjs` | `structure box renders img.pd-structure-img with data URI` | (a) 数据前置不满足 ⇒ 无等价物 | 1 failed | 功能仍在（`ProductDetail.vue:461` `v-if="product.structure_image"` 渲染 `img.pd-structure-img`），但 dev 库**实测 68 个产品中 structure_image 非空者 = 0**，且硬编码 `PRODUCT_SLUG='5-propargylamino-ctp'` 不存在（路由亦为 `/products/:id`，非 slug）⇒ 即便按 id 现算也选不到可渲染对象。不改锚为"结构区存在即通过"（会降级原语义；TC-24 已在 `product-detail-fields` 覆盖"结构区存在"）。 |
+| ~~1~~ | `product-detail-structure-image.spec.cjs` | `structure box renders img.pd-structure-img with data URI` | ✅ **已捞回（2026-09-23）** | **1 passed** | **根因是一个真缺陷，不是"无等价物"**：公开详情页走 `GET /products/{id}/detail/`（`ProductDetailAPIView:426` 用 `ProductFullSerializer`），而 `serializers_v2.py:104` 的 `Meta.fields` **含 `structure_svg` 却漏了 `structure_image`** ⇒ 前端 `product.structure_image` 恒为 `undefined` ⇒ `<img v-if="product.structure_image">`（`ProductDetail.vue:461`）**永不渲染** ⇒ 「优先显示 Word 结构图」这条功能**在真实页面上从不生效**。另一条读路径（ViewSet `retrieve` 的 `ProductDetailSerializer:528`）**有**该字段 ⇒ **同数据两条读路径不一致**，页面后来切到聚合端点时把字段丢了。**修复**：补 `structure_image` 到字段列表（1 行）+ 重启后端。**spec 同时改为自造夹具**（运行时 PATCH 一个 1×1 PNG data URI，`finally` 还原），不再依赖手工造数。**验收**：`1 passed`；夹具还原已核（`structure_image` 非空 7→7）。 |
 | 2 | `verify-dialog-a11y.spec.cjs` | `缺失字段弹窗：ARIA 属性 + role=alert + ESC 关闭 + focus 管理` | (b) 功能被设计移除 | 1 failed | 该弹窗已按设计移除 —— `ProductEditPage.vue:2064` 明注"必填字段缺失不再弹独立弹窗（Save Draft 直接标红、Publish 走发布确认框）"⇒ `.missing-list` / `.dialog-actions button '去补充'` / `aria-labelledby='missing-title'` 实体不复存在。 |
-| 3 | `verify-dialog-style.spec.cjs` | `missing-list 用 danger 色 + field-missing 边框 danger` | (b) 功能被设计移除 | 1 failed | 同上；且**全仓已无任何组件渲染 `.missing-list`**（grep 仅命中 `assets/css/main.css` 的遗留死样式）⇒ 无等价锚点可改。 |
+| 3 | `verify-dialog-style.spec.cjs` | `missing-list 用 danger 色 + field-missing 边框 danger` | (b) 功能被设计移除 | 1 failed | 同上；且**全仓已无任何组件渲染 `.missing-list`**（grep 仅命中 `assets/css/main.css` 的遗留死样式）⇒ 无等价锚点可改。（该**死样式已于 2026-09-23 清理**：`assets/css/main.css` 删 2 条规则 + 注释提及。） |
 
 ### 4.2 本轮**删除**的非测试文件（1 个）
 
@@ -422,9 +422,15 @@ node node_modules/@playwright/test/cli.js test -g "@local-only" --grep-invert "@
    **对照取证**：同一 URL 用 curl 换 Firefox UA / Edge UA 均正确返回 `Content-Type: text/javascript`（23740 B）
    ⇒ **服务器无问题，损坏发生在浏览器进程内**（疑似本机安全栈对这两个进程的响应拦截）。
 
-**一次无效尝试（留作教训）**：用 `python -m http.server 8123 -d dist`（dist 构建为**绝对** `http://localhost:8000/api/v1`）跑
-`applayout-navpad-check` + `workspace-entity-crud` ⇒ **7 firefox + 7 webkit，用例名逐一对应**。
-**"对称失败"= 不是浏览器差异**，而是 **harness 自身引入了跨源**（dist 在 8123、API 在 8000）⇒ **不能据此判跨浏览器**。
+**两次 harness 尝试都不成立（留作教训）**：
+- ① **dev server 路径**：跑 6 个代表 spec 的闸门内用例 × 2 浏览器 = **144 例**，**实测跑完（firefox 72 + webkit 72）**，
+  结果 **8 passed / 100 failed（1.3h）**。
+  ⚠️ **自我更正**：我第一次读日志时把它误判为"中途被杀、只到 66/144"——因为那一刻进程列表里没有 firefox/webkit、且日志尚无汇总行。
+  **它其实跑完了**；**"看进程/看有无汇总"都不可靠，判定跑批是否完成要以最终计数行为准**。
+- ② **静态 dist 路径**：`python -m http.server 8123 -d dist`（dist 构建为**绝对** `http://localhost:8000/api/v1`）跑
+  `applayout-navpad-check` + `workspace-entity-crud` ⇒ **7 firefox + 7 webkit，用例名逐一对应**。
+- 两次的失败都**不是浏览器差异**：前者是 **dev server 对 FF/WK 的模块响应损坏**，后者是 **harness 自身跨源**（dist 8123 / API 8000）。
+  ⇒ **结论不变：目前没有有效的跨浏览器基线。**
 
 **要做成有效跨浏览器闸门，需要（harness 改动，不动产品）**：
 - dist 用 **相对** base（`/api/v1`，即保持 `public/runtime-config.js` 占位符），**不要**注入绝对地址；
@@ -437,3 +443,37 @@ node node_modules/@playwright/test/cli.js test -g "@local-only" --grep-invert "@
 - `verify-dialog-a11y:31` 与 `verify-dialog-style:72`：依赖**按设计已移除**的"缺失必填字段"阻断弹窗（`ProductEditPage.vue:2064` 注释）。
   若要复活，需按**当前告知模式**重写断言（属"功能定义偏差"，需产品判定）。
 - `product-detail-structure-image`：dev 库 0 条带 `structure_image` 的产品 + 用例硬编码 slug 不存在 ⇒ 需**造数据**或改断言口径。
+
+---
+
+## 9. flaky 政策（2026-09-23 订立）
+
+**背景**：本仓历史上多次把 flaky 误当"产品缺陷"或"环境玄学"，导致①误修产品 ②长期假红 ③用重试掩盖真失败。本节把口径写死。
+
+### 9.1 定义
+**flaky = 同一份代码、同一条命令，跨轮结果不一致**（本轮 PASS / 下轮 FAIL，或反之）。
+⚠️ **单轮失败不算 flaky** —— 必须**跨轮复核**后才可定性；只凭一次失败就喊 flaky，等于给失败找台阶。
+
+### 9.2 检测（两步）
+1. **单独复跑**该用例；若通过 ⇒ **flaky 候选**（注意：也可能是"与套件内其他用例共享状态"导致，需一并排除）。
+2. **跨 ≥2 轮表现不一致** ⇒ **判定 flaky**，并在本节 9.4 登记（用例名 / 命令 / 两轮结果 / 已查明或未查明的根因）。
+
+### 9.3 处置（三选一，**必须显式**）
+| 选项 | 说明 |
+|---|---|
+| **a. 查明根因并修（首选）** | 本仓已修实例：①`networkidle` 等待不可靠 ⇒ 改 `domcontentloaded` + 显式等待；②硬编码 dev id 跨轮 404 ⇒ 改**现算**；③登录 `waitForURL` 超时 ⇒ `helpers/auth.cjs` 加固（token/URL 双信号 + 30s + 一次有界兜底）；④外部字体 CDN 噪声 ⇒ `helpers/console.cjs` 测试期中和 |
+| **b. 修不掉 ⇒ 标 `@obsolete` 并写明"flaky，未纳入"** | 现状做法；理由必须可复核 |
+| **c. ❌ 禁止**：放宽断言 / 把失败改 skip / 靠加 `--retries` 过关 | `--retries` **只用于诊断**，不作为闸门口径；闸门一律 `--retries=0` |
+
+### 9.4 flaky 登记（发现即登记）
+| 用例 | 根因 | 处置 | 状态 |
+|---|---|---|---|
+| `homepage › 搜索产品` | `page.goto` + `waitForLoadState('networkidle')` 触发 45s 超时（该 spec 头注释本就警告 networkidle 不可用） | 改等待条件 | ✅ 已修并捞回 |
+| `public-smoke › /po/orders/1` | 硬编码 dev id 跨轮 404 | 改现算 | ✅ 已修并捞回 |
+| `I4`（`product-new-save-publish`） | 历史上间歇（单独/整文件均过，12-spec 合并跑偶发）；已补强断言 + 改 `expect.poll` 轮询 DB | 观察中 | ◐ 未再复现，**未销案** |
+| `workspace-verified-review` 登录 | `loginAsStaff` 的 `waitForURL` 偶发超时 | helper 已加固 | ◐ 加固后未复现，**未销案** |
+
+### 9.5 与"连续 0 新缺陷"（收尾判据③）的关系
+- **"一批" = 一次完整 `test:e2e:local`**（当前 **469 例**，`--retries=0`）。
+- **flaky 计入"非 0"**（它本身就是不稳定信号，不能当"干净"）。
+- **建议收敛判据：连续 3 批 0 新缺陷**（= 约 3 × 15 分钟）。⚠️ **该 N 值尚未经用户确认**，确认前不据此宣布收敛。

@@ -1105,7 +1105,7 @@ body {
    DIALOG SYSTEM
    Spec: modal overlay + dialog container
    Variants: default (440px), --wide (640px), --narrow (360px), --danger
-   Blocks: warn (amber), suggest (emerald), missing-list (red)
+   Blocks: warn (amber), suggest (emerald)
    ════════════════════════════════════════════ */
 
 .dialog-overlay {
@@ -1248,19 +1248,6 @@ body {
 .dialog-suggest ul li {
   color: var(--color-text-secondary);
   margin: var(--spacing-0-5) 0;
-}
-
-.missing-list {
-  margin: var(--spacing-1) 0 0 var(--spacing-2);
-  font-size: var(--text-sm);
-  color: var(--color-danger);
-  list-style: none;
-  padding: 0;
-}
-
-.missing-list li {
-  margin: var(--spacing-0-5) 0;
-  font-weight: 600;
 }
 
 .field-missing,
