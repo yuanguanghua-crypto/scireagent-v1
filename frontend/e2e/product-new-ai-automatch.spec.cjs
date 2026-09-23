@@ -144,12 +144,17 @@ function enrichTimeoutMs() {
 test.describe('Part1 · 新建页组 D「AI AUTO MATCH」生产只读', () => {
   test.describe.configure({ timeout: 180000 })
 
-  test('D1 @readonly @prod-ok 四标识全空：AI AUTO MATCH 面板整块不渲染（v-if，纠偏①）', async ({ page, request }) => {
+  test('D1 @readonly @prod-ok 四标识全空：面板**常驻** + 触发按钮 disabled + 空态引导（纠偏①已改代码）', async ({ page, request }) => {
     await loginProd(page, request)
     await expect(page.locator('h3', { hasText: 'Word Import' })).toBeVisible()
-    await expect(page.locator(PANEL), '全空时应无面板').toHaveCount(0)
+    // ★ 2026-09-23 纠偏①：原先断言"整块不渲染"（v-if），已判定**改代码**（可发现性优先）。
+    //   现应：面板常驻 + 触发按钮 disabled + 给空态引导；填了 name 后按钮变可点。
+    await expect(page.locator(PANEL), '面板应常驻（纠偏①）').toHaveCount(1)
+    const trigger = page.locator(`${PANEL} button.file-upload-btn`)
+    await expect(trigger, '四标识全空 ⇒ 触发按钮必须 disabled').toBeDisabled()
+    await expect(page.locator(`${PANEL} .ai-empty-hint`), '应给出空态引导文案').toBeVisible()
     await fillIds(page, { name: NAME })
-    await expect(page.locator(PANEL), '填了 name 后面板出现').toHaveCount(1)
+    await expect(trigger, '填了 name ⇒ 按钮应变为可点').toBeEnabled()
   })
 
   test('D2 @readonly @prod-ok cas=150718-26-6：命中 CID 121487800 + 身份已验证（API+UI 同源）', async ({ page, request }) => {

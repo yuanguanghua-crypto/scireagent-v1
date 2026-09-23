@@ -40,7 +40,7 @@ AI AUTO MATCH 是研究员工作台产品编辑页的**一键式自动匹配功�
 |------|------|
 | 前置 | 表单至少填了 `name` / `cas` / `smiles` / `inchi` 之一（按钮在这些字段全空时禁用） |
 | 触发 | 点「🤖 AI AUTO MATCH」按钮（前端 `ProductEditPage.vue` → `enrichProduct()`） |
-| 等待 | 典型 5–30 秒（CAS 最快，需分词降级的产品名较慢；前端 timeout 90s） |
+| 等待 | 典型 5–30 秒（CAS 最快，需分词降级的产品名较慢；前端 timeout 120s，刻意留足余量覆盖首次冷查询可能 >50s） |
 | 查看 | 五 section 按「凭证→证据→知识图谱」顺序渲染：chemical → jena → bioz → knowledge chain → literature/protocols |
 | 回填 | 点「Apply All to Form」一键回填——**只填空字段**，不覆盖已填值 |
 | 落库 | Bioz 文献点「Adopt」经 `adopt-bioz-refs` 落库；协议点「Import」经 `import-protocol` 落库 |

@@ -49,7 +49,7 @@
 │  前端 ProductEditPage.vue                                      │
 │  runPubchemEnrich()  ──enrichProduct()──┐                    │
 └──────────────────────────────────────────┼────────────────────┘
-                                           │ POST /api/v1/products/enrich/  (timeout 90s)
+                                           │ POST /api/v1/products/enrich/  (timeout 120s)
                                            ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  后端 ProductEnrichView.post()  (apps/commerce/api/v1/ai_views.py) │
@@ -220,9 +220,9 @@ ChEMBL 返回结果按与 PubChem 统一的 schema 包装，`fallback_used=True`
 **文件**：`frontend/src/views/workspace/ProductEditPage.vue` + `frontend/src/api/aiTools.js`
 
 ```js
-// aiTools.js — 单次调用，timeout 90s
+// aiTools.js — 单次调用，timeout 120s
 export function enrichProduct({ name, cas, smiles, inchi } = {}) {
-  return http.post('/products/enrich/', { product_name, cas, smiles, inchi }, { timeout: 90000 })
+  return http.post('/products/enrich/', { product_name, cas, smiles, inchi }, { timeout: 120000 })
 }
 ```
 
@@ -350,9 +350,12 @@ POST /api/v1/products/enrich/
 
 | 位置 | 超时 |
 |------|------|
-| 前端 enrichProduct | 90 秒 |
+| 前端 enrichProduct | 120 秒 |
 | 后端 ChEMBL | 30 秒 |
 | 后端 PubMed | 15 秒 |
+
+> **注（2026-09-23 纠偏）**：前端 enrich 超时**刻意留足余量至 120s**，以覆盖**首次冷查询**（实测冷查询可达 ~50s，且曾触发 nginx 504，见纠错台账 B4）；先前的 90s 余量不足。
+> **首次冷查询可能 >50s（实测 50.7s）属已知现象**（上游 PubChem/ChEMBL/PubMed 在中国大陆延迟高），非前端缺陷征兆。
 
 ### 8.4 数据准确性提示（已知）
 

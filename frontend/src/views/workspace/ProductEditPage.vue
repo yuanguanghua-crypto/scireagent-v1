@@ -1428,8 +1428,16 @@ watch(
     </section>
 
     <!-- AI AUTO MATCH Panel -->
-    <section v-if="form.name || form.cas || form.smiles || form.inchi" class="form-section pubchem-enrich-section">
+    <!-- ★ 2026-09-23 纠偏①（D1 可发现性）：**面板常驻**。
+         原先 `v-if="form.name || form.cas || form.smiles || form.inchi"` ⇒ 四标识全空时整块不渲染，
+         研究员在空白新建页**根本看不到有 AI AUTO MATCH**（而它是平台核心卖点），
+         同时使 `:1440` 按钮上那段 `!form.name && …` 的 disabled 判断变成**不可达死分支**。
+         现改为常驻 + 按钮 disabled（那套既有判断变为**生效**）+ 空态引导 ⇒ 两套实现并存的隐患随之消解。 -->
+    <section class="form-section pubchem-enrich-section">
       <h3>🤖 AI AUTO MATCH</h3>
+      <p v-if="!form.name && !form.cas && !form.smiles && !form.inchi" class="ai-empty-hint">
+        输入 CAS、名称、SMILES 或 InChI 后即可运行自动匹配。（匹配结果不会自动写入，核对无误后点 “Apply All to Form”）
+      </p>
       <!-- ① 未验证警告横条：化学属性不会自动写入，提示核对后 Apply All 或手填 -->
       <div v-if="enrichChemical?.found && !chemAutoVerified && !enrichChemical.candidates?.length" class="ai-warn-banner">
         ⚠ 化学身份未验证，化学属性不会自动写入表单。请核对 CAS / 分子式无误后点 “Apply All”，或手动填写下方字段。
@@ -2130,6 +2138,8 @@ watch(
 
 /* PubChem Enrich */
 .pubchem-enrich-section { background: var(--color-bg); border-style: dashed; }
+/* ★ 2026-09-23 纠偏①：面板常驻后的空态引导（用带兜底的色值，避免依赖未定义的变量） */
+.ai-empty-hint { margin: 0 0 8px; font-size: 12px; color: var(--color-text-secondary, #6b7280); }
 .pubchem-preview { background: var(--color-surface, #fff); border: 1px solid var(--color-border, #CBD5E1); border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 13px; }
 .pubchem-preview table { width: 100%; border-collapse: collapse; }
 .pubchem-preview td { padding: 4px 8px; border-bottom: 1px solid var(--color-border-light, #E2E8F0); font-size: 12px; }
