@@ -21,7 +21,7 @@
  * 实测选择器来源：ProductEditPage.vue（name :1684 / catalog_no :1688 / cas :1692 / 高级区 details.ai-advanced :1504）
  */
 const { test, expect } = require('@playwright/test')
-const { execFileSync } = require('node:child_process')
+const { runSync } = require('./helpers/sync-spawn.cjs')
 const { BASE_URL, loginAsStaff, ADMIN_USER, ADMIN_PASS } = require('./helpers/auth')
 const { getToken, apiContext } = require('./helpers/api')
 const { expectApi, snapshotDb, expectDelta, expectNoWrites, consoleErrors } = require('./helpers/assertions.cjs')
@@ -132,9 +132,9 @@ test.describe('Part 1 · 组 J 负向与不变量', () => {
     const TABLES = ['product', 'protocol', 'method', 'audit_log', 'product_protocol', 'product_method']
     const selects = TABLES.map((t) => `SELECT '${t}' t, (SELECT max(id) FROM ${t}) mx, (SELECT last_value FROM ${t}_id_seq) lv`)
     const sql = selects.join(' UNION ALL ')
-    const out = execFileSync('ssh', ['-i', KEY, '-o', 'StrictHostKeyChecking=no', 'admin@47.82.156.48',
+    const out = runSync('ssh', ['-i', KEY, '-o', 'StrictHostKeyChecking=no', 'admin@47.82.156.48',
       `docker exec scireagent-db-1 psql -U scireagent -d scireagent -tAc "${sql}"`],
-      { encoding: 'utf8', timeout: 60000 })
+      { timeout: 60000, label: 'prod seq probe' })
     const rows = out.split(/\r?\n/).map((l) => l.split('|')).filter((a) => a.length === 3)
     expect(rows.length, `应取回 ${TABLES.length} 行序列普查结果，实际：${JSON.stringify(out).slice(0, 200)}`).toBe(TABLES.length)
     const bad = rows.filter(([, mx, lv]) => Number(lv) < Number(mx)).map(([t, mx, lv]) => `${t}: last_value=${lv} < max(id)=${mx}`)

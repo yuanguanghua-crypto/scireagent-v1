@@ -22,7 +22,7 @@ const { test, expect, request } = require('@playwright/test')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
-const { execFileSync } = require('node:child_process')
+const { runSync } = require('./helpers/sync-spawn.cjs')
 const { BASE_URL, loginAsStaff, ADMIN_USER, ADMIN_PASS } = require('./helpers/auth')
 const { getToken, apiContext } = require('./helpers/api')
 const { expectApi, snapshotDb, expectDelta, expectNoWrites, consoleErrors } = require('./helpers/assertions.cjs')
@@ -81,7 +81,7 @@ function makeDocx(name, paras) {
   const py = ['from docx import Document', 'd = Document()',
     ...paras.map((t) => `d.add_paragraph(${JSON.stringify(t)})`),
     `d.save(${JSON.stringify(path.join(TMP, name))})`].join('\n')
-  execFileSync(PY, ['-B', '-c', py], { cwd: BACKEND, env: { ...process.env, DB_ENGINE: 'sqlite' } })
+  runSync(PY, ['-B', '-c', py], { cwd: BACKEND, env: { ...process.env, DB_ENGINE: 'sqlite' }, label: 'build docx' })
   return path.join(TMP, name)
 }
 

@@ -13,7 +13,7 @@
  * 纪律：不真跑生产；afterAll 按 `E2E-` 前缀硬删清理；不改任何应用代码。
  */
 const { test, expect } = require('@playwright/test')
-const { execFileSync } = require('node:child_process')
+const { runSync } = require('./helpers/sync-spawn.cjs')
 const path = require('node:path')
 const { BASE_URL, loginAsStaff, ADMIN_USER, ADMIN_PASS } = require('./helpers/auth')
 const { getToken, apiContext } = require('./helpers/api')
@@ -27,10 +27,10 @@ const waitLoaded = (page) => expect(page.locator('.filters-bar')).toBeVisible({ 
 
 /** 只读 ORM/SQL 探针（子进程，只 SELECT；沿用 helpers/db-snapshot.cjs 的方式，不经 shell） */
 function orm(code) {
-  const out = execFileSync(PY, ['-B', 'manage.py', 'shell', '-c', code], {
+  const out = runSync(PY, ['-B', 'manage.py', 'shell', '-c', code], {
     cwd: BACKEND,
     env: { ...process.env, DB_ENGINE: 'sqlite', PYTHONDONTWRITEBYTECODE: '1' },
-    encoding: 'utf8', timeout: 60000, maxBuffer: 1 << 20,
+    timeout: 60000, label: 'orm probe',
   })
   const line = String(out).split(/\r?\n/).find((l) => l.startsWith('__Q__'))
   if (!line) throw new Error('ORM 探针无标记行；输出前 200：' + String(out).slice(0, 200))
@@ -254,6 +254,17 @@ test.describe('Part 2 · 组 H 负向与不变量', () => {
     await expect(row).toHaveCount(0, { timeout: 10000 })
     expectDelta(before, snapshotDb(), { product: 0, audit_log: +1 }, 'H2d Restore')
     expectLatestAudit('RESTORE', 'H2d')
+
+    // ── **E4**（覆盖矩阵 P1 最后一条）：Restore 后**切回 Products 视图**，该产品应重新出现在列表中 ──
+    //   判据来自剧本：恢复的语义是"回到在售视图可见"，故不能只看回收站里那行消失（H2d 原断言）。
+    //   夹具是 `status='active'` 的归档行 ⇒ 恢复后 archived=false ⇒ 应出现在 Products 视图。
+    await page.locator('.view-toggle__btn', { hasText: 'Products' }).click()
+    await waitLoaded(page)
+    await expect(
+      page.locator('.products-table tbody tr').filter({ hasText: fx.cat }),
+      'E4 恢复后切回 Products 视图 ⇒ 该产品应出现在列表'
+    ).toHaveCount(1, { timeout: 10000 })
+    await expect(page, 'E4 切回后 URL 不应再带 view=recycle').not.toHaveURL(/view=recycle/)
   })
 
   // ── H3 Unpublish 只改 status；Recycle 只改 archived ──
