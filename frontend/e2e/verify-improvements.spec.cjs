@@ -10,8 +10,10 @@ const { test, expect, request } = require('@playwright/test');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const API_BASE = 'http://localhost:8000/api/v1';
-const ADMIN_USER = process.env.E2E_USER || 'admin';
-const ADMIN_PASS = process.env.E2E_PASS || 'AdminPass123!';
+// 单一口径：凭据一律取自 helpers/auth.cjs。
+// 2026-09-23 修复：此处曾自行硬编码默认密码 'AdminPass123!'（与 helpers/auth.cjs 的 'admin123' 漂移）
+// ⇒ 登录 401 ⇒ 反复跳 /login ⇒ `waitForURL` 超时 ⇒ 假红。
+const { ADMIN_USER, ADMIN_PASS } = require('./helpers/auth');
 
 async function loginAsStaff(page) {
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded' });

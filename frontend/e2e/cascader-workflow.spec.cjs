@@ -22,8 +22,10 @@ const { test, expect, request } = require('@playwright/test');
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const API_BASE = 'http://localhost:8000/api/v1';
-const ADMIN_USER = process.env.E2E_USER || 'admin';
-const ADMIN_PASS = process.env.E2E_PASS || 'AdminPass123!';
+// 单一口径：凭据一律取自 helpers/auth.cjs。
+// 2026-09-23 修复：此处曾自行硬编码默认密码 'AdminPass123!'（与 helpers/auth.cjs 的 'admin123' 漂移）
+// ⇒ 登录 401 ⇒ 反复跳 /login ⇒ `waitForURL` 超时 ⇒ 本文件 6 条用例长期假红。
+const { ADMIN_USER, ADMIN_PASS } = require('./helpers/auth');
 
 // 已知数据基线（来自数据库快照）
 const EDIT_PRODUCT_ID = 21;        // 5‑Propargylamino‑CTP, class_id=9 (Nucleotides & Nucleosides)
