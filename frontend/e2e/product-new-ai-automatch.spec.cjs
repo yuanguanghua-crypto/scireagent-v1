@@ -287,32 +287,51 @@ test.describe('Part1 · 新建页组 D「AI AUTO MATCH」生产只读', () => {
     await expect(page.locator(`${PANEL} .ms-section .form-hint`).filter({ hasText: 'fill empty fields only' })).toBeVisible()
   })
 
-  test('D13 @readonly @prod-ok Knowledge Chain Matches：Methods 分组 + ✓/✕ 链接开关', async ({ page, request }) => {
+  test('D13 @readonly @prod-ok Knowledge Chain Matches：Methods 分组 + ✓/✕ 开关 + 🔗 级联（D13↑）', async ({ page, request }) => {
     const c2 = await cap(request, 'd2', D2_BODY)
     if (!c2) test.skip(true, 'CAP_D2 未取到（504/上游超时）')
+
+    // ── **D13↑**（动作清单普查 #2）：`linkAppMethods`（🔗 app→methods 级联）此前"**从未被点击**" ──
+    //   为什么上一版没跑起来：D2 的捕获响应里**没有 `matched_apps`** ⇒ Applications 分组不渲染 ⇒ 段被跳过。
+    //   现在改为**主动注入**：往同一个 stub payload 的 `data.literature.matched_apps` 塞一条记录。
+    //   字段路径已 Read 核实：`pubchemEnrichResult.value = resp.data`（`ProductEditPage.vue:583`）
+    //   且 `enrichMatchedApps = enrichLiterature.value?.matched_apps`（`:558`）。
+    //   ⚠️ 必须指向**真实存在的 Application**：`linkAppMethods()` 内部会 `GET /applications/{id}/`
+    //      （`:600`），ID 不存在会走 catch ⇒ 只弹 error toast，测不到级联。
+    const api = await staffApi(request)
+    let app = null
+    try {
+      const body = await (await api.get('/applications/', { params: { page_size: 1 } })).json()
+      const d = body?.data
+      app = (Array.isArray(d) ? d : d?.results || [])[0] || null
+    } catch { /* 取不到则 skip */ }
+    await api.dispose()
+    test.skip(!app, '无可用 Application（/applications/ 空或取数失败）⇒ 无法验证级联')
+
+    const payload = JSON.parse(JSON.stringify(c2))
+    payload.data = payload.data || {}
+    payload.data.literature = {
+      ...(payload.data.literature || {}),
+      matched_apps: [{ keyword: 'E2E-D13-cascade', matches: [{ id: app.id, name: app.name }] }],
+    }
+
     await loginProd(page, request)
     await fillIds(page, { name: NAME, cas: CAS })
-    await stubEnrich(page, c2)
+    await stubEnrich(page, payload) // ← 用**注入后**的 payload
     await triggerEnrich(page)
     await expect(page.locator(`${PANEL} .knowledge-match-group .km-section-title`).first()).toContainText('Methods')
     await expect(page.locator(`${PANEL} .km-link-btn`).first()).toBeVisible()
 
-    // ── **D13↑**（动作清单普查 #2）：🔗 Link 的 **app→methods 级联**此前"**从未被点击**" ──
-    //   已 Read 核实 `linkAppMethods()`（`ProductEditPage.vue:596-613`）：它只
-    //     ① `GET /applications/{id}/`（**只读**）② 把该 app 的 methods 推进**本地** `methodIds`（表单态）
-    //     ③ 弹 `Linked Application: … (+N methods)`
-    //   ⇒ **不写库** ⇒ **生产只读可测**（此点曾被我误判为"会写库"，已在普查报告中更正）。
+    // ── 级联段（这次**必定命中**，不再依赖生产数据偶然带 apps）───────────────
     const appsGroup = page.locator(`${PANEL} .knowledge-match-group`).filter({ hasText: 'Applications' })
-    if (await appsGroup.count()) {
-      const before = prodCounts()
-      await appsGroup.locator('button.km-link-btn', { hasText: '🔗 Link' }).first().click()
-      await expect(page.getByText(/Linked Application/).first(),
-        'D13↑ 点击 🔗 Link 后应提示已级联').toBeVisible({ timeout: 10000 })
-      // 级联的**只读性**（就是上面那条更正的可执行证据）：8 表必须 Δ0
-      expectDelta(before, prodCounts(), zeroSpec(before), 'D13↑ 级联不写库')
-    } else {
-      console.log('__E2E__ D13_APPS_ABSENT 本次 enrich 未命中 Applications 分组 ⇒ 级联段跳过（不是失败）')
-    }
+    await expect(appsGroup, 'D13↑ 注入 matched_apps 后 Applications 分组应渲染').toHaveCount(1)
+    const before = prodCounts()
+    await appsGroup.locator('button.km-link-btn', { hasText: '🔗 Link' }).first().click()
+    const esc = app.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    await expect(page.getByText(new RegExp(`Linked Application: ${esc}`)).first(),
+      'D13↑ 点击 🔗 Link 后应提示已级联（含该 application 名）').toBeVisible({ timeout: 10000 })
+    // 级联的**只读性**：只 GET + 改本地表单态 ⇒ 8 表必须 Δ0（这条同时是"它不写库"的可执行证据）
+    expectDelta(before, prodCounts(), zeroSpec(before), 'D13↑ 级联不写库')
   })
 
   test('D16 @readonly @prod-ok 未 Import 协议就 enrich：product/协议/方法血缘 + audit_log 计数 Δ0', async ({ request }) => {
