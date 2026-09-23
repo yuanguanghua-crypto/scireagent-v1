@@ -19,10 +19,7 @@
  *   const before = prodCounts(); await enrich(); const after = prodCounts()
  *   expectDelta(before, after, zeroSpec(before), 'D16 enrich 只读')
  */
-const { spawnSync } = require('node:child_process')
-const fs = require('node:fs')
-const os = require('node:os')
-const path = require('node:path')
+const { runSync } = require('./sync-spawn.cjs')
 
 /**
  * 同步执行 ssh，**但不给子进程建 stdio 管道**。
@@ -36,30 +33,11 @@ const path = require('node:path')
  *     · 清空 `NODE_OPTIONS`（去掉注入的 shim）**仍** EBUSY ⇒ 不是 node shim
  *     · 目标换成项目内 venv python、或绝对路径/反斜杠路径 ⇒ **仍** EBUSY ⇒ 不是目标/路径形态
  *     · Python 侧 `subprocess.run(['ssh','-V'])` 正常；node 的**异步** `spawn` 也正常
- *   细节与影响面见 `e2e/README.md` 坑14。本函数只改**取输出的方式**，不改 ssh 参数与语义。
+ *   细节与影响面见 `e2e/README.md` 坑14。**实现已抽到 `helpers/sync-spawn.cjs`**（与
+ *   `db-snapshot.cjs` 共用同一份，避免两份实现漂移）；本函数只负责绑定 ssh 参数。
  */
 function runSshSync(args, timeoutMs = 60000) {
-  const outFile = path.join(os.tmpdir(), `e2e_ssh_out_${process.pid}_${Date.now()}.txt`)
-  const errFile = `${outFile}.err`
-  const outFd = fs.openSync(outFile, 'w')
-  const errFd = fs.openSync(errFile, 'w')
-  try {
-    const r = spawnSync('ssh', args, { stdio: ['ignore', outFd, errFd], timeout: timeoutMs })
-    const out = fs.readFileSync(outFile, 'utf8')
-    const err = fs.readFileSync(errFile, 'utf8')
-    if (r.error) {
-      throw new Error(`ssh 启动失败：${r.error.code || r.error.message}${err ? `；stderr: ${err.slice(0, 200)}` : ''}`)
-    }
-    if (r.status !== 0) {
-      throw new Error(`ssh 退出码 ${r.status}${err ? `；stderr: ${err.slice(0, 200)}` : ''}`)
-    }
-    return out
-  } finally {
-    try { fs.closeSync(outFd) } catch { /* ignore */ }
-    try { fs.closeSync(errFd) } catch { /* ignore */ }
-    try { fs.unlinkSync(outFile) } catch { /* ignore */ }
-    try { fs.unlinkSync(errFile) } catch { /* ignore */ }
-  }
+  return runSync('ssh', args, { timeout: timeoutMs, label: 'ssh' })
 }
 
 const SSH_KEY = process.env.E2E_SSH_KEY || 'C:/Users/yuankaifeng/.ssh/scireagent_deploy_ed25519'

@@ -10,7 +10,7 @@
  * 适用范围：**本地 dev（R1 / R3）** —— 生产（R2）的 D-断言由「跑前跑后容器内只读探针」
  * 覆盖，并在报告里注明来源（判据来源需可追溯，见 P0 §0）。
  */
-const { execFileSync } = require('node:child_process')
+const { runSync } = require('./sync-spawn.cjs')
 const path = require('node:path')
 
 const BACKEND = path.resolve(__dirname, '../../../backend')
@@ -65,11 +65,11 @@ function dbSnapshot(tables) {
   //   若本次运行目标是生产（E2E_API_BASE 非 localhost），拿本地库当生产判据会
   //   产出**假阳**（最危险的一类错）⇒ 直接拒绝，要求改用容器内只读探针。
   assertLocalTarget()
-  const out = execFileSync(PY, ['-B', 'manage.py', 'shell', '-c', DEFAULT_PY], {
+  const out = runSync(PY, ['-B', 'manage.py', 'shell', '-c', DEFAULT_PY], {
     cwd: BACKEND,
     env: { ...process.env, DB_ENGINE: 'sqlite', PYTHONDONTWRITEBYTECODE: '1' },
-    encoding: 'utf8',
     timeout: 60000,
+    label: 'dbSnapshot python',
   })
   const line = String(out).split(/\r?\n/).find((l) => l.startsWith('__SNAP__'))
   if (!line) {
@@ -93,11 +93,11 @@ function dbSnapshot(tables) {
  */
 function dbQuery(pyCode) {
   assertLocalTarget()
-  const out = execFileSync(PY, ['-B', 'manage.py', 'shell', '-c', pyCode], {
+  const out = runSync(PY, ['-B', 'manage.py', 'shell', '-c', pyCode], {
     cwd: BACKEND,
     env: { ...process.env, DB_ENGINE: 'sqlite', PYTHONDONTWRITEBYTECODE: '1' },
-    encoding: 'utf8',
     timeout: 60000,
+    label: 'dbQuery python',
   })
   const line = String(out).split(/\r?\n/).find((l) => l.startsWith('__SNAP__'))
   if (!line) {

@@ -28,6 +28,8 @@ const saveFeedback = ref({ type: '', message: '' })   // toast instead of alert
 const showPublishDialog = ref(false)
 const loading = ref(false)
 const loadError = ref('')
+/** ★ 2026-09-23：产品**是否已成功载入**。用于给"产品级区块"把关 —— 见 VerifiedApplicabilitySection 处的说明。 */
+const productLoaded = ref(false)
 const publishedButIncomplete = ref(false)  // 2.11 — 已发布但不够完整
 
 // 必填字段标红：collectMissing 计算缺失项，missingFields 保存 key 列表供 isFieldMissing() 使用。
@@ -956,8 +958,12 @@ async function loadProduct() {
     loadKnowledge()
     loadCategoryOptions()
     if (productId.value) loadCompliance()
+    // ★ 走到这里 = 产品已成功应用到表单 ⇒ 置"已载入"，产品级区块（如 VerifiedApplicability）才允许渲染。
+    //   ⚠️ 必须在 `try` 内、且**不能**放在 catch 里 —— 错误态不得置位。
+    productLoaded.value = true
   } catch (e) {
     loadError.value = 'Failed to load product'
+    productLoaded.value = false
   } finally {
     loading.value = false
   }
@@ -1578,8 +1584,14 @@ watch(
         @adopt-all="handleAdoptAllBioz"
       />
       <!-- Verified Applicability 策展区块（P1-2：创建 verified 草稿入口） -->
+      <!-- ★ 2026-09-23 修：原先只看 `isEdit` ⇒ 深链到**不存在的产品**（如 /products/999999/edit）时
+           本区块照样挂载、照样按 :product-id 发请求 ⇒ **必然 404** 并
+           `console.error('Failed to load verified methods')` ⇒ 违反「错误态不得产生 console error」（A5）。
+           ⚠️ 第一版守卫写成 `isEdit && !loadError` **不管用**：本区块在**产品加载失败之前**就已挂载
+           （`loadError` 还是空串）⇒ 请求已经发出去了。故改为**正向**条件 `productLoaded`：
+           只有产品**成功应用进表单**后才渲染产品级区块。 -->
       <VerifiedApplicabilitySection
-        v-if="isEdit"
+        v-if="isEdit && productLoaded"
         :product-id="productId"
         style="margin-top: 8px"
       />

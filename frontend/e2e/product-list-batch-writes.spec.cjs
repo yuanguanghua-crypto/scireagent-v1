@@ -23,6 +23,7 @@ const { BASE_URL, loginAsStaff, ADMIN_USER, ADMIN_PASS } = require('./helpers/au
 const { getToken, apiContext } = require('./helpers/api')
 const { snapshotDb, expectDelta } = require('./helpers/assertions.cjs')
 const { cleanupByPrefix } = require('./fixtures/index.cjs')
+const { dbQuery } = require('./helpers/db-snapshot.cjs')
 
 const WL = ['wasm streaming compile failed', 'falling back to ArrayBuffer instantiation']
 const RUN = Date.now()
@@ -141,5 +142,72 @@ test.describe('Part 2 · 批量真实写（D11 / F2 / D12）', () => {
     expectDelta(before, d, { product: 0, audit_log: +2 }, 'D12 部分失败')
     const msgs = await page.locator('.el-message').count()
     expect(msgs, `当前实现只有 ${msgs} 条提示、无重试入口（Q4 待认定）`).toBeGreaterThan(0)
+  })
+
+  // ── D3 / D5：行内 `Republish` / `Reopen` **真实写** + 审计 ────────────────
+  //   覆盖矩阵点名：`product-list-fixes:Q2` 只断言"菜单**可见**"，**从未点击真写**、也无审计断言。
+  //   代码事实（已 Read 核实）：`ProductsPage.vue:617` Republish（`status==='archived'`）与
+  //   `:620` Reopen（`status==='deprecated'`）**都调 `reactivate()`**（`:436` toast `<name> republished`）
+  //   ⇒ 同一写路径、不同前置状态，故两条分开断前置条件与结果。
+  const rowMenuClick = async (page, cat, name) => {
+    await expect(page.locator('.products-table tbody tr').first()).toBeVisible({ timeout: 10000 })
+    const row = page.locator('.products-table tbody tr').filter({ hasText: cat })
+    await expect(row, `${cat} 行应恰好 1 条`).toHaveCount(1)
+    await row.locator('.menu-trigger').click()
+    return Promise.all([
+      page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/api/v1/products/')),
+      row.locator('.menu-popover').getByRole('button', { name, exact: true }).click(),
+    ])
+  }
+  const productStatus = (id) =>
+    dbQuery(
+      `import json\nfrom apps.commerce.models import Product\n` +
+        `print('__SNAP__' + json.dumps(Product.objects.get(id=${id}).status))`
+    )
+
+  test('D3 @write @local-only 归档行点 Republish ⇒ status=active + audit_log Δ+1', async ({ page, request }) => {
+    const api = await staffApi(request)
+    const ts = Date.now()
+    const cat = `E2E-D3-archived-${ts}`
+    const created = await api.post('/products/', {
+      data: { name: `E2E D3 ${ts}`, catalog_no: cat, slug: `e2e-d3-archived-${ts}`, status: 'archived' },
+    })
+    expect(created.status(), 'D3 夹具应 201').toBe(201)
+    const id = (await created.json()).data.id
+    expect(await productStatus(id), 'D3 前置：夹具应为 archived').toBe('archived')
+
+    await loginAsStaff(page)
+    await page.goto(`${BASE_URL}/workspace/products`, { waitUntil: 'domcontentloaded' })
+    const before = snapshotDb()
+    const [resp] = await rowMenuClick(page, cat, 'Republish')
+    expect(resp.status(), 'D3 Republish 的 PATCH 应 2xx').toBeLessThan(300)
+    expectDelta(before, snapshotDb(), { product: 0, audit_log: +1 }, 'D3 Republish 审计 Δ+1')
+    expect(await productStatus(id), 'D3 归档行 Republish 后应变为 active').toBe('active')
+    await api.dispose()
+  })
+
+  test('D5 @write @local-only deprecated 行点 Reopen ⇒ status=active + toast republished', async ({ page, request }) => {
+    const api = await staffApi(request)
+    const ts = Date.now()
+    const cat = `E2E-D5-deprecated-${ts}`
+    const created = await api.post('/products/', {
+      data: { name: `E2E D5 ${ts}`, catalog_no: cat, slug: `e2e-d5-deprecated-${ts}`, status: 'deprecated' },
+    })
+    expect(created.status(), 'D5 夹具应 201').toBe(201)
+    const id = (await created.json()).data.id
+    expect(await productStatus(id), 'D5 前置：夹具应为 deprecated').toBe('deprecated')
+
+    await loginAsStaff(page)
+    await page.goto(`${BASE_URL}/workspace/products`, { waitUntil: 'domcontentloaded' })
+    const before = snapshotDb()
+    const [resp] = await rowMenuClick(page, cat, 'Reopen')
+    expect(resp.status(), 'D5 Reopen 的 PATCH 应 2xx').toBeLessThan(300)
+    expectDelta(before, snapshotDb(), { product: 0, audit_log: +1 }, 'D5 Reopen 审计 Δ+1')
+    expect(await productStatus(id), 'D5 deprecated 行 Reopen 后应变为 active').toBe('active')
+    await expect(
+      page.locator('.el-message', { hasText: 'republished' }).first(),
+      'D5 应提示 republished'
+    ).toBeVisible({ timeout: 10000 })
+    await api.dispose()
   })
 })

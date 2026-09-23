@@ -194,6 +194,35 @@ test.describe('Part 1 · 组 C 表单字段与唯一性冲突（+ I5 / A5）', (
     await expect(page.locator('.completeness-bar')).toBeVisible()
     expect(errors).toEqual([])
   })
+
+  // ── C8：`research_use_only` 默认 **true**；**不变更时保存不得被写 false** ──────
+  //   规格依据：`models.py:157` `research_use_only = BooleanField(default=True, …)`（已 Read 核实）。
+  //   覆盖矩阵点名此条**未覆盖**：「无脚本断言默认 true、且保存不得被写 false」。
+  //   注：断言走 API+DB 层 —— 直接验的是**模型默认与保存语义**（这正是剧本的判据），
+  //       不受前端表单是否勾选影响；UI 勾选框的表现另由表单类用例覆盖。
+  test('C8 @write @local-only research_use_only 默认 true；只改 name 的保存不得把它写 false', async ({ request: req }) => {
+    const api = await staffApi(req)
+    const code = catalogNo('C8')
+    // ① 建产品时**完全不传**该字段 ⇒ 应落模型默认 true
+    const created = await api.post('/products/', {
+      data: { name: `E2E C8 ${code}`, catalog_no: code, slug: slug('C8') },
+    })
+    await expectApi(created, { status: 201, label: 'C8 建产品（不传 research_use_only）' })
+    const id = (await created.json()).data.id
+    const readFlag = () =>
+      dbQuery(
+        `import json\nfrom apps.commerce.models import Product\n` +
+          `print('__SNAP__' + json.dumps(Product.objects.get(id=${id}).research_use_only))`
+      )
+    expect(await readFlag(), 'C8 未传该字段 ⇒ 必须取模型默认 true').toBe(true)
+
+    // ② 只改 name 保存（请求体**不含** research_use_only）⇒ 该字段必须保持 true，不得被写 false
+    const patched = await api.patch(`/products/${id}/`, { data: { name: `E2E C8 renamed ${code}` } })
+    await expectApi(patched, { status: 200, label: 'C8 只改 name 保存' })
+    expect(await readFlag(), 'C8 不变更该字段的保存**不得**把它写成 false').toBe(true)
+
+    await api.dispose()
+  })
 })
 
 /* ────────────────────────────────────────────────────────────────────────────
