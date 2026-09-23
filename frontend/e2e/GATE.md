@@ -248,10 +248,13 @@ gate-audit: ✘ 发现 1/531 个**未标注 tier 的用例**（@readonly/@write/
 | `inventory-driven/workspace.spec.cjs` | 18 | 4 | 22 |
 | **合计** | **132** | **32** | **164** |
 
-> 另有 5 个文件第一轮即**全红**，本轮复核**维持整体 `@obsolete`**（共 10 例）：
+> 另有 5 个文件第一轮即**全红**，本轮**已实跑复核**（`--retries=0`，逐文件）：`passed=0`，
+> 分别为 `product-detail-structure-image` 1 failed、`verify-dialog-a11y` 2 failed、
+> `verify-dialog-style` 4 failed、`verify-field-normalize` 2 failed、
+> `inventory-driven/_debug_quote_checkout` 1 timedOut ⇒ **维持整体 `@obsolete`**（共 10 例）：
 > `product-detail-structure-image` / `verify-dialog-a11y` / `verify-dialog-style` /
 > `verify-field-normalize` / `inventory-driven/_debug_quote_checkout`（逐条理由见 §4.1）。
-> ⇒ 本轮**排除合计 42 例**（10 + 32），**捞回 132 例**。
+> **未发现新的"部分红"文件**。⇒ 本轮**排除合计 42 例**（10 + 32），**捞回 132 例**。
 
 **复跑确认**（`-g "@local-only" --grep-invert "@obsolete"`，每文件全新 `--output`）：
 7 个文件各自 `passed=捞回数 / failed=0`（`homepage` 在首轮复跑暴露 `搜索产品` flaky ⇒ 改标 `@obsolete` 后复跑 10/10）。
