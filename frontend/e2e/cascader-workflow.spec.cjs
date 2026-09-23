@@ -31,9 +31,12 @@ const { ADMIN_USER, ADMIN_PASS } = require('./helpers/auth');
 // ⚠️ 锚点会随 dev 库数据漂移腐烂：以下每条用例都带**运行期前置校验**（不满足即 fail，不 skip），
 //    使下一次腐烂立刻响，而不是变成"假绿/长期假红"。
 //
-// ⚠️ 用例创建的产品货号/slug 必须**每次运行唯一**（RUN_TAG）：
-//    后端 delete = **软归档**（archived=1，行不删除，见 backend/.../views.py perform_destroy），
-//    而 catalog_no/slug 的唯一约束把归档行也算 ⇒ 固定货号会让本文件"首跑绿、次跑 409"。
+// ✅ 用例**自建产品**的清理一律走**物理删除**（POST /products/{id}/hard-delete/，仅超管，
+//    见下方 hardDeleteProduct）：后端 DELETE 是**软归档**（archived=1、行保留，
+//    见 backend/.../views.py perform_destroy），而 catalog_no/slug 唯一约束把归档行也算
+//    ⇒ 旧写法每次跑都留残留、货号被永久占用。改 hard-delete 后跑完不留行，
+//    归档计数与 product 总数不再增长。
+// ⚠️ 货号/slug/sku 仍带**运行期唯一后缀 RUN_TAG**：兜底防止上一轮在清理前崩溃遗留的产品撞唯一约束。
 const RUN_TAG = Date.now().toString(36);
 const EDIT_PRODUCT_ID = 23;        // SC8003 / '5‑Propargylamino‑CTP-Cy3' / class_id=9 (Nucleotides & Nucleosides, L1 根)
 const EDIT_CLASS_NAME = 'Nucleotides & Nucleosides';
@@ -79,6 +82,20 @@ function traceApi(page) {
       console.log(`[API] ${r.request().method()} ${r.url()} → ${r.status()}`);
     }
   });
+}
+
+// 物理删除自己创建的合成产品（仅超管可用）。
+// 后端 DELETE 是**软归档**（archived=1、行保留），且 catalog_no/slug 唯一约束把归档行也算
+// ⇒ 每次跑都留残留、货号被永久占用。改用 POST /products/{id}/hard-delete/（成功 200）。
+// 非 200（含被 PROTECT 关联挡住的 409 product_has_dependents）一律抛出，绝不静默吞掉清理失败。
+async function hardDeleteProduct(ctx, token, id) {
+  const resp = await ctx.post(`${API_BASE}/products/${id}/hard-delete/`, {
+    headers: { Authorization: `Token ${token}` },
+  });
+  if (resp.status() !== 200) {
+    const body = await resp.text();
+    throw new Error(`hard-delete 未成功：product ${id} → HTTP ${resp.status()} ${body}`);
+  }
 }
 
 // ── 运行期前置校验 helper ──
@@ -141,7 +158,7 @@ test.describe('产品分类 Cascader 全流程', () => {
     await page.waitForSelector('.edit-form', { timeout: 10000 });
 
     // 填最小必填字段（含 slug — 后端 slug blank=False，前端无自动生成，这里显式填以隔离 cascader 验证）
-    // 货号/slug/sku 带 RUN_TAG：避免软归档残留撞唯一约束（见文件头注释）
+    // 货号/slug/sku 带运行期唯一后缀 RUN_TAG：兜底防止上一轮崩溃残留撞唯一约束（见文件头注释）
     await page.locator('input[placeholder*="Amino-ATP"]').fill('E2E Test Product');
     await page.locator('input[placeholder*="SC8043"]').first().fill(`E2E-TEST-${RUN_TAG}`);
     await page.locator('input[placeholder*="auto-generated-if-empty"]').fill(`e2e-test-${RUN_TAG}`);
@@ -166,29 +183,29 @@ test.describe('产品分类 Cascader 全流程', () => {
     ]);
     expect([200, 201]).toContain(saveResp.status());
 
-    // 新建后应跳转到 edit 页
-    await expect(page).toHaveURL(/\/workspace\/products\/\d+\/edit/, { timeout: 10000 });
-    const createdId = new URL(page.url()).pathname.match(/\/products\/(\d+)\/edit/)[1];
-
-    // 从 API 拉取该产品，确认 product_class_id 已落库
+    // 产品已创建：尽早从创建响应取 id，保证后续**任何断言失败也在 finally 中清理**（断言失败也必须清理）
+    const createdId = (await saveResp.json()).data.id;
     const token = await page.evaluate(() => localStorage.getItem('token'));
     const ctx = await request.newContext();
-    const getResp = await ctx.get(`${API_BASE}/products/${createdId}/`, {
-      headers: { Authorization: `Token ${token}` },
-    });
-    const pData = (await getResp.json()).data;
-    expect(pData.product_class_id).not.toBeNull();
-    expect(pData.name).toBe('E2E Test Product');
-    await ctx.dispose();
-
-    // 清理：删除测试产品（DELETE 走 8000 直连，Playwright http 解析对 204 偶发 Parse Error，容错）
-    const delCtx = await request.newContext();
     try {
-      await delCtx.delete(`${API_BASE}/products/${createdId}/`, {
+      // 新建后应跳转到 edit 页
+      await expect(page).toHaveURL(/\/workspace\/products\/\d+\/edit/, { timeout: 10000 });
+
+      // 从 API 拉取该产品，确认 product_class_id 已落库
+      const getResp = await ctx.get(`${API_BASE}/products/${createdId}/`, {
         headers: { Authorization: `Token ${token}` },
       });
-    } catch { /* 清理失败不影响测试结论 */ }
-    await delCtx.dispose();
+      const pData = (await getResp.json()).data;
+      expect(pData.product_class_id).not.toBeNull();
+      expect(pData.name).toBe('E2E Test Product');
+    } finally {
+      // 清理：物理删除（软归档 DELETE 会留残留、永久占用货号）
+      try {
+        await hardDeleteProduct(ctx, token, createdId);
+      } finally {
+        await ctx.dispose();
+      }
+    }
   });
 
   // ═══════════════════════════════════════════
@@ -198,7 +215,7 @@ test.describe('产品分类 Cascader 全流程', () => {
   // ═══════════════════════════════════════════
   test('2. 编辑回填：L2 叶子分类产品，cascader 反显分类路径', async ({ page }) => {
     // 通过 API 创建一个 L2 叶子分类产品（product_class_id=84 Fluorescent Nucleotides）
-    // 货号/slug/sku 带 RUN_TAG：避免软归档残留撞唯一约束（见文件头注释）
+    // 货号/slug/sku 带运行期唯一后缀 RUN_TAG：兜底防止上一轮崩溃残留撞唯一约束（见文件头注释）
     const token = await page.evaluate(() => localStorage.getItem('token'));
     const ctx = await request.newContext();
     const createResp = await ctx.post(`${API_BASE}/products/`, {
@@ -227,13 +244,12 @@ test.describe('产品分类 Cascader 全流程', () => {
       const nameInput = page.locator('input[placeholder*="Amino-ATP"]').first();
       await expect(nameInput).toHaveValue(/Edit Backfill/);
     } finally {
-      // 清理：DELETE 走 8000 直连，Playwright http 解析对 204 偶发 Parse Error，容错
+      // 清理：物理删除（软归档 DELETE 会留残留、永久占用货号；409 等非 200 一律抛出，不静默吞掉）
       try {
-        await ctx.delete(`${API_BASE}/products/${createdId}/`, {
-          headers: { Authorization: `Token ${token}` },
-        });
-      } catch { /* 清理失败不影响测试结论 */ }
-      await ctx.dispose();
+        await hardDeleteProduct(ctx, token, createdId);
+      } finally {
+        await ctx.dispose();
+      }
     }
   });
 
@@ -297,7 +313,7 @@ test.describe('产品分类 Cascader 全流程', () => {
     await page.waitForSelector('.edit-form', { timeout: 10000 });
 
     // 填齐完整条件：name, catalog_no, cas, smiles, product_class_id, default sku
-    // 货号/slug/sku 带 RUN_TAG：避免软归档残留撞唯一约束（见文件头注释）
+    // 货号/slug/sku 带运行期唯一后缀 RUN_TAG：兜底防止上一轮崩溃残留撞唯一约束（见文件头注释）
     await page.locator('input[placeholder*="Amino-ATP"]').fill('E2E Publish Test');
     await page.locator('input[placeholder*="SC8043"]').first().fill(`E2E-PUB-${RUN_TAG}`);
     await page.locator('input[placeholder*="1927-31-7"]').first().fill('150718-26-6');
@@ -327,26 +343,26 @@ test.describe('产品分类 Cascader 全流程', () => {
     ]);
     expect([200, 201]).toContain(pubResp.status());
 
-    // 验证落库 status=active
-    await expect(page).toHaveURL(/\/workspace\/products\/\d+\/edit/, { timeout: 10000 });
-    const createdId = new URL(page.url()).pathname.match(/\/products\/(\d+)\/edit/)[1];
+    // 产品已创建：尽早从发布响应取 id，保证后续**任何断言失败也在 finally 中清理**（断言失败也必须清理）
+    const createdId = (await pubResp.json()).data.id;
     const token = await page.evaluate(() => localStorage.getItem('token'));
     const ctx = await request.newContext();
-    const getResp = await ctx.get(`${API_BASE}/products/${createdId}/`, {
-      headers: { Authorization: `Token ${token}` },
-    });
-    const pData = (await getResp.json()).data;
-    expect(pData.status).toBe('active');
-    await ctx.dispose();
-
-    // 清理：DELETE 走 8000 直连，Playwright http 解析对 204 偶发 Parse Error，容错
-    const delCtx = await request.newContext();
     try {
-      await delCtx.delete(`${API_BASE}/products/${createdId}/`, {
+      // 验证落库 status=active
+      await expect(page).toHaveURL(/\/workspace\/products\/\d+\/edit/, { timeout: 10000 });
+      const getResp = await ctx.get(`${API_BASE}/products/${createdId}/`, {
         headers: { Authorization: `Token ${token}` },
       });
-    } catch { /* 清理失败不影响测试结论 */ }
-    await delCtx.dispose();
+      const pData = (await getResp.json()).data;
+      expect(pData.status).toBe('active');
+    } finally {
+      // 清理：物理删除（软归档 DELETE 会留残留、永久占用货号）
+      try {
+        await hardDeleteProduct(ctx, token, createdId);
+      } finally {
+        await ctx.dispose();
+      }
+    }
   });
 
   // ═══════════════════════════════════════════
