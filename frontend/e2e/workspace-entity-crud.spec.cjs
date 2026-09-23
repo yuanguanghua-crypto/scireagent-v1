@@ -44,12 +44,10 @@ const ENTITIES = [
 ]
 
 for (const e of ENTITIES) {
-  // ★ `Goal` 如实标 fixme —— 原因是**实测出的真实缺陷**，不是我的用例问题：
-  //   保存 **POST 400**，响应体 `"slug: This field is required."`
-  //   ⇒ **后端要求 `slug`，而 Goals 页的表单里根本没有 slug 字段** ⇒ **新建 Research Goal 在 UI 上必然失败**，
-  //     且用户看不出缺什么（无字段级提示）。⇒ **候选缺陷，待认定**（要么前端补生成 slug，要么后端改为自动生成）。
-  //   同理待查：Application / Method / Protocol 是否存在同类"必填但表单没有"的字段。
-  const t = e.noun === 'Goal' ? test.fixme : test
+  // ★ `Goal` 曾因**真实缺陷 E1**（Detail 序列化器把 slug 视为必填、而表单无此字段 ⇒ 新建必 400）标 fixme；
+  //   该缺陷已修（`ResearchGoalDetailSerializer` 补宽容 slug 声明，与 List 版一致 ⇒ 交给模型 `save()` 自动生成）
+  //   ⇒ 本用例即该修复的**闸门**，故转正。若将来又红，先查 E1 是否回退。
+  const t = test
   t(`${e.noun} 治理页：列表渲染 / +New / Cancel 零写入 / Save 写库 / Edit 预填`, async ({ page, request }) => {
     const errors = consoleErrors(page, WL)
     const api = await staffApi(request)
