@@ -102,7 +102,7 @@ npm run test:e2e:local
 | 11 | `product-edit-aipanel.spec.cjs` | write | 4 | 4 passed | UI 点 `Save Draft` |
 | 12 | `product-edit-dark-a11y-knowledge.spec.cjs` | write | 2 | 2 passed | UI 点 `Save Draft`（+ AI AUTO MATCH） |
 | 13 | `product-edit-optimize.spec.cjs` | write | 6 | 6 passed | UI `Save Draft` / `Generate SDS` / `Approve & Publish` |
-| 14 | `product-list-fixes.spec.cjs` | write | 6 | 6 passed | `ctx.post('/products/')`、`ctx.delete` |
+| 14 | `product-list-fixes.spec.cjs` | write | **7** | 7 passed | `ctx.post('/products/')`、`ctx.delete`；**新增 Q7**（`all-in-recycle` 空态出口 `Go to Recycle Bin`，stub 造场景、纯只读）—— 补掉动作层**最后一个未触及动作** |
 | 15 | `workspace-entity-crud.spec.cjs` | write | 5 | 5 passed | UI Save 写库 + `api.delete` 清理 |
 | 16 | `workspace-verified-review.spec.cjs` | write | 10 | 10 passed | `ctx.post('/verified/')` + `/reject/` |
 | 17 | `inventory-driven/admin.spec.cjs` | write | 10 | 10 passed | 订单状态机真实流转（PO 端点） |
@@ -132,7 +132,8 @@ npm run test:e2e:local
 | 39 | `verify-dialog-style.spec.cjs` | readonly(部分) | 3 | 3 passed | :30/:59 改锚 Publish 确认弹窗；:95 toast；:72 维持排除（见 §4.1） |
 | 40 | `verify-field-normalize.spec.cjs` | write/readonly | 2 | 2 passed | D1 真实 POST ⇒ `@write`；D2 纯函数 ⇒ `@readonly` |
 
-> **合计**：40 文件 / **469 例** 被 `-g "@local-only" --grep-invert "@obsolete"` 选中（2026-09-23 晚：原 468 + 结构图 1 例捞回）
+> **合计**：40 文件 / **470 例** 被 `-g "@local-only" --grep-invert "@obsolete"` 选中（2026-09-23 晚：原 468 + 结构图 1 例捞回 + Q7 1 例新增）
+> **不做闸门排除的「记录型」项**：见 §4.4。
 > （第一轮 30 文件 / 298 例 ＋ 第二轮 7 文件 / 132 例 ＋ **第三轮净增 38 例**：
 > 原 7 文件由 132→164，新增 `verify-dialog-a11y`/`verify-dialog-style`/`verify-field-normalize` 3 文件 / 6 例）。
 
@@ -149,13 +150,20 @@ npm run test:e2e:local
 第三轮（2026-09-23）对第二轮 42 例**逐条定性并尽量捞回**：**捞回 38 例**（见 §3）、
 **删除非测试脚本 1 例**、**维持排除 3 例**（见下）。
 
-### 4.1 本轮**维持 `@obsolete`** 的用例（**2 例**，理由经证据更新；原第 1 例已在修复一个真缺陷后**捞回**）
+### 4.1 本轮**维持 `@obsolete`** 的用例（**0 例** —— 三条历史排除项已全部收口：1 例捞回、2 例删除）
 
 | # | 文件 | 用例 | 类别 | 实测 | 最终理由（经证据支撑） |
 |---|---|---|---|---|---|
 | ~~1~~ | `product-detail-structure-image.spec.cjs` | `structure box renders img.pd-structure-img with data URI` | ✅ **已捞回（2026-09-23）** | **1 passed** | **根因是一个真缺陷，不是"无等价物"**：公开详情页走 `GET /products/{id}/detail/`（`ProductDetailAPIView:426` 用 `ProductFullSerializer`），而 `serializers_v2.py:104` 的 `Meta.fields` **含 `structure_svg` 却漏了 `structure_image`** ⇒ 前端 `product.structure_image` 恒为 `undefined` ⇒ `<img v-if="product.structure_image">`（`ProductDetail.vue:461`）**永不渲染** ⇒ 「优先显示 Word 结构图」这条功能**在真实页面上从不生效**。另一条读路径（ViewSet `retrieve` 的 `ProductDetailSerializer:528`）**有**该字段 ⇒ **同数据两条读路径不一致**，页面后来切到聚合端点时把字段丢了。**修复**：补 `structure_image` 到字段列表（1 行）+ 重启后端。**spec 同时改为自造夹具**（运行时 PATCH 一个 1×1 PNG data URI，`finally` 还原），不再依赖手工造数。**验收**：`1 passed`；夹具还原已核（`structure_image` 非空 7→7）。 |
-| 2 | `verify-dialog-a11y.spec.cjs` | `缺失字段弹窗：ARIA 属性 + role=alert + ESC 关闭 + focus 管理` | (b) 功能被设计移除 | 1 failed | 该弹窗已按设计移除 —— `ProductEditPage.vue:2064` 明注"必填字段缺失不再弹独立弹窗（Save Draft 直接标红、Publish 走发布确认框）"⇒ `.missing-list` / `.dialog-actions button '去补充'` / `aria-labelledby='missing-title'` 实体不复存在。 |
-| 3 | `verify-dialog-style.spec.cjs` | `missing-list 用 danger 色 + field-missing 边框 danger` | (b) 功能被设计移除 | 1 failed | 同上；且**全仓已无任何组件渲染 `.missing-list`**（grep 仅命中 `assets/css/main.css` 的遗留死样式）⇒ 无等价锚点可改。（该**死样式已于 2026-09-23 清理**：`assets/css/main.css` 删 2 条规则 + 注释提及。） |
+| ~~2~~ | `verify-dialog-a11y.spec.cjs` | `缺失字段弹窗：ARIA 属性 + role=alert + ESC 关闭 + focus 管理` | ✅ **已删除（2026-09-23）** | — | 该弹窗按设计移除（`ProductEditPage.vue:2064`）⇒ 断言的实体（`.missing-list` / 「去补充」/ `missing-title`）**不存在**，留下只会永远红；而**同类能力已由同文件「GoalsPage 编辑弹窗 ARIA + ESC」覆盖** ⇒ 删除**不产生覆盖空洞**。 |
+| ~~3~~ | `verify-dialog-style.spec.cjs` | `missing-list 用 danger 色 + field-missing 边框 danger` | ✅ **已删除（2026-09-23）** | — | 同上；且**全仓无组件渲染 `.missing-list`**（连 `assets/css/main.css` 的遗留死样式也已同批清理）⇒ 无等价锚点，留着永远红。该文件其余 3 条（容器圆角 / 遮罩 blur / toast 主题）**已锚定仍存在的弹窗并捞回**。 |
+### 4.4 不做闸门排除、但**显式记录**的「记录型」项（按 §1 口径必须有理由）
+
+| # | 项 | 结论 | 理由 |
+|---|---|---|---|
+| R1 | **空态文案不分场景**：`ProductsPage.vue` 的 `emptyTitle/emptyDescription` 已按 `emptyKind` 分 4 种，但 `all-in-recycle` 的出口文案与「筛选后 0 行」的提示仍可能让用户困惑 | **接受现状 + 记录**（不改） | 属**文案打磨**而非缺陷：不会让用户误判数据错误；改它要动前端并再部署一轮，收益低。**何时改**：与「详情/列表文案统一」一并做。 |
+| R2 | `product-detail-structure-image` 曾经的旧理由「dev 库 68 个产品中 structure_image 非空者 = 0」 | **已更正** | 实测**非空 = 7**（只是都不在 `active + 非归档` 集合里）。旧理由是错的，已在 §4.1 更正。 |
+| R3 | 跨浏览器（firefox/webkit） | **未建立基线**（见 §8.1） | harness 两条路都不成立；**待投入**。 |
 
 ### 4.2 本轮**删除**的非测试文件（1 个）
 
@@ -476,4 +484,4 @@ node node_modules/@playwright/test/cli.js test -g "@local-only" --grep-invert "@
 ### 9.5 与"连续 0 新缺陷"（收尾判据③）的关系
 - **"一批" = 一次完整 `test:e2e:local`**（当前 **469 例**，`--retries=0`）。
 - **flaky 计入"非 0"**（它本身就是不稳定信号，不能当"干净"）。
-- **建议收敛判据：连续 3 批 0 新缺陷**（= 约 3 × 15 分钟）。⚠️ **该 N 值尚未经用户确认**，确认前不据此宣布收敛。
+- **收敛判据：连续 3 批 0 新缺陷**（= 约 3 × 15 分钟）。✅ **N=3 已经用户确认（2026-09-23「按你建议的开始」）** ⇒ 自此每轮 `test:e2e:local` 记一次批次结果；**连续 3 批干净**方可宣布该维度收敛。

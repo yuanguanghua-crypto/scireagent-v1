@@ -178,6 +178,51 @@ test.describe('产品列表页 7 项修复', { tag: ['@write', '@local-only'] },
   })
 
   // ── Q6：批量恢复走幂等端点（真实写 + 清理）────────────
+  // ── Q7（2026-09-23 补：动作层最后一个未触及项）──────────────────────────────
+  //   全工作台动作普查（A1 复算）确认：`Go to Recycle Bin`（ProductsPage 空态出口按钮）
+  //   是唯一没有任何 spec 触及的动作。它只在 `emptyKind === 'all-in-recycle'` 时出现
+  //   （在售视图为空 且 库里有产品）。本用例用 stub 造该场景（该页始终请求
+  //   `/products/?archived=1&page_size=500`，返回"全归档"列表即可），**纯只读**。
+  test('Q7: all-in-recycle 空态 ⇒ 显示 Go to Recycle Bin 出口；点击切到回收站视图', async ({ page }) => {
+    const errors = attachConsoleErrorCollector(page, { whitelist: WL })
+    // 造场景：stub `/api/v1/products/?…` 返回一条**归档**行 ⇒ 在售视图为空、allProducts 非空
+    const archivedRow = {
+      id: 900001, catalog_no: 'E2E-ARCHIVED-1', name: 'E2E Archived Fixture',
+      cas: '', archived: true, status: 'active', completeness: 0,
+    }
+    await page.route(/\/api\/v1\/products\/\?/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: [archivedRow],
+          meta: { pagination: { count: 1, next: null, previous: null } },
+        }),
+      }))
+
+    await loginAsStaff(page)
+    await goto(page, '/workspace/products')
+
+    // ① 出口按钮出现，且文案带回收站数量（现算自 stub 的 1 条归档行）
+    const exitBtn = page.getByRole('button', { name: /Go to Recycle Bin/ })
+    await expect(exitBtn, 'all-in-recycle 空态应给出 Go to Recycle Bin 出口').toBeVisible({ timeout: 10000 })
+    await expect(exitBtn).toHaveText(/Go to Recycle Bin \(1\)/)
+
+    // ② 点击 ⇒ URL 进 ?view=recycle（客户端状态切换）
+    await exitBtn.click()
+    await expect(page, '点出口后 URL 应带 view=recycle').toHaveURL(/view=recycle/, { timeout: 10000 })
+
+    // ③ 回收站 toggle 变 active，且该归档行在回收站视图里被渲染
+    await expect(page.locator('.view-toggle__btn', { hasText: 'Recycle Bin' }))
+      .toHaveClass(/is-active/)
+    await expect(page.locator('.products-table tbody tr', { hasText: 'E2E-ARCHIVED-1' }).first())
+      .toBeVisible({ timeout: 10000 })
+
+    // ④ 无 JS 错误（用带字体中和的收集器，避免 Google Fonts 噪声）
+    expect(errors, `页面存在 JS 错误: ${errors.join(' | ')}`).toHaveLength(0)
+  })
+
   test('Q6: Restore selected → POST /products/batch-restore/（非逐条 restore/）+ 清理', async ({ page, request }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: WL })
     await loginAsStaff(page)

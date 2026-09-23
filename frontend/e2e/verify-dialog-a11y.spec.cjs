@@ -24,48 +24,14 @@ async function loginAsStaff(page) {
 }
 
 // 用例级 tier（2026-09-23 复核，实跑证据）：
-//   · :31「缺失字段弹窗」 —— 该弹窗已按设计移除（ProductEditPage.vue:2064 注释：
-//     「必填字段缺失不再弹独立弹窗」，Save Draft 直接标红、Publish 走发布确认框）
-//     ⇒ `.missing-list` / `.dialog-actions button '去补充'` / aria-labelledby='missing-title'
-//     所依赖的实体不复存在 ⇒ 维持 @obsolete（理由见 GATE.md §4）。
+//   · 原「缺失字段弹窗（:31）」**已于 2026-09-23 删除用例**：该弹窗按设计移除
+//     （`ProductEditPage.vue:2064`：「必填字段缺失不再弹独立弹窗」，Save Draft 直接标红、
+//     Publish 走发布确认框）⇒ 断言的实体（`.missing-list` / '去补充' / 'missing-title'）不存在，
+//     留下只会永远红；而**同类能力已由下方「GoalsPage 编辑弹窗 ARIA + ESC」覆盖** ⇒ 删除不产生覆盖空洞。
 //   · :65「GoalsPage 编辑弹窗」 —— 依赖仍存在的 `#entity-editor-title` 编辑器弹窗 ⇒ 实跑绿 ⇒ 捞回。
 test.describe('弹窗无障碍能力', () => {
   test.beforeEach(async ({ page }) => {
     await loginAsStaff(page);
-  });
-
-  test('缺失字段弹窗：ARIA 属性 + role=alert + ESC 关闭 + focus 管理', { tag: ['@obsolete'] }, async ({ page }) => {
-    await page.goto(`${BASE_URL}/workspace/products/new`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.edit-form', { timeout: 10000 });
-
-    // 记录触发按钮为当前焦点
-    const saveBtn = page.locator('.form-actions button', { hasText: 'Save Draft' });
-    await saveBtn.focus();
-    await expect(saveBtn).toBeFocused();
-
-    // 触发弹窗
-    await saveBtn.click();
-    await expect(page.locator('.dialog-overlay')).toBeVisible({ timeout: 5000 });
-
-    // 1. ARIA 属性
-    const overlay = page.locator('.dialog-overlay');
-    await expect(overlay).toHaveAttribute('role', 'dialog');
-    await expect(overlay).toHaveAttribute('aria-modal', 'true');
-    await expect(overlay).toHaveAttribute('aria-labelledby', 'missing-title');
-
-    // 2. focus 进入弹窗内（"去补充" 按钮是弹窗内唯一可聚焦元素）
-    const confirmBtn = page.locator('.dialog-actions button', { hasText: '去补充' });
-    await expect(confirmBtn).toBeFocused({ timeout: 3000 });
-
-    // 3. .missing-list 带 role=alert
-    await expect(page.locator('.missing-list')).toHaveAttribute('role', 'alert');
-
-    // 4. ESC 关闭
-    await page.keyboard.press('Escape');
-    await expect(page.locator('.dialog-overlay')).toHaveCount(0);
-
-    // 5. 焦点恢复到触发按钮
-    await expect(saveBtn).toBeFocused({ timeout: 3000 });
   });
 
   test('GoalsPage 编辑弹窗：ARIA + ESC 关闭', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {

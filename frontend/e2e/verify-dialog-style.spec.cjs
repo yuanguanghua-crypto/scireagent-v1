@@ -23,9 +23,9 @@ async function loginAsStaff(page) {
 }
 
 // 用例级 tier（2026-09-23 复核，实跑证据）：
-//   · 原"缺失字段弹窗"已按设计移除（ProductEditPage.vue:2064）⇒ 依赖它的
-//     :72（`.missing-list` danger 色 / field-missing 边框）维持 @obsolete：
-//     全仓已无任何组件渲染 `.missing-list`（仅 main.css 存留死样式，grep 实证）。
+//   · 原 :72（`.missing-list` danger 色 / field-missing 边框）**已于 2026-09-23 删除用例**：
+//     该弹窗按设计移除（`ProductEditPage.vue:2064`），全仓无组件渲染 `.missing-list`
+//     （连 main.css 的死样式也已在同批清理）⇒ 断言的实体不存在，留下只会永远红。
 //   · :30 / :59（`.dialog` 容器样式 / `.dialog-overlay` backdrop blur）改为锚定**仍存在**的
 //     Publish 确认弹窗（同一套全局 `.dialog-overlay` / `.dialog`，ProductEditPage.vue:2067）
 //     ⇒ 保留原语义，实跑绿则捞回。
@@ -76,29 +76,6 @@ test.describe('统一弹窗样式验证', () => {
     });
     // 有 blur（具体值浏览器间差异，只断言含 blur）
     expect(backdrop.toLowerCase()).toContain('blur');
-  });
-
-  test('missing-list 用 danger 色 + field-missing 边框 danger', { tag: ['@obsolete'] }, async ({ page }) => {
-    await page.goto(`${BASE_URL}/workspace/products/new`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.edit-form', { timeout: 10000 });
-    await page.locator('.form-actions button', { hasText: 'Save Draft' }).click();
-    await expect(page.locator('.missing-list')).toBeVisible({ timeout: 5000 });
-
-    const missingColor = await page.locator('.missing-list').evaluate(el => {
-      return getComputedStyle(el).color;
-    });
-    // --color-danger = --color-red-600 = #dc2626 → rgb(220, 38, 38)
-    expect(missingColor).toBe('rgb(220, 38, 38)');
-
-    // field-missing 边框
-    const nameInput = page.locator('input[placeholder*="Amino-ATP"]').first();
-    await expect(nameInput).toHaveClass(/field-missing/);
-    // 边框色可能由 wrapper 决定，检查 input 或其 wrapper
-    const borderColor = await nameInput.evaluate(el => {
-      const cs = getComputedStyle(el);
-      return cs.borderColor;
-    });
-    expect(borderColor).toBe('rgb(220, 38, 38)');
   });
 
   test('ElMessage toast 样式被项目主题覆盖', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
