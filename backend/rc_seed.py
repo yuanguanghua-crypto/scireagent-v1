@@ -11,7 +11,7 @@ import os, sys, json, re
 BASE = os.environ.get('RC_DATA_DIR', r'C:\Users\yuankaifeng\WorkBuddy\2026-07-08-11-22-32\_audit_tmp')
 DRY = '--apply' not in sys.argv
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development')
 import django
 django.setup()
 
