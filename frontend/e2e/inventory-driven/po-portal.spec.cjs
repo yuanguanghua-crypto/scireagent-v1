@@ -54,7 +54,7 @@ test.afterAll(async () => {
 test.describe('阶段4 PO 门户穷举', () => {
 
   // ============ 客户侧：PoSubmit ============
-  test('PoSubmit: 渲染 + 添加行项目 + 产品搜索 + SKU 选择 可用', { tag: ['@obsolete'] }, async ({ page }) => {
+  test('PoSubmit: 渲染 + 添加行项目 + 产品搜索 + SKU 选择 可用', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsCustomer(page);
     await gotoPage(page, '/po/submit');
@@ -87,7 +87,7 @@ test.describe('阶段4 PO 门户穷举', () => {
     expect(errors).toEqual([]);
   });
 
-  test('PoSubmit: 完整填写提交 → 成功 callout（真实写 + 清理）', { tag: ['@obsolete'] }, async ({ page }) => {
+  test('PoSubmit: 完整填写提交 → 成功 callout（真实写 + 清理）', { tag: ['@write', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     const custToken = await getCustomerToken();
     const adminToken = await getAdminToken();

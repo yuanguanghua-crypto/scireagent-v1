@@ -98,9 +98,12 @@ test.describe('阶段1 公开页交互穷举', () => {
     expect(errors).toEqual([]);
   });
 
-  test('Login: staff 登录 → /workspace', { tag: ['@obsolete'] }, async ({ page }) => {
+  test('Login: staff 登录 → /workspace', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
+    // loginAsStaff 的权威信号是 localStorage.token（可能先于路由跳转完成 ⇒ 旧断言偶发失败）。
+    // 显式等待 URL 落到 /workspace，保留原语义"staff 登录 → /workspace"。
+    await page.waitForURL(/\/workspace/, { timeout: 15000 });
     expect(page.url()).toContain('/workspace');
     expect(errors).toEqual([]);
   });

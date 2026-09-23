@@ -17,9 +17,10 @@ const NAV_SELECTOR = '.public-nav';
  * Helpers
  */
 
-/** 定位导航栏中的购物车按钮（首页可能存在两个 cart-btn，用 first 取导航栏内的） */
+/** 定位导航栏中的购物车链接（改版后为 `.cart-indicator` 内的 AppButton→router-link，
+ *  原 `.public-nav a.cart-btn[href="/cart"]` 已不存在；title 经 attrs 透传到 <a>） */
 function cartLink(page) {
-  return page.locator(`${NAV_SELECTOR} a.cart-btn[href="/cart"]`).first();
+  return page.locator(`${NAV_SELECTOR} .cart-indicator a[href="/cart"]`).first();
 }
 
 /** 通过 page.evaluate 设置 Pinia basket store 的 count */
@@ -39,7 +40,7 @@ async function setBasketCount(page, count) {
 // A1. 首页购物车按钮存在
 // ──────────────────────────────────────────────────
 test.describe('A1 — 首页购物车按钮', () => {
-  test('购物车按钮存在，包含 SVG 图标，点击后跳转 /cart', { tag: ['@obsolete'] }, async ({ page }) => {
+  test('购物车按钮存在，包含 SVG 图标，点击后跳转 /cart', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     await page.goto(BASE_URL);
     await page.waitForLoadState('networkidle');
 
@@ -64,7 +65,7 @@ test.describe('A1 — 首页购物车按钮', () => {
 // A2. 产品详情页购物车按钮存在
 // ──────────────────────────────────────────────────
 test.describe('A2 — 产品详情页购物车按钮', () => {
-  test('在 /products/23 页面导航栏中存在购物车链接，且可见可点击', { tag: ['@obsolete'] }, async ({ page }) => {
+  test('在 /products/23 页面导航栏中存在购物车链接，且可见可点击', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/products/23`);
     await page.waitForLoadState('networkidle');
 

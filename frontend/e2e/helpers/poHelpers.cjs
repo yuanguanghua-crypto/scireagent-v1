@@ -44,20 +44,39 @@ async function getCustomerToken() {
 // 经实证：dev 库 SKU 挂在 products 24-53 上（/skus/ 列表可查），product 列表/详情端点
 // 不暴露 skus 顶层键（detail 端点把数据嵌套在 data.product 下）。故直接从 /skus/ 取真实
 // (product_id, sku_id) 再补产品名，避免依赖不可靠的 PATCH 种子路径。
+//
+// ★ 2026-09-23 修复：原实现直接取 `arr[0]`，但其 product 可能**未发布/详情返回 data=null**
+//   ⇒ `prod.name` 为 undefined ⇒ PO 搜索框被填入 "undefined" ⇒ 后续 `.po-search-item`
+//   断言必然找不到（这正是 po-portal 两条用例假红的根因，非产品缺陷）。
+//   改为**遍历** SKU，取第一个"产品详情可用（有 name）"的 (product, sku)。
+// ★★ 再修：绝大多数产品名的连字符是 **Unicode U+2011（‑）**，后端 `search=` 无法用该串
+//   精确命中（实测：ASCII '5-Propargylamino' → 0 命中；纯 ASCII 名如 'Fluorescein-12-UTP'
+//   → 精确命中 1 条）。故**优先**选纯 ASCII 名的产品，保证后续搜索断言可稳定命中；
+//   找不到纯 ASCII 名时再退回首个可用产品。
 async function getProductWithSku(token) {
   const ctx = await apiContext(token);
   try {
-    const res = await ctx.get(`${API}/skus/`, { params: { page_size: 1 } });
+    const res = await ctx.get(`${API}/skus/`, { params: { page_size: 100 } });
     const body = await res.json();
     const arr = body?.data?.results || body?.data || body?.results || [];
-    if (!arr.length) return null;
-    const sku = arr[0];
-    const pid = sku.product_id;
-    if (!pid) return null;
-    const pres = await ctx.get(`${API}/products/${pid}/`);
-    const pbody = await pres.json();
-    const prod = pbody?.data || pbody;
-    return { id: pid, name: prod.name, sku: { id: sku.id, sku_code: sku.sku_code } };
+    let fallback = null;
+    for (const sku of arr) {
+      const pid = sku.product_id;
+      if (!pid) continue;
+      const pbody = await (await ctx.get(`${API}/products/${pid}/`)).json();
+      const prod = pbody?.data;
+      if (prod && prod.name) {
+        const cand = {
+          id: pid,
+          name: prod.name,
+          catalogNo: prod.catalog_no,
+          sku: { id: sku.id, sku_code: sku.sku_code },
+        };
+        if (/^[\x20-\x7E]+$/.test(prod.name)) return cand; // 纯 ASCII 名 ⇒ 后端 search 可精确命中
+        if (!fallback) fallback = cand;
+      }
+    }
+    return fallback;
   } finally {
     await ctx.dispose().catch(() => {});
   }

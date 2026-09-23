@@ -2,8 +2,16 @@
  * TDD E2E — 问题1：产品详情页应优先显示 Word 提取的结构图（structure_image），
  * 而非用 SMILES 渲染的图。
  *
- * 前置：
- *  - 部署后的站点可访问（BASE_URL，默认 https://scireagent.com）
+ * ── @obsolete 复核结论（2026-09-23，类别 a→不可恢复 / 数据条件性不满足）──
+ *   功能仍在（ProductDetail.vue:461 `v-if="product.structure_image"` 渲染
+ *   `img.pd-structure-img`），但本用例的两个前置**在 dev 库均不满足**，故无等价物可改锚：
+ *     ① 硬编码 `PRODUCT_SLUG='5-propargylamino-ctp'` 在产品表中不存在
+ *        （实测 `/products/` 全 68 条无此 slug；且路由为 `/products/:id`，非 slug）。
+ *     ② 实测 dev 库 68 个产品中 **structure_image 非空者 = 0** ⇒ 即便改成按 id 现算，
+ *        也选不到任何可渲染 `img.pd-structure-img` 的产品。
+ *   ⇒ 维持 @obsolete（不放宽为"结构区存在即通过"，那会降级原语义）。理由见 GATE.md §4。
+ *
+ * 前置（若将来 dev 库补入带 structure_image 的已发布产品，可据此复活）：
  *  - 目标产品已发布且库中有 structure_image（PRODUCT_SLUG 指定）
  *
  * 验证：详情页 .pd-structure-box 内出现 img.pd-structure-img，

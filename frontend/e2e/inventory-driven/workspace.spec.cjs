@@ -216,9 +216,12 @@ test.describe('阶段3 Workspace 研究员穷举', () => {
     { key: 'references', path: '/workspace/references', ep: 'references', newBtn: '+ New Reference', editorTitle: 'New Reference', field: 'title', fillLabel: 'Title' },
   ];
 
-  // 注：本轮实测 —— 五个知识页「空名保存」用例全绿（空名 → 后端 400，无写）；「新建（真实写）」
-  // 用例中 goals/apps/methods/protocols 四页红（新行未出现在 .entity-table tbody），仅 references 绿。
-  // ⇒ 前者 @readonly；后者按页分流：references 为 @write，其余四页 @obsolete（理由见 GATE.md §4）。
+  // 注（2026-09-23 复核）：知识页（goals/apps/methods/protocols）列表**总数达 11k~67k**，
+  // 列表 `page_size=200` ⇒ UI 新建后新行**不在首 200 行**，故"新行出现在 `.entity-table tbody`"
+  // 是**与实现无关的假失败**（references 仅 193 行所以在页内 ⇒ 故只有它绿）。
+  // ⇒ 写库证据改为**按唯一名走 API 的存在性断言**（与本仓 workspace-entity-crud.spec.cjs 一致），
+  //   UI 侧保留"编辑器关闭"断言。两类用例的 tier 与实跑证据：
+  //   · 「空名保存 → 400」：无写 ⇒ @readonly；· 「新建（真实写）」：POST + API 清理 ⇒ @write。
   for (const p of pages) {
     test(`Knowledge(${p.key}): 列表渲染 + 打开编辑器 + 空名保存 → .el-message--error`, { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
       const errors = attachConsoleErrorCollector(page, { whitelist: [...CONSOLE_WHITELIST, 'Failed to load resource'] });
@@ -237,7 +240,7 @@ test.describe('阶段3 Workspace 研究员穷举', () => {
       expect(errors).toEqual([]);
     });
 
-    test(`Knowledge(${p.key}): 新建（真实写）→ 列表出现 → API 清理`, { tag: p.key === 'references' ? ['@write', '@local-only'] : ['@obsolete'] }, async ({ page }) => {
+    test(`Knowledge(${p.key}): 新建（真实写）→ API 可按唯一名检索到 → API 清理`, { tag: ['@write', '@local-only'] }, async ({ page }) => {
       const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
       const unique = `__e2e_${p.key}_${Date.now()}__`;
       await loginAsStaff(page);
@@ -247,9 +250,22 @@ test.describe('阶段3 Workspace 研究员穷举', () => {
       await expect(page.locator('#entity-editor-title')).toHaveText(p.editorTitle, { timeout: 5000 });
       await page.locator('.dialog-overlay input.input-full').first().fill(unique);
       await page.getByRole('button', { name: 'Save' }).click();
-      // 弹层关闭 + 新行出现
+      // UI 侧：弹层关闭
       await expect(page.locator('#entity-editor-title')).toHaveCount(0, { timeout: 8000 });
-      await expect(page.locator('.entity-table tbody tr', { hasText: unique }).first()).toBeVisible({ timeout: 8000 });
+      // 写库证据：按唯一名走 API 的存在性断言（总数大、page_size=200 ⇒ 首屏不含新行）
+      const token = await pageGetToken(page);
+      const ctx = await apiContext(token);
+      let arr = [];
+      try {
+        const resp = await ctx.get(`/${p.ep}/`, { params: { search: unique, page_size: 20 } });
+        const body = await resp.json().catch(() => ({}));
+        const d = body?.data;
+        arr = Array.isArray(d) ? d : (d?.results || []);
+      } finally {
+        await ctx.dispose().catch(() => {});
+      }
+      expect(arr.filter((e) => (e.name || e.title) === unique).length,
+        `${p.key} 新建后应能按唯一名检索到 1 条`).toBe(1);
       await cleanupEntity(page, p.ep, unique);
       expect(errors).toEqual([]);
     });
