@@ -125,7 +125,7 @@ npm run test:e2e:local
 | 32 | `homepage.spec.cjs` | readonly | 15 | 15 passed | 改锚 `.hero-title` / `.stat-item` / `.product-grid .product-card` / hero 输入框；flaky「搜索产品」去掉 `networkidle` |
 | 33 | `product-detail-fields.spec.cjs` | readonly | 25 | 25 passed | 详情页改版后锚点全部重接（`.pd-prop-item` / `.pd-name-tags` / `.pd-structure-box` / `.pd-bc-item`） |
 | 34 | `public-smoke.spec.cjs` | readonly | 44 | 44 passed | 4 条硬编码 id 改为 beforeAll 从 API 现算（含原 flaky `/po/orders/1`） |
-| 35 | `inventory-driven/po-portal.spec.cjs` | write/readonly | 13 | 13 passed | 9 只读 + 4 写（建单/approve/shipment/invoice，均 cancel 清理）；修复 `getProductWithSku` |
+| 35 | `inventory-driven/po-portal.spec.cjs` | write/readonly | 13 | 13 passed | 8 只读 + 5 写（建单/approve/shipment/invoice，均 cancel 清理）；修复 `getProductWithSku` |
 | 36 | `inventory-driven/public.spec.cjs` | write/readonly | 41 | 41 passed | 40 只读 + 1 写；staff 登录补 `waitForURL(/workspace/)` 修竞态 |
 | 37 | `inventory-driven/workspace.spec.cjs` | write/readonly | 22 | 22 passed | 16 只读 + 6 写（Save Draft 幂等；5 知识页新建改 **API 存在性断言**） |
 | 38 | `verify-dialog-a11y.spec.cjs` | readonly(部分) | 1 | 1 passed | :65 GoalsPage 编辑弹窗；:31 维持排除（见 §4.1） |
@@ -307,28 +307,33 @@ node e2e/gate-audit.cjs
 cd /e/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/frontend
 node e2e/gate-audit.cjs && \
 node node_modules/@playwright/test/cli.js test -g "@local-only" --grep-invert "@obsolete" \
-  --project=chromium --retries=0 --reporter=line --output=e2e/_qa_r7/gate \
-  > e2e/_qa_r7_gate.log 2>&1
+  --project=chromium --retries=0 --reporter=line --output=e2e/_qa_r8/gate \
+  > e2e/_qa_r8_gate.log 2>&1
+# （同命令首次跑用 --output=e2e/_qa_r7/gate > e2e/_qa_r7_gate.log；4 例 transient 见下方「过程如实记录」）
 ```
 
-| 指标 | 第二轮基线 | 第三轮（本轮） |
+| 指标 | 第二轮基线 | 第三轮（本轮，最终） |
 |---|---|---|
 | 选中 | 430 tests / 37 files | **468 tests / 40 files** |
-| passed | 429 | **463** |
-| failed | 0 | **4** |
+| passed | 429 | **467** |
+| failed | 0 | **0** |
 | skipped | 1 | **1**（同一条数据条件性跳过） |
-| 退出码 | 0 | **1**（因下方 4 例失败） |
-| 耗时 | 18 分 25 秒 | **21 分 5 秒** |
+| 退出码 | 0 | **0** |
+| 耗时 | 18 分 25 秒 | **14 分 3 秒** |
 
-> **净增捞回 38 例**（430→468），**但引入 4 例失败**（未达成 0 failed）：
-> 4 例**全部落在本轮未改动的 `permission-matrix.spec.cjs`**，且均为**导航超时**：
-> `page.goto(...)` 45s 超时（`/po/addresses`、`/po/orders/1`）与 `waitForURL(/\/login/)` 等 `load` 超时
-> （`/admin/po/organizations`、`/workspace/products`）；日志明确显示目标 URL **实际已到达**
+> **净增捞回 38 例**（430→468），**failed = 0 / 退出码 0**（最终日志 `e2e/_qa_r8_gate.log`，
+> `--output=e2e/_qa_r8/gate`）；`gate-audit` 同步 `✔ OK — 范围内 529 个用例全部带 tier 标签`。
+>
+> **过程如实记录（未掩盖）**：同命令**首次**全量跑（`e2e/_qa_r7_gate.log`，21 分 5 秒）出现 **4 例失败**，
+> **全部落在本轮未改动**的 `permission-matrix.spec.cjs`，且均为**导航/`load` 超时**（非断言失败）：
+> `page.goto(...)` 45s 超时（`/po/addresses`、`/po/orders/1`）与 `waitForURL(/\/login/)` 超时
+> （`/admin/po/organizations`、`/workspace/products`），日志显示目标 URL **实际已到达**
 > （如 `navigated to "http://localhost:5173/login?redirect=/workspace/products"`）。
-> **取证**：单独复跑 `permission-matrix`（`e2e/_qa_r8_pm.log`）⇒ **82 passed / 1 failed**，
-> 且**失败用例换成了 `/orders/1`**（非同一批）⇒ 属"本机无外网 ⇒ `fonts.gstatic.com` 请求挂住
-> `load` 事件"型**环境噪声**（该文件未挂 `helpers/console.cjs` 的字体中和器，故对该噪声无免疫）。
-> **如实认定：本轮未达成 0 failed；这 4 例与本轮改动无因果，属既有潜在 flaky（非确定性），未做掩盖。**
+> 单独复跑该文件（`e2e/_qa_r8_pm.log`）⇒ **82 passed / 1 failed，且失败用例换成了 `/orders/1`**（非同一批）
+> ⇒ 判定为"本机无外网 ⇒ `fonts.gstatic.com` 挂住 `load` 事件"型**环境噪声 / 既有潜在 flaky**
+> （该文件未挂 `helpers/console.cjs` 字体中和器，对该噪声无免疫），**与本轮改动无因果**。
+> **随后再次全量复跑（`e2e/_qa_r8_gate.log`）⇒ 467 passed / 1 skipped / 0 failed / 退出码 0**，
+> 证实上表最终结果；r7 的 4 例为**非确定性**（复跑未复现）。
 
 **c) 闸门审计**：`node e2e/gate-audit.cjs` ⇒ `✔ OK — 范围内 529 个用例全部带 tier 标签`，**退出码 0**
 （因删除 `_debug_quote_checkout` 的 1 条非测试用例，总数由 530→529）。
