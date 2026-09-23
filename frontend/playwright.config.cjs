@@ -35,8 +35,8 @@ module.exports = defineConfig({
   projects: [
     {
       name: 'chromium',
-      // 本机未安装 Playwright bundled 浏览器（%LOCALAPPDATA%\ms-playwright 不存在），
-      // 改用系统已装的 Microsoft Edge（channel: 'msedge'）。
+      // 2026-09-23：本机已装 Playwright bundled 浏览器（ms-playwright 下现有 firefox-1522 / webkit-2287）；
+      // chromium 仍走系统已装的 Microsoft Edge（channel: 'msedge'）——它稳定可用，暂不切换成 bundled chromium。
       // 运行：npx playwright test --project=chromium
       use: { browserName: 'chromium', channel: 'msedge' },
     },
