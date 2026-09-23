@@ -30,7 +30,7 @@ async function fillBasicAndSave(page, name, catNo, { cas = '', smiles = '' } = {
   await expect(page.locator('.toast-success')).toContainText(/Product saved/i, { timeout: 15000 })
 }
 
-test.describe('ProductEdit optimization (①~⑥)', () => {
+test.describe('ProductEdit optimization (①~⑥)', { tag: ['@write', '@local-only'] }, () => {
   test.beforeEach(async ({ page }) => {
     await loginAsStaff(page)
   })

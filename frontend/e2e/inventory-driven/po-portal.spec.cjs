@@ -51,7 +51,7 @@ test.afterAll(async () => {
   // 仅复用真实数据，无写操作需清理
 });
 
-test.describe('阶段4 PO 门户穷举', () => {
+test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
 
   // ============ 客户侧：PoSubmit ============
   test('PoSubmit: 渲染 + 添加行项目 + 产品搜索 + SKU 选择 可用', async ({ page }) => {

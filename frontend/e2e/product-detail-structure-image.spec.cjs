@@ -13,7 +13,7 @@ const { test, expect } = require('@playwright/test');
 
 const SLUG = process.env.PRODUCT_SLUG || '5-propargylamino-ctp';
 
-test.describe('Product detail shows Word structure_image (priority over SMILES)', () => {
+test.describe('Product detail shows Word structure_image (priority over SMILES)', { tag: ['@obsolete'] }, () => {
   test('structure box renders img.pd-structure-img with data URI', async ({ page }) => {
     const errors = [];
     page.on('pageerror', (e) => errors.push(String(e)));

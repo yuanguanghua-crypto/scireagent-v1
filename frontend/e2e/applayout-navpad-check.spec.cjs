@@ -16,7 +16,7 @@ const { test, expect } = require('@playwright/test');
 const PUBLIC_NON_HOME = ['/applications', '/methods', '/products', '/about', '/search'];
 const EXPECTED_PAD = 72;
 
-test('非 home public 页：public-nav-pad 生效且 padding-top=72px，内容不被遮挡', async ({ page }) => {
+test('非 home public 页：public-nav-pad 生效且 padding-top=72px，内容不被遮挡', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
   for (const path of PUBLIC_NON_HOME) {
     await page.goto(path);
     await page.waitForSelector('.app-layout');
@@ -51,7 +51,7 @@ test('非 home public 页：public-nav-pad 生效且 padding-top=72px，内容�
   }
 });
 
-test('home（/）：不带 public-nav-pad，无多余留白', async ({ page }) => {
+test('home（/）：不带 public-nav-pad，无多余留白', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
   await page.goto('/');
   await page.waitForSelector('.app-layout');
   const padTop = await page.evaluate(() => {
@@ -65,7 +65,7 @@ test('home（/）：不带 public-nav-pad，无多余留白', async ({ page }) =
   expect(padTop.padTop).toBeLessThan(40); // home 不引入 72px 大留白
 });
 
-test('页面无 console error / pageerror（防回归白屏）', async ({ page }) => {
+test('页面无 console error / pageerror（防回归白屏）', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(String(e)));

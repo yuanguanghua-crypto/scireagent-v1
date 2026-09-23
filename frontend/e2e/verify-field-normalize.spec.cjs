@@ -27,7 +27,7 @@ async function loginAsStaff(page) {
 const PREFIX = 'E2E-NORM-';
 const ts = Date.now();
 
-test.describe('字段兜底归一化验证', () => {
+test.describe('字段兜底归一化验证', { tag: ['@obsolete'] }, () => {
   test.beforeEach(async ({ page }) => {
     await loginAsStaff(page);
   });

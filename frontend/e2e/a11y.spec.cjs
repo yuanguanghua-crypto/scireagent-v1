@@ -58,7 +58,7 @@ const STAFF = [
   { name: 'Workspace', path: '/workspace', sel: '.workspace-layout' },
 ]
 
-test.describe('a11y 公开页扫描（硬断言 0 critical/0 serious）', () => {
+test.describe('a11y 公开页扫描（硬断言 0 critical/0 serious）', { tag: ['@readonly', '@local-only'] }, () => {
   for (const p of PUBLIC) {
     test(`${p.name} 扫描完成`, async ({ page }) => {
       await page.goto(BASE_URL + p.path, { waitUntil: 'domcontentloaded' })
@@ -68,7 +68,7 @@ test.describe('a11y 公开页扫描（硬断言 0 critical/0 serious）', () => 
   }
 })
 
-test.describe('a11y staff 页扫描（硬断言 0 critical/0 serious）', () => {
+test.describe('a11y staff 页扫描（硬断言 0 critical/0 serious）', { tag: ['@readonly', '@local-only'] }, () => {
   test.beforeEach(async ({ page }) => { await loginAsStaff(page) })
   for (const p of STAFF) {
     test(`${p.name} 扫描完成`, async ({ page }) => {

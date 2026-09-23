@@ -75,7 +75,7 @@ test.afterAll(async () => {
   }
 });
 
-test.describe('阶段5 Admin 穷举', () => {
+test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => {
 
   // ============ AdminOrdersPage ============
   test('AdminOrdersPage: 渲染 + 状态过滤 + 搜索 + 行点击进详情', async ({ page }) => {

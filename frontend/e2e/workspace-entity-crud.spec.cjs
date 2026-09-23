@@ -54,7 +54,7 @@ for (const e of ENTITIES) {
   //   该缺陷已修（`ResearchGoalDetailSerializer` 补宽容 slug 声明，与 List 版一致 ⇒ 交给模型 `save()` 自动生成）
   //   ⇒ 本用例即该修复的**闸门**，故转正。若将来又红，先查 E1 是否回退。
   const t = test
-  t(`${e.noun} 治理页：列表渲染 / +New / Cancel 零写入 / Save 写库 / Edit 预填`, async ({ page, request }) => {
+  t(`${e.noun} 治理页：列表渲染 / +New / Cancel 零写入 / Save 写库 / Edit 预填`, { tag: ['@write', '@local-only'] }, async ({ page, request }) => {
     const errors = consoleErrors(page, WL)
     const api = await staffApi(request)
     const uniq = `E2E-${e.noun}-${Date.now()}`

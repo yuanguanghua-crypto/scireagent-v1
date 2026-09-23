@@ -143,7 +143,7 @@ async function selectCascaderPath(page, pathLabels) {
   await page.waitForTimeout(300);
 }
 
-test.describe('产品分类 Cascader 全流程', () => {
+test.describe('产品分类 Cascader 全流程', { tag: ['@write', '@local-only'] }, () => {
 
   test.beforeEach(async ({ page }) => {
     await loginAsStaff(page);

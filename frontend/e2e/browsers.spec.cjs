@@ -10,7 +10,7 @@
 const { test, expect } = require('@playwright/test')
 const { BASE_URL } = require('./helpers/auth.cjs')
 
-test('首页加载且产品网格可见', async ({ page }) => {
+test('首页加载且产品网格可见', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
   await page.goto(BASE_URL + '/', { waitUntil: 'domcontentloaded' })
@@ -19,7 +19,7 @@ test('首页加载且产品网格可见', async ({ page }) => {
   expect(errors, '首页无运行时报错').toHaveLength(0)
 })
 
-test('产品列表页渲染', async ({ page }) => {
+test('产品列表页渲染', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
   await page.goto(BASE_URL + '/products', { waitUntil: 'domcontentloaded' })
@@ -27,7 +27,7 @@ test('产品列表页渲染', async ({ page }) => {
   expect(errors, '产品列表无运行时报错').toHaveLength(0)
 })
 
-test('产品详情页渲染', async ({ page }) => {
+test('产品详情页渲染', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
   const errors = []
   page.on('pageerror', (e) => errors.push(String(e)))
   await page.goto(BASE_URL + '/products/66', { waitUntil: 'domcontentloaded' })

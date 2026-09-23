@@ -29,7 +29,7 @@ async function staffApi(request) {
   return apiContext(token)
 }
 
-test.describe('产品列表页 7 项修复', () => {
+test.describe('产品列表页 7 项修复', { tag: ['@write', '@local-only'] }, () => {
 
   // ── Q2：菜单按状态互斥 ─────────────────────────────
   test('Q2: 各 status 的菜单动作互斥（deprecated 行不得出现 Unpublish）', async ({ page, request }) => {

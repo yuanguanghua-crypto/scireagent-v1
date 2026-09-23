@@ -27,7 +27,7 @@ const PO_STATES = [
   { name: 'quote_pending', label: 'Quote Pending', buttons: ['Submit Quote', 'Cancel Order'], seed: (c) => h.seedQuotePending(c) },
 ]
 
-test.describe('PO 状态分支（AdminOrderDetail UI）', () => {
+test.describe('PO 状态分支（AdminOrderDetail UI）', { tag: ['@readonly', '@local-only'] }, () => {
   let custToken, adminToken
   test.beforeAll(async () => {
     custToken = await h.getCustomerToken()

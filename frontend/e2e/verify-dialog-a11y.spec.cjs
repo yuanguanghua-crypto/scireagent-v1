@@ -23,7 +23,7 @@ async function loginAsStaff(page) {
   ]);
 }
 
-test.describe('弹窗无障碍能力', () => {
+test.describe('弹窗无障碍能力', { tag: ['@obsolete'] }, () => {
   test.beforeEach(async ({ page }) => {
     await loginAsStaff(page);
   });

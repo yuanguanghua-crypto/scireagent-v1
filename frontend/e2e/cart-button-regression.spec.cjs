@@ -38,7 +38,7 @@ async function setBasketCount(page, count) {
 // ──────────────────────────────────────────────────
 // A1. 首页购物车按钮存在
 // ──────────────────────────────────────────────────
-test.describe('A1 — 首页购物车按钮', () => {
+test.describe('A1 — 首页购物车按钮', { tag: ['@obsolete'] }, () => {
   test('购物车按钮存在，包含 SVG 图标，点击后跳转 /cart', async ({ page }) => {
     await page.goto(BASE_URL);
     await page.waitForLoadState('networkidle');
@@ -63,7 +63,7 @@ test.describe('A1 — 首页购物车按钮', () => {
 // ──────────────────────────────────────────────────
 // A2. 产品详情页购物车按钮存在
 // ──────────────────────────────────────────────────
-test.describe('A2 — 产品详情页购物车按钮', () => {
+test.describe('A2 — 产品详情页购物车按钮', { tag: ['@obsolete'] }, () => {
   test('在 /products/23 页面导航栏中存在购物车链接，且可见可点击', async ({ page }) => {
     await page.goto(`${BASE_URL}/products/23`);
     await page.waitForLoadState('networkidle');
@@ -77,7 +77,7 @@ test.describe('A2 — 产品详情页购物车按钮', () => {
 // ──────────────────────────────────────────────────
 // A3. 购物车徽章
 // ──────────────────────────────────────────────────
-test.describe('A3 — 购物车徽章', () => {
+test.describe('A3 — 购物车徽章', { tag: ['@obsolete'] }, () => {
   test('A3.1 — 有商品时徽章显示数量', async ({ page }) => {
     await page.goto(BASE_URL);
     await page.waitForLoadState('networkidle');

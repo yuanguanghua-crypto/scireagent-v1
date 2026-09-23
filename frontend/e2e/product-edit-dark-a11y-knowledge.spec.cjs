@@ -57,7 +57,7 @@ async function fillBasic(page, name, catNo) {
   await page.locator(`input[placeholder="${CAT_PH}"]`).fill(catNo)
 }
 
-test.describe('#172 dark toast contrast + knowledge auto-link', () => {
+test.describe('#172 dark toast contrast + knowledge auto-link', { tag: ['@write', '@local-only'] }, () => {
   test.beforeEach(async ({ page }) => {
     await loginAsStaff(page)
   })

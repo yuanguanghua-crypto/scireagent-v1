@@ -52,7 +52,7 @@ async function cleanupEntity(page, ep, uniqueName) {
   finally { await ctx.dispose().catch(() => {}); }
 }
 
-test.describe('阶段3 Workspace 研究员穷举', () => {
+test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () => {
 
   // ============ 守卫：匿名访问 /workspace → 登录页 ============
   test('Guard: 匿名 /workspace → /login?redirect=/workspace', async ({ page }) => {

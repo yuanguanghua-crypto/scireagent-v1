@@ -59,7 +59,7 @@ function hardDeleteVerified(ids) {
   });
 }
 
-test.describe('C3 Workspace Verified Review', () => {
+test.describe('C3 Workspace Verified Review', { tag: ['@write', '@local-only'] }, () => {
   let ctx, token, method, productName, pmrId = null, created = false;
 
   test.beforeAll(async ({ request }) => {
@@ -154,7 +154,7 @@ test.describe('C3 Workspace Verified Review', () => {
 // ───────────────────────────────────────────────────────────────────────────
 // C4 — Verified Applicability 覆盖缺口（与 C3 解耦：独立夹具 / 独立清理）
 // ───────────────────────────────────────────────────────────────────────────
-test.describe('C4 Verified Applicability — coverage gaps (decoupled)', () => {
+test.describe('C4 Verified Applicability — coverage gaps (decoupled)', { tag: ['@write', '@local-only'] }, () => {
   const createdIds = [];
   let ctx, token;
   let draftEv;   // 有证据的 review 草稿

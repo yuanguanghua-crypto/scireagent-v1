@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { BASE_URL, loginAsCustomer } = require('../helpers/auth');
 
-test('DEBUG quote checkout', async ({ page }) => {
+test('DEBUG quote checkout', { tag: ['@obsolete'] }, async ({ page }) => {
   await loginAsCustomer(page);
   await page.goto(`${BASE_URL}/products/66`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: 'Add to Cart' }).first().click();

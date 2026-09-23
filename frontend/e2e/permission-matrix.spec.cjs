@@ -37,7 +37,7 @@ async function clearAuth(page) {
 }
 
 // ---------- 匿名：所有受限页 → /login?redirect ----------
-test.describe('匿名访客', () => {
+test.describe('匿名访客', { tag: ['@readonly', '@local-only'] }, () => {
   test.beforeEach(async ({ page }) => { await clearAuth(page) })
 
   for (const path of [...REQUIRES_AUTH, ...REQUIRES_ADMIN_STANDALONE, ...REQUIRES_ADMIN_WORKSPACE]) {
@@ -52,7 +52,7 @@ test.describe('匿名访客', () => {
 })
 
 // ---------- customer（is_staff=False） ----------
-test.describe('customer（非 staff）', () => {
+test.describe('customer（非 staff）', { tag: ['@readonly', '@local-only'] }, () => {
   test.beforeEach(async ({ page }) => { await loginAsCustomer(page) })
 
   for (const path of REQUIRES_AUTH) {
@@ -81,7 +81,7 @@ test.describe('customer（非 staff）', () => {
 })
 
 // ---------- staff（is_staff=True） ----------
-test.describe('staff（is_staff）', () => {
+test.describe('staff（is_staff）', { tag: ['@readonly', '@local-only'] }, () => {
   test.beforeEach(async ({ page }) => { await loginAsStaff(page) })
 
   for (const path of [...REQUIRES_AUTH, ...REQUIRES_ADMIN_STANDALONE, ...REQUIRES_ADMIN_WORKSPACE]) {
@@ -94,7 +94,7 @@ test.describe('staff（is_staff）', () => {
 })
 
 // ---------- guest 已登录重定向 ----------
-test.describe('guest 页已登录重定向', () => {
+test.describe('guest 页已登录重定向', { tag: ['@readonly', '@local-only'] }, () => {
   test('staff 已登录访问 /login → 跳 /workspace', async ({ page }) => {
     await loginAsStaff(page)
     await page.goto(BASE_URL + '/login', { waitUntil: 'domcontentloaded' })

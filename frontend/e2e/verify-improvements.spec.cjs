@@ -25,7 +25,7 @@ async function loginAsStaff(page) {
   ]);
 }
 
-test.describe('前端三项改进验证', () => {
+test.describe('前端三项改进验证', { tag: ['@readonly', '@local-only'] }, () => {
   test.beforeEach(async ({ page }) => {
     await loginAsStaff(page);
   });

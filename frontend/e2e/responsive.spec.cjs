@@ -27,7 +27,7 @@ const STAFF = [
 ]
 
 for (const v of VIEWPORTS) {
-  test.describe(`视口 ${v.name} (${v.w}x${v.h})`, () => {
+  test.describe(`视口 ${v.name} (${v.w}x${v.h})`, { tag: ['@readonly', '@local-only'] }, () => {
     test.use({ viewport: { width: v.w, height: v.h } })
     test.beforeEach(async ({ page }) => {
       page._errors = []

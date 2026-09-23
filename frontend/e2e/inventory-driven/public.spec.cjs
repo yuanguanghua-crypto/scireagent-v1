@@ -40,7 +40,7 @@ async function selectElOption(page, selectText, optionText) {
   return sel;
 }
 
-test.describe('阶段1 公开页交互穷举', () => {
+test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   // ============ HomePage `/` ============
   test('Home: HeroSearch 输入 + Search 按钮 → /search?q=', async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });

@@ -20,7 +20,7 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
  */
 const HERO_INPUT_SELECTOR = '.hero-search-input .el-input__inner, .hero-search-input input';
 
-test.describe('首页', () => {
+test.describe('首页', { tag: ['@obsolete'] }, () => {
   test('加载首页并显示 Hero 区域', async ({ page }) => {
     await page.goto(BASE_URL);
 
@@ -76,7 +76,7 @@ test.describe('首页', () => {
   });
 });
 
-test.describe('产品列表页', () => {
+test.describe('产品列表页', { tag: ['@obsolete'] }, () => {
   test('加载产品列表', async ({ page }) => {
     await page.goto(`${BASE_URL}/products`);
     await page.waitForLoadState('networkidle');
@@ -93,7 +93,7 @@ test.describe('产品列表页', () => {
   });
 });
 
-test.describe('方法列表页', () => {
+test.describe('方法列表页', { tag: ['@obsolete'] }, () => {
   test('加载方法列表', async ({ page }) => {
     await page.goto(`${BASE_URL}/methods`);
     await page.waitForLoadState('networkidle');
@@ -108,7 +108,7 @@ test.describe('方法列表页', () => {
   });
 });
 
-test.describe('搜索页', () => {
+test.describe('搜索页', { tag: ['@obsolete'] }, () => {
   test('搜索产品', async ({ page }) => {
     await page.goto(`${BASE_URL}/search?q=Cy3`);
     await page.waitForLoadState('networkidle');
@@ -131,7 +131,7 @@ test.describe('搜索页', () => {
   });
 });
 
-test.describe('导航', () => {
+test.describe('导航', { tag: ['@obsolete'] }, () => {
   test('侧边栏导航链接可点击', async ({ page }) => {
     await page.goto(BASE_URL);
     await page.waitForLoadState('networkidle');
@@ -154,7 +154,7 @@ test.describe('导航', () => {
   });
 });
 
-test.describe('API 端点验证', () => {
+test.describe('API 端点验证', { tag: ['@obsolete'] }, () => {
   test('site/home 返回正确结构', async ({ request }) => {
     const response = await request.get('http://localhost:8000/api/v1/site/home');
     expect(response.ok()).toBeTruthy();

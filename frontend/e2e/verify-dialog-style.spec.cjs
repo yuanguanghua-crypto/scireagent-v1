@@ -22,7 +22,7 @@ async function loginAsStaff(page) {
   ]);
 }
 
-test.describe('统一弹窗样式验证', () => {
+test.describe('统一弹窗样式验证', { tag: ['@obsolete'] }, () => {
   test.beforeEach(async ({ page }) => {
     await loginAsStaff(page);
   });

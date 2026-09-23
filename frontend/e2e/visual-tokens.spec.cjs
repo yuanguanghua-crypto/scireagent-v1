@@ -37,7 +37,7 @@ const STAFF = [
   { name: 'Workspace', path: '/workspace', sel: '.workspace-layout' },
 ]
 
-test('全站设计令牌一致且品牌色正确', async ({ page }) => {
+test('全站设计令牌一致且品牌色正确', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
   const collected = []
   // 公开页
   for (const p of PUBLIC) {

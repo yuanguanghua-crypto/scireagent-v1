@@ -69,7 +69,7 @@ async function cleanupQuote(quoteId) {
   }
 }
 
-test.describe('阶段2 认证流程穷举', () => {
+test.describe('阶段2 认证流程穷举', { tag: ['@write', '@local-only'] }, () => {
 
   // ============ 认证守卫（匿名 → 登录页） ============
   test('Guard: 匿名 /settings → /login?redirect=/settings', async ({ page }) => {

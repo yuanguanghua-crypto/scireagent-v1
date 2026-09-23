@@ -77,7 +77,7 @@ const ROUTES = [
   { path: '/admin/po/organizations', role: 'admin', name: 'PoOrgManagement' },
 ];
 
-test.describe('阶段0 全站路由冒烟雷达', () => {
+test.describe('阶段0 全站路由冒烟雷达', { tag: ['@obsolete'] }, () => {
   for (const r of ROUTES) {
     test(`${r.name} [${r.role}] ${r.path}`, async ({ page }) => {
       const errors = attachConsoleErrorCollector(page);

@@ -16,7 +16,7 @@ const { test, expect } = require('@playwright/test');
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const PRODUCT_URL = `${BASE_URL}/products/66`;
 
-test.describe('Product Detail Page — Field Completeness', () => {
+test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete'] }, () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto(PRODUCT_URL, { waitUntil: 'domcontentloaded', timeout: 15000 });
