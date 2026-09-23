@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { http } from '@/api/http'
 import { toast, LoadingSpinner, EmptyState } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
+import ListTruncationHint from './components/ListTruncationHint.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -12,6 +13,7 @@ if (!auth.isStaff) { router.replace('/') }
 
 const entityType = 'goals'
 const entities = ref([])
+const totalCount = ref(0)
 const loading = ref(true)
 const error = ref('')
 const showEditor = ref(false)
@@ -34,6 +36,7 @@ async function loadList() {
   try {
     const resp = await http.get('/research-goals/', { params: { page_size: 200 } })
     entities.value = (resp.data?.results || resp.data || [])
+    totalCount.value = resp.meta?.pagination?.count ?? (Array.isArray(resp.data) ? resp.data.length : 0)
   } catch (e) {
     error.value = 'Failed to load'
   } finally {
@@ -99,6 +102,8 @@ async function save() {
       <h2>Research Goals</h2>
       <button class="btn btn-primary btn-sm" @click="openNew">+ New Goal</button>
     </div>
+
+    <ListTruncationHint :count="totalCount" :shown="entities.length" />
 
     <LoadingSpinner v-if="loading" text="Loading..." />
     <div v-else-if="error" class="error">{{ error }}</div>

@@ -35,6 +35,12 @@ async function countViaApi(api, path) {
   return (Array.isArray(d) ? d : d?.results || []).length
 }
 
+/** 总数用 **`meta.pagination.count`** 现算 —— 与组件所读的信封字段**同源**（禁硬编码 11028 之类） */
+async function totalViaApi(api, path) {
+  const body = await (await api.get(path, { params: { page_size: 1 } })).json()
+  return body?.meta?.pagination?.count ?? null
+}
+
 const ENTITIES = [
   { noun: 'Goal', page: '/workspace/goals', api: '/research-goals/' },
   { noun: 'Application', page: '/workspace/applications', api: '/applications/' },
@@ -68,6 +74,21 @@ for (const e of ENTITIES) {
       const dom0 = await rows(page).count()
       expect(dom0, `${e.noun} 渲染行数不应超过 API 总数`).toBeLessThanOrEqual(n0)
       console.log(`__E2E__ ${e.noun} 列表 API=${n0} DOM=${dom0}${dom0 < n0 ? '（有渲染上限，静默截断）' : '（全量渲染）'}`)
+
+      // ①b 截断提示（`[data-testid="truncation-hint"]`）——**仅当 API 总数 > 实际渲染行数**时出现。
+      //    文案里两个数字**都用现算**：总数 = `meta.pagination.count`，行数 = 当前 DOM 行数 ⇒ **禁硬编码 11028 之类**。
+      //    反向用例：未截断的页（如 dev 的 references 193/193）该元素**必须不存在**。
+      const total0 = await totalViaApi(api, e.api)
+      const hint = page.locator('[data-testid="truncation-hint"]')
+      const expectTruncated = total0 > dom0
+      if (expectTruncated) {
+        await expect(hint, `${e.noun} 有静默截断时应显示提示`).toBeVisible({ timeout: 10000 })
+        await expect(hint, `${e.noun} 提示文案应为「Showing first <DOM> of <API> records」`)
+          .toHaveText(`Showing first ${dom0} of ${total0} records`)
+      } else {
+        await expect(hint, `${e.noun} 未截断时不应出现提示`).toHaveCount(0)
+      }
+      console.log(`__E2E__ ${e.noun} 截断提示 API=${total0} DOM=${dom0} 显示=${expectTruncated}`)
 
       // ② `+ New <X>` ⇒ 编辑器出现，标题为 New 形态
       await newBtn.click()
