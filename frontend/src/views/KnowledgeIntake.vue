@@ -18,6 +18,9 @@ const saving = ref(false)
 const message = ref(null)
 const filterClass = ref('')
 
+/** "Copy to Similar Products" 硬上限：同类目标数超过它则一条都不写（防无上限批量写）。 */
+const MAX_COPY_TARGETS = 50
+
 /* ── Form data ── */
 const form = ref({
   research_goals: [],
@@ -119,7 +122,7 @@ async function save() {
       product_id: selectedProduct.value.id,
       ...form.value,
     })
-    message.value = { type: 'ok', text: `Saved knowledge for ${selectedProduct.value.catalog_no}` }
+    message.value = { type: 'ok', text: `Saved as draft for ${selectedProduct.value.catalog_no}` }
   } catch (e) {
     message.value = { type: 'err', text: 'Save failed: ' + (e.message || 'Unknown error') }
   }
@@ -137,17 +140,37 @@ async function copyToSimilar() {
     message.value = { type: 'err', text: 'No similar products found' }
     return
   }
+  // (1) 写前确认：明确告知将被写入的目标条数；用户取消则**不做任何写入**。
+  const proceed = window.confirm(
+    `Copy knowledge to ${similar.length} similar product(s)?`
+  )
+  // (2) 硬上限：超过则**一条都不写**（无论确认结果），并把**实际条数与上限**告知用户。
+  if (similar.length > MAX_COPY_TARGETS) {
+    message.value = {
+      type: 'err',
+      text: `Too many similar products (${similar.length}); limit is ${MAX_COPY_TARGETS}. Nothing was copied.`,
+    }
+    return
+  }
+  if (!proceed) return
+  // (3) 逐条计数：成功/失败分别累计，结束时如实汇报（不再只丢一句 "Copy failed"）。
   saving.value = true
-  try {
-    for (const p of similar) {
+  let copied = 0
+  let failed = 0
+  for (const p of similar) {
+    try {
       await http.post('/knowledge-intake/', {
         product_id: p.id,
         ...form.value,
       })
+      copied++
+    } catch (e) {
+      failed++
     }
-    message.value = { type: 'ok', text: `Copied to ${similar.length} similar products` }
-  } catch (e) {
-    message.value = { type: 'err', text: 'Copy failed' }
+  }
+  message.value = {
+    type: failed > 0 ? 'err' : 'ok',
+    text: `Copied to ${copied} of ${similar.length} (${failed} failed)`,
   }
   saving.value = false
 }
