@@ -128,7 +128,7 @@ npm run test:e2e:local
 | 35 | `inventory-driven/po-portal.spec.cjs` | write/readonly | 13 | 13 passed | 8 只读 + 5 写（建单/approve/shipment/invoice，均 cancel 清理）；修复 `getProductWithSku` |
 | 36 | `inventory-driven/public.spec.cjs` | write/readonly | 41 | 41 passed | 40 只读 + 1 写；staff 登录补 `waitForURL(/workspace/)` 修竞态 |
 | 37 | `inventory-driven/workspace.spec.cjs` | write/readonly | 22 | 22 passed | 16 只读 + 6 写（Save Draft 幂等；5 知识页新建改 **API 存在性断言**） |
-| 38 | `verify-dialog-a11y.spec.cjs` | readonly(部分) | 1 | 1 passed | :65 GoalsPage 编辑弹窗；:31 维持排除（见 §4.1） |
+| 38 | `verify-dialog-a11y.spec.cjs` | readonly(部分) | 1 | 1 passed | :65 GoalsPage 编辑弹窗（1 passed）；原 :31「缺失字段弹窗」已删除（见 §4.1） |
 | 39 | `verify-dialog-style.spec.cjs` | readonly(部分) | 3 | 3 passed | :30/:59 改锚 Publish 确认弹窗；:95 toast；:72 维持排除（见 §4.1） |
 | 40 | `verify-field-normalize.spec.cjs` | write/readonly | 2 | 2 passed | D1 真实 POST ⇒ `@write`；D2 纯函数 ⇒ `@readonly` |
 
