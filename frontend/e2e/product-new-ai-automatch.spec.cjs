@@ -296,6 +296,23 @@ test.describe('Part1 · 新建页组 D「AI AUTO MATCH」生产只读', () => {
     await triggerEnrich(page)
     await expect(page.locator(`${PANEL} .knowledge-match-group .km-section-title`).first()).toContainText('Methods')
     await expect(page.locator(`${PANEL} .km-link-btn`).first()).toBeVisible()
+
+    // ── **D13↑**（动作清单普查 #2）：🔗 Link 的 **app→methods 级联**此前"**从未被点击**" ──
+    //   已 Read 核实 `linkAppMethods()`（`ProductEditPage.vue:596-613`）：它只
+    //     ① `GET /applications/{id}/`（**只读**）② 把该 app 的 methods 推进**本地** `methodIds`（表单态）
+    //     ③ 弹 `Linked Application: … (+N methods)`
+    //   ⇒ **不写库** ⇒ **生产只读可测**（此点曾被我误判为"会写库"，已在普查报告中更正）。
+    const appsGroup = page.locator(`${PANEL} .knowledge-match-group`).filter({ hasText: 'Applications' })
+    if (await appsGroup.count()) {
+      const before = prodCounts()
+      await appsGroup.locator('button.km-link-btn', { hasText: '🔗 Link' }).first().click()
+      await expect(page.getByText(/Linked Application/).first(),
+        'D13↑ 点击 🔗 Link 后应提示已级联').toBeVisible({ timeout: 10000 })
+      // 级联的**只读性**（就是上面那条更正的可执行证据）：8 表必须 Δ0
+      expectDelta(before, prodCounts(), zeroSpec(before), 'D13↑ 级联不写库')
+    } else {
+      console.log('__E2E__ D13_APPS_ABSENT 本次 enrich 未命中 Applications 分组 ⇒ 级联段跳过（不是失败）')
+    }
   })
 
   test('D16 @readonly @prod-ok 未 Import 协议就 enrich：product/协议/方法血缘 + audit_log 计数 Δ0', async ({ request }) => {

@@ -407,4 +407,35 @@ test.describe('Part 2 · 其余缺口（只读扩展集）', () => {
       )
     }, 'D1 Edit 跳转')
   })
+
+  // ── C6（动作清单普查 #1）：`clearFilters` 此前**本 14 spec 内未被触及** ──────
+  //   代码事实：按钮**只在 `emptyKind === 'filtered-out'` 的空态里渲染**（`ProductsPage.vue:649-653`），
+  //   点它 ⇒ `statusFilter='all'` **且** `completenessFilter='all'`（`:201-204`）。
+  //   ⇒ 要触发它，必须先**把列表筛空**。用 API 现算一个"必然筛空"的 status（禁硬编码），
+  //     若 dev 库每种状态都有可见行则 **skip**（如实说明，不伪造）。
+  test('C6 @readonly 筛选到空 ⇒ 空态含 `Clear filters` ⇒ 点它筛选复位、行数恢复', async ({ page, request }) => {
+    await loginAsStaff(page)
+    const api = await staffApi(request)
+    const live = (await fetchAll(api)).filter((p) => p.archived !== true)
+    await api.dispose()
+    const emptyStatus = ['archived', 'draft', 'deprecated', 'active']
+      .find((s) => live.filter((p) => p.status === s).length === 0)
+    test.skip(!emptyStatus, 'dev 库每种状态都有可见行，无法构造"筛空"空态')
+
+    await goto(page, '/workspace/products')
+    await waitLoaded(page)
+    const rowsAll = await page.locator('.products-table tbody tr').count()
+
+    const statusSel = page.locator('.filters-bar select').first()
+    await statusSel.selectOption(emptyStatus)
+    const clearBtn = page.getByRole('button', { name: 'Clear filters', exact: true })
+    await expect(clearBtn, '筛空后空态里应出现 Clear filters').toBeVisible({ timeout: 10000 })
+
+    await clearBtn.click()
+    await expect(statusSel, 'C6 清除后 status 应复位 all').toHaveValue('all')
+    await expect(
+      page.locator('.products-table tbody tr'),
+      'C6 清除筛选后行数应恢复'
+    ).toHaveCount(rowsAll, { timeout: 10000 })
+  })
 })
