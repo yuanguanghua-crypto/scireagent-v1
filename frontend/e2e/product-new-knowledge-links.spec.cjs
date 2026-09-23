@@ -131,6 +131,30 @@ test.describe('Part 1 · 组 E 知识关联（5. Knowledge Links）', () => {
     const api = await apiContext(await getToken(ctx, ADMIN_USER, ADMIN_PASS))
     const r = await cleanupByPrefix(api, { label: 'E-group' })
     for (const mid of createdMethods) await api.delete(`/methods/${mid}/`).catch(() => {})
+    // ── D15 自清理（durable fix，2026-09-23）──────────────────────────────
+    //   D15 用例经 `POST /products/import-protocol/` 把 `E2E D15 Protocol <ts>` 写进 protocol 表，
+    //   但原 spec **从不回收** ⇒ 每跑一次 dev 库多 1 条 published 协议（实测 id=14188 即此例）。
+    //   该端点默认 `allow_create_method=false`（ai_views.py:617-629）⇒ method_name 解析不到既有方法时
+    //   返回 None，**只建 Protocol 不建 Method**；删 Protocol 会级联清 ProtocolStep / MethodProtocol
+    //   （knowledge/models.py:346-348、bridges/models.py:59-62）。
+    //   这里按名前缀硬删（幂等）⇒ 连跑两次 protocol 计数回到基线（Δ0）。
+    const d15Ids = dbQuery(
+      `import json\nfrom apps.knowledge.models import Protocol\n` +
+        `ids = list(Protocol.objects.filter(name__startswith='E2E D15').values_list('id', flat=True))\n` +
+        `print('__SNAP__' + json.dumps(ids))`)
+    const d15Deleted = []
+    for (const pid of d15Ids) {
+      // ⚠️ 服务端 DELETE 回 **204 但带 body**（`EnvelopeRenderer` 给 204 也写信封，
+      //    `Content-Length: 38`）⇒ Playwright 解析报 `Parse Error: Expected HTTP/`；
+      //    删除本身已成功（curl 实测 204）。按既有约定吞掉该解析错（等同上方 `.catch(()=>{})`）。
+      try {
+        const resp = await api.delete(`/protocols/${pid}/`)
+        d15Deleted.push([pid, resp.status()])
+      } catch (e) {
+        d15Deleted.push([pid, `sent(204-body) ${String(e.message).split('\n')[0]}`])
+      }
+    }
+    console.log(`__E2E__ D15_PROTO_CLEANUP leftover=${J(d15Ids)} deleted=${J(d15Deleted)}`)
     console.log(`__E2E__ E_CLEANUP ${J(r)} createdMethods=${J(createdMethods)}`)
     await ctx.dispose(); await api.dispose()
   })
