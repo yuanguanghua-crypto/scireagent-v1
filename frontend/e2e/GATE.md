@@ -1,7 +1,8 @@
 # E2E 闸门说明（GATE.md）
 
 > 位置：`frontend/e2e/GATE.md`
-> 口径更新：2026-09-23（本轮 QA 定级 + 标注 + 复核）
+> 口径更新：2026-09-23（第一轮：30 个原无标签 spec 的 **spec 级**定级；
+> 第二轮：**用例级捞回** —— 把"部分红"文件里的**绿例**按**用例级** tag 纳入闸门，红例逐条排除）
 > 相关文件：`frontend/e2e/gate-audit.cjs`（审计器）、`frontend/package.json`（`test:e2e:local`）
 
 ---
@@ -117,8 +118,17 @@ npm run test:e2e:local
 | 28 | `product-seo-publish.spec.cjs` | write | 4 | 见 §5 | 既有标签 |
 | 29 | `product-new-negative.spec.cjs` | write/readonly | 2 | 见 §5 | 既有标签 |
 | 30 | `product-new-bioz-guard.spec.cjs` | write/readonly | 2 | 见 §5 | 既有标签 |
+| — | 以下 7 个为**第二轮用例级捞回**的"部分红"文件（**部分纳入**；被排除的红例见 §4 逐条） | | | | |
+| 31 | `cart-button-regression.spec.cjs` | readonly(部分) | 2 | 2 passed | A3.x 仅客户端 Pinia 状态注入，无网络写 |
+| 32 | `homepage.spec.cjs` | readonly(部分) | 10 | 10 passed | 导航 / 列表 / API GET，均只读 |
+| 33 | `product-detail-fields.spec.cjs` | readonly(部分) | 11 | 11 passed | 仅详情页 DOM 断言 |
+| 34 | `public-smoke.spec.cjs` | readonly(部分) | 40 | 40 passed | 仅导航 + console 雷达 |
+| 35 | `inventory-driven/po-portal.spec.cjs` | write/readonly(部分) | 11 | 11 passed | 7 只读 + 4 写（API 建单 / approve / shipment / invoice，均 cancel 清理） |
+| 36 | `inventory-driven/public.spec.cjs` | write/readonly(部分) | 40 | 40 passed | 39 只读 + 1 写（加购 → 删除，自清理） |
+| 37 | `inventory-driven/workspace.spec.cjs` | write/readonly(部分) | 18 | 18 passed | 16 只读 + 2 写（Save Draft 幂等重存；references 新建 + API 清理） |
 
-> **合计**：30 文件 / **298 例** 被 `-g "@local-only" --grep-invert "@obsolete"` 选中。
+> **合计**：37 文件 / **430 例** 被 `-g "@local-only" --grep-invert "@obsolete"` 选中
+> （第一轮 30 文件 / 298 例 ＋ 第二轮 7 文件 / **132 例**捞回）。
 
 **边界说明（3 个既有 spec 不在 local 闸门内，但并未漏跑）**：
 `product-list-readonly-ext`（22 例，仅 `@readonly`）、`product-list-readonly`（5 例 `@readonly` + 2 `@prod-ok`）、
@@ -127,28 +137,39 @@ npm run test:e2e:local
 
 ---
 
-## 4. 闸门外 spec 表（`@obsolete`，显式排除 + 理由）
+## 4. 闸门外**用例**表（`@obsolete`，显式排除 + 逐条理由）
 
-「闸门外」= 本轮 `--retries=0` 实跑**有失败**（不放宽断言、不改 skip、不伪造通过），已标注 `@obsolete`。
+「闸门外」= `--retries=0` 实跑**失败**（不放宽断言、不改 skip、不伪造通过）或**跨轮 flaky**。
+第二轮起改为**用例级**标注 `@obsolete` ⇒ 同一文件可以"部分纳入"（绿例进 §3，红例留本表）。
 
-| # | 文件 | 类别 | 本轮实测 | 具体理由（可复核） |
-|---|---|---|---|---|
-| 1 | `cart-button-regression.spec.cjs` | 选择器漂移 | 2 failed / 2 passed | A1/A2 断言 `.public-nav a.cart-btn[href="/cart"]`，该 class 在当前 `src/components/layout/PublicNav.vue:108-117` 已不存在（现为 `.cart-indicator` 内的 `AppButton`）⇒ element(s) not found |
-| 2 | `homepage.spec.cjs` | 文案/结构漂移（i18n） | 4 failed / 11 passed | 仅「首页」describe 4 例失败：`.hero-title` 文案已英文化为 " From research goal toprecision reagent"（断言仍要 `SciRe`）；`.stat-card/.stat-chip` 计数 0（期望 4）。英文化来自 2026-07-12 提交 `9113578` |
-| 3 | `product-detail-fields.spec.cjs` | 选择器漂移 | 14 failed / 11 passed | `.pd-chip-primary` 已不存在；`.pd-chip-mono` 命中 2 个元素 ⇒ strict mode violation。详情页字段区改版后 class 漂移 |
-| 4 | `product-detail-structure-image.spec.cjs` | 选择器漂移 | 1 failed | `.pd-structure-box` element(s) not found |
-| 5 | `public-smoke.spec.cjs` | 依赖 dev 特定数据 | 3 failed / 41 passed | 3 例硬编码 dev 数据 id：`/research-goals/27` 触发 console 404、`/orders/1` 与 `/po/orders/1` 触发 `fetchOrder` 404 ⇒ console 零错误断言失败 |
-| 6 | `verify-dialog-a11y.spec.cjs` | 凭据漂移 + 语义变更 | 2 failed | 硬编码过期密码 `AdminPass123!`（与 `helpers/auth.cjs` 的 `admin123` 漂移）⇒ 登录 401 ⇒ `waitForURL` 超时；且断言依赖**已被移除的阻断弹窗** `.dialog-overlay`（Save Draft 已改"告知模式"，不再弹窗） |
-| 7 | `verify-dialog-style.spec.cjs` | 凭据漂移 + 语义变更 | 4 failed | 同上：过期密码 ⇒ 登录 401；断言 `.dialog` / `.missing-list` 依赖已移除的阻断弹窗 |
-| 8 | `verify-field-normalize.spec.cjs` | 凭据漂移 | 2 failed | 硬编码过期密码 `AdminPass123!` ⇒ 登录 401 ⇒ `waitForURL` 超时 |
-| 9 | `inventory-driven/_debug_quote_checkout.spec.cjs` | 历史遗留调试脚本 | 1 failed | 无断言的 DEBUG 脚本（只有 `console.log`），45s 超时；已落地真实写（订单 `#263`） |
-| 10 | `inventory-driven/po-portal.spec.cjs` | 历史遗留 + 硬编码数据 | 2 failed / 11 passed | `PoSubmit: 产品搜索` 断言硬编码产品名 `5‑Propargylamino‑dCTP-Cy3`，在当前 dev 库不存在 |
-| 11 | `inventory-driven/public.spec.cjs` | 历史遗留 + 偶发登录 | 1 failed / 40 passed | `Login: staff 登录 → /workspace` 失败（登录后 URL 仍为 `/login`） |
-| 12 | `inventory-driven/workspace.spec.cjs` | 历史遗留 + 列表刷新 | 4 failed / 18 passed | 4 例「Knowledge(goals/apps/methods/protocols): 新建（真实写）→ 列表出现」：新建实体未出现在 `.entity-table tbody tr` |
+### 4.1 第一轮已整体 `@obsolete`、本轮**仍全红**（5 个文件 / 10 例，维持不动）
 
-> 备注：`inventory-driven/admin.spec.cjs` 与 `inventory-driven/auth.spec.cjs` 本轮**全绿**，已按规则**转入闸门内**（见 §3 #17/#18），不在本表。
+| # | 文件 | 排除用例数 | 类别 | 实测 | 理由（可复核） |
+|---|---|---|---|---|---|
+| 1 | `product-detail-structure-image.spec.cjs` | 1（全部） | 选择器漂移 | 1 failed | `.pd-structure-box` element(s) not found |
+| 2 | `verify-dialog-a11y.spec.cjs` | 2（全部） | 凭据漂移 + 语义变更 | 2 failed | 硬编码过期密码 `AdminPass123!`（与 `helpers/auth.cjs` 的 `admin123` 漂移）⇒ 登录 401；且断言依赖**已被移除的阻断弹窗** `.dialog-overlay` |
+| 3 | `verify-dialog-style.spec.cjs` | 4（全部） | 凭据漂移 + 语义变更 | 4 failed | 同上：过期密码 ⇒ 登录 401；断言 `.dialog` / `.missing-list` 依赖已移除的阻断弹窗 |
+| 4 | `verify-field-normalize.spec.cjs` | 2（全部） | 凭据漂移 | 2 failed | 同上（`beforeEach` 登录先失败，纯函数用例 D2 同被带红） |
+| 5 | `inventory-driven/_debug_quote_checkout.spec.cjs` | 1（全部） | 历史遗留调试脚本 | 1 failed | 无断言的 DEBUG 脚本（只有 `console.log`），45s 超时 |
 
-> **未修断言**：本轮**只做分类 + 标注**，未放宽任何断言、未把失败改 skip。
+### 4.2 第二轮"部分红"文件中被排除的**用例**（7 个文件 / 共 32 例；其余 **132 例已捞回** §3）
+
+| # | 文件 | 排除用例数 | 类别 | 实测 | 逐条理由（可复核，本轮 `--retries=0` 实跑） |
+|---|---|---|---|---|---|
+| 6 | `cart-button-regression.spec.cjs` | 2 | 选择器漂移 | 2 failed | ①A1「购物车按钮存在，包含 SVG 图标，点击后跳转 /cart」②A2「在 /products/23 页面导航栏中存在购物车链接，且可见可点击」：断言 `.public-nav a.cart-btn[href="/cart"]`，该 class 在当前 `src/components/layout/PublicNav.vue` 已不存在（现为 `.cart-indicator` 内 `AppButton`）⇒ element(s) not found |
+| 7 | `homepage.spec.cjs` | 5 | 文案/结构漂移（i18n）+ flaky | 4 failed + 1 flaky | ①「加载首页并显示 Hero 区域」：`.hero-title` 文案不含 `SciRe`（已英文化）②「统计卡片显示数据」：`.stat-card/.stat-chip` 计数 0（期望 4）③「Featured Applications 显示卡片」：`.card-grid-3 .application-card/.card` 计数 <1 ④「搜索框跳转到搜索页」：`.hero-search-input input` 超时 ⑤「搜索产品」：**flaky，未纳入** —— 同命令**基线 PASSED / 复跑 TIMEDOUT**（`page.goto` + `waitForLoadState('networkidle')` 触发 45s 超时；该 spec 头注释本就警告 networkidle 不可用） |
+| 8 | `product-detail-fields.spec.cjs` | 14 | 选择器漂移 | 14 failed | TC-02/03：`.pd-chip-primary` 不存在、`.pd-chip-mono` strict mode violation（命中 2 元素）；TC-08～13：`.pd-spec` 的 Formula/MW/Purity/Conc/Storage/Shipping 改版后不存在；TC-15：`.pd-sku-head` 列文案漂移；TC-20：`.pd-cart-btn` 文案非 `Add to Cart`；TC-22：SMILES `.pd-id-item` 不存在；TC-23：`.pd-class-item`(Category L1) 不存在；TC-24：结构图区不存在；TC-25：`.pd-breadcrumb` 超时 |
+| 9 | `public-smoke.spec.cjs` | 4 | 硬编码 dev 数据 id（数据条件性） | 3 failed 本轮 + 1 flaky | AppDetail `/applications/30`、RGDetail `/research-goals/27`、OrderDetailPage `/orders/1`：本轮实测 console 404 ⇒ 零错误断言失败（该 id 记录在当前 dev 库不存在）；PoOrderDetail `/po/orders/1`：**跨轮 flaky，未纳入**（上一轮 404 红、本轮绿） |
+| 10 | `inventory-driven/po-portal.spec.cjs` | 2 | 依赖 dev 库特定 SKU 产品 | 2 failed | ①「PoSubmit: 渲染 + 添加行项目 + 产品搜索 + SKU 选择 可用」②「PoSubmit: 完整填写提交 → 成功 callout（真实写 + 清理）」：均断言 `.po-search-item` 命中 `shared.name`(= `5‑Propargylamino‑dCTP‑Cy3`)，但该产品在当前 dev 库 PO 产品搜索里查不到（`getProductWithSku` 取到的产品名与 PO 搜索索引不一致）⇒ element(s) not found |
+| 11 | `inventory-driven/public.spec.cjs` | 1 | 偶发登录 | 1 failed | 「Login: staff 登录 → /workspace」：登录后 `page.url()` 仍不含 `/workspace`（登录跳转未完成 / 被守卫拦回） |
+| 12 | `inventory-driven/workspace.spec.cjs` | 4 | 列表刷新 | 4 failed | 「Knowledge(goals/apps/methods/protocols): 新建（真实写）→ 列表出现 → API 清理」：UI 新建后新行未出现在 `.entity-table tbody tr`（同用例 references 通过 ⇒ 非整页崩，而是这四页列表未刷新/未含新行） |
+
+> **合计排除 42 例**（4.1 的 10 例 + 4.2 的 32 例）。
+
+> 备注：`inventory-driven/admin.spec.cjs` 与 `inventory-driven/auth.spec.cjs` 第一轮**全绿**，已转入闸门内（见 §3 #17/#18），不在本表。
+
+> **未修断言**：两轮均**只做分类 + 标注**，未放宽任何断言、未把失败改 skip、未为"捞回"而放宽判定。
+> **flaky 处置**：`homepage › 搜索产品` 与 `public-smoke › /po/orders/1` 为跨轮不稳定项，按"失败"处置、标 `@obsolete`，**未纳入**闸门。
 > **可复活项（供后续决定，本轮不越界）**：`verify-dialog-*` / `verify-field-normalize` 的失败根因是**硬编码过期密码**（改回 `helpers/auth.cjs` 即可复活登录），叠加 `verify-dialog-*` 的弹窗语义变更（断言语义需重写，属"发现功能定义偏差"，需产品判定）。
 
 ---
@@ -169,7 +190,7 @@ npm run test:e2e:local
 逐 spec 单跑（各自全新 `--output`，`--retries=0`），**自 16:09:21 至 16:30:17，共 20 分 57 秒**。
 结果见 §3（绿，18 个转入闸门内）与 §4（红，12 个转 `@obsolete`）。
 
-### 5.3 完整 local 闸门结果（`-g "@local-only" --grep-invert "@obsolete"`）
+### 5.3 第一轮：完整 local 闸门结果（`-g "@local-only" --grep-invert "@obsolete"`）
 
 命令（等价于 `npm run test:e2e:local` 的第二段）：
 
@@ -207,6 +228,67 @@ gate-audit: ✘ 发现 1/531 个**未标注 tier 的用例**（@readonly/@write/
 **收集期报错验证**：临时放入一个 `require` 失败的 spec ⇒ `errors` 非空 / `suites` 为空 ⇒
 `gate-audit` 以退出码 3 判失败（而非"0 例全过"）。
 
+### 5.5 第二轮（用例级捞回）：逐文件实测
+
+- **日期**：2026-09-23
+- **参数**：`--project=chromium --retries=0 --reporter=line,json`（关闭重试）
+- **做法**：对 7 个"部分红"文件先 `--retries=0` **整文件实跑**拿到逐用例 pass/fail；
+  据此**按用例级**重标（绿例 `@readonly|@write` + `@local-only`；红例 `@obsolete`）；
+  再按闸门选择复跑确认。
+- 逐文件（**捞回 / 仍是 obsolete**；括号内为该文件总用例数）：
+
+| 文件 | 捞回（进闸门） | 仍 obsolete | 总用例 |
+|---|---|---|---|
+| `cart-button-regression.spec.cjs` | 2 | 2 | 4 |
+| `homepage.spec.cjs` | 10 | 5（含 1 flaky） | 15 |
+| `product-detail-fields.spec.cjs` | 11 | 14 | 25 |
+| `public-smoke.spec.cjs` | 40 | 4（含 1 flaky） | 44 |
+| `inventory-driven/po-portal.spec.cjs` | 11 | 2 | 13 |
+| `inventory-driven/public.spec.cjs` | 40 | 1 | 41 |
+| `inventory-driven/workspace.spec.cjs` | 18 | 4 | 22 |
+| **合计** | **132** | **32** | **164** |
+
+> 另有 5 个文件第一轮即**全红**，本轮复核**维持整体 `@obsolete`**（共 10 例）：
+> `product-detail-structure-image` / `verify-dialog-a11y` / `verify-dialog-style` /
+> `verify-field-normalize` / `inventory-driven/_debug_quote_checkout`（逐条理由见 §4.1）。
+> ⇒ 本轮**排除合计 42 例**（10 + 32），**捞回 132 例**。
+
+**复跑确认**（`-g "@local-only" --grep-invert "@obsolete"`，每文件全新 `--output`）：
+7 个文件各自 `passed=捞回数 / failed=0`（`homepage` 在首轮复跑暴露 `搜索产品` flaky ⇒ 改标 `@obsolete` 后复跑 10/10）。
+
+### 5.6 第二轮：完整 local 闸门结果（与第一轮基线对比）
+
+命令（等价于 `npm run test:e2e:local`）：
+
+```bash
+cd /e/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/frontend
+node e2e/gate-audit.cjs && \
+node node_modules/@playwright/test/cli.js test -g "@local-only" --grep-invert "@obsolete" \
+  --project=chromium --retries=0 --reporter=line --output=e2e/_qa_recover/out_gate \
+  > e2e/_qa_recover/gate.log 2>&1
+```
+
+| 指标 | 第一轮基线 | 第二轮（本轮） |
+|---|---|---|
+| 选中 | 298 tests / 30 files | **430 tests / 37 files** |
+| passed | 297 | **429** |
+| skipped | 1 | **1**（同一条数据条件性跳过） |
+| failed | 0 | **0** |
+| 退出码 | 0 | **0** |
+| 耗时 | 10 分 36 秒 | **18 分 25 秒** |
+
+> **对比结论**：**新增捞回 132 例**（298 → 430），**未引入任何新失败**（failed 仍为 0）。
+
+### 5.7 第二轮：闸门审计结果
+
+```bash
+node e2e/gate-audit.cjs
+# gate-audit: ✔ OK — 范围内 530 个用例全部带 tier 标签（@readonly/@write/@obsolete）。
+# 退出码 0
+```
+
+（用例级改标未破坏"每条用例都有 tier 标签"这一机制。）
+
 ---
 
 ## 6. 今天实测到的「闸门有洞」证据（三条）
@@ -233,7 +315,23 @@ gate-audit: ✘ 发现 1/531 个**未标注 tier 的用例**（@readonly/@write/
 
 ## 7. 本轮改动的文件清单
 
+### 7.1 第一轮（spec 级定级）
+
 - 标注（tier 标签）：30 个 spec 文件（见 §3 / §4 首列）
 - 机制：`frontend/e2e/gate-audit.cjs`（补 §1-② 防线；不再特殊排除 `inventory-driven/`）
 - 跑批入口：`frontend/package.json`（新增 `test:e2e:local`）
 - 本文档：`frontend/e2e/GATE.md`
+
+### 7.2 第二轮（用例级捞回）
+
+- 按用例级重标（7 个"部分红"spec，**仅改标签**，未改任何断言/未改 `src`/`backend`）：
+  - `frontend/e2e/cart-button-regression.spec.cjs`
+  - `frontend/e2e/homepage.spec.cjs`
+  - `frontend/e2e/product-detail-fields.spec.cjs`
+  - `frontend/e2e/public-smoke.spec.cjs`
+  - `frontend/e2e/inventory-driven/po-portal.spec.cjs`
+  - `frontend/e2e/inventory-driven/public.spec.cjs`
+  - `frontend/e2e/inventory-driven/workspace.spec.cjs`
+- 本文档：`frontend/e2e/GATE.md`
+- 未改：`frontend/e2e/gate-audit.cjs`、`frontend/package.json`、`frontend/src/**`、`backend/**`
+  （逐文件实跑产物在 `frontend/e2e/_qa_recover/`，属临时目录，不入库）

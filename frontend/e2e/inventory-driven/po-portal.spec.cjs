@@ -51,10 +51,10 @@ test.afterAll(async () => {
   // 仅复用真实数据，无写操作需清理
 });
 
-test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
+test.describe('阶段4 PO 门户穷举', () => {
 
   // ============ 客户侧：PoSubmit ============
-  test('PoSubmit: 渲染 + 添加行项目 + 产品搜索 + SKU 选择 可用', async ({ page }) => {
+  test('PoSubmit: 渲染 + 添加行项目 + 产品搜索 + SKU 选择 可用', { tag: ['@obsolete'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsCustomer(page);
     await gotoPage(page, '/po/submit');
@@ -76,7 +76,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('PoSubmit: 空 PO 号提交 → 原生 alert 校验', async ({ page }) => {
+  test('PoSubmit: 空 PO 号提交 → 原生 alert 校验', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     page.on('dialog', async (d) => { await d.accept(); });
     await loginAsCustomer(page);
@@ -87,7 +87,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('PoSubmit: 完整填写提交 → 成功 callout（真实写 + 清理）', async ({ page }) => {
+  test('PoSubmit: 完整填写提交 → 成功 callout（真实写 + 清理）', { tag: ['@obsolete'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     const custToken = await getCustomerToken();
     const adminToken = await getAdminToken();
@@ -114,7 +114,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ 客户侧：PoOrderList ============
-  test('PoOrderList: 渲染 + 状态过滤 + + New PO 跳转', async ({ page }) => {
+  test('PoOrderList: 渲染 + 状态过滤 + + New PO 跳转', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsCustomer(page);
     await gotoPage(page, '/po/orders');
@@ -126,7 +126,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ 客户侧：PoOrderDetail ============
-  test('PoOrderDetail: 经 API 建单 → 详情渲染 order_no', async ({ page }) => {
+  test('PoOrderDetail: 经 API 建单 → 详情渲染 order_no', { tag: ['@write', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     const custToken = await getCustomerToken();
     const adminToken = await getAdminToken();
@@ -144,7 +144,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
   // ============ 客户侧：PoAddressList ============
   // /addresses/ 是 P1 未实现（源码明文 warn），Save 走错误提示且不持久化。
   // 测试只断言：页面渲染 + P1 提示可见 + 表单可开 + 填后 Save 不崩溃（页面仍在）。
-  test('PoAddressList: 渲染 + P1 提示 + 表单可开 + Save 不崩溃', async ({ page }) => {
+  test('PoAddressList: 渲染 + P1 提示 + 表单可开 + Save 不崩溃', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     page.on('dialog', async (d) => { await d.accept(); });
     await loginAsCustomer(page);
@@ -164,7 +164,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ 客户侧：PoReorder ============
-  test('PoReorder: 渲染（列表或空态）+ Re-order 跳转', async ({ page }) => {
+  test('PoReorder: 渲染（列表或空态）+ Re-order 跳转', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsCustomer(page);
     await gotoPage(page, '/po/reorder');
@@ -185,7 +185,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ 客户侧：PoDownloadCenter ============
-  test('PoDownloadCenter: 渲染（列表或空态）', async ({ page }) => {
+  test('PoDownloadCenter: 渲染（列表或空态）', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsCustomer(page);
     await gotoPage(page, '/po/downloads');
@@ -195,7 +195,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ 内部台：PoReviewDesk ============
-  test('PoReviewDesk: 种子 PO_RECEIVED → Approve 后离开待审列表（真实写 + 清理）', async ({ page }) => {
+  test('PoReviewDesk: 种子 PO_RECEIVED → Approve 后离开待审列表（真实写 + 清理）', { tag: ['@write', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     const custToken = await getCustomerToken();
     const adminToken = await getAdminToken();
@@ -215,7 +215,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ 内部台：PoShipmentDesk ============
-  test('PoShipmentDesk: 种子 confirmed → 打开订单 + Create Shipment（真实写 + 清理）', async ({ page }) => {
+  test('PoShipmentDesk: 种子 confirmed → 打开订单 + Create Shipment（真实写 + 清理）', { tag: ['@write', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     const custToken = await getCustomerToken();
     const adminToken = await getAdminToken();
@@ -239,7 +239,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ 内部台：PoInvoicingDesk ============
-  test('PoInvoicingDesk: 种子 delivered → Issue Invoice 出现发票（真实写 + 清理）', async ({ page }) => {
+  test('PoInvoicingDesk: 种子 delivered → Issue Invoice 出现发票（真实写 + 清理）', { tag: ['@write', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     const custToken = await getCustomerToken();
     const adminToken = await getAdminToken();
@@ -261,7 +261,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ 内部台：PoArReport ============
-  test('PoArReport: 渲染 4 账龄桶 + 总额', async ({ page }) => {
+  test('PoArReport: 渲染 4 账龄桶 + 总额', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/admin/po/ar');
@@ -272,7 +272,7 @@ test.describe('阶段4 PO 门户穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ 内部台：PoOrgManagement ============
-  test('PoOrgManagement: 渲染机构列表 + 选中机构显示订单', async ({ page }) => {
+  test('PoOrgManagement: 渲染机构列表 + 选中机构显示订单', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/admin/po/organizations');

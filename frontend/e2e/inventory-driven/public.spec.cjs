@@ -40,9 +40,9 @@ async function selectElOption(page, selectText, optionText) {
   return sel;
 }
 
-test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
+test.describe('阶段1 公开页交互穷举', () => {
   // ============ HomePage `/` ============
-  test('Home: HeroSearch 输入 + Search 按钮 → /search?q=', async ({ page }) => {
+  test('Home: HeroSearch 输入 + Search 按钮 → /search?q=', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/');
     const box = page.getByPlaceholder(/Search products, CAS, methods/);
@@ -52,7 +52,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Home: HeroSearch 回车 → /search?q=', async ({ page }) => {
+  test('Home: HeroSearch 回车 → /search?q=', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/');
     const box = page.getByPlaceholder(/Search products, CAS, methods/);
@@ -62,7 +62,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Home: 热门标签点击 → /search?q=', async ({ page }) => {
+  test('Home: 热门标签点击 → /search?q=', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/');
     await page.locator('.tag').first().click();
@@ -70,7 +70,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Home: 分类 pill 点击 → /products?category=', async ({ page }) => {
+  test('Home: 分类 pill 点击 → /products?category=', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/');
     await page.locator('.category-pill').first().click();
@@ -79,7 +79,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ LoginPage `/login` ============
-  test('Login: 错误密码 → 报错并停留在登录页（未进入认证区）', async ({ page }) => {
+  test('Login: 错误密码 → 报错并停留在登录页（未进入认证区）', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/login');
     await page.locator('#login-username').fill('admin');
@@ -98,21 +98,21 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Login: staff 登录 → /workspace', async ({ page }) => {
+  test('Login: staff 登录 → /workspace', { tag: ['@obsolete'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     expect(page.url()).toContain('/workspace');
     expect(errors).toEqual([]);
   });
 
-  test('Login: customer 登录 → 离开 /login', async ({ page }) => {
+  test('Login: customer 登录 → 离开 /login', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsCustomer(page);
     expect(page.url()).not.toContain('/login');
     expect(errors).toEqual([]);
   });
 
-  test('Login: 注册链接 → /register', async ({ page }) => {
+  test('Login: 注册链接 → /register', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/login');
     await page.getByRole('link', { name: 'Create one' }).click();
@@ -121,7 +121,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ RegisterPage `/register`（3 步，不实际提交） ============
-  test('Register: 步骤1 填写 → 步骤2 角色卡', async ({ page }) => {
+  test('Register: 步骤1 填写 → 步骤2 角色卡', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/register');
     await page.locator('#reg-username').fill('e2e_user_demo');
@@ -133,7 +133,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Register: 步骤2 选角色 → 步骤3 组织（提交按钮用 .auth-submit）', async ({ page }) => {
+  test('Register: 步骤2 选角色 → 步骤3 组织（提交按钮用 .auth-submit）', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/register');
     await page.locator('#reg-username').fill('e2e_user_demo');
@@ -147,7 +147,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Register: 步骤3 切换 Join/Create Tab', async ({ page }) => {
+  test('Register: 步骤3 切换 Join/Create Tab', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/register');
     await page.locator('#reg-username').fill('e2e_user_demo');
@@ -167,7 +167,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ SearchPage `/search` ============
-  test('Search: 输入 + Search → 结果或空态渲染', async ({ page }) => {
+  test('Search: 输入 + Search → 结果或空态渲染', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/search');
     await page.getByPlaceholder(/Search products, methods, protocols, applications/).fill('ATP');
@@ -176,7 +176,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Search: 空结果态文案', async ({ page }) => {
+  test('Search: 空结果态文案', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/search?q=zzzqqq99noresult');
     await expect(page.locator('.empty-container')).toBeVisible({ timeout: 10000 });
@@ -184,7 +184,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Search: 分类 Tab 切换（有结果时）', async ({ page }) => {
+  test('Search: 分类 Tab 切换（有结果时）', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/search?q=ATP');
     const tabs = page.locator('.tab-btn');
@@ -196,7 +196,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ ApplicationIndex `/applications` ============
-  test('Applications: 搜索框输入生效', async ({ page }) => {
+  test('Applications: 搜索框输入生效', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/applications');
     const input = page.getByPlaceholder(/Search applications/i);
@@ -205,7 +205,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Applications: 过滤 chips Active', async ({ page }) => {
+  test('Applications: 过滤 chips Active', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/applications');
     await page.locator('.filter-chip', { hasText: 'Active' }).click();
@@ -213,7 +213,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Applications: 卡片点击 → 详情', async ({ page }) => {
+  test('Applications: 卡片点击 → 详情', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/applications');
     await page.locator('.card-grid').first().locator(':scope > *').first().click();
@@ -221,7 +221,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Applications: 分页下一页（有分页时）', async ({ page }) => {
+  test('Applications: 分页下一页（有分页时）', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/applications');
     const next = page.locator('.el-pagination .btn-next').first();
@@ -236,7 +236,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ MethodIndex `/methods` ============
-  test('Methods: 搜索框输入生效', async ({ page }) => {
+  test('Methods: 搜索框输入生效', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/methods');
     const input = page.getByPlaceholder(/Search methods/i);
@@ -245,7 +245,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Methods: 过滤 chips Active', async ({ page }) => {
+  test('Methods: 过滤 chips Active', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/methods');
     await page.locator('.filter-chip', { hasText: 'Active' }).click();
@@ -253,7 +253,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Methods: 卡片点击 → 详情', async ({ page }) => {
+  test('Methods: 卡片点击 → 详情', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/methods');
     await page.locator('.card-grid').first().locator(':scope > *').first().click();
@@ -262,7 +262,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ ProtocolIndex `/protocols` ============
-  test('Protocols: 搜索框输入生效', async ({ page }) => {
+  test('Protocols: 搜索框输入生效', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/protocols');
     const input = page.getByPlaceholder(/Search protocols/i);
@@ -271,7 +271,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Protocols: 过滤 chips Published', async ({ page }) => {
+  test('Protocols: 过滤 chips Published', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/protocols');
     await page.locator('.filter-chip', { hasText: 'Published' }).click();
@@ -279,7 +279,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Protocols: 卡片点击 → 详情', async ({ page }) => {
+  test('Protocols: 卡片点击 → 详情', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/protocols');
     await page.locator('.card-grid').first().locator(':scope > *').first().click();
@@ -288,7 +288,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ ProductIndex `/products` ============
-  test('Products: 搜索 → 本地过滤（列表刷新）', async ({ page }) => {
+  test('Products: 搜索 → 本地过滤（列表刷新）', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/products');
     await page.locator('.product-search-input').fill('ATP');
@@ -299,7 +299,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Products: 分类 L1 pill 客户端过滤', async ({ page }) => {
+  test('Products: 分类 L1 pill 客户端过滤', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/products');
     await page.locator('.cat-pill').first().click();
@@ -307,7 +307,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Products: 分页下一页', async ({ page }) => {
+  test('Products: 分页下一页', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/products');
     const next = page.locator('.page-btn', { hasText: 'Next' }).first();
@@ -319,7 +319,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Products: 卡片点击 → 详情', async ({ page }) => {
+  test('Products: 卡片点击 → 详情', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/products');
     await page.locator('.product-grid').first().locator(':scope > *').first().click();
@@ -328,7 +328,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ ResearchGoalIndex `/research-goals` ============
-  test('ResearchGoals: 状态 el-select 筛选', async ({ page }) => {
+  test('ResearchGoals: 状态 el-select 筛选', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/research-goals');
     await selectElOption(page, 'Status', 'Active');
@@ -336,7 +336,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('ResearchGoals: 搜索框输入生效', async ({ page }) => {
+  test('ResearchGoals: 搜索框输入生效', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/research-goals');
     const input = page.getByPlaceholder(/Search research goals/i);
@@ -345,7 +345,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('ResearchGoals: 行点击 → 详情', async ({ page }) => {
+  test('ResearchGoals: 行点击 → 详情', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/research-goals');
     const row = page.locator('.el-table__row').first();
@@ -357,7 +357,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ ProductDetail `/products/:id` ============
-  test('ProductDetail: SKU 表 + 数量 +/-', async ({ page }) => {
+  test('ProductDetail: SKU 表 + 数量 +/-', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/products/66');
     await expect(page.locator('.pd-sku-table').first()).toBeVisible({ timeout: 10000 });
@@ -370,7 +370,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('ProductDetail: 知识 Tab 切换', async ({ page }) => {
+  test('ProductDetail: 知识 Tab 切换', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/products/66');
     const tab = page.locator('.pd-tab-btn').first();
@@ -381,7 +381,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('ProductDetail: Request Quote 链接 → /quote-request', async ({ page }) => {
+  test('ProductDetail: Request Quote 链接 → /quote-request', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/products/66');
     await page.locator('a, button', { hasText: 'Request Quote' }).first().click();
@@ -389,14 +389,14 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('ProductDetail: Add to Cart 按钮存在', async ({ page }) => {
+  test('ProductDetail: Add to Cart 按钮存在', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/products/66');
     await expect(page.getByRole('button', { name: 'Add to Cart' }).first()).toBeVisible({ timeout: 8000 });
     expect(errors).toEqual([]);
   });
 
-  test('ProductDetail: 文档链接 SDS/COA 渲染', async ({ page }) => {
+  test('ProductDetail: 文档链接 SDS/COA 渲染', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/products/66');
     await expect(page.locator('.pd-doc-link').first()).toBeVisible({ timeout: 8000 });
@@ -404,7 +404,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ CartPage `/cart` ============
-  test('Cart: 匿名空态 + Browse Products → /products', async ({ page }) => {
+  test('Cart: 匿名空态 + Browse Products → /products', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/cart');
     await expect(page.locator('.empty-state').first()).toBeVisible({ timeout: 8000 });
@@ -414,7 +414,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('Cart: 客户加购 → 改数量 → 删除 → toast', async ({ page }) => {
+  test('Cart: 客户加购 → 改数量 → 删除 → toast', { tag: ['@write', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsCustomer(page);
     await gotoPage(page, '/products/66');
@@ -447,7 +447,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ QuoteRequestPage `/quote-request` ============
-  test('QuoteRequest: 空提交 → 行内 Required 错误', async ({ page }) => {
+  test('QuoteRequest: 空提交 → 行内 Required 错误', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/quote-request');
     await page.getByRole('button', { name: 'Submit Quote Request' }).click();
@@ -455,7 +455,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
     expect(errors).toEqual([]);
   });
 
-  test('QuoteRequest: 有效提交（隔离写） → 成功横幅', async ({ page }) => {
+  test('QuoteRequest: 有效提交（隔离写） → 成功横幅', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/quote-request');
     // 隔离后端写操作，避免污染测试库
@@ -476,7 +476,7 @@ test.describe('阶段1 公开页交互穷举', { tag: ['@obsolete'] }, () => {
   });
 
   // ============ NotFound `/:pathMatch` ============
-  test('NotFound: 返回首页按钮 → /', async ({ page }) => {
+  test('NotFound: 返回首页按钮 → /', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/zzz-route-not-exist-2026');
     await expect(page.locator('.back-btn').first()).toBeVisible({ timeout: 8000 });

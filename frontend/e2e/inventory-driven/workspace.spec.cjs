@@ -52,10 +52,10 @@ async function cleanupEntity(page, ep, uniqueName) {
   finally { await ctx.dispose().catch(() => {}); }
 }
 
-test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () => {
+test.describe('阶段3 Workspace 研究员穷举', () => {
 
   // ============ 守卫：匿名访问 /workspace → 登录页 ============
-  test('Guard: 匿名 /workspace → /login?redirect=/workspace', async ({ page }) => {
+  test('Guard: 匿名 /workspace → /login?redirect=/workspace', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/workspace');
     await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
@@ -64,7 +64,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
   });
 
   // ============ Dashboard ============
-  test('Dashboard: 统计卡片/快捷入口/知识图谱/近期表渲染', async ({ page }) => {
+  test('Dashboard: 统计卡片/快捷入口/知识图谱/近期表渲染', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await expect(page.locator('.stat-card').first()).toBeVisible({ timeout: 10000 });
@@ -77,7 +77,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
   });
 
   // ============ ProductsPage ============
-  test('Products: 列表渲染 + 可排序表头切换排序指示', async ({ page }) => {
+  test('Products: 列表渲染 + 可排序表头切换排序指示', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/products');
@@ -88,7 +88,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
     expect(errors).toEqual([]);
   });
 
-  test('Products: 状态过滤下拉切换（计数文案更新，无报错）', async ({ page }) => {
+  test('Products: 状态过滤下拉切换（计数文案更新，无报错）', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/products');
@@ -99,7 +99,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
     expect(errors).toEqual([]);
   });
 
-  test('Products: 勾选行 → Batch Link 弹层打开 → 取消关闭', async ({ page }) => {
+  test('Products: 勾选行 → Batch Link 弹层打开 → 取消关闭', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/products');
@@ -112,7 +112,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
     expect(errors).toEqual([]);
   });
 
-  test('Products: 操作菜单 → Unpublish → 确认弹层打开 → 取消', async ({ page }) => {
+  test('Products: 操作菜单 → Unpublish → 确认弹层打开 → 取消', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/products');
@@ -127,7 +127,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
     expect(errors).toEqual([]);
   });
 
-  test('Products: 操作菜单 → Move to Recycle Bin → 确认弹层 + 勾选框门控按钮', async ({ page }) => {
+  test('Products: 操作菜单 → Move to Recycle Bin → 确认弹层 + 勾选框门控按钮', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/products');
@@ -144,7 +144,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
     expect(errors).toEqual([]);
   });
 
-  test('Products: 回收站视图 → 展示已删产品并可恢复', async ({ page }) => {
+  test('Products: 回收站视图 → 展示已删产品并可恢复', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/products?view=recycle');
@@ -168,7 +168,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
   });
 
   // ============ ProductEditPage ============
-  test('ProductEdit: 从列表进入编辑页 → 表单(Name/完整度条)渲染', async ({ page }) => {
+  test('ProductEdit: 从列表进入编辑页 → 表单(Name/完整度条)渲染', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/products');
@@ -181,7 +181,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
     expect(errors).toEqual([]);
   });
 
-  test('ProductEdit: 点击 Save Draft → 自定义 toast-success（幂等重存，不污染）', async ({ page }) => {
+  test('ProductEdit: 点击 Save Draft → 自定义 toast-success（幂等重存，不污染）', { tag: ['@write', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/products');
@@ -193,7 +193,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
     expect(errors).toEqual([]);
   });
 
-  test('ProductEdit: 点击 Publish → 确认弹层打开（不实际发布，避免状态变更）→ 取消', async ({ page }) => {
+  test('ProductEdit: 点击 Publish → 确认弹层打开（不实际发布，避免状态变更）→ 取消', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/products');
@@ -216,8 +216,11 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
     { key: 'references', path: '/workspace/references', ep: 'references', newBtn: '+ New Reference', editorTitle: 'New Reference', field: 'title', fillLabel: 'Title' },
   ];
 
+  // 注：本轮实测 —— 五个知识页「空名保存」用例全绿（空名 → 后端 400，无写）；「新建（真实写）」
+  // 用例中 goals/apps/methods/protocols 四页红（新行未出现在 .entity-table tbody），仅 references 绿。
+  // ⇒ 前者 @readonly；后者按页分流：references 为 @write，其余四页 @obsolete（理由见 GATE.md §4）。
   for (const p of pages) {
-    test(`Knowledge(${p.key}): 列表渲染 + 打开编辑器 + 空名保存 → .el-message--error`, async ({ page }) => {
+    test(`Knowledge(${p.key}): 列表渲染 + 打开编辑器 + 空名保存 → .el-message--error`, { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
       const errors = attachConsoleErrorCollector(page, { whitelist: [...CONSOLE_WHITELIST, 'Failed to load resource'] });
       const unique = `__e2e_${p.key}_${Date.now()}__`;
       await loginAsStaff(page);
@@ -234,7 +237,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
       expect(errors).toEqual([]);
     });
 
-    test(`Knowledge(${p.key}): 新建（真实写）→ 列表出现 → API 清理`, async ({ page }) => {
+    test(`Knowledge(${p.key}): 新建（真实写）→ 列表出现 → API 清理`, { tag: p.key === 'references' ? ['@write', '@local-only'] : ['@obsolete'] }, async ({ page }) => {
       const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
       const unique = `__e2e_${p.key}_${Date.now()}__`;
       await loginAsStaff(page);
@@ -253,7 +256,7 @@ test.describe('阶段3 Workspace 研究员穷举', { tag: ['@obsolete'] }, () =>
   }
 
   // ============ KnowledgeIntake ============
-  test('KnowledgeIntake: 产品列表渲染 → 选产品 → 表单区 + 切换 chip（不提交，避免写库）', async ({ page }) => {
+  test('KnowledgeIntake: 产品列表渲染 → 选产品 → 表单区 + 切换 chip（不提交，避免写库）', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
     await gotoPage(page, '/workspace/knowledge-intake');

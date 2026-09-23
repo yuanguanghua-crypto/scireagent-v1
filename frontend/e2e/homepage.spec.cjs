@@ -20,8 +20,8 @@ const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
  */
 const HERO_INPUT_SELECTOR = '.hero-search-input .el-input__inner, .hero-search-input input';
 
-test.describe('首页', { tag: ['@obsolete'] }, () => {
-  test('加载首页并显示 Hero 区域', async ({ page }) => {
+test.describe('首页', () => {
+  test('加载首页并显示 Hero 区域', { tag: ['@obsolete'] }, async ({ page }) => {
     await page.goto(BASE_URL);
 
     // 等待页面加载完成
@@ -37,7 +37,7 @@ test.describe('首页', { tag: ['@obsolete'] }, () => {
     await expect(searchInput).toBeVisible();
   });
 
-  test('统计卡片显示数据', async ({ page }) => {
+  test('统计卡片显示数据', { tag: ['@obsolete'] }, async ({ page }) => {
     await page.goto(BASE_URL);
     await page.waitForLoadState('networkidle');
 
@@ -50,7 +50,7 @@ test.describe('首页', { tag: ['@obsolete'] }, () => {
     await expect(firstLabel).toContainText('Applications');
   });
 
-  test('Featured Applications 显示卡片', async ({ page }) => {
+  test('Featured Applications 显示卡片', { tag: ['@obsolete'] }, async ({ page }) => {
     await page.goto(BASE_URL);
     await page.waitForLoadState('networkidle');
 
@@ -60,7 +60,7 @@ test.describe('首页', { tag: ['@obsolete'] }, () => {
     expect(count).toBeGreaterThanOrEqual(1);
   });
 
-  test('搜索框跳转到搜索页', async ({ page }) => {
+  test('搜索框跳转到搜索页', { tag: ['@obsolete'] }, async ({ page }) => {
     await page.goto(BASE_URL);
     await page.waitForLoadState('networkidle');
 
@@ -76,8 +76,8 @@ test.describe('首页', { tag: ['@obsolete'] }, () => {
   });
 });
 
-test.describe('产品列表页', { tag: ['@obsolete'] }, () => {
-  test('加载产品列表', async ({ page }) => {
+test.describe('产品列表页', () => {
+  test('加载产品列表', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/products`);
     await page.waitForLoadState('networkidle');
 
@@ -93,8 +93,8 @@ test.describe('产品列表页', { tag: ['@obsolete'] }, () => {
   });
 });
 
-test.describe('方法列表页', { tag: ['@obsolete'] }, () => {
-  test('加载方法列表', async ({ page }) => {
+test.describe('方法列表页', () => {
+  test('加载方法列表', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/methods`);
     await page.waitForLoadState('networkidle');
 
@@ -108,8 +108,12 @@ test.describe('方法列表页', { tag: ['@obsolete'] }, () => {
   });
 });
 
-test.describe('搜索页', { tag: ['@obsolete'] }, () => {
-  test('搜索产品', async ({ page }) => {
+test.describe('搜索页', () => {
+  // ★ flaky（2026-09-23 复核）：本用例在基线跑批 PASSED、在同命令复跑 TIMEDOUT
+  //   （page.goto / waitForLoadState('networkidle') 触发 45s 测试超时）。
+  //   根因：该用例用了本 spec 头注释明确警告的 networkidle（"避免出网 AI 端点挂起"仍被误用）。
+  //   ⇒ 按"失败/不确定"处置，整条排除，未纳入闸门（理由见 GATE.md §4）。
+  test('搜索产品', { tag: ['@obsolete'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/search?q=Cy3`);
     await page.waitForLoadState('networkidle');
 
@@ -120,7 +124,7 @@ test.describe('搜索页', { tag: ['@obsolete'] }, () => {
     expect(count).toBeGreaterThanOrEqual(1);
   });
 
-  test('空搜索显示空状态', async ({ page }) => {
+  test('空搜索显示空状态', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/search`);
     await page.waitForLoadState('networkidle');
 
@@ -131,8 +135,8 @@ test.describe('搜索页', { tag: ['@obsolete'] }, () => {
   });
 });
 
-test.describe('导航', { tag: ['@obsolete'] }, () => {
-  test('侧边栏导航链接可点击', async ({ page }) => {
+test.describe('导航', () => {
+  test('侧边栏导航链接可点击', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     await page.goto(BASE_URL);
     await page.waitForLoadState('networkidle');
 
@@ -144,7 +148,7 @@ test.describe('导航', { tag: ['@obsolete'] }, () => {
     }
   });
 
-  test('404 页面', async ({ page }) => {
+  test('404 页面', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     await page.goto(`${BASE_URL}/nonexistent-page`);
     await page.waitForLoadState('networkidle');
 
@@ -154,8 +158,8 @@ test.describe('导航', { tag: ['@obsolete'] }, () => {
   });
 });
 
-test.describe('API 端点验证', { tag: ['@obsolete'] }, () => {
-  test('site/home 返回正确结构', async ({ request }) => {
+test.describe('API 端点验证', () => {
+  test('site/home 返回正确结构', { tag: ['@readonly', '@local-only'] }, async ({ request }) => {
     const response = await request.get('http://localhost:8000/api/v1/site/home');
     expect(response.ok()).toBeTruthy();
 
@@ -167,7 +171,7 @@ test.describe('API 端点验证', { tag: ['@obsolete'] }, () => {
     expect(data.data).toHaveProperty('featured_products');
   });
 
-  test('products API 返回产品列表', async ({ request }) => {
+  test('products API 返回产品列表', { tag: ['@readonly', '@local-only'] }, async ({ request }) => {
     const response = await request.get('http://localhost:8000/api/v1/products/');
     expect(response.ok()).toBeTruthy();
 
@@ -178,7 +182,7 @@ test.describe('API 端点验证', { tag: ['@obsolete'] }, () => {
     expect(data.data[0]).toHaveProperty('cas');
   });
 
-  test('methods API 返回方法列表', async ({ request }) => {
+  test('methods API 返回方法列表', { tag: ['@readonly', '@local-only'] }, async ({ request }) => {
     const response = await request.get('http://localhost:8000/api/v1/methods/');
     expect(response.ok()).toBeTruthy();
 
@@ -187,7 +191,7 @@ test.describe('API 端点验证', { tag: ['@obsolete'] }, () => {
     expect(data.data.length).toBeGreaterThanOrEqual(1);
   });
 
-  test('search API 跨资源搜索', async ({ request }) => {
+  test('search API 跨资源搜索', { tag: ['@readonly', '@local-only'] }, async ({ request }) => {
     const response = await request.get('http://localhost:8000/api/v1/search?q=Cy3');
     expect(response.ok()).toBeTruthy();
 
@@ -200,7 +204,7 @@ test.describe('API 端点验证', { tag: ['@obsolete'] }, () => {
     expect(types).toContain('product');
   });
 
-  test('sitemap.xml 返回 XML', async ({ request }) => {
+  test('sitemap.xml 返回 XML', { tag: ['@readonly', '@local-only'] }, async ({ request }) => {
     const response = await request.get('http://localhost:8000/api/v1/sitemap.xml');
     expect(response.ok()).toBeTruthy();
 

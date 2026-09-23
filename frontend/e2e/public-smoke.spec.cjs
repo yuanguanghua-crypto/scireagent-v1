@@ -77,9 +77,26 @@ const ROUTES = [
   { path: '/admin/po/organizations', role: 'admin', name: 'PoOrgManagement' },
 ];
 
-test.describe('阶段0 全站路由冒烟雷达', { tag: ['@obsolete'] }, () => {
+// ── 用例级 tier（2026-09-23 复核）─────────────────────────────────────────
+// 本 spec 44 条路由冒烟中，有 4 条**硬编码 dev 数据 id** 会因"记录不存在 ⇒ 后端 404
+// ⇒ console 零错误断言失败"。它们不是应用缺陷，而是"依赖本地 dev 库特定 id"，
+// 属数据条件性失败，整条排除（理由见 GATE.md §4 逐条）：
+//   - /applications/30   本轮实测 404（console 报 "Failed to load resource ... 404"）
+//   - /research-goals/27 本轮实测 404
+//   - /orders/1          本轮实测 404（[Orders] fetchOrder failed 404）
+//   - /po/orders/1       跨轮 flaky：上一轮红、本轮绿 ⇒ 按"失败/不确定"处置，未纳入
+// 其余 40 条为只读（仅导航 + console 雷达，无任何写操作）⇒ @readonly + @local-only。
+const OBSOLETE_PATHS = new Set([
+  '/applications/30',
+  '/research-goals/27',
+  '/orders/1',
+  '/po/orders/1',
+]);
+const tierFor = (r) => (OBSOLETE_PATHS.has(r.path) ? ['@obsolete'] : ['@readonly', '@local-only']);
+
+test.describe('阶段0 全站路由冒烟雷达', () => {
   for (const r of ROUTES) {
-    test(`${r.name} [${r.role}] ${r.path}`, async ({ page }) => {
+    test(`${r.name} [${r.role}] ${r.path}`, { tag: tierFor(r) }, async ({ page }) => {
       const errors = attachConsoleErrorCollector(page);
 
       // 认证页先登录对应角色

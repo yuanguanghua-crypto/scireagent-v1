@@ -16,7 +16,7 @@ const { test, expect } = require('@playwright/test');
 const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 const PRODUCT_URL = `${BASE_URL}/products/66`;
 
-test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete'] }, () => {
+test.describe('Product Detail Page — Field Completeness', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto(PRODUCT_URL, { waitUntil: 'domcontentloaded', timeout: 15000 });
@@ -28,20 +28,20 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
   // Hero Section — 基本信息
   // ═══════════════════════════════════════════
 
-  test('TC-01: Product name is displayed', async ({ page }) => {
+  test('TC-01: Product name is displayed', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const name = await page.locator('.pd-name').textContent();
     expect(name.trim()).toBeTruthy();
     expect(name).toContain("Azido");
   });
 
-  test('TC-02: Catalog number is displayed as chip', async ({ page }) => {
+  test('TC-02: Catalog number is displayed as chip', { tag: ['@obsolete'] }, async ({ page }) => {
     const chip = page.locator('.pd-chip-primary');
     await expect(chip).toBeVisible();
     const text = await chip.textContent();
     expect(text).toMatch(/SC\d+/);
   });
 
-  test('TC-03: CAS number is displayed as chip', async ({ page }) => {
+  test('TC-03: CAS number is displayed as chip', { tag: ['@obsolete'] }, async ({ page }) => {
     const casChip = page.locator('.pd-chip-mono');
     await expect(casChip).toBeVisible();
     const text = await casChip.textContent();
@@ -49,24 +49,24 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
     expect(text).toMatch(/\d+-\d+-\d/);
   });
 
-  test('TC-04: Status badge is displayed', async ({ page }) => {
+  test('TC-04: Status badge is displayed', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const badge = page.locator('.pd-badge').first();
     await expect(badge).toBeVisible();
   });
 
-  test('TC-05: Research Use Only badge is displayed', async ({ page }) => {
+  test('TC-05: Research Use Only badge is displayed', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const ruoBadge = page.locator('.pd-badge.badge-amber', { hasText: 'RUO' });
     await expect(ruoBadge).toBeVisible();
   });
 
-  test('TC-06: Overview text is displayed', async ({ page }) => {
+  test('TC-06: Overview text is displayed', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const overview = page.locator('.pd-overview');
     await expect(overview).toBeVisible();
     const text = await overview.textContent();
     expect(text.length).toBeGreaterThan(10);
   });
 
-  test('TC-07: Synonyms are displayed', async ({ page }) => {
+  test('TC-07: Synonyms are displayed', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const synonyms = page.locator('.pd-synonyms');
     await expect(synonyms).toBeVisible();
     const text = await synonyms.textContent();
@@ -77,7 +77,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
   // Scientific Parameters — 科学参数
   // ═══════════════════════════════════════════
 
-  test('TC-08: Formula is displayed', async ({ page }) => {
+  test('TC-08: Formula is displayed', { tag: ['@obsolete'] }, async ({ page }) => {
     const spec = page.locator('.pd-spec', { hasText: 'Formula' });
     await expect(spec).toBeVisible();
     const val = spec.locator('.pd-spec-val');
@@ -86,7 +86,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
     expect(text).toMatch(/[A-Z][a-z]?\d*/);
   });
 
-  test('TC-09: Molecular weight is displayed with g/mol', async ({ page }) => {
+  test('TC-09: Molecular weight is displayed with g/mol', { tag: ['@obsolete'] }, async ({ page }) => {
     const spec = page.locator('.pd-spec', { hasText: 'MW' });
     await expect(spec).toBeVisible();
     const val = spec.locator('.pd-spec-val');
@@ -96,7 +96,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
     expect(text).toMatch(/\d+/);
   });
 
-  test('TC-10: Purity is displayed', async ({ page }) => {
+  test('TC-10: Purity is displayed', { tag: ['@obsolete'] }, async ({ page }) => {
     const spec = page.locator('.pd-spec', { hasText: 'Purity' });
     await expect(spec).toBeVisible();
     const val = spec.locator('.pd-spec-val');
@@ -104,7 +104,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
     expect(text).toBeTruthy();
   });
 
-  test('TC-11: Concentration is displayed', async ({ page }) => {
+  test('TC-11: Concentration is displayed', { tag: ['@obsolete'] }, async ({ page }) => {
     const spec = page.locator('.pd-spec', { hasText: 'Conc' });
     await expect(spec).toBeVisible();
     const val = spec.locator('.pd-spec-val');
@@ -112,12 +112,12 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
     expect(text).toMatch(/\d+\s*mM/);
   });
 
-  test('TC-12: Storage condition is displayed', async ({ page }) => {
+  test('TC-12: Storage condition is displayed', { tag: ['@obsolete'] }, async ({ page }) => {
     const spec = page.locator('.pd-spec', { hasText: 'Storage' });
     await expect(spec).toBeVisible();
   });
 
-  test('TC-13: Shipping condition is displayed', async ({ page }) => {
+  test('TC-13: Shipping condition is displayed', { tag: ['@obsolete'] }, async ({ page }) => {
     const spec = page.locator('.pd-spec', { hasText: 'Shipping' });
     await expect(spec).toBeVisible();
   });
@@ -126,7 +126,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
   // SKU Table — 规格列表
   // ═══════════════════════════════════════════
 
-  test('TC-14: SKU table is displayed with rows', async ({ page }) => {
+  test('TC-14: SKU table is displayed with rows', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const table = page.locator('.pd-sku-table');
     await expect(table).toBeVisible();
     const rows = table.locator('.pd-sku-row');
@@ -134,7 +134,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
     expect(count).toBeGreaterThanOrEqual(1);
   });
 
-  test('TC-15: SKU table has all required columns', async ({ page }) => {
+  test('TC-15: SKU table has all required columns', { tag: ['@obsolete'] }, async ({ page }) => {
     const header = page.locator('.pd-sku-head');
     await expect(header).toBeVisible();
     const text = await header.textContent();
@@ -146,7 +146,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
     expect(text).toContain('Lead Time');
   });
 
-  test('TC-16: SKU code is displayed in each row', async ({ page }) => {
+  test('TC-16: SKU code is displayed in each row', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const firstRow = page.locator('.pd-sku-row').first();
     const skuCode = firstRow.locator('.pd-mono-sm');
     await expect(skuCode).toBeVisible();
@@ -154,7 +154,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
     expect(text).toMatch(/SC\d+-\d+/);
   });
 
-  test('TC-17: Pack size is displayed in each row', async ({ page }) => {
+  test('TC-17: Pack size is displayed in each row', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const firstRow = page.locator('.pd-sku-row').first();
     const cells = firstRow.locator('span');
     // Pack size is the 2nd span
@@ -163,7 +163,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
     expect(text).toBeTruthy();
   });
 
-  test('TC-18: Price is displayed with currency', async ({ page }) => {
+  test('TC-18: Price is displayed with currency', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const priceCell = page.locator('.pd-sku-row .pd-price').first();
     await expect(priceCell).toBeVisible();
     const text = await priceCell.textContent();
@@ -171,18 +171,18 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
     expect(text).toMatch(/\d+/);
   });
 
-  test('TC-19: Inventory status badge is displayed', async ({ page }) => {
+  test('TC-19: Inventory status badge is displayed', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const statusBadge = page.locator('.pd-sku-row .pd-badge-sm').first();
     await expect(statusBadge).toBeVisible();
   });
 
-  test('TC-20: Add to Cart button is present', async ({ page }) => {
+  test('TC-20: Add to Cart button is present', { tag: ['@obsolete'] }, async ({ page }) => {
     const btn = page.locator('.pd-cart-btn').first();
     await expect(btn).toBeVisible();
     await expect(btn).toHaveText('Add to Cart');
   });
 
-  test('TC-21: Quantity control is present', async ({ page }) => {
+  test('TC-21: Quantity control is present', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const qty = page.locator('.pd-qty').first();
     await expect(qty).toBeVisible();
     // Should show default quantity 1
@@ -194,7 +194,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
   // Chemical Identifiers — 化学标识符
   // ═══════════════════════════════════════════
 
-  test('TC-22: SMILES is displayed in Chemical Identifiers section', async ({ page }) => {
+  test('TC-22: SMILES is displayed in Chemical Identifiers section', { tag: ['@obsolete'] }, async ({ page }) => {
     const section = page.locator('.pd-section', { hasText: 'Chemical Identifiers' });
     await expect(section).toBeVisible();
     const smilesItem = section.locator('.pd-id-item', { hasText: 'SMILES' });
@@ -208,7 +208,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
   // Classification — 分类
   // ═══════════════════════════════════════════
 
-  test('TC-23: Category L1 is displayed', async ({ page }) => {
+  test('TC-23: Category L1 is displayed', { tag: ['@obsolete'] }, async ({ page }) => {
     const section = page.locator('.pd-section', { hasText: 'Classification' });
     await expect(section).toBeVisible();
     const l1 = section.locator('.pd-class-item', { hasText: 'Category L1' });
@@ -222,7 +222,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
   // Structure SVG — 结构图
   // ═══════════════════════════════════════════
 
-  test('TC-24: Structure image area is present', async ({ page }) => {
+  test('TC-24: Structure image area is present', { tag: ['@obsolete'] }, async ({ page }) => {
     const imgArea = page.locator('.pd-hero-img');
     await expect(imgArea).toBeVisible();
     // Should have either rendered SVG, loading spinner, or placeholder
@@ -236,7 +236,7 @@ test.describe('Product Detail Page — Field Completeness', { tag: ['@obsolete']
   // Breadcrumb — 面包屑导航
   // ═══════════════════════════════════════════
 
-  test('TC-25: Breadcrumb is displayed with product name', async ({ page }) => {
+  test('TC-25: Breadcrumb is displayed with product name', { tag: ['@obsolete'] }, async ({ page }) => {
     const breadcrumb = page.locator('.pd-breadcrumb');
     await expect(breadcrumb).toBeVisible();
     const link = breadcrumb.locator('a', { hasText: 'Products' });
