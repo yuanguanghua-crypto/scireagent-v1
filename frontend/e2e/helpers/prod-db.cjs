@@ -19,7 +19,48 @@
  *   const before = prodCounts(); await enrich(); const after = prodCounts()
  *   expectDelta(before, after, zeroSpec(before), 'D16 enrich 只读')
  */
-const { execFileSync } = require('node:child_process')
+const { spawnSync } = require('node:child_process')
+const fs = require('node:fs')
+const os = require('node:os')
+const path = require('node:path')
+
+/**
+ * 同步执行 ssh，**但不给子进程建 stdio 管道**。
+ *
+ * ★ 2026-09-23 修 D16「`spawnSync ssh EBUSY`」：
+ *   本机（WorkBuddy 会话内）实测 —— `execFileSync`/`spawnSync` 在**默认 `stdio:'pipe'`** 下
+ *   会稳定抛 `EBUSY`；而把输出**重定向到临时文件**（`stdio:['ignore', fd, fd2]`，不建管道）
+ *   就恢复正常（同一条 `ssh -V` 实测 `status=0`）。
+ *   证据链（全部实测）：
+ *     · `stdio:'ignore'` / `'inherit'` / **文件 fd** ⇒ 一律 OK；默认 pipe ⇒ 一律 EBUSY
+ *     · 清空 `NODE_OPTIONS`（去掉注入的 shim）**仍** EBUSY ⇒ 不是 node shim
+ *     · 目标换成项目内 venv python、或绝对路径/反斜杠路径 ⇒ **仍** EBUSY ⇒ 不是目标/路径形态
+ *     · Python 侧 `subprocess.run(['ssh','-V'])` 正常；node 的**异步** `spawn` 也正常
+ *   细节与影响面见 `e2e/README.md` 坑14。本函数只改**取输出的方式**，不改 ssh 参数与语义。
+ */
+function runSshSync(args, timeoutMs = 60000) {
+  const outFile = path.join(os.tmpdir(), `e2e_ssh_out_${process.pid}_${Date.now()}.txt`)
+  const errFile = `${outFile}.err`
+  const outFd = fs.openSync(outFile, 'w')
+  const errFd = fs.openSync(errFile, 'w')
+  try {
+    const r = spawnSync('ssh', args, { stdio: ['ignore', outFd, errFd], timeout: timeoutMs })
+    const out = fs.readFileSync(outFile, 'utf8')
+    const err = fs.readFileSync(errFile, 'utf8')
+    if (r.error) {
+      throw new Error(`ssh 启动失败：${r.error.code || r.error.message}${err ? `；stderr: ${err.slice(0, 200)}` : ''}`)
+    }
+    if (r.status !== 0) {
+      throw new Error(`ssh 退出码 ${r.status}${err ? `；stderr: ${err.slice(0, 200)}` : ''}`)
+    }
+    return out
+  } finally {
+    try { fs.closeSync(outFd) } catch { /* ignore */ }
+    try { fs.closeSync(errFd) } catch { /* ignore */ }
+    try { fs.unlinkSync(outFile) } catch { /* ignore */ }
+    try { fs.unlinkSync(errFile) } catch { /* ignore */ }
+  }
+}
 
 const SSH_KEY = process.env.E2E_SSH_KEY || 'C:/Users/yuankaifeng/.ssh/scireagent_deploy_ed25519'
 const SSH_HOST = process.env.E2E_SSH_HOST || 'admin@47.82.156.48'
@@ -69,7 +110,7 @@ function prodCounts(tables = TABLES) {
     SSH_HOST,
     remote,
   ]
-  const out = execFileSync('ssh', args, { encoding: 'utf8', timeout: 60000 })
+  const out = runSshSync(args, 60000)
   const res = {}
   for (const line of String(out).split(/\r?\n/)) {
     const [t, v] = line.split('|')
