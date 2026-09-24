@@ -90,7 +90,10 @@ class MethodViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         )
 
     def get_serializer_class(self):
-        if self.action == 'retrieve':
+        # ★ 2026-09-24：**写路径也走 Detail**，对齐 `ResearchGoalViewSet`（`views.py:28-33`）的既有正确模式。
+        #   此前只在 `retrieve` 走 Detail、`create/update` 走 List，而 List **未声明 `purpose`**
+        #   ⇒ MethodsPage 的 Purpose 输入框「读恒空、写被静默忽略」。列表仍走 List（轻量、公开载荷不变）。
+        if self.action in ('retrieve', 'create', 'update', 'partial_update'):
             return MethodDetailSerializer
         return MethodListSerializer
 

@@ -17,6 +17,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.tests.factories import UserFactory
 from apps.bridges.models import MethodProtocol
+from apps.knowledge.models import Method
 from apps.knowledge.tests.factories import (
     MethodFactory, ProtocolFactory, ReferenceFactory,
 )
@@ -120,3 +121,73 @@ class ReferenceSourceTypeWriteTest(TestCase):
                 ref = ReferenceFactory()
                 resp = self._put(ref, source_type=value)
                 self.assertEqual(resp.status_code, 200, f'{value}: {resp.content[:200]}')
+
+
+class MethodPurposeWriteTest(TestCase):
+    """修 ①（与 E1 同型）：MethodsPage 的「Purpose」必须能读能写。
+
+    根因：`MethodViewSet.get_serializer_class()` 此前**只在 `retrieve` 走 Detail**，
+    `create/update` 走 `MethodListSerializer`（`Meta.fields` **不含 `purpose`**）
+    ⇒ 列表行读不到（输入框恒空）、PUT 里带的 `purpose` 被 DRF 静默忽略。
+    修法：写路径改走 `MethodDetailSerializer`（对齐 `ResearchGoalViewSet`）+ 给 Detail 补**宽容 slug**
+    （否则会 400 `slug is required` —— 与 E1 完全同型）。
+    同时钉住：**公开列表载荷不新增 `purpose`**（这是选"走 Detail"而非"往 List 加字段"的理由）。
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.client.force_authenticate(user=UserFactory(is_staff=True))
+
+    def test_put_persists_purpose(self):
+        m = MethodFactory()
+        resp = self.client.put(
+            f'/api/v1/methods/{m.id}/',
+            {'name': m.name, 'purpose': 'Purpose set by PUT', 'application_id': m.application_id},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+        m.refresh_from_db()
+        self.assertEqual(m.purpose, 'Purpose set by PUT')
+
+    def test_put_without_slug_is_accepted(self):
+        """写路径改走 Detail 后，**不带 slug** 必须仍 2xx（模型 `save()` 会自动生成）。"""
+        m = MethodFactory()
+        resp = self.client.put(
+            f'/api/v1/methods/{m.id}/',
+            {'name': 'Renamed by PUT', 'purpose': 'p', 'application_id': m.application_id},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+        m.refresh_from_db()
+        self.assertEqual(m.name, 'Renamed by PUT')
+        self.assertTrue(m.slug, '模型 save() 应自动生成 slug')
+
+    def test_create_persists_purpose(self):
+        app = MethodFactory().application
+        resp = self.client.post(
+            '/api/v1/methods/',
+            {'name': 'New Method With Purpose', 'purpose': 'created-with-purpose',
+             'application_id': app.id},
+            format='json',
+        )
+        self.assertEqual(resp.status_code, 201, resp.content[:300])
+        self.assertEqual(
+            Method.objects.get(id=resp.json()['data']['id']).purpose, 'created-with-purpose',
+        )
+
+    def test_list_payload_does_not_include_purpose(self):
+        """★ 公开列表**不得**新增 `purpose`：写路径走 Detail 已能让它可读可写，
+        列表保持轻量（避免公开载荷膨胀 —— 全库 67k 条 method，purpose 是正文字段）。"""
+        MethodFactory()
+        resp = self.client.get('/api/v1/methods/', {'page_size': 5})
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+        rows = resp.json()['data']
+        self.assertTrue(rows, '应有可见行')
+        self.assertNotIn('purpose', rows[0], '列表行不应含 purpose')
+
+    def test_detail_payload_includes_purpose(self):
+        """Detail 端点必须含 `purpose`（前端 openEdit 靠它预填）。"""
+        m = MethodFactory(purpose='detail-purpose')
+        resp = self.client.get(f'/api/v1/methods/{m.id}/')
+        self.assertEqual(resp.status_code, 200, resp.content[:300])
+        self.assertEqual(resp.json()['data']['purpose'], 'detail-purpose')

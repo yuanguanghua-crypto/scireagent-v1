@@ -173,17 +173,17 @@ test('References 治理页：Edit 应把 citation_text 预填进 Citation 框',
   })
 
 /**
- * ★ 仍挂起的死字段：`MethodsPage` 的 **Purpose**。
+ * ★ 修 ① 的闸门（**已转正**）：`MethodsPage` 的 **Purpose** 必须能读。
  *
- * 写路径 `get_serializer_class` 只在 `retrieve` 走 Detail，create/update 走
- * **MethodListSerializer —— 其 `Meta.fields` 未声明 `purpose`**
- * ⇒ 列表行读不到 `purpose`（输入框恒空）、PUT 里带的 `purpose` 被 DRF 静默忽略。
- * （注意：**不会**清空既有值 —— DRF 忽略未声明字段，已实测。）
- * 修法（未做，仅序列化器、**不改模型**）：把 `purpose` 加进 `MethodListSerializer.Meta.fields`，
- * 或让 MethodsPage 像 Goals/Protocols 那样在 `openEdit` 里拉详情预填。修好删 fixme 即转正。
+ * 根因（已修）：`MethodViewSet.get_serializer_class()` 此前**只在 `retrieve` 走 Detail**，
+ * create/update 走 `MethodListSerializer`（其 `Meta.fields` **不含 `purpose`**）
+ * ⇒ 列表行读不到（输入框恒空）、PUT 里带的 `purpose` 被 DRF 静默忽略。
+ * 修法（对齐 `ResearchGoalViewSet` 的既有正确模式）：**写路径改走 Detail** + Detail 补**宽容 slug**
+ * （否则 400 `slug is required`，与 E1 同型）+ 本页 `openEdit` **拉详情预填**。
+ * 写侧契约由后端 `test_protocol_reference_write_gates.py::MethodPurposeWriteTest` 钉住；本用例只验**读/预填**。
  */
-test.fixme('Method 治理页 Purpose 应能读写（当前读写皆不通：List 序列化器未声明 purpose）',
-  { tag: ['@write', '@local-only'] }, async ({ page, request }) => {
+test('Method 治理页：Edit 应把 purpose 预填进 Purpose 框',
+  { tag: ['@readonly', '@local-only'] }, async ({ page, request }) => {
     const api = await staffApi(request)
     try {
       await loginAsStaff(page)

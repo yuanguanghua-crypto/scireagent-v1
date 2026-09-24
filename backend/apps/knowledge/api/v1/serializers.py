@@ -466,6 +466,16 @@ class MethodListSerializer(BaseModelSerializer):
 
 
 class MethodDetailSerializer(BaseModelSerializer):
+    # ★ 2026-09-24 修「Method.Purpose 死字段」——**与 E1（`ResearchGoalDetailSerializer`，本文件 :43-51）同型**：
+    #   `MethodViewSet.get_serializer_class()` 此前**只在 `retrieve`** 走本类，`create/update` 走
+    #   `MethodListSerializer`（其 `Meta.fields` **不含 `purpose`**）⇒ MethodsPage 的 Purpose 输入框
+    #   「读恒空、写被 DRF 静默忽略」（未声明字段被丢弃 ⇒ 用户填了以为保存成功）。
+    #   修法＝对齐 ResearchGoalViewSet 的既有正确模式：**写路径也走 Detail**（`views.py` 的
+    #   `get_serializer_class`）。而本类此前未覆写 slug ⇒ 由模型 `slug=SlugField(unique=True)` 推出
+    #   `required=True` ⇒ 直接切会 **400 `slug is required`**（页面表单没有 slug 字段）。
+    #   模型 `save()` 本就会自动生成（`models.py`：`if not self.slug: base = slugify(self.name) …`）
+    #   ⇒ 序列化器强制必填是多余约束 ⇒ 按同文件既有约定逐字补此行（与 `:10`、`:51` 一致）。
+    slug = serializers.SlugField(required=False, allow_blank=True, allow_null=True)
     protocols = serializers.SerializerMethodField()
     products = serializers.SerializerMethodField()
 

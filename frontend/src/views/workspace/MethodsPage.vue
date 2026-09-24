@@ -55,9 +55,19 @@ function openNew() {
   loadApplications()
   showEditor.value = true
 }
-function openEdit(e) {
+async function openEdit(e) {
   editing.value = e
-  form.value = { name: e.name || '', purpose: e.purpose || '', application_id: e.application_id || null }
+  // ★ 2026-09-24 修「Purpose 死字段」：**列表接口不返回 `purpose`**（只在 Detail 里），
+  //   故必须拉详情预填 —— 否则输入框恒空（研究员以为该字段没内容），
+  //   且保存时填进去的值会被 DRF 静默忽略（写路径已改为走 Detail，见 MethodViewSet）。
+  //   写法与 ProtocolsPage.openEdit 拉详情预填 methods 一致。
+  let purpose = e.purpose || ''
+  try {
+    const resp = await http.get(`/methods/${e.id}/`)
+    const data = resp.data?.data || resp.data || {}
+    purpose = data.purpose || ''
+  } catch { /* 拉取失败则留空，不影响编辑其它字段 */ }
+  form.value = { name: e.name || '', purpose, application_id: e.application_id || null }
   loadApplications()
   showEditor.value = true
 }
