@@ -1928,9 +1928,9 @@ watch(
           <span class="chip-label">Methods:</span>
           <span v-for="mid in methodIds" :key="mid" class="chip">
             <a :href="`/methods/${mid}`" target="_blank" class="chip-link"
-               :title="methodIsHidden(mid) ? '旧种子方法：当前对知识面隐藏（is_test_fixture）' : ''">{{ methodName(mid) }}</a>
+               :title="methodIsHidden(mid) ? '旧种子方法：暂不参与知识面展示' : ''">{{ methodName(mid) }}</a>
             <span v-if="methodIsHidden(mid)" class="badge" style="background:#fef3c7;color:#b45309;margin-left:4px"
-                  title="旧种子方法：当前对知识面隐藏（is_test_fixture）">旧种子</span>
+                  title="旧种子方法：暂不参与知识面展示">旧种子</span>
             <button type="button" class="chip-remove" @click="toggleMethodId(mid)" title="Unlink">✕</button>
           </span>
           <span v-if="!methodIds.length" class="chip-none">None</span>

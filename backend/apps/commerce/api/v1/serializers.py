@@ -151,7 +151,8 @@ class ProductNumberConflict(APIException):
     语义：**货号是产品的永久身份**（印在瓶签 / COA / SDS / 订单 / 文献引用上），
     归档（archived=True）**不释放编号**。命中回收站行时**不再静默复活**
     （旧行为会覆盖旧数据且不产生 CREATE 审计），而是明确告知三条出路：
-    恢复（restore）/ 改用新编号 / 先 hard-delete 再重来。
+    到「回收站」还原它 / 改用新编号 / 联系管理员彻底删除。
+    （★ 2026-09-24 R7：文案已去技术细节，不再出现端点路径与 `hard-delete`。）
     """
     status_code = status.HTTP_409_CONFLICT
     default_detail = '产品编号冲突'
@@ -159,24 +160,33 @@ class ProductNumberConflict(APIException):
 
 
 class ProductHasDependents(APIException):
-    """被 `PROTECT` 关联挡住、无法物理删除 → **409**（附带可操作出路）。
+    """被 `PROTECT` 关联挡住、无法彻底删除 → **409**（附带可操作出路）。
 
     ★ 2026-09-22 修 B1：`hard_delete` 此前**未捕获 `ProtectedError`** ⇒ 被
     `ProductReagentClass.product`（`apps/bridges/models.py:420`，`on_delete=PROTECT`）挡住时
     返回 **500**（DEBUG 下还吐 38KB 堆栈页）。更糟的是 B′ 的 409 文案恰好让用户
     "先对旧记录 hard-delete" ⇒ **走进死路**。本异常把该情形变成**可操作的 409**。
+
+    ★ 2026-09-24 R7：文案**去技术细节** —— 不再吐端点路径（`DELETE /products/{id}/`），
+    也不再把**模型类名**（如 `ProductReagentClass`）甩给用户；改用各模型的
+    `_meta.verbose_name`（中文可读；未知类型统一回落「关联数据」，**永不泄漏代码名**）。
     """
     status_code = status.HTTP_409_CONFLICT
     default_detail = '产品存在受保护的关联数据'
     default_code = 'product_has_dependents'
 
     def __init__(self, blocked):
-        types = '、'.join(blocked) if blocked else '未知关联'
+        """blocked: 受保护对象的**模型类**集合（若是未知字符串则回落通用文案）。"""
+        labels = sorted({
+            (getattr(getattr(item, '_meta', None), 'verbose_name', None) or '关联数据')
+            for item in (blocked or ())
+        })
+        types = '、'.join(labels) if labels else '未知关联数据'
         super().__init__(
-            f'该产品被关联数据保护，不能物理删除（{types}）。'
-            '① 只想下架 → 用软归档（DELETE /products/{id}/）；'
-            '② 确实要物理删除 → 先解除上述关联；'
-            '③ 编号本就永久保留，无需为了释放编号而硬删。'
+            f'该产品被以下关联数据保护，不能彻底删除：{types}。'
+            '① 只想让它从网站下架 → 用「删除」（移入回收站，可随时还原）；'
+            '② 确实要彻底删除 → 请先解除上述关联；'
+            '③ 编号本就永久保留，无需为了释放编号而彻底删除。'
         )
 
 
@@ -313,7 +323,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         """唯一性口径 = **全表**（含回收站行），与 DB 列级 UNIQUE 一致。
 
-        - 命中**回收站行** → 409 + 可操作出路（restore / 换编号 / hard-delete 重来）
+        - 命中**回收站行** → 409 + 可操作出路（回收站还原 / 换编号 / 找管理员彻底删除）
         - 命中**未被软删的行** → 400（真重复）
         - 更新时自身编号未改动 → 不误报
         """
@@ -335,15 +345,16 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                 continue
             label = self._NUMBER_FIELD_LABELS[field]
             if hit.archived:
+                # ★ 2026-09-24 R7：文案面向**研究员**，不吐端点路径 / hard-delete / 角色名。
                 raise ProductNumberConflict(
-                    f'{label}「{value}」已存在（在回收站中，product id={hit.id}）。'
-                    f'货号是产品的永久身份，归档不会释放编号：'
-                    f'① 要重新上架它 → POST /api/v1/products/{hit.id}/restore/；'
-                    f'② 这是另一个产品 → 请改用新的{label}；'
-                    f'③ 只想重来一次 → 先对旧记录 hard-delete（仅超管）。'
+                    f'{label}「{value}」已存在，它属于一个已归档的产品（在回收站中，内部编号 #{hit.id}）。'
+                    f'{label}是产品的永久身份，归档不会释放它：'
+                    f'① 想继续用这个编号 → 先到「回收站」把它还原；'
+                    f'② 这是另一个产品 → 请换一个{label}；'
+                    f'③ 需要彻底删除旧记录 → 请联系管理员。'
                 )
             raise ValidationError(
-                {field: f'{label}「{value}」已被现有产品占用（product id={hit.id}）。'})
+                {field: f'{label}「{value}」已被另一个产品占用（内部编号 #{hit.id}）——请换一个{label}。'})
         return attrs
 
     def create(self, validated_data):

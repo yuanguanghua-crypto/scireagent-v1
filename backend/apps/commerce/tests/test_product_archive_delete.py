@@ -125,7 +125,7 @@ class ProductNumberUniquenessContractTest(TestCase):
             '不得新建出第二条同货号记录')
 
     def test_conflict_message_is_actionable(self):
-        """409 的消息必须可操作（含 restore 出路），否则研究员无从下手。"""
+        """409 的消息必须**面向研究员**给出路，否则研究员无从下手。"""
         p = ProductFactory(catalog_no='SC-RESTORE-HINT', status='active')
         p.archived = True
         p.save()
@@ -136,7 +136,12 @@ class ProductNumberUniquenessContractTest(TestCase):
         self.assertEqual(resp.status_code, status.HTTP_409_CONFLICT)
         msg = resp.json()['meta']['error']['message']
         self.assertIn('回收站', msg)
-        self.assertIn('restore', msg)
+        # ★ 2026-09-24 R7：不再断言内部动词 `restore`，改断言**用户语言的可操作出路**；
+        #   并加反向断言锁死"不得泄漏技术细节"。意图不变、强度更高。
+        self.assertIn('还原', msg)
+        self.assertIn('换一个', msg)
+        self.assertNotIn('restore/', msg)
+        self.assertNotIn('hard-delete', msg)
 
     def test_create_with_archived_slug_conflicts_409(self):
         """★真实场景（本研究项目的实际卡点）：前端 ensureSlug() = slugify(catalog_no)。
@@ -324,8 +329,12 @@ class ProductHardDeleteProtectedTest(TestCase):
         p = ProductFactory()
         self._attach_reagent_class(p)
         msg = self._hard_delete(p.id).json()['meta']['error']['message']
-        self.assertIn('软归档', msg)
-        self.assertIn('ProductReagentClass', msg)
+        # ★ 2026-09-24 R7：改断言**可读名称**（模型 `_meta.verbose_name`）而非模型类名，
+        #   并加反向断言锁死"不泄漏类名 / 端点路径"。意图（说清+给出路）不变。
+        self.assertIn('回收站', msg)
+        self.assertIn('试剂类', msg)
+        self.assertNotIn('ProductReagentClass', msg)
+        self.assertNotIn('DELETE /products', msg)
 
     def test_hard_delete_without_dependents_still_200(self):
         """反例：无 PROTECT 关联时，硬删必须**照常 200**（别把正常路径改坏）。"""

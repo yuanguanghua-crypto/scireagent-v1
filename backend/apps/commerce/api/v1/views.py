@@ -255,8 +255,9 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
                 product._explicit_hard_delete_logged = True  # 抑制兜底信号重复记
                 product.delete()
         except ProtectedError as exc:
-            # 只报**关联类型名**（不泄具体对象 repr），并按名称去重排序，便于断言与阅读
-            blocked = sorted({type(obj).__name__ for obj in exc.protected_objects})
+            # ★ 2026-09-24 R7：只传**模型类**（不泄具体对象 repr），由 `ProductHasDependents`
+            #   取其 `_meta.verbose_name` 生成**可读中文名称** ⇒ 用户可见文案里不出现模型类名。
+            blocked = {type(obj) for obj in exc.protected_objects}
             raise ProductHasDependents(blocked) from exc
         return Response(
             {'success': True, 'data': {'deleted': str(product), 'hard': True}},
