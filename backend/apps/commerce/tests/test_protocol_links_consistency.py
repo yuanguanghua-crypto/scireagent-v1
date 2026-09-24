@@ -175,6 +175,52 @@ class InheritedNoSilentDeleteTest(TestCase):
         )
 
 
+class MethodLinksFieldTest(TestCase):
+    """★ 2026-09-24 N1 回归：产品详情必须自带方法名字（前端不再依赖被截断的 /methods/ 前 200）。
+
+    背景：编辑页原先用 `knowledgeList.methods.find(id)?.name || '#id'` 渲染 Methods 芯片，
+    而该列表只取 `/methods/?page_size=200`（全表 6.7 万条）⇒ 挂在前 200 之外的方法退化成
+    裸 `#35`（dev 上 100% 命中）。修法 = 详情随附 `method_links: [{id,name,is_hidden}]`。
+    `is_hidden` 标记 fixture（旧种子）但**不省略名字**。
+    """
+
+    def test_name_returned_even_when_method_is_fixture(self):
+        m = Method.objects.create(
+            name='Enzymatic Labeling', slug='m-ml-fixture', is_test_fixture=True,
+        )
+        prod = Product.objects.create(
+            name='PML1', catalog_no='TEST-ML-1', slug='test-ml-1', status='draft',
+        )
+        ProductMethod.objects.create(
+            product=prod, method=m, role='reagent', evidence_level='medium',
+        )
+
+        from apps.commerce.api.v1.serializers import ProductDetailSerializer
+        data = ProductDetailSerializer(prod).data
+
+        self.assertIn('method_links', data)
+        self.assertEqual(
+            list(data['method_links']),
+            [{'id': m.id, 'name': 'Enzymatic Labeling', 'is_hidden': True}],
+            'N1：即使方法被标为 fixture，名字也必须返回（省略名字 = 芯片只能显示 #id）',
+        )
+
+    def test_not_hidden_flag_false_for_normal_method(self):
+        m = Method.objects.create(name='Sanger Sequencing', slug='m-ml-normal')
+        prod = Product.objects.create(
+            name='PML2', catalog_no='TEST-ML-2', slug='test-ml-2', status='draft',
+        )
+        ProductMethod.objects.create(
+            product=prod, method=m, role='reagent', evidence_level='medium',
+        )
+        from apps.commerce.api.v1.serializers import ProductDetailSerializer
+        data = ProductDetailSerializer(prod).data
+        self.assertEqual(
+            list(data['method_links']),
+            [{'id': m.id, 'name': 'Sanger Sequencing', 'is_hidden': False}],
+        )
+
+
 class ProtocolLinksSortTest(TestCase):
     def test_sort_by_relevance_not_tier(self):
         """去 tier 优先后，高 relevance 的 INHERITED(featured) 应排在

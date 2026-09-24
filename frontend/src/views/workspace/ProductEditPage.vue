@@ -109,6 +109,15 @@ function sameIdSet(a, b) {
   return b.every((x) => s.has(x))
 }
 
+// ★ N1（2026-09-24）：方法名改由**产品详情**带回（`method_links`），
+//   不再依赖被截断的 `/methods/` 前 200 列表（否则挂在前 200 之外的方法显示成裸 `#35`）。
+const methodLinkMap = ref({})
+const methodName = (mid) =>
+  methodLinkMap.value[mid]?.name
+  || knowledgeList.value.methods.find((m) => m.id === mid)?.name
+  || `#${mid}`
+const methodIsHidden = (mid) => !!methodLinkMap.value[mid]?.is_hidden
+
 // ★ N3（2026-09-24）：载入时服务端返回的 protocol_ids 快照。
 //   服务端 `protocol_ids`（走 MethodProtocol **桥**）与 `protocol_links`（走 ProductProtocol **表**）
 //   本就不同源：前者含"链可达但尚未物化"的 id，最多比后者多 103 个（实测 product 34）。
@@ -413,7 +422,12 @@ async function loadKnowledge() {
     const [g, a, m, p] = await Promise.all([
       http.get('/research-goals/', { params: { page_size: 200 } }),
       http.get('/applications/', { params: { page_size: 200 } }),
-      http.get('/methods/', { params: { page_size: 200 } }),
+      // ★ A3（2026-09-24）：只列「存量导入/人工」的方法。
+      //   全表 6.7 万条里 99.87% 是 T2 的 AI 空壳（origin='ai_extracted'，无任何协议链），
+      //   不过滤时「前 200 条」的有效命中率仅 0.3%。加 origin=imported 后可选项 ≈105 条，
+      //   覆盖 100% 有知识的方法（83 个）。
+      //   ⚠️ 若将来 T2 产物经人工策展，需把其 origin 一并放行（或改成本筛选的多值版本）。
+      http.get('/methods/', { params: { page_size: 200, origin: 'imported' } }),
       http.get('/protocols/', { params: { page_size: 500 } }),
     ])
     knowledgeList.value.goals = (Array.isArray(g.data) ? g.data : (g.data?.results || []))
@@ -463,7 +477,11 @@ async function saveInlineEntity() {
     const resp = await http.post(apiEndpoints[type], payload)
     const newId = resp.data?.id
     if (newId) {
-      if (type === 'method') methodIds.value.push(newId)
+      if (type === 'method') {
+        methodIds.value.push(newId)
+        // ★ N1：刚建的方法还不存在于 /methods/ 列表里，先把名字塞进映射，避免显示成 #id
+        methodLinkMap.value[newId] = { id: newId, name: inlineForm.name, is_hidden: false }
+      }
       if (type === 'protocol') protocolIds.value.push(newId)
     }
     showInlineEditor.value = false
@@ -959,6 +977,9 @@ async function loadProduct() {
       })
       methodIds.value = d.method_ids || []
       methodIdsBaseline.value = [...methodIds.value]   // ★ P0：记录载入快照（与 payload 门控配对）
+      methodLinkMap.value = Object.fromEntries(          // ★ N1：详情自带的方法名
+        (d.method_links || []).map((x) => [x.id, x]),
+      )
       protocolIds.value = d.protocol_ids || []
       protocolIdsBaseline.value = [...protocolIds.value]   // ★ N3：记录载入快照 ⇒ 只把"之后新增的"算本地新增
       productProtocolLinks.value = d.protocol_links || []
@@ -1848,7 +1869,10 @@ watch(
         <div class="chip-group">
           <span class="chip-label">Methods:</span>
           <span v-for="mid in methodIds" :key="mid" class="chip">
-            <a :href="`/methods/${mid}`" target="_blank" class="chip-link">{{ knowledgeList.methods.find(m => m.id === mid)?.name || `#${mid}` }}</a>
+            <a :href="`/methods/${mid}`" target="_blank" class="chip-link"
+               :title="methodIsHidden(mid) ? '旧种子方法：当前对知识面隐藏（is_test_fixture）' : ''">{{ methodName(mid) }}</a>
+            <span v-if="methodIsHidden(mid)" class="badge" style="background:#fef3c7;color:#b45309;margin-left:4px"
+                  title="旧种子方法：当前对知识面隐藏（is_test_fixture）">旧种子</span>
             <button type="button" class="chip-remove" @click="toggleMethodId(mid)" title="Unlink">✕</button>
           </span>
           <span v-if="!methodIds.length" class="chip-none">None</span>

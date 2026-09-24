@@ -540,6 +540,7 @@ class ProductDetailSerializer(BaseModelSerializer):
     product_class_path = serializers.SerializerMethodField()
     application_ids = serializers.SerializerMethodField()
     method_ids = serializers.SerializerMethodField()
+    method_links = serializers.SerializerMethodField()
     protocol_ids = serializers.SerializerMethodField()
     protocol_links = serializers.SerializerMethodField()
     reference_ids = serializers.SerializerMethodField()
@@ -557,8 +558,8 @@ class ProductDetailSerializer(BaseModelSerializer):
             'overview', 'structure_svg', 'structure_image', 'seo_title', 'seo_description',
             'category_l1', 'category_l2', 'status', 'product_class_id',
             'product_class_name', 'product_class_path',
-            'skus', 'documents', 'application_ids', 'method_ids', 'protocol_ids',
-            'protocol_links',
+            'skus', 'documents', 'application_ids', 'method_ids', 'method_links',
+            'protocol_ids', 'protocol_links',
             'reference_ids', 'compatibility_summary', 'created_at', 'updated_at',
             'is_complete', 'incomplete_items', 'substructure_tags',
         ]
@@ -607,6 +608,42 @@ class ProductDetailSerializer(BaseModelSerializer):
         """
         from apps.bridges.services.relevance import build_protocol_links
         return build_protocol_links(obj)
+
+    def get_method_links(self, obj):
+        """产品所挂方法的最小信息 `[{id, name, is_hidden}]`。
+
+        ★ 2026-09-24 修 N1（Methods 芯片显示裸 `#35`）：
+          工作台编辑页原先用 `knowledgeList.methods.find(id)?.name || '#id'` 渲染 Methods 芯片，
+          而那份列表只取 `/methods/?page_size=200`（全表 6.7 万条）⇒ **挂在前 200 之外的方法
+          一律退化成裸 `#35`**（dev 上 100% 命中：产品挂的旧种子方法 id 恰在前 200 之外）。
+          现随产品详情一并返回名字，前端不再依赖那份被截断的列表。
+
+        `is_hidden` = 该方法的 `is_test_fixture` 标记（dev 上被 `topchain_landing.py` 挪用作
+        「隐藏旧种子」开关）。**名字不因该标记而省略**，依据 2026-09-24 两项调查：
+          ① 这些名字在可见知识面已存在 25~1,347 次（同名条目）⇒ 省略不产生任何有效保护；
+          ② 被标记的恰恰是承载协议链的少数方法（83 个有链方法里 10 个是旧种子）⇒ 它们正是
+             研究员最需要看见名字的那批。
+        故用 `is_hidden` **如实标注**（前端加轻提示），比裸 id 或静默省略都更诚实。
+        """
+        from apps.bridges.models import ProductMethod
+
+        rows = (
+            ProductMethod.objects.filter(product=obj)
+            .select_related('method')
+            .order_by('display_order', 'id')
+        )
+        out, seen = [], set()
+        for pm in rows:
+            m = pm.method
+            if m is None or m.id in seen:
+                continue
+            seen.add(m.id)
+            out.append({
+                'id': m.id,
+                'name': m.name,
+                'is_hidden': bool(getattr(m, 'is_test_fixture', False)),
+            })
+        return out
 
     def get_reference_ids(self, obj):
         from apps.bridges.models import ProductReference

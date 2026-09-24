@@ -79,7 +79,7 @@ class MethodViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'purpose', 'advantages', 'limitations']
     ordering_fields = ['name', 'cost_band']
-    filterset_fields = ['application_id', 'status']
+    filterset_fields = ['application_id', 'status', 'origin']
 
     def get_queryset(self):
         """公开端点仅返回已发布(ACTIVE)记录；staff 可访问全量。
