@@ -317,16 +317,24 @@ class SKUViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     serializer_class = SKUSerializer
     filterset_fields = ['product_id', 'inventory_status']
     search_fields = ['sku_code']
+    # ★ 2026-09-24 收紧：本类此前**未声明权限** ⇒ 落到 DRF 默认 AllowAny ⇒ **匿名可写 SKU**。
+    #   前端对本端点**只有 GET**（写 SKU 走 `/products/{id}/` 的嵌套 skus）；已确认无站外客户端
+    #   ⇒ 补 `IsAdminOrReadOnly`（**读对所有人不变，仅封写**），与 `ProductViewSet` 对齐。
+    permission_classes = [IsAdminOrReadOnly]
 
 
 class ProductClassViewSet(EnvelopeMixin, viewsets.ReadOnlyModelViewSet):
     queryset = ProductClass.objects.all().order_by('sort_order', 'id')
     serializer_class = ProductClassSerializer
+    # ★ 2026-09-24 显式声明（本类本是 ReadOnly ⇒ 行为不变）；见 SKUViewSet 同批说明。
+    permission_classes = [IsAdminOrReadOnly]
 
 
 class CatalogGroupViewSet(EnvelopeMixin, viewsets.ReadOnlyModelViewSet):
     queryset = CatalogGroup.objects.filter(active=True).order_by('name')
     serializer_class = CatalogGroupSerializer
+    # ★ 2026-09-24 显式声明（只读类，行为不变）
+    permission_classes = [IsAdminOrReadOnly]
 
 
 class ProductDocumentViewSet(EnvelopeMixin, viewsets.ModelViewSet):
@@ -334,6 +342,10 @@ class ProductDocumentViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     serializer_class = ProductDocumentSerializer
     filterset_fields = ['product_id', 'document_type']
     parser_classes = [MultiPartParser, FormParser]
+    # ★ 2026-09-24 收紧：此前未声明权限 ⇒ 匿名可写、**并且 `DELETE /documents/{id}` 是不可逆写**。
+    #   前端只有"上传走 `/products/{id}/documents`（在 ProductViewSet 上，已受保护）"，
+    #   而 `deleteDocument()` 在前端**定义了但无人调用** ⇒ 收紧后前端无影响。
+    permission_classes = [IsAdminOrReadOnly]
 
     def create(self, request, *args, **kwargs):
         file_obj = request.FILES.get('file')
@@ -353,6 +365,9 @@ class ProductDocumentViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
 class ProductDetailAPIView(EnvelopeMixin, APIView):
     """GET /api/v1/products/:id/detail/ — Aggregated product detail."""
+
+    # ★ 2026-09-24 显式声明：本视图**只实现 GET**（聚合详情，公开可读）⇒ 与站点公开面一致。
+    permission_classes = [IsAdminOrReadOnly]
 
     def get(self, request, pk):
         from django.shortcuts import get_object_or_404
