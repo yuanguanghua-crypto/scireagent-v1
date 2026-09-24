@@ -19,6 +19,22 @@ WEIGHTS = {'a': 0.70, 'b': 0.10, 'c': 0.20}
 # 轴B 归一上限：S_B = min(1, bioz_aligned_count / BIOZ_TYP_CAP)
 BIOZ_TYP_CAP = 5
 
+# ★ 低分不落库（2026-09-24，「宁 miss 不错配」）：
+#   一个协议对某产品**没有任何关联证据**时，不写 ProductProtocol 行 ——
+#   即 tier=='weak'（S_A=0 且 S_B=0，既无文档也无文献）**且** score_c <= 0.5
+#   （score_c=(cos+1)/2 ⇒ <=0.5 等价于 cos<=0 ⇒ 语义上没有任何**正向**相似）。
+#   依据：score_c 恰为 0.5 是 embedding 降级（cos 兜底 0）的哨兵值；dev 实测
+#   7,711 条 weak 行里 765 条正是 0.5、另有 310 条 <=0.5；一次补算试跑新增的 66 条
+#   weak 行 relevance_score=0.1（⇔ score_c=0.5）全部属"零证据"（占该次新增量的 64%）。
+#   ⚠️ 只影响**写**：既有行不会被删（与 R1「只增不删」一致），清理另行处理。
+WEAK_SCORE_C_FLOOR = 0.5
+
+
+def is_evidence_free(fused):
+    """无任何关联证据（既无文档/文献，也无正向语义相似）⇒ 不应落库。"""
+    return fused.get('tier') == 'weak' and float(fused.get('score_c') or 0.0) <= WEAK_SCORE_C_FLOOR
+
+
 _VOCAB_PATH = os.path.join(
     os.path.dirname(os.path.dirname(__file__)), 'data', 'domain_vocab.json'
 )
@@ -478,6 +494,8 @@ def recompute_product(product, embedding_fn=None):
         s_b, lit_n = compute_axis_b(product, protocol, bioz_lits=bioz_lits)
         s_c = compute_axis_c(product, protocol, embedding_fn=embedding_fn)
         fused = fuse_relevance(score_a=s_a, score_b=s_b, score_c=s_c)
+        if is_evidence_free(fused):
+            continue          # ★ 低分不落库：零证据的协议不写行
         rows.append((protocol, fused, lit_n))
 
     n = 0

@@ -4,6 +4,8 @@
        使其与当前方法链一致 —— 删孤儿、重写派生行，AUTO 行不动。
 任务3：get_protocol_links 排序去掉 tier 优先，全局按相关性降序。
 """
+from unittest import mock
+
 from django.test import TestCase
 
 from apps.commerce.models import Product
@@ -50,12 +52,16 @@ class InheritedBridgeRefreshTest(TestCase):
         )
 
         from apps.commerce.api.v1.serializers import ProductCreateUpdateSerializer
-        ser = ProductCreateUpdateSerializer(
-            instance=prod, data={'method_ids': [m.id], 'name': 'P', 'status': 'draft'},
-            partial=True,
-        )
-        self.assertTrue(ser.is_valid(), ser.errors)
-        ser.save()
+        # ★ 2026-09-24：给夹具补"文档证据"（轴A>0）。
+        #   否则产品零证据（S_A=S_B=0 且 score_c=0.5）会命中「低分不落库」而被跳过，
+        #   本测试的意图是"保存会写出派生行 / 不会静默删链"，与证据强弱无关 ⇒ 故注入轴A。
+        with mock.patch('apps.bridges.services.relevance.compute_axis_a', return_value=0.5):
+            ser = ProductCreateUpdateSerializer(
+                instance=prod, data={'method_ids': [m.id], 'name': 'P', 'status': 'draft'},
+                partial=True,
+            )
+            self.assertTrue(ser.is_valid(), ser.errors)
+            ser.save()
 
         inherited = set(
             ProductProtocol.objects.filter(
@@ -135,11 +141,15 @@ class InheritedNoSilentDeleteTest(TestCase):
         )
 
         from apps.commerce.api.v1.serializers import ProductCreateUpdateSerializer
-        ser = ProductCreateUpdateSerializer(
-            instance=prod, data={'name': 'PK', 'status': 'draft'}, partial=True,
-        )
-        self.assertTrue(ser.is_valid(), ser.errors)
-        ser.save()
+        # ★ 2026-09-24：给夹具补"文档证据"（轴A>0）。
+        #   否则产品零证据（S_A=S_B=0 且 score_c=0.5）会命中「低分不落库」而被跳过，
+        #   本测试的意图是"保存会写出派生行 / 不会静默删链"，与证据强弱无关 ⇒ 故注入轴A。
+        with mock.patch('apps.bridges.services.relevance.compute_axis_a', return_value=0.5):
+            ser = ProductCreateUpdateSerializer(
+                instance=prod, data={'name': 'PK', 'status': 'draft'}, partial=True,
+            )
+            self.assertTrue(ser.is_valid(), ser.errors)
+            ser.save()
 
         inherited = set(
             ProductProtocol.objects.filter(

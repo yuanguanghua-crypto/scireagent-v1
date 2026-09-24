@@ -13,10 +13,13 @@
 运行时应 FAIL（Tier 无 WEAK / 默认仍为 featured / fuse 仍回 featured /
 relabel 服务与排序 helper 尚未实现），直至 S4 实现后转 GREEN。
 """
+from django.core.management import call_command
 from django.test import TestCase
 
-from apps.bridges.models import ProductProtocol
+from apps.bridges.models import ProductProtocol, ProductMethod, MethodProtocol
 from apps.bridges.services.relevance import fuse_relevance
+from apps.commerce.tests.factories import ProductFactory
+from apps.knowledge.tests.factories import MethodFactory, ProtocolFactory
 
 
 class TierWeakEnumTest(TestCase):
@@ -135,3 +138,29 @@ class WeakSinkSortTest(TestCase):
         tiers = [r['tier'] for r in rows]
         self.assertEqual(tiers[0], 'document')
         self.assertEqual(tiers[-1], 'weak')
+
+
+class LowScoreNotPersistedTest(TestCase):
+    """★ 低分不落库：零证据（S_A=S_B=0 且 score_c<=0.5）的协议不得写入 ProductProtocol。"""
+
+    def _setup_product_with_chain(self):
+        product = ProductFactory()          # 内容为空 ⇒ S_A=0；无 bioz ⇒ S_B=0
+        method = MethodFactory()
+        protocol = ProtocolFactory()
+        ProductMethod.objects.create(product=product, method=method)
+        MethodProtocol.objects.create(method=method, protocol=protocol)
+        return product
+
+    def test_zero_evidence_is_not_written(self):
+        product = self._setup_product_with_chain()
+        call_command('recompute_protocol_relevance', '--product', str(product.id),
+                     embedding_fn=lambda p, pr: -1.0)      # cos=-1 ⇒ score_c=0 ⇒ 零证据
+        self.assertEqual(ProductProtocol.objects.filter(product=product).count(), 0)
+
+    def test_positive_similarity_is_still_written(self):
+        product = self._setup_product_with_chain()
+        call_command('recompute_protocol_relevance', '--product', str(product.id),
+                     embedding_fn=lambda p, pr: 0.5)       # cos=0.5 ⇒ score_c=0.75 ⇒ 有正向相似
+        rows = list(ProductProtocol.objects.filter(product=product))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].tier, 'weak')
