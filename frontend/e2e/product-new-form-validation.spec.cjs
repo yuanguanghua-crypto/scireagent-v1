@@ -132,8 +132,12 @@ test.describe('Part 1 · 组 C 表单字段与唯一性冲突（+ I5 / A5）', (
     const resp = await api.post('/products/', { data: { name: 'E2E C2 dup', catalog_no: f.catalog_no, slug: slug('C2DUP') } })
     await expectApi(resp, { status: 400, json: { 'meta.error.code': 'validation_error' }, label: 'C2' })
     const msg = (await resp.json()).meta.error.message
-    expect(msg, 'C2 应指向占用者 id').toContain(`product id=${f.id}`)
-    expect(msg, 'C2 是"真重复"，不得出现回收站三条出路').not.toMatch(/回收站|restore|hard-delete/)
+    // ★ 2026-09-24：`54c4dc5`（R7「用户可见文案去技术细节」）已把文案改为
+    //   `货号「…」已被另一个产品占用（内部编号 #<id>）——请换一个货号。`
+    //   （原为 `product id=<id>`）。断言随之更新，并**反向钉住"不得再泄露技术细节"**。
+    expect(msg, 'C2 应指向占用者（内部编号）').toContain(`内部编号 #${f.id}`)
+    expect(msg, 'C2 是"真重复"，不得出现回收站出路').not.toMatch(/回收站|还原/)
+    expect(msg, 'C2 不得泄露技术细节（R7：端点路径/端点名/内部字段名）').not.toMatch(/restore\/|hard-delete|product id=/)
     expectDelta(before, snapshotDb(), { product: 0 }, 'C2 真重复不得新增行')
     await api.dispose()
   })
@@ -148,7 +152,15 @@ test.describe('Part 1 · 组 C 表单字段与唯一性冲突（+ I5 / A5）', (
     const resp = await api.post('/products/', { data: { name: 'E2E C2b dup', catalog_no: f.catalog_no, slug: slug('C2BDUP') } })
     await expectApi(resp, { status: 409, json: { 'meta.error.code': 'conflict' }, label: 'C2b' })
     const msg = (await resp.json()).meta.error.message
-    expect(msg, 'C2b 应含三条出路').toMatch(/restore\/|restore/); expect(msg, '② 换编号').toMatch(/请改用新的/); expect(msg, '③ hard-delete').toMatch(/hard-delete/)
+    // ★ 2026-09-24：R7（`54c4dc5`）后三条出路改为**研究员语言**，不再是端点名：
+    //   ① 想继续用这个编号 → 先到「回收站」把它还原；② 这是另一个产品 → 请换一个货号；
+    //   ③ 需要彻底删除旧记录 → 请联系管理员。（原断言在要 `restore/`、`请改用新的`、`hard-delete`）
+    expect(msg, 'C2b 应指向归档行（内部编号）').toContain(`内部编号 #${f.id}`)
+    expect(msg, 'C2b ① 出路：去回收站还原').toMatch(/回收站/)
+    expect(msg, 'C2b ① 出路：还原动作').toMatch(/还原/)
+    expect(msg, 'C2b ② 出路：换一个货号').toMatch(/请换一个货号/)
+    expect(msg, 'C2b ③ 出路：联系管理员').toMatch(/请联系管理员/)
+    expect(msg, 'C2b 不得泄露技术细节（R7）').not.toMatch(/restore\/|hard-delete|product id=/)
     expectDelta(before, snapshotDb(), { product: 0 }, 'C2b 冲突不得新增行')
     expect(fp(), 'C2b 归档行必须零改动').toEqual(rowBefore)
     await api.dispose()
@@ -162,7 +174,12 @@ test.describe('Part 1 · 组 C 表单字段与唯一性冲突（+ I5 / A5）', (
     const resp = await api.post('/products/', { data: { name: 'E2E C2c dup', catalog_no: catalogNo('C2CNEW'), slug: f.slug } })
     await expectApi(resp, { status: 409, json: { 'meta.error.code': 'conflict' }, label: 'C2c' })
     const msg = (await resp.json()).meta.error.message
-    expect(msg, 'C2c 应含三条出路').toMatch(/restore/); expect(msg).toMatch(/请改用新/); expect(msg).toMatch(/hard-delete/)
+    // ★ 2026-09-24：同 C2b，R7 后的三条出路为研究员语言（此字段 label 为 `slug`）。
+    expect(msg, 'C2c ① 出路：去回收站还原').toMatch(/回收站/)
+    expect(msg, 'C2c ① 出路：还原动作').toMatch(/还原/)
+    expect(msg, 'C2c ② 出路：换一个 slug').toMatch(/请换一个slug/)
+    expect(msg, 'C2c ③ 出路：联系管理员').toMatch(/请联系管理员/)
+    expect(msg, 'C2c 不得泄露技术细节（R7）').not.toMatch(/restore\/|hard-delete|product id=/)
     await api.dispose()
   })
 

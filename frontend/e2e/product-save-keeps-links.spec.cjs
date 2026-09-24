@@ -28,15 +28,28 @@
  * 纪律：只新增本文件；不改应用代码、不 git commit；写操作只碰 `E2E-` 前缀夹具（产品）；
  *      afterAll 按捕获的 id 硬删产品，并只读核验四表残留为 0。
  *
- * 已实测（2026-09-24，lead）：
- *   method 54 存在，派生 753 条 MethodProtocol ⇒ `POST /products/ {method_ids:[54]}` 建夹具后
- *   该产品 ProductMethod=1、ProductProtocol=753（link_source 全部 'inherited'，**值是小写**）。
+ * 已实测（2026-09-24 10:03，lead）：method 54 存在，派生 753 条 MethodProtocol
+ *   ⇒ `POST /products/ {method_ids:[54]}` 建夹具后该产品 ProductMethod=1、ProductProtocol=753
+ *     （link_source 全部 'inherited'，**值是小写**）。
+ *
+ * ★ 2026-09-24（同一日下午）**该前提失效，已改为"播种"夹具** —— 记录事实，勿当 spec 写错：
+ *   `367e5f4`（"低分不落库：零证据的协议不再写入 ProductProtocol"）落地后，
+ *   `relevance.py:523` 的 `if is_evidence_free(fused): continue`（等价 `tier == 'weak'`）
+ *   会把**新建产品**的全部候选行跳过：新产品 `compute_axis_a=None / b=0.0 / c=0.5`
+ *   ⇒ `score=0.1`、`tier='weak'` ⇒ `recompute_product` **返回 0**。
+ *   ⇒ 现在 `POST /products/` 建出来的夹具 **ProductProtocol = 0**，上面那句"753"只对
+ *     `367e5f4` **之前**的行为成立（当时 dev 未重启，所以这里的用例一直是绿的）。
+ *   本 spec 守的是「**保存不得删除既有 INHERITED 行**」（与这些行怎么来的无关）
+ *   ⇒ 夹具改用 `seedInheritedProtocols()` 直接播种，语义不变、闸门不降级。
+ *   ⚠️ 若将来有人把 `is_evidence_free` 的政策改回去，这里的播种仍然有效（多一层冗余而已）。
  */
 const { test, expect, request } = require('@playwright/test')
 const { BASE_URL, loginAsStaff, ADMIN_USER, ADMIN_PASS } = require('./helpers/auth')
 const { getToken, apiContext } = require('./helpers/api')
 const { expectApi, consoleErrors } = require('./helpers/assertions.cjs')
 const { dbQuery } = require('./helpers/db-snapshot.cjs')
+// ★ 播种（**会写库**）—— 与 db-snapshot 的只读契约分开，理由见该文件头与本文档头部注释
+const { seedInheritedProtocols } = require('./helpers/db-write.cjs')
 const { catalogNo, slug, cleanupByPrefix } = require('./fixtures/index.cjs')
 
 const J = JSON.stringify
@@ -140,10 +153,17 @@ test.describe('P0 · 产品编辑保存不丢失知识链接（_refresh_inherite
     const f = await fixtureProduct(api, 'KEEP1')
     createdIds.push(f.id)
 
+    // ★ 播种（见文件头 ★）：`367e5f4` 后 API 建产品**不再派生** INHERITED 行，
+    //   而本用例守的是「保存不得删除**既有**行」⇒ 由夹具自己把行造出来。
+    //   播种发生在 login/goto **之前**，此刻没有挂起的 waitForSelector ⇒ runSync 阻塞无害。
+    const seeded = seedInheritedProtocols(f.id, 12)
+    console.log(`__E2E__ KEEP1 seed=${J(seeded)}`)
+    expect(seeded.seeded, 'KEEP1 播种应至少建出 1 条 INHERITED 行').toBeGreaterThan(0)
+
     // D-DB 基线（现算 N / M）
     const before = ppOf(f.id)
     console.log(`__E2E__ KEEP1 fixture id=${f.id} before=${J(before)}`)
-    expect(before.pp, 'KEEP1 夹具应派生 >0 条 ProductProtocol').toBeGreaterThan(0)
+    expect(before.pp, 'KEEP1 夹具应含 >0 条 ProductProtocol').toBeGreaterThan(0)
     expect(before.pm, 'KEEP1 夹具应有 1 条 ProductMethod').toBe(1)
     const N = before.pp
     const M = before.pm
@@ -176,6 +196,12 @@ test.describe('P0 · 产品编辑保存不丢失知识链接（_refresh_inherite
     const api = await staffApi(req)
     const f = await fixtureProduct(api, 'KEEP2')
     createdIds.push(f.id)
+
+    // ★ 播种（同上）：本用例守「显式清空方法链 ⇒ 既有 INHERITED 行应被删除」，
+    //   前提是夹具**先得有行**。播种在 login/goto 之前，无挂起 waitForSelector。
+    const seeded = seedInheritedProtocols(f.id, 12)
+    console.log(`__E2E__ KEEP2 seed=${J(seeded)}`)
+    expect(seeded.seeded, 'KEEP2 播种应至少建出 1 条 INHERITED 行').toBeGreaterThan(0)
 
     const before = ppOf(f.id)
     console.log(`__E2E__ KEEP2 fixture id=${f.id} before=${J(before)}`)
