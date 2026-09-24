@@ -72,3 +72,44 @@ class BackfillUsageCommandTest(TestCase):
 
         p.refresh_from_db()
         self.assertEqual(p.usage, expected)
+
+    # ── ★ 2026-09-24 P2 保护：默认**只填空值**，不覆盖已有内容 ──────────────
+    def test_default_does_not_overwrite_existing_usage(self):
+        """已有 usage（如研究员手填）默认**不得被 docx 覆盖**。
+
+        背景：P2 要给研究员一个录入 `usage` 的入口；而本命令原先**无条件覆盖**
+        （只在"同值"时跳过）⇒ 会把手填内容静默冲掉。此用例锁住修正后的语义。
+        """
+        target = 'SC8001'
+        self.assertIsNotNone(_docx_usage(target), 'docx_products.json 缺 SC8001（测试前提）')
+        manual = 'MANUAL-USAGE: researcher-entered text that must survive backfill'
+        p = ProductFactory(catalog_no=target, usage=manual)
+        p.save()
+
+        call_command('backfill_product_usage')
+
+        p.refresh_from_db()
+        self.assertEqual(p.usage, manual, '默认必须不覆盖已有值（保护人工录入/既有内容）')
+
+    def test_force_flag_overwrites_existing_usage(self):
+        """`--force` 是**显式**的覆盖开关（需要 docx 语料刷新时才用）。"""
+        target = 'SC8001'
+        expected = _docx_usage(target)
+        self.assertIsNotNone(expected, 'docx_products.json 缺 SC8001（测试前提）')
+        p = ProductFactory(catalog_no=target, usage='OLD-VALUE-BEFORE-FORCE')
+        p.save()
+
+        call_command('backfill_product_usage', force=True)
+
+        p.refresh_from_db()
+        self.assertEqual(p.usage, expected, '--force 时应覆盖为 docx 值')
+
+    def test_dry_run_writes_nothing(self):
+        """`--dry-run` 只报告不落库（默认模式下也不得写）。"""
+        p = ProductFactory(catalog_no='SC8001', usage='')
+        p.save()
+
+        call_command('backfill_product_usage', dry_run=True)
+
+        p.refresh_from_db()
+        self.assertEqual(p.usage, '', 'dry-run 不得落库')
