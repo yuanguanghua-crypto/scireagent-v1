@@ -47,7 +47,7 @@ export function batchEnrichFromPubchem(productIds) {
  * - jena: 规格凭证 + 归一化规格（purity/storage/...），可填入表单
  * - bioz: 文献证据（依赖 jena 命中 catalog_no），只读预览
  */
-export function enrichProduct({ name, cas, smiles, inchi, formula, molecular_weight, productId } = {}) {
+export function enrichProduct({ name, cas, smiles, inchi, formula, molecular_weight, productId, protocolTopK } = {}) {
   return http.post('/products/enrich/', {
     product_name: name || '',
     cas: cas || '',
@@ -56,6 +56,9 @@ export function enrichProduct({ name, cas, smiles, inchi, formula, molecular_wei
     formula: formula || '',
     molecular_weight: molecular_weight ?? null,
     product_id: productId || null,
+    // ★ F2：协议候选条数（可选）。**不传时后端按默认 5**（与既有调用方行为逐字一致），
+    //   故这里用条件展开，避免给既有调用方凭空多出一个字段。后端归一化：非法→5、上限 50。
+    ...(protocolTopK ? { protocol_top_k: protocolTopK } : {}),
   }, { timeout: 120000 })
 }
 

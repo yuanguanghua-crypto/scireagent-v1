@@ -119,3 +119,10 @@ frontend/dist_regress_*/
 frontend/e2e/shots/                  # E2E 截图产物
 # 协议 Q 离线预算缓存：环境相关产物，容器启动时自愈生成（dev 本地生成）
 backend/apps/bridges/data/protocol_q_cache.json
+
+# Playwright 产物：**必须忽略**。Tailwind v4（main.css 的 `@import "tailwindcss"`）会自动扫描
+# 项目内容文件并**尊重 .gitignore**；不忽略会让扫描去读上千个 trace 产物（实测 137 目录/12k 文件），
+# 且**扫描期间删除这些文件会导致 `vite:css-analysis` ENOENT → main.css 500 → 入口链断 → 全站白屏**。
+frontend/test-results-*/
+frontend/.playwright-artifacts-*/
+frontend/playwright-report/

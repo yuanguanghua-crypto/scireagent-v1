@@ -139,6 +139,22 @@ const productProtocolLinks = ref([])
 const showAllProtocolLinks = ref(false)
 const showWeakLinks = ref(false)
 
+// ★ F2（2026-09-24）：新品页向后端请求的协议候选条数（后端归一化：非法→默认 5、上限 50）。
+const PROTOCOL_CANDIDATE_TOP_K = 50
+// ★ F2：🧪 候选列表**默认只展示前 N 条**，点「显示全部」再展开（与第 5 节 `显示全部` 同模式）。
+const ENRICH_PROTOCOL_PREVIEW_N = 5
+const showAllEnrichProtocols = ref(false)
+
+/** ★ F2/硬伤 2：**自动关联**的条数上限，**必须固定为 5 且不随 top_k 放大**。
+ *
+ *  `applyEnrichKnowledgeLinks` 会遍历 `enrichProtocols` 把整数 id 自动 push 进 `protocolIds`，
+ *  保存时由 `_sync_protocol_bridges` 锚进 `MethodProtocol` 桥 —— 这是**数据写入**。
+ *  若让它跟着 top_k 一起放大（5→50），「Apply All / Save Draft 自动套用」会**静默多写 45 条桥**，
+ *  属静默扩大写入面（与 R0-a 那次"AI 预览自动写库"止血的教训同类）。
+ *  ⇒ 放大 top_k 只用于**人工浏览/逐条关联**，自动关联仍按原上限 5。
+ */
+const AUTO_LINK_PROTOCOL_N = ENRICH_PROTOCOL_PREVIEW_N
+
 // ★ N4（2026-09-24）：**协议芯片的 ✕ 只对「本次本地新增、尚未保存」的行有效**。
 //   服务端派生行的链接来自**共享的 `method_protocol` 表**：把 id 从 `protocol_ids` 里去掉
 //   既不会删掉 MethodProtocol 行（`_sync_protocol_bridges` 只增不删），保存后重算还会把它拉回来
@@ -694,6 +710,9 @@ async function runPubchemEnrich() {
     formula: (form.formula || '').trim(),
     molecular_weight: form.molecular_weight ?? null,
     productId: isEdit.value ? productId.value : null,
+    // ★ F2：**只在新品页（无 pk）**请求更多候选 —— 编辑页 enrich 走 pk 分支只返回其落库 PP 行，
+    //   与第 5 节本就重叠，放大它收益低而展示面变化大（审定 A4）。
+    protocolTopK: isEdit.value ? undefined : PROTOCOL_CANDIDATE_TOP_K,
   }
   if (!ids.name && !ids.cas && !ids.smiles && !ids.inchi) return
   pubchemEnriching.value = true
@@ -858,7 +877,11 @@ async function applyEnrichKnowledgeLinks() {
   //    就往 protocol / method / protocol_step 权威表批量新建实体（且去重失效 → 自我放大），
   //    违反铁律「全草案不自动落库」。现改为仅登记为候选，由研究员在协议卡片上逐条显式
   //    点击 Import 才入库（importSingleProtocol）。
-  const protos = enrichProtocols.value || []
+  // ★ F2/硬伤 2：**自动关联只取前 N 条**（`AUTO_LINK_PROTOCOL_N` = 5，**不随 top_k 放大**）。
+  //   放大 top_k 只用于"人工浏览 + 逐条关联"；若让它连带放大自动关联，
+  //   「Apply All / Save Draft 自动套用」会静默多写几十条 `MethodProtocol` 桥（见该常量注释）。
+  //   top_k 仍为 5 时本行与原实现**逐字等价**。
+  const protos = (enrichProtocols.value || []).slice(0, AUTO_LINK_PROTOCOL_N)
   const pending = []
   for (const p of protos) {
     if (Number.isInteger(p.id)) {
@@ -1783,12 +1806,23 @@ watch(
           ⚠ 以下 {{ pendingCorpusProtocols.length }} 条来自语料库的协议为<strong>候选，尚未写入知识库</strong>；
           AI 匹配与保存草稿都不会自动入库，需逐条确认后点击 Import。
         </p>
-        <div v-for="(p, i) in enrichProtocols.slice(0, 5)" :key="i" class="protocol-card">
+        <div v-for="(p, i) in enrichProtocols.slice(0, showAllEnrichProtocols ? enrichProtocols.length : ENRICH_PROTOCOL_PREVIEW_N)" :key="i" class="protocol-card">
           <div class="protocol-card-header" @click="toggleProtocolExpand(i)">
             <span style="font-weight:600;font-size:12px">{{ p.title || 'Untitled' }}</span>
             <span style="font-size:11px;color:var(--color-text-secondary)">[{{ p.source }}]</span>
             <span v-if="p.steps?.length" style="font-size:11px;color:var(--color-text-secondary)">{{ p.steps.length }} steps</span>
             <span v-if="!Number.isInteger(p.id) && !protocolImported[i]" class="badge badge-weak">候选 · 未入库</span>
+            <!-- ★ F1：关联 / 取消关联。只对**库内已有实体**（整数 id）显示 —— 语料候选没有 DB id，无法关联。
+                 ⚠️ `@click.stop` 必须有：卡片头自身带 @click 折叠，不 stop 会同时收起卡片。
+                 ⚠️ `methodIds.length === 0` 时必须禁用：`_sync_protocol_bridges` 在"产品无方法"时
+                    直接 return（`serializers.py:283-286`）⇒ 关联是 no-op，保存后不会生效。 -->
+            <button v-if="Number.isInteger(p.id)" type="button" class="km-link-btn"
+                    :disabled="methodIds.length === 0"
+                    :title="methodIds.length === 0
+                      ? '请先挂载至少一个方法（协议需经方法进入知识链，否则保存后不会生效）'
+                      : (protocolIds.includes(p.id) ? '取消关联' : '关联到本产品（保存后生效）')"
+                    @click.stop="toggleProtocolId(p.id)"
+            >{{ protocolIds.includes(p.id) ? '✕ 取消关联' : '＋ 关联' }}</button>
             <span style="margin-left:auto;font-size:11px">{{ protocolExpanded[i] ? '▲' : '▼' }}</span>
           </div>
           <div v-if="protocolExpanded[i]" class="protocol-card-body">
@@ -1810,6 +1844,11 @@ watch(
             <span v-if="protocolImported[i]" style="font-size:11px;color:var(--color-success);margin-left:8px">✓ Imported</span>
           </div>
         </div>
+        <!-- ★ F2：候选多于预览条数时提供展开（与第 5 节「显示全部」同模式；默认不展开，避免 DOM 膨胀） -->
+        <button v-if="enrichProtocols.length > ENRICH_PROTOCOL_PREVIEW_N"
+                type="button" class="btn btn-ghost btn-xs"
+                @click="showAllEnrichProtocols = !showAllEnrichProtocols"
+        >{{ showAllEnrichProtocols ? '收起' : `显示全部 (${enrichProtocols.length})` }}</button>
       </div>
       </details>
       <!-- Apply All button moved to top action row (see AI AUTO MATCH panel header) -->
