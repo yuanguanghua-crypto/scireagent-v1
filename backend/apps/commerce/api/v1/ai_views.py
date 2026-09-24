@@ -33,6 +33,29 @@ from apps.bridges.services.auto_links import (
 
 logger = logging.getLogger(__name__)
 
+# ★ F2（2026-09-24）：enrich 协议推荐条数的**上限**与**默认值**。
+#   `recommend_protocols_for_enrich` 本就在**全库**上排序、只切片输出 ⇒ 放大 top_k **几乎不增计算**，
+#   只增响应体。实测（dev，14,084 协议，品名 'fluorescent labeled nucleotide'）：
+#     top_k=5 → 7.2KB / 0.003s ｜ 20 → 25.9KB / 0.005s ｜ 50 → 60.4KB / 0.010s ｜ 200 → 416.6KB / 0.036s
+#   ⇒ 上限取 **50**（60KB，可接受），默认仍 **5**（与既有行为/既有 spec 完全兼容）。
+PROTOCOL_TOP_K_DEFAULT = 5
+PROTOCOL_TOP_K_MAX = 50
+
+
+def _normalize_protocol_top_k(raw):
+    """把请求里的 `protocol_top_k` 归一化到 [1, PROTOCOL_TOP_K_MAX]；**任何异常一律回落默认值**。
+
+    ★ 必须是"静默回落"而不是报 400：这是**展示条数**的偏好参数，不该因为一个可选参数
+      让整个 enrich（含化学/文献/jena）失败。非法值包括 None / '' / 'abc' / 0 / 负数 / 超大数 / dict 等。
+    """
+    try:
+        n = int(raw)
+    except (TypeError, ValueError):
+        return PROTOCOL_TOP_K_DEFAULT
+    if n < 1:
+        return PROTOCOL_TOP_K_DEFAULT
+    return min(n, PROTOCOL_TOP_K_MAX)
+
 
 # ── Batch Views ───────────────────────────────────────────────────────
 
@@ -231,6 +254,8 @@ class ProductEnrichView(EnvelopeMixin, APIView):
         inchi = (request.data.get("inchi") or "").strip()
         # 可选：传入 product_id 时关联已落库 Reference 的回写（P3-1）
         product_pk = request.data.get("product_id")
+        # ★ F2：协议推荐条数（可选，归一化；非法值静默回落默认 5 ⇒ 与既有调用方完全兼容）
+        protocol_top_k = _normalize_protocol_top_k(request.data.get("protocol_top_k"))
         ref_lookup = {}  # (kind, key_lower) → ref_id
 
         # ── 化学属性（复用已有 enrich 逻辑）──
@@ -419,7 +444,7 @@ class ProductEnrichView(EnvelopeMixin, APIView):
             search_name = product_name or identifier or ""
             if search_name:
                 protocols = recommend_protocols_for_enrich(
-                    search_name, product_pk=product_pk_int, top_k=5)
+                    search_name, product_pk=product_pk_int, top_k=protocol_top_k)
         except Exception as e:
             logger.warning(f"R1 protocol recommendation failed: {e}")
 
