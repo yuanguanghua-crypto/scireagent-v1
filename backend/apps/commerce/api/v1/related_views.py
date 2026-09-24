@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404
 
 from apps.commerce.models import Product
 from apps.commerce.services.related_products import get_related_products
+from rest_framework.permissions import AllowAny
 
 
 class RelatedProductsView(APIView):
@@ -36,3 +37,4 @@ class RelatedProductsView(APIView):
                 'count': len(related),
             },
         })
+    permission_classes = [AllowAny]  # ★ 2026-09-24 显式化：本类**有意公开**（站点公开面），原为「隐式 AllowAny」（DRF 默认）。

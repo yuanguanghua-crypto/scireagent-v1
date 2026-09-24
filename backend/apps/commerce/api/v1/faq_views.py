@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404
 
 from apps.commerce.models import Product
 from apps.knowledge.services.faq_generator import generate_faq, generate_faq_json_ld
+from rest_framework.permissions import AllowAny
 
 
 class ProductFAQView(APIView):
@@ -32,3 +33,4 @@ class ProductFAQView(APIView):
             response_data['json_ld'] = generate_faq_json_ld(product, faqs)
 
         return Response(response_data)
+    permission_classes = [AllowAny]  # ★ 2026-09-24 显式化：本类**有意公开**（站点公开面），原为「隐式 AllowAny」（DRF 默认）。

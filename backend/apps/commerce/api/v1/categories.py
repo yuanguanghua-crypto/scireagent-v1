@@ -4,12 +4,17 @@ v1 重构：从 ProductClass 自引用树动态构建，删除硬编码 CATEGORI
 响应结构保持与旧版兼容，供前端 ProductLayout.vue 直接消费。
 """
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 from rest_framework.renderers import JSONRenderer
 from rest_framework.response import Response
 from apps.commerce.models import Product, ProductClass as PC
 
 
 class CategoryTreeView(APIView):
+    # ★ 2026-09-24 显式化：本类是**站点公开面**（前端 `ProductLayout.vue` 直接消费的导航分类树）
+    #   ⇒ 有意匿名可读。此前**未声明** `permission_classes`，靠 DRF 默认（AllowAny）——
+    #   与"隐式即公开"的其他类同属一个隐患族（见 `apps/core/tests/test_api_permission_declarations.py`）。
+    permission_classes = [AllowAny]
     """GET /api/v1/categories — 从 ProductClass 表动态构建分类树 + 产品计数。
 
     响应结构（与旧硬编码版逐键兼容）：
