@@ -141,3 +141,140 @@ for (const e of ENTITIES) {
     }
   })
 }
+
+/**
+ * ★ 已知缺陷（此前被「5 个治理页零 PUT 覆盖」遮住）—— **用例先行、作修复闸门**。
+ *
+ * 两处"死输入框"（均经"序列化器 validated_data 实证"确认，非猜测）：
+ *  1) **MethodsPage「Purpose」**：写路径 `get_serializer_class` 只在 `retrieve` 走 Detail，
+ *     create/update 走 **MethodListSerializer —— 其 `Meta.fields` 未声明 `purpose`**
+ *     ⇒ 列表行读不到 `purpose`（输入框恒空）、PUT 里带的 `purpose` 被 DRF 静默忽略（改了不生效）。
+ *  2) **ReferencesPage「Citation」**：页面表单键为 `citation`，而
+ *     模型字段与 `ReferenceSerializer.fields` 都是 **`citation_text`**
+ *     ⇒ 同样"读恒空、写被忽略"（该序列化器读写同一个，故输入框完全不通）。
+ *
+ * 转正条件：修复后删除 `test.fixme`，按下面草稿断言即可转正（两处都要能读能写）。
+ */
+test.fixme('治理页死字段：Method.Purpose / Reference.Citation 应能读写（当前读写皆不通）',
+  { tag: ['@write', '@local-only'] }, async ({ page, request }) => {
+    const api = await staffApi(request)
+    try {
+      await loginAsStaff(page)
+
+      // ① /workspace/methods → 首行 Edit ⇒ Purpose 应预填该 method 的 purpose（非空才算通）
+      await goto(page, '/workspace/methods')
+      const mRow = rows(page).first()
+      const mId = Number((await mRow.locator('td').first().innerText()).trim())
+      const mBefore = ((await (await api.get(`/methods/${mId}/`)).json())?.data || {}).purpose || ''
+      await mRow.getByRole('button', { name: 'Edit' }).click()
+      await expect(dlg(page)).toHaveCount(1, { timeout: 10000 })
+      await expect(dlg(page).locator('textarea, input').nth(1), 'Purpose 应预填后端 purpose')
+        .toHaveValue(mBefore)
+
+      // ② /workspace/references → 首行 Edit ⇒ Citation 应预填 citation_text
+      await goto(page, '/workspace/references')
+      const rRow = rows(page).first()
+      const rId = Number((await rRow.locator('td').first().innerText()).trim())
+      const rBefore = ((await (await api.get(`/references/${rId}/`)).json())?.data || {}).citation_text || ''
+      await rRow.getByRole('button', { name: 'Edit' }).click()
+      await expect(dlg(page)).toHaveCount(1, { timeout: 10000 })
+      await expect(dlg(page).locator('input.input-full').nth(3), 'Citation 应预填 citation_text')
+        .toHaveValue(rBefore)
+    } finally {
+      await api.dispose()
+    }
+  })
+
+/**
+ * ★ 5 个治理页的 **PUT（编辑保存）** 覆盖 —— 此前 P1 缺口：
+ *   全 e2e 对这 5 个端点 **零 PUT 覆盖**（所有 PUT 都打在 `/products/`）。
+ *
+ * 数据安全设计（三条，均踩过坑）：
+ *  1) **目标行 = 首行**：列表按排序键升序（priority/sort_order/id/-version/-year）且 UI 有渲染上限
+ *     （Goals/Apps/Methods=200、Protocol=500）⇒ 自建夹具 id 最大 ⇒ **不保证被渲染** ⇒ 只能编辑既有首行。
+ *  2) **只改 Name**，finally 用**页面自己发出的 PUT 载荷**（`page.on('request')` 捕获 `postDataJSON()`）
+ *     把原名写回 ⇒ 不手拼 per-entity 载荷（避免漏字段）。
+ *  3) 还原必须写成 `api.put(url, { data: {...} })` —— Playwright 的选项对象在**第二参**；
+ *     把 body 直接当第二参会**静默不发 body**（本用例第一版即踩此坑 ⇒ 首行被留成改名值）。
+ *
+ * ⚠️ 两个已实测的**真缺陷**（本组用例正是它们的闸门；修好后删 fixme 转正）：
+ *  · `Protocol`：`PUT /api/v1/protocols/{id}/` → **500** `NameError: name 'MethodProtocol' is not defined`
+ *    （`apps/knowledge/api/v1/serializers.py:284` 未导入即用）⇒ 协议治理页**编辑保存完全不可用**。
+ *  · `Reference`：`PUT /api/v1/references/{id}/` → **400** `source_type: "pubmed" is not a valid choice`
+ *    （choices = journal/book/patent/thesis/web/other；库中 **162/208** 条为 `pubmed`）⇒ 这类文献**保存必失败**。
+ */
+const PUT_KNOWN_DEFECT = {
+  Protocol: 'PUT 500 NameError(MethodProtocol 未导入, serializers.py:284)',
+  Reference: 'PUT 400 source_type=pubmed 非法 choice(库中 162/208)',
+}
+for (const e of ENTITIES) {
+  const defect = PUT_KNOWN_DEFECT[e.noun]
+  const t = defect ? test.fixme : test
+  const suffix = defect ? `（已知缺陷：${defect}）` : ''
+  t(`${e.noun} 治理页：Edit → Save 走 PUT 且落库${suffix}`,
+    { tag: ['@write', '@local-only'] }, async ({ page, request }) => {
+      const errors = consoleErrors(page, WL)
+      const api = await staffApi(request)
+      let targetId = null
+      let targetName = null
+      let capturedPutBody = null
+      const capPut = (r) => {
+        if (r.method() === 'PUT' && r.url().includes(e.api)) {
+          try { capturedPutBody = r.postDataJSON() } catch { /* 非 JSON 体忽略 */ }
+        }
+      }
+      page.on('request', capPut)
+      try {
+        await loginAsStaff(page)
+        await goto(page, e.page)
+        await expect
+          .poll(async () => rows(page).count(), { timeout: 25000, intervals: [300, 600, 1000] })
+          .toBeGreaterThan(0)
+
+        const targetRow = rows(page).first()
+        targetId = Number((await targetRow.locator('td').first().innerText()).trim())
+        targetName = (await targetRow.locator('td.col-name').innerText()).trim()
+        const editedName = `${targetName} [E2E-PUT]`
+
+        await targetRow.getByRole('button', { name: 'Edit' }).click()
+        await expect(dlg(page), 'Edit 后应出现编辑器').toHaveCount(1, { timeout: 10000 })
+        await expect(nameInput(page), `${e.noun} Edit 应把既有值预填（现算：${targetName}）`).toHaveValue(targetName)
+
+        await nameInput(page).fill(editedName)
+        const [putResp] = await Promise.all([
+          page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().includes(e.api)),
+          dlg(page).getByRole('button', { name: 'Save' }).click(),
+        ])
+        if (putResp.status() >= 300) {
+          console.log(`__E2E__ ${e.noun} PUT ${putResp.status()} BODY=${String(await putResp.text()).slice(0, 400)}`)
+        }
+        expect(putResp.status(), `${e.noun} 编辑保存的 PUT 应 2xx`).toBeLessThan(300)
+        await expect(dlg(page), '保存后编辑器应关闭').toHaveCount(0, { timeout: 10000 })
+        const detail = await (await api.get(`${e.api}${targetId}/`)).json()
+        const got = detail?.data ?? detail
+        expect(got.name ?? got.title, `${e.noun} 编辑后新名应落库`).toBe(editedName)
+        expect(errors).toEqual([])
+      } finally {
+        page.off('request', capPut)
+        try {
+          if (targetId != null && capturedPutBody) {
+            await api.put(`${e.api}${targetId}/`, {
+              data: { ...capturedPutBody, name: targetName, title: targetName },
+            })
+          }
+          if (targetId != null) {
+            const back = await (await api.get(`${e.api}${targetId}/`)).json()
+            const b = back?.data ?? back
+            const nowName = b?.name ?? b?.title
+            console.log(`__E2E__ ${e.noun} PUT 首行还原 targetId=${targetId} name=${nowName}`)
+            if (nowName !== targetName) {
+              console.log(`__E2E__ ⚠️ ${e.noun} PUT 首行还原失败：期望 ${targetName} / 实际 ${nowName}`)
+            }
+          }
+        } catch (err) {
+          console.log(`__E2E__ ⚠️ ${e.noun} PUT 首行还原异常：${err.message}`)
+        }
+        await api.dispose()
+      }
+    })
+}
