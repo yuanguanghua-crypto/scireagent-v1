@@ -18,7 +18,7 @@ const error = ref('')
 const showEditor = ref(false)
 const editing = ref(null)
 const saving = ref(false)
-const form = ref({ title: '', url: '', doi: '', citation: '', source_type: 'journal' })
+const form = ref({ title: '', url: '', doi: '', citation_text: '', source_type: 'journal' })
 const overlay = ref(null)
 const dialogAttrs = useDialogA11y(showEditor, overlay, {
   titleId: 'entity-editor-title',
@@ -42,7 +42,7 @@ async function loadList() {
 
 function openNew() {
   editing.value = null
-  form.value = { title: '', url: '', doi: '', citation: '', source_type: 'journal' }
+  form.value = { title: '', url: '', doi: '', citation_text: '', source_type: 'journal' }
   showEditor.value = true
 }
 function openEdit(e) {
@@ -51,7 +51,9 @@ function openEdit(e) {
     title: e.title || '',
     url: e.url || '',
     doi: e.doi || '',
-    citation: e.citation || '',
+    // ★ 2026-09-24 修 B：字段名必须与后端一致（`ReferenceSerializer` 暴露的是 `citation_text`）。
+    //   此前页面用 `citation` ⇒ 该输入框**读恒空、写被 DRF 静默忽略**（死字段）。
+    citation_text: e.citation_text || '',
     source_type: e.source_type || 'journal',
   }
   showEditor.value = true
@@ -105,13 +107,18 @@ async function save() {
         <label>Title <input v-model="form.title" class="input-full" /></label>
         <label>URL <input v-model="form.url" class="input-full" placeholder="https://..." /></label>
         <label>DOI <input v-model="form.doi" class="input-full" placeholder="10.xxx/xxx" /></label>
-        <label>Citation <textarea v-model="form.citation" rows="3" class="input-full"></textarea></label>
+        <label>Citation <textarea v-model="form.citation_text" rows="3" class="input-full"></textarea></label>
         <label>Source Type
           <select v-model="form.source_type" class="input-full">
+            <!-- ★ 2026-09-24 修 B：选项必须与后端枚举一致。
+                 原列表把 `web` 写成了 **`website`** ⇒ 选 "Website" 提交非法值 ⇒ **保存必 400**；
+                 且缺 `thesis`；另需补 `pubmed`（库中 162/208 条为该值，序列化器已放开，供回填/选择）。 -->
             <option value="journal">Journal</option>
-            <option value="patent">Patent</option>
             <option value="book">Book</option>
-            <option value="website">Website</option>
+            <option value="patent">Patent</option>
+            <option value="thesis">Thesis</option>
+            <option value="web">Website</option>
+            <option value="pubmed">PubMed</option>
             <option value="other">Other</option>
           </select>
         </label>

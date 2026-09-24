@@ -143,43 +143,63 @@ for (const e of ENTITIES) {
 }
 
 /**
- * ★ 已知缺陷（此前被「5 个治理页零 PUT 覆盖」遮住）—— **用例先行、作修复闸门**。
+ * ★ 修 B 的回归闸门（**已转正**）：`ReferencesPage` 的 **Citation** 输入框必须能读。
  *
- * 两处"死输入框"（均经"序列化器 validated_data 实证"确认，非猜测）：
- *  1) **MethodsPage「Purpose」**：写路径 `get_serializer_class` 只在 `retrieve` 走 Detail，
- *     create/update 走 **MethodListSerializer —— 其 `Meta.fields` 未声明 `purpose`**
- *     ⇒ 列表行读不到 `purpose`（输入框恒空）、PUT 里带的 `purpose` 被 DRF 静默忽略（改了不生效）。
- *  2) **ReferencesPage「Citation」**：页面表单键为 `citation`，而
- *     模型字段与 `ReferenceSerializer.fields` 都是 **`citation_text`**
- *     ⇒ 同样"读恒空、写被忽略"（该序列化器读写同一个，故输入框完全不通）。
- *
- * 转正条件：修复后删除 `test.fixme`，按下面草稿断言即可转正（两处都要能读能写）。
+ * 背景：页面原先用 `citation` 作表单键，而模型字段与 `ReferenceSerializer.fields` 都是
+ * **`citation_text`** ⇒ 该输入框「读恒空、写被 DRF 静默忽略」（死字段）。已一并修为 `citation_text`；
+ * 同批还修了 Source Type 下拉：原把后端的 `web` 写成了 **`website`**（选它保存必 400）且缺 `thesis`。
  */
-test.fixme('治理页死字段：Method.Purpose / Reference.Citation 应能读写（当前读写皆不通）',
+test('References 治理页：Edit 应把 citation_text 预填进 Citation 框',
+  { tag: ['@readonly', '@local-only'] }, async ({ page, request }) => {
+    const api = await staffApi(request)
+    try {
+      await loginAsStaff(page)
+      await goto(page, '/workspace/references')
+      await expect
+        .poll(async () => rows(page).count(), { timeout: 25000, intervals: [300, 600, 1000] })
+        .toBeGreaterThan(0)
+      const row = rows(page).first()
+      const rid = Number((await row.locator('td').first().innerText()).trim())
+      const detail = await (await api.get(`/references/${rid}/`)).json()
+      const expectText = (detail?.data ?? detail)?.citation_text || ''
+      await row.getByRole('button', { name: 'Edit' }).click()
+      await expect(dlg(page)).toHaveCount(1, { timeout: 10000 })
+      // 表单里第 4 个 `.input-full` = Citation（前三为 Title / URL / DOI）
+      await expect(dlg(page).locator('.input-full').nth(3), 'Citation 应预填 citation_text')
+        .toHaveValue(expectText)
+    } finally {
+      await api.dispose()
+    }
+  })
+
+/**
+ * ★ 仍挂起的死字段：`MethodsPage` 的 **Purpose**。
+ *
+ * 写路径 `get_serializer_class` 只在 `retrieve` 走 Detail，create/update 走
+ * **MethodListSerializer —— 其 `Meta.fields` 未声明 `purpose`**
+ * ⇒ 列表行读不到 `purpose`（输入框恒空）、PUT 里带的 `purpose` 被 DRF 静默忽略。
+ * （注意：**不会**清空既有值 —— DRF 忽略未声明字段，已实测。）
+ * 修法（未做，仅序列化器、**不改模型**）：把 `purpose` 加进 `MethodListSerializer.Meta.fields`，
+ * 或让 MethodsPage 像 Goals/Protocols 那样在 `openEdit` 里拉详情预填。修好删 fixme 即转正。
+ */
+test.fixme('Method 治理页 Purpose 应能读写（当前读写皆不通：List 序列化器未声明 purpose）',
   { tag: ['@write', '@local-only'] }, async ({ page, request }) => {
     const api = await staffApi(request)
     try {
       await loginAsStaff(page)
-
-      // ① /workspace/methods → 首行 Edit ⇒ Purpose 应预填该 method 的 purpose（非空才算通）
       await goto(page, '/workspace/methods')
-      const mRow = rows(page).first()
-      const mId = Number((await mRow.locator('td').first().innerText()).trim())
-      const mBefore = ((await (await api.get(`/methods/${mId}/`)).json())?.data || {}).purpose || ''
-      await mRow.getByRole('button', { name: 'Edit' }).click()
+      await expect
+        .poll(async () => rows(page).count(), { timeout: 25000, intervals: [300, 600, 1000] })
+        .toBeGreaterThan(0)
+      const row = rows(page).first()
+      const mid = Number((await row.locator('td').first().innerText()).trim())
+      const detail = await (await api.get(`/methods/${mid}/`)).json()
+      const expectPurpose = (detail?.data ?? detail)?.purpose || ''
+      await row.getByRole('button', { name: 'Edit' }).click()
       await expect(dlg(page)).toHaveCount(1, { timeout: 10000 })
-      await expect(dlg(page).locator('textarea, input').nth(1), 'Purpose 应预填后端 purpose')
-        .toHaveValue(mBefore)
-
-      // ② /workspace/references → 首行 Edit ⇒ Citation 应预填 citation_text
-      await goto(page, '/workspace/references')
-      const rRow = rows(page).first()
-      const rId = Number((await rRow.locator('td').first().innerText()).trim())
-      const rBefore = ((await (await api.get(`/references/${rId}/`)).json())?.data || {}).citation_text || ''
-      await rRow.getByRole('button', { name: 'Edit' }).click()
-      await expect(dlg(page)).toHaveCount(1, { timeout: 10000 })
-      await expect(dlg(page).locator('input.input-full').nth(3), 'Citation 应预填 citation_text')
-        .toHaveValue(rBefore)
+      // 对话框里唯一的 textarea = Purpose（Name 是 input.input-full）
+      await expect(dlg(page).locator('textarea.input-full').first(), 'Purpose 应预填后端 purpose')
+        .toHaveValue(expectPurpose)
     } finally {
       await api.dispose()
     }
@@ -197,15 +217,20 @@ test.fixme('治理页死字段：Method.Purpose / Reference.Citation 应能读�
  *  3) 还原必须写成 `api.put(url, { data: {...} })` —— Playwright 的选项对象在**第二参**；
  *     把 body 直接当第二参会**静默不发 body**（本用例第一版即踩此坑 ⇒ 首行被留成改名值）。
  *
- * ⚠️ 两个已实测的**真缺陷**（本组用例正是它们的闸门；修好后删 fixme 转正）：
- *  · `Protocol`：`PUT /api/v1/protocols/{id}/` → **500** `NameError: name 'MethodProtocol' is not defined`
- *    （`apps/knowledge/api/v1/serializers.py:284` 未导入即用）⇒ 协议治理页**编辑保存完全不可用**。
- *  · `Reference`：`PUT /api/v1/references/{id}/` → **400** `source_type: "pubmed" is not a valid choice`
- *    （choices = journal/book/patent/thesis/web/other；库中 **162/208** 条为 `pubmed`）⇒ 这类文献**保存必失败**。
+ * ⚠️ 已知缺陷 / 挂起原因（本组用例是它的闸门）：
+ *  · `Reference` 的 `PUT 400 source_type=pubmed` **已修**（序列化器层并入 `pubmed`，不动模型）
+ *    ⇒ 其 PUT 用例**已转正**。
+ *  · `Protocol` 的 `PUT 500 NameError(MethodProtocol 未导入)` **已修**（补模块级导入），
+ *    但本用例**仍挂起**，原因换成**夹具副作用**：
+ *      协议 PUT 走通后，`update()` 会按**单选下拉**刷新该协议的 `explicit` 桥
+ *      （已实测：夹具 2 条 explicit → 收敛为 1 条；非 explicit 桥不受影响）。
+ *      本用例为不污染数据，只改名并靠 API 还原**名字**；但**没有清理 `MethodProtocol` 的接口**
+ *      ⇒ 跑一次会在首行协议上**新建 1 条 explicit 桥**且无法回收。
+ *    ⇒ 转正前置：① 明确「编辑保存收敛 explicit 桥」的口径；② 提供夹具桥的清理手段。
+ *      （生产 `method_protocol.explicit=true` 实测 **0 条**（共 15,241）⇒ 该副作用**当前零波及**。）
  */
 const PUT_KNOWN_DEFECT = {
-  Protocol: 'PUT 500 NameError(MethodProtocol 未导入, serializers.py:284)',
-  Reference: 'PUT 400 source_type=pubmed 非法 choice(库中 162/208)',
+  Protocol: 'PUT 已修(补导入)；本用例挂起＝夹具会在首行协议新建 1 条 explicit 桥且无接口回收',
 }
 for (const e of ENTITIES) {
   const defect = PUT_KNOWN_DEFECT[e.noun]

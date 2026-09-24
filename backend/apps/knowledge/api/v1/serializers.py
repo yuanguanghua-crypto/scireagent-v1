@@ -4,6 +4,13 @@ from core.serializers import BaseModelSerializer
 from apps.knowledge.models import (
     ResearchGoal, Application, Method, Protocol, ProtocolStep, Reference, Compatibility
 )
+# ★ 2026-09-24 修 A：`MethodProtocol`（协议↔方法桥）定义在 **bridges** app，
+#   此前 `ProtocolListSerializer.create()/update()` 直接用它却**没导入** ⇒
+#   `NameError: name 'MethodProtocol' is not defined` ⇒ POST/PUT 只要带 `methods` 就 **500**。
+#   循环导入已核：`apps/bridges/models.py` 只 import `django.db.models` + `core.models`
+#   （对 knowledge 的引用走字符串 FK），且本文件 `ProtocolDetailSerializer.get_methods`
+#   早已在做局部导入 ⇒ 模块级导入安全。
+from apps.bridges.models import MethodProtocol
 
 
 class ResearchGoalListSerializer(BaseModelSerializer):
@@ -481,6 +488,20 @@ class MethodDetailSerializer(BaseModelSerializer):
 
 
 class ReferenceSerializer(BaseModelSerializer):
+    # ★ 2026-09-24 修 B（口径 = 「不改模型」）：`source_type` 的历史数据里 **162/208 条是 `pubmed`**，
+    #   而模型 choices 只有出版物类型（journal/book/patent/thesis/web/other）
+    #   ⇒ 编辑这类文献保存必 400（实测 `"pubmed" is not a valid choice`）⇒ **78% 文献不可编辑**。
+    #   现**在序列化器层放宽**：模型 choices 与 migration **均不动**
+    #   （改 choices 会经 `deconstruct()` 被判为变更、生成 no-op AlterField，仍属"改模型"）。
+    #   声明形式与 DRF 自动生成完全一致（allow_null=False / allow_blank=False / required=False），
+    #   唯一差别是并入 `pubmed` —— 不收紧任何原有校验。
+    #   TODO（独立口径决策，本放宽可撤）：`pubmed` 语义上是**来源库**而非**出版物类型**，
+    #   更干净的终态是新增专门字段承载「来源库」，再把本放宽移除。
+    source_type = serializers.ChoiceField(
+        choices=list(Reference._meta.get_field('source_type').choices) + [('pubmed', 'PubMed 文献库')],
+        required=False,
+    )
+
     class Meta:
         model = Reference
         fields = [
