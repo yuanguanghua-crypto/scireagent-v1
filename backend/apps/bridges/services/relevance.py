@@ -244,7 +244,7 @@ def protocol_link_sort_key(r):
     )
 
 
-def build_protocol_links(product):
+def build_protocol_links(product, compute_pending=False):
     """构建产品协议链行（P0#3 方案A「读端打通」）。
 
     数据源：ProductProtocol 直接表（select_related('protocol')，含 INHERITED/EXPLICIT/AUTO
@@ -260,6 +260,12 @@ def build_protocol_links(product):
     id/name/slug/relevance_score/score_a/score_b/score_c/relevance_basis/
     link_source/tier/literature_count/chem_specific。
     （chem_specific 为读端叠加标记，绝不修改 relevance_score/tier/link_source。）
+
+    `compute_pending`（★ P1-a′，默认 **False**）：
+      仅当**走桥回退分支**（该产品 `ProductProtocol` 表为 0 行）时生效 —— 对桥可达的那批协议
+      逐条算轴A，使候选可按匹配度排序（详见 `_score_bridge_rows`）。
+      **只有工作台编辑页（`ProductDetailSerializer.get_protocol_links`）传 True**；
+      公开聚合详情（`ProductDetailAPIView`）与 v2 序列化器保持 False ⇒ 公开页行为与耗时不变。
     """
     from apps.bridges.models import ProductMethod, MethodProtocol, ProductProtocol
     from apps.knowledge.models import Protocol
@@ -318,10 +324,64 @@ def build_protocol_links(product):
         if not protocol_ids:
             return []
         proto_map = {p.id: p for p in Protocol.objects.filter(id__in=protocol_ids)}
-        rows = [_row(pid, proto_map.get(pid), None) for pid in protocol_ids]
+        # ★ P1-a′：**仅编辑页开启**（`compute_pending=True`）—— 对"桥可达的这批"逐条算轴A，
+        #   让候选可按匹配度排序、并把有分的升到非弱区。默认关闭 ⇒ 公开详情页/既有调用点行为不变。
+        scored = _score_bridge_rows(product, protocol_ids, proto_map) if compute_pending else {}
+        rows = []
+        for pid in protocol_ids:
+            base = _row(pid, proto_map.get(pid), None)
+            hit = scored.get(pid)
+            if hit:
+                base.update(hit)
+            rows.append(base)
 
     rows.sort(key=protocol_link_sort_key)
     return rows
+
+
+def _score_bridge_rows(product, protocol_ids, proto_map):
+    """★ P1-a′：对**桥可达的那批协议**逐条算轴A（文档用途匹配），供编辑页排序与升档。
+
+    **只读、不落库**（绝不动 `ProductProtocol` 表）—— 这是与 `367e5f4`「零证据不落库」的分工：
+    落库仍严格要证据，本函数只解决"候选在界面上无法按匹配度排序"的展示问题。
+
+    P 的取法：`product.usage`（轴A 的正式地基）**为空时回退到 `product.name`**
+    —— 这是**展示侧的刻意放宽**（新产品没有 usage，而品名是第一手厂商信息）。
+    因放宽而与 `compute_axis_a` 的口径不完全一致，故返回行带 `pending=True`，
+    前端据此显示"候选·未落库"标记，避免被误读为已物化的 `document` 行。
+
+    返回 `{protocol_id: {score_a, relevance_score, relevance_basis, tier, pending}}`；
+    `P` 为空（品名/usage 都没命中那 185 个 term）时返回 `{}` ⇒ 行为与改动前完全一致。
+
+    性能（2026-09-24 实测）：753 条桥 ⇒ 逐条 `_extract_domains` 约 **1.11s**；
+    协议文本走 `proto_map`（调用方已批量取好）⇒ **零新增 DB 查询**。
+    刻意**不引入 Q 缓存**：全库缓存首建 21.95s，而 LRU 会在协议被编辑后陈旧 —— 第一版求稳。
+    """
+    p_text = (getattr(product, 'usage', '') or '') or (getattr(product, 'name', '') or '')
+    P = _extract_domains(p_text)
+    if not P:
+        return {}
+    out = {}
+    for pid in protocol_ids:
+        proto = proto_map.get(pid)
+        if proto is None:
+            continue
+        Q = _extract_domains(_protocol_q_text(proto))
+        if not Q:
+            continue
+        inter = P & Q
+        if not inter:
+            continue
+        s_a = 0.5 * (len(inter) / len(P)) + 0.5 * (len(inter) / len(Q))
+        fused = fuse_relevance(score_a=s_a, score_b=0.0, score_c=None)
+        out[pid] = {
+            'score_a': s_a,
+            'relevance_score': fused['relevance_score'],
+            'relevance_basis': fused['relevance_basis'],
+            'tier': fused['tier'],      # S_A>0 ⇒ 'document'
+            'pending': True,            # ★ 候选·未落库（前端徽标）
+        }
+    return out
 
 
 def _aggregate_scores(scores, operator='mean'):

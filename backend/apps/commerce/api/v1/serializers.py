@@ -618,7 +618,8 @@ class ProductDetailSerializer(BaseModelSerializer):
         link_source/tier/literature_count；排序复用 build_protocol_links 内 protocol_link_sort_key。
         """
         from apps.bridges.services.relevance import build_protocol_links
-        return build_protocol_links(obj)
+        # ★ P1-a′：**只有编辑页**开启候选打分（公开详情走 ProductDetailAPIView / v2，保持默认 False）
+        return build_protocol_links(obj, compute_pending=True)
 
     def get_method_links(self, obj):
         """产品所挂方法的最小信息 `[{id, name, is_hidden}]`。

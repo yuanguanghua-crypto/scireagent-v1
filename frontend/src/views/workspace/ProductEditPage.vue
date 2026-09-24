@@ -1964,6 +1964,10 @@ watch(
             <span class="badge" :class="`badge-${row.tier}`" :title="row.tier_label">{{ row.tier_label }}</span>
             <span v-for="b in axisBadges(row, { includeTier: false })" :key="b.kind" class="badge" :class="`badge-${b.kind}`" :title="b.axis">{{ b.text }}</span>
             <span class="badge badge-source" :title="`来源：${row.link_source_label}`">{{ row.link_source_label }}</span>
+            <!-- ★ P1-a′（乙）：桥回退 + 文字用途匹配算出的行**未落库** ⇒ 必须显式标注，
+                 否则视觉上与"已物化的 document 行"无法区分（口径漂移）。 -->
+            <span v-if="row.pending" class="badge badge-pending"
+                  title="候选 · 未落库：该行由方法链桥回退 + 文字用途匹配实时算出，尚未写入知识链接表（保存/离线补算后才物化）">候选 · 未落库</span>
             <button v-if="!isServerDerivedProtocol(row.id)" type="button" class="chip-remove" @click="toggleProtocolId(row.id)" title="Unlink">✕</button>
             <button v-else type="button" class="chip-remove chip-remove--locked" disabled
                     title="该链接由方法链派生——如需移除，请先移除对应的方法（知识链接随方法链整体进出）">✕</button>
@@ -1979,6 +1983,8 @@ watch(
               <span class="badge" :class="`badge-${row.tier}`" :title="row.tier_label">{{ row.tier_label }}</span>
               <span v-for="b in axisBadges(row, { includeTier: false })" :key="b.kind" class="badge" :class="`badge-${b.kind}`" :title="b.axis">{{ b.text }}</span>
               <span class="badge badge-source" :title="`来源：${row.link_source_label}`">{{ row.link_source_label }}</span>
+              <span v-if="row.pending" class="badge badge-pending"
+                    title="候选 · 未落库：该行由方法链桥回退 + 文字用途匹配实时算出，尚未写入知识链接表">候选 · 未落库</span>
               <button v-if="!isServerDerivedProtocol(row.id)" type="button" class="chip-remove" @click="toggleProtocolId(row.id)" title="Unlink">✕</button>
             <button v-else type="button" class="chip-remove chip-remove--locked" disabled
                     title="该链接由方法链派生——如需移除，请先移除对应的方法（知识链接随方法链整体进出）">✕</button>
@@ -2399,6 +2405,8 @@ html.dark .lipinski-unknown { background: #1e293b; color: #94a3b8; border-color:
 .badge-axis-b { background: #faf5ff; color: #7e22ce; }        /* 文献×N 轴B */
 .badge-axis-c { background: #f0fdfa; color: #0f766e; }        /* C= 轴C */
 .badge-source { background: #f3f4f6; color: #6b7280; }        /* 来源 */
+/* ★ P1-a′：候选·未落库 —— 虚线边框刻意与"已物化"的实心徽标区分 */
+.badge-pending { background: #fffbeb; color: #b45309; border: 1px dashed #f59e0b; }
 .btn-xs { padding: 2px 8px; font-size: 11px; margin-left: 6px; }
 .entity-select-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; flex-wrap: wrap; }
 .entity-select-row .app-select { flex: 1 1 240px; min-width: 240px; margin-bottom: 0; }
