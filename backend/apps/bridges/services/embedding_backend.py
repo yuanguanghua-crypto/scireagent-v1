@@ -13,7 +13,25 @@ import sys
 # 缺省仅为本地开发机的历史路径；部署环境须用 EMB3_VENV 环境变量或
 # settings.EMB3_VENV_PATH 覆盖（服务器不存在 D 盘，硬编码必然失败）。
 DEFAULT_EMB3_VENV = r"D:\emb3_venv"
-_MODEL_NAME = "all-MiniLM-L6-v2"
+_HF_MODEL_NAME = "all-MiniLM-L6-v2"
+
+# ★ 2026-09-24：模型来源三级回落 —— `EMB3_MODEL` 环境变量 > 本地已落盘目录 > HF 模型名。
+#   为什么要有"本地已落盘目录"这一级：本机 **huggingface.co 不可达**（实测 000），
+#   且 HF 下载器依赖 tmp 目录的建/删，会**触发本机 safe-delete 批量删除守卫**
+#   （实测 `SAFE_DELETE_BULK_CONFIRM_REQUIRED count:50` ⇒ snapshot 落成 0 字节、下载中断）。
+#   ⇒ 已改用 `curl` 逐文件直取（纯写入、零删除）落到该目录，离线加载、不经 HF 缓存。
+#   与 `DEFAULT_EMB3_VENV` 同理：缺省仅为本地开发机；部署环境用 `EMB3_MODEL` 覆盖。
+DEFAULT_EMB3_MODEL_DIR = r"D:\emb3_models\all-MiniLM-L6-v2"
+
+
+def model_name_or_path():
+    """模型来源：`EMB3_MODEL` > 本地已落盘目录（存在时）> HF 模型名（需联网+HF 可达）。"""
+    env = os.environ.get("EMB3_MODEL")
+    if env:
+        return env
+    if os.path.isdir(DEFAULT_EMB3_MODEL_DIR):
+        return DEFAULT_EMB3_MODEL_DIR
+    return _HF_MODEL_NAME
 
 _model = None
 _injected = False
@@ -69,7 +87,7 @@ def _get_model():
         return _model
     _ensure_injected()
     from sentence_transformers import SentenceTransformer
-    _model = SentenceTransformer(_MODEL_NAME)
+    _model = SentenceTransformer(model_name_or_path())
     return _model
 
 
