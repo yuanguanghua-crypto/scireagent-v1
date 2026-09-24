@@ -87,6 +87,10 @@ const form = reactive({
   inchi: '', formula: '', molecular_weight: null, purity: '', concentration: '',
   storage: '', shipping: '', lead_time: '', handling_notes: '', shelf_life: '',
   research_use_only: true, overview: '', structure_svg: '', structure_image: '',
+  // ★ P2（2026-09-24）：厂商声称用途 —— **轴A 的唯一地基**，也是知识链接相关性打分的证据来源。
+  //   加入本 reactive 后，`loadProduct` 的 `Object.keys(form).forEach(k => k in d …)` 会**自动回填**，
+  //   `saveDraft` 的 `{...form}` 也会**自动提交**（后端已把 usage 加进两个序列化器）。
+  usage: '',
   seo_title: '', seo_description: '',
   status: 'draft', product_class_id: null,
 })
@@ -2057,6 +2061,19 @@ watch(
           <AppInput v-model="form.overview" type="textarea" rows="8" maxlength="5000" placeholder="Describe the product, its applications, and key features…" />
         </label>
         <span class="char-count">{{ (form.overview || '').length }} / 5000</span>
+
+        <!-- ★ P2：厂商声称用途（usage）—— 研究员提供"证据"的入口。
+             它是知识链接相关性打分（第 5 节）的**唯一地基**：为空 ⇒ 轴A 无法计算 ⇒
+             该产品不会有"强相关"链接（只会有弱相关候选）。导入 Word 文档时若含用途会自动填入。 -->
+        <label class="full-width-label" style="margin-top:12px">Usage (vendor-claimed)
+          <AppInput v-model="form.usage" type="textarea" rows="4" maxlength="5000"
+                    placeholder="e.g. fluorescently labeled nucleotide analog used for direct enzymatic labeling and imaging" />
+        </label>
+        <span class="char-count">{{ (form.usage || '').length }} / 5000</span>
+        <p class="form-hint" style="margin:2px 0 0">
+          厂商声称用途，是 <strong>Knowledge Links（第 5 节）相关性打分的证据来源</strong>；留空则不会产生"强相关"链接。
+          若产品来自 Word 导入，此字段可能已自动填入（可手工修改；后续离线 docx 回填**默认不再覆盖**已有值）。
+        </p>
       </section>
 
       <!-- 7. SKUs — pack unit + conc unit as dropdowns -->
