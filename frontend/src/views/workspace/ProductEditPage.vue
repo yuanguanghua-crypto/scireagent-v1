@@ -138,6 +138,15 @@ const locallyAddedProtocolIds = computed(() => {
 const productProtocolLinks = ref([])
 const showAllProtocolLinks = ref(false)
 const showWeakLinks = ref(false)
+
+// ★ N4（2026-09-24）：**协议芯片的 ✕ 只对「本次本地新增、尚未保存」的行有效**。
+//   服务端派生行的链接来自**共享的 `method_protocol` 表**：把 id 从 `protocol_ids` 里去掉
+//   既不会删掉 MethodProtocol 行（`_sync_protocol_bridges` 只增不删），保存后重算还会把它拉回来
+//   ⇒ 那个 ✕ 是**死按钮**（实测：视觉不消失、数据不删）。
+//   而链接是**整体由方法链决定**的（挂 1 个方法可能带进 268 条协议），不存在"留 267 条删 1 条"的机制。
+//   故对派生行改为**禁用 + 说明**，而不是假装能删。
+//   对照：Methods 的 ✕ **是有效的**（`_sync_method_bridges` 会按 `method_ids` 真删桥），不动。
+const isServerDerivedProtocol = (pid) => productProtocolLinks.value.some((r) => r.id === pid)
 const displayProtocolRows = computed(() => {
   // #356/#357 + S4: authoritative server rows ∪ **本地新增** ids (铁律①不丢链)。
   // ⚠️ 这里只并 locallyAddedProtocolIds（不是整个 protocolIds）——理由见上方 N3 注释。
@@ -1935,7 +1944,9 @@ watch(
             <span class="badge" :class="`badge-${row.tier}`" :title="row.tier_label">{{ row.tier_label }}</span>
             <span v-for="b in axisBadges(row, { includeTier: false })" :key="b.kind" class="badge" :class="`badge-${b.kind}`" :title="b.axis">{{ b.text }}</span>
             <span class="badge badge-source" :title="`来源：${row.link_source_label}`">{{ row.link_source_label }}</span>
-            <button type="button" class="chip-remove" @click="toggleProtocolId(row.id)" title="Unlink">✕</button>
+            <button v-if="!isServerDerivedProtocol(row.id)" type="button" class="chip-remove" @click="toggleProtocolId(row.id)" title="Unlink">✕</button>
+            <button v-else type="button" class="chip-remove chip-remove--locked" disabled
+                    title="该链接由方法链派生——如需移除，请先移除对应的方法（知识链接随方法链整体进出）">✕</button>
           </span>
           <span v-if="!displayProtocolRows.visible.length" class="chip-none">None</span>
           <button v-if="displayProtocolRows.folded" type="button" class="btn btn-ghost btn-xs" @click="showAllProtocolLinks = true">显示全部 ({{ displayProtocolRows.hidden.length }})</button>
@@ -1948,7 +1959,9 @@ watch(
               <span class="badge" :class="`badge-${row.tier}`" :title="row.tier_label">{{ row.tier_label }}</span>
               <span v-for="b in axisBadges(row, { includeTier: false })" :key="b.kind" class="badge" :class="`badge-${b.kind}`" :title="b.axis">{{ b.text }}</span>
               <span class="badge badge-source" :title="`来源：${row.link_source_label}`">{{ row.link_source_label }}</span>
-              <button type="button" class="chip-remove" @click="toggleProtocolId(row.id)" title="Unlink">✕</button>
+              <button v-if="!isServerDerivedProtocol(row.id)" type="button" class="chip-remove" @click="toggleProtocolId(row.id)" title="Unlink">✕</button>
+            <button v-else type="button" class="chip-remove chip-remove--locked" disabled
+                    title="该链接由方法链派生——如需移除，请先移除对应的方法（知识链接随方法链整体进出）">✕</button>
             </span>
           </span>
         </div>
@@ -2351,6 +2364,8 @@ html.dark .lipinski-unknown { background: #1e293b; color: #94a3b8; border-color:
 .chip-link:hover { text-decoration: underline; }
 .chip-remove { background: none; border: none; cursor: pointer; padding: 0; font-size: 12px; color: var(--color-primary); opacity: 0.6; }
 .chip-remove:hover { opacity: 1; }
+.chip-remove--locked { opacity: 0.3; cursor: not-allowed; }
+.chip-remove--locked:hover { opacity: 0.3; }
 .chip-none { font-size: 12px; color: var(--color-text-secondary); font-style: italic; }
 
 /* #356 — enriched protocol badges (三轴分量 + 档位 + 来源) */
