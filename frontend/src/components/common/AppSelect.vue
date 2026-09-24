@@ -7,6 +7,10 @@
       :size="size"
       :disabled="disabled"
       :clearable="clearable"
+      :filterable="filterable"
+      :remote="remote"
+      :remote-method="remoteMethod"
+      :loading="loading"
       @update:model-value="$emit('update:modelValue', $event)"
       @change="$emit('change', $event)"
     >
@@ -41,6 +45,10 @@ defineProps({
   clearable: { type: Boolean, default: false },
   error: { type: String, default: '' },
   hint: { type: String, default: '' },
+  filterable: { type: Boolean, default: false },
+  remote: { type: Boolean, default: false },
+  remoteMethod: { type: Function, default: null },
+  loading: { type: Boolean, default: false },
 })
 
 defineEmits(['update:modelValue', 'change'])

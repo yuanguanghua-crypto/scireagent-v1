@@ -467,6 +467,55 @@ function addSelectedProtocol(val) {
   if (raw) { toggleProtocolId(Number(raw)); linkProtocolSelect.value = '' }
 }
 
+// ── §5 remote search (server-side; 后端已支持 ?search=) ─────────────
+// 基础列表只覆盖有限页（protocols 500/14065 ≈ 3.6%），此处并上服务端搜索结果。
+const methodSearchResults = ref([])
+const protocolSearchResults = ref([])
+const methodSearching = ref(false)
+const protocolSearching = ref(false)
+
+async function searchMethodsRemote(query) {
+  if (!query) { methodSearchResults.value = []; return }
+  methodSearching.value = true
+  try {
+    const r = await http.get('/methods/', { params: { page_size: 50, origin: 'imported', search: query } })
+    methodSearchResults.value = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+  } catch { methodSearchResults.value = [] } finally { methodSearching.value = false }
+}
+async function searchProtocolsRemote(query) {
+  if (!query) { protocolSearchResults.value = []; return }
+  protocolSearching.value = true
+  try {
+    const r = await http.get('/protocols/', { params: { page_size: 50, search: query } })
+    protocolSearchResults.value = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+  } catch { protocolSearchResults.value = [] } finally { protocolSearching.value = false }
+}
+
+// 基础列表 ∪ 远程结果（按 id 去重）
+function dedupeById(base, extra) {
+  const seen = new Set()
+  const out = []
+  for (const e of [...base, ...extra]) {
+    if (!e || e.id == null || seen.has(e.id)) continue
+    seen.add(e.id)
+    out.push(e)
+  }
+  return out
+}
+
+const methodSelectOptions = computed(() => [
+  { label: '— Link existing Method —', value: '' },
+  ...dedupeById(knowledgeList.value.methods, methodSearchResults.value)
+    .filter(m => !methodIds.value.includes(m.id))
+    .map(m => ({ label: m.name, value: String(m.id) })),
+])
+const protocolSelectOptions = computed(() => [
+  { label: '— Link existing Protocol —', value: '' },
+  ...dedupeById(knowledgeList.value.protocols, protocolSearchResults.value)
+    .filter(p => !protocolIds.value.includes(p.id))
+    .map(p => ({ label: p.name, value: String(p.id) })),
+])
+
 async function saveInlineEntity() {
   inlineSaving.value = true
   const type = inlineEntityType.value
@@ -1906,10 +1955,10 @@ watch(
 
         <!-- Add existing (single select + add button) -->
         <div class="entity-select-row">
-          <AppSelect v-model="linkMethodSelect" :options="[{label:'— Link existing Method —',value:''},...knowledgeList.methods.filter(m => !methodIds.includes(m.id)).map(m => ({label:m.name,value:String(m.id)}))]" @change="addSelectedMethod" />
+          <AppSelect v-model="linkMethodSelect" :options="methodSelectOptions" filterable remote :remote-method="searchMethodsRemote" :loading="methodSearching" @change="addSelectedMethod" />
           <button type="button" class="btn btn-ghost btn-sm" @click="addSelectedMethod" :disabled="!linkMethodSelect">Link</button>
 
-          <AppSelect v-model="linkProtocolSelect" :options="[{label:'— Link existing Protocol —',value:''},...knowledgeList.protocols.filter(p => !protocolIds.includes(p.id)).map(p => ({label:p.name,value:String(p.id)}))]" style="margin-left:16px" @change="addSelectedProtocol" />
+          <AppSelect v-model="linkProtocolSelect" :options="protocolSelectOptions" style="margin-left:16px" filterable remote :remote-method="searchProtocolsRemote" :loading="protocolSearching" @change="addSelectedProtocol" />
           <button type="button" class="btn btn-ghost btn-sm" @click="addSelectedProtocol" :disabled="!linkProtocolSelect">Link</button>
         </div>
 
