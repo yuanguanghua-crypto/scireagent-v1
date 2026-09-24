@@ -141,7 +141,12 @@ class WeakSinkSortTest(TestCase):
 
 
 class LowScoreNotPersistedTest(TestCase):
-    """★ 低分不落库：零证据（S_A=S_B=0 且 score_c<=0.5）的协议不得写入 ProductProtocol。"""
+    """★ 零证据不落库 —— 口径 2026-09-24 **与 embedding 可用性解耦**。
+
+    判据 = `tier=='weak'`（S_A=0 且 S_B=0：既无厂商文档、也无文献实证）⇒ 一律不写行。
+    ⚠️ 语义相似度**不参与**判定：旧判据 `tier=='weak' and score_c<=0.5` 会让落库结果
+      随 embedding 后端有无而漂移（无后端 ⇒ 挡全部 weak；有后端 ⇒ 只挡 cos<=0 的 1.8%）。
+    """
 
     def _setup_product_with_chain(self):
         product = ProductFactory()          # 内容为空 ⇒ S_A=0；无 bioz ⇒ S_B=0
@@ -154,13 +159,24 @@ class LowScoreNotPersistedTest(TestCase):
     def test_zero_evidence_is_not_written(self):
         product = self._setup_product_with_chain()
         call_command('recompute_protocol_relevance', '--product', str(product.id),
-                     embedding_fn=lambda p, pr: -1.0)      # cos=-1 ⇒ score_c=0 ⇒ 零证据
+                     embedding_fn=lambda p, pr: -1.0)      # cos=-1 ⇒ score_c=0
         self.assertEqual(ProductProtocol.objects.filter(product=product).count(), 0)
 
-    def test_positive_similarity_is_still_written(self):
+    def test_semantic_only_is_also_not_written(self):
+        # ★ 口径变更（09-24）：正向语义相似（cos=0.5 ⇒ score_c=0.75）**不再**救活零证据行。
+        #   旧判据下此行会落库；新判据只看 tier ⇒ 不落库（口径恒定、与环境无关）。
         product = self._setup_product_with_chain()
         call_command('recompute_protocol_relevance', '--product', str(product.id),
-                     embedding_fn=lambda p, pr: 0.5)       # cos=0.5 ⇒ score_c=0.75 ⇒ 有正向相似
+                     embedding_fn=lambda p, pr: 0.5)
+        self.assertEqual(ProductProtocol.objects.filter(product=product).count(), 0)
+
+    def test_evidence_backed_is_written(self):
+        # 有厂商文档证据（S_A>0 ⇒ tier='document'）⇒ 落库
+        from unittest import mock
+        product = self._setup_product_with_chain()
+        with mock.patch('apps.bridges.services.relevance.compute_axis_a', return_value=0.5):
+            call_command('recompute_protocol_relevance', '--product', str(product.id),
+                         embedding_fn=lambda p, pr: 0.5)
         rows = list(ProductProtocol.objects.filter(product=product))
         self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0].tier, 'weak')
+        self.assertEqual(rows[0].tier, 'document')

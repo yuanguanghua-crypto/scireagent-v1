@@ -6,6 +6,7 @@
 
 融合公式（§14.2）：
     relevance_score = 0.70·S_A + 0.10·S_B + 0.20·S_C    权重和=1，wB 硬上限 0.10
+    （S_C 缺测 `None` 时按可用轴重归一化：(0.70·S_A + 0.10·S_B) / 0.80）
 """
 import json
 import os
@@ -19,20 +20,18 @@ WEIGHTS = {'a': 0.70, 'b': 0.10, 'c': 0.20}
 # 轴B 归一上限：S_B = min(1, bioz_aligned_count / BIOZ_TYP_CAP)
 BIOZ_TYP_CAP = 5
 
-# ★ 低分不落库（2026-09-24，「宁 miss 不错配」）：
-#   一个协议对某产品**没有任何关联证据**时，不写 ProductProtocol 行 ——
-#   即 tier=='weak'（S_A=0 且 S_B=0，既无文档也无文献）**且** score_c <= 0.5
-#   （score_c=(cos+1)/2 ⇒ <=0.5 等价于 cos<=0 ⇒ 语义上没有任何**正向**相似）。
-#   依据：score_c 恰为 0.5 是 embedding 降级（cos 兜底 0）的哨兵值；dev 实测
-#   7,711 条 weak 行里 765 条正是 0.5、另有 310 条 <=0.5；一次补算试跑新增的 66 条
-#   weak 行 relevance_score=0.1（⇔ score_c=0.5）全部属"零证据"（占该次新增量的 64%）。
-#   ⚠️ 只影响**写**：既有行不会被删（与 R1「只增不删」一致），清理另行处理。
-WEAK_SCORE_C_FLOOR = 0.5
-
-
+# ★ 低分不落库（2026-09-24，「宁 miss 不错配」）—— 口径于 09-24 晚**与环境解耦**：
+#   判据 = **纯零证据**：`tier=='weak'`（S_A=0 且 S_B=0，既无厂商文档、也无文献实证）。
+#   ⚠️ 为什么**不再**引用 score_c（原判据 `tier=='weak' and score_c<=0.5`）：
+#     那会让**落库结果随 embedding 后端可用性漂移**——同一份代码、不同机器产出不同数据：
+#       · 无 embedding（score_c 恒为哨兵 0.5）⇒ 挡掉**全部** weak；
+#       · 有真 embedding ⇒ 只挡 cos<=0 的 weak（09-22 实测仅 137/7,678 = 1.8%）⇒ weak 大量回流。
+#     解耦后口径**恒定、可解释、与环境无关**（稳定性/健壮性硬要求）。
+#   依据：一次全量补算试跑新增 66 条 weak 行（占该次新增 64%）全部属"零证据"，仍是噪声。
+#   ⚠️ 只影响**写**：既有行不会被删（与「只增不删」一致），存量清理另行处理。
 def is_evidence_free(fused):
-    """无任何关联证据（既无文档/文献，也无正向语义相似）⇒ 不应落库。"""
-    return fused.get('tier') == 'weak' and float(fused.get('score_c') or 0.0) <= WEAK_SCORE_C_FLOOR
+    """零证据：仅语义相似、无厂商文档、无文献实证 ⇒ 不落库。"""
+    return fused.get('tier') == 'weak'
 
 
 _VOCAB_PATH = os.path.join(
@@ -173,15 +172,25 @@ def compute_axis_c(product, protocol, embedding_fn=None):
     return (float(cos) + 1.0) / 2.0
 
 
-def fuse_relevance(score_a=None, score_b=0.0, score_c=0.0):
+def fuse_relevance(score_a=None, score_b=0.0, score_c=None):
     """三轴融合 + 派生 relevance_basis / tier。
 
     权重和=1；wB 硬上限由调用方确保 score_b∈[0,1]（其对总分贡献 = 0.10·score_b ≤ 0.10）。
+
+    ★ 轴C 可为 `None`（离线 embedding 作业尚未覆盖该行）：
+      `score_c is None` ⇒ 在**可用轴 (A,B)** 上**重归一化**权重，
+      避免"缺 C"让所有 relevance 凭空少掉 0.2 权重而被系统性压低。
+      ⚠️ `0.0` 与 `None` 语义**不同**：`0.0` = 有值且为零（参与权重），`None` = 缺测（不参与）。
     """
     S_A = score_a if score_a is not None else 0.0
     S_B = score_b if score_b is not None else 0.0
-    S_C = score_c if score_c is not None else 0.0
-    relevance = WEIGHTS['a'] * S_A + WEIGHTS['b'] * S_B + WEIGHTS['c'] * S_C
+    if score_c is None:
+        S_C = None
+        w_a, w_b, w_c, denom = WEIGHTS['a'], WEIGHTS['b'], 0.0, (WEIGHTS['a'] + WEIGHTS['b'])
+    else:
+        S_C = score_c
+        w_a, w_b, w_c, denom = WEIGHTS['a'], WEIGHTS['b'], WEIGHTS['c'], 1.0
+    relevance = (w_a * S_A + w_b * S_B + w_c * (S_C or 0.0)) / denom
 
     if S_B > 0 and S_A > 0:
         basis = 'combined'
@@ -190,7 +199,7 @@ def fuse_relevance(score_a=None, score_b=0.0, score_c=0.0):
     elif S_A > 0:
         basis = 'vendor_only'
     else:
-        basis = 'embedding_break' if S_C > 0 else ''
+        basis = 'embedding_break' if (S_C or 0.0) > 0 else ''
 
     if S_B > 0:
         tier = 'literature'
@@ -203,7 +212,7 @@ def fuse_relevance(score_a=None, score_b=0.0, score_c=0.0):
         'relevance_score': relevance,
         'score_a': score_a,
         'score_b': score_b if score_b is not None else None,
-        'score_c': score_c if score_c is not None else None,
+        'score_c': S_C,
         'relevance_basis': basis,
         'tier': tier,
     }
@@ -456,11 +465,18 @@ def recompute_product(product, embedding_fn=None):
 
     派生协议集取自产品的 MethodProtocol 链路（铁律①全量保留，不丢）。
     返回写入/更新的协议数。
+
+    ★ 2026-09-24 R2 —— **轴C 的写权独占给"能真正算出 embedding"的路径**：
+      仅当 `embedding_fn` 被注入（离线作业）**或**本机后端 `embedding_available()`
+      为真时，才计算并写 `score_c`；否则**保留库中现值**（无则留 NULL，等离线作业补算）。
+      ❌ 绝不在运行时写 embedding 哨兵 0.5 —— 生产容器无 `sentence_transformers`，
+         `compute_axis_c` 恒返 0.5，旧代码会把每次产品保存变成"抹平该产品离线算好的 score_c"。
     """
     from apps.bridges.models import (
         ProductMethod, MethodProtocol, ProductProtocol,
     )
     from apps.knowledge.models import Protocol
+    from .embedding_backend import embedding_available
 
     method_ids = list(
         ProductMethod.objects.filter(product=product).values_list('method_id', flat=True)
@@ -478,6 +494,13 @@ def recompute_product(product, embedding_fn=None):
 
     bioz_lits = load_product_bioz(product)
 
+    # 轴C 可算性：离线注入优先，其次探测本机后端（结果缓存）
+    compute_c = (embedding_fn is not None) or embedding_available()
+    # 库中现值（保留用）—— 一次查询拿全，避免 N+1
+    existing_c = dict(
+        ProductProtocol.objects.filter(product=product).values_list('protocol_id', 'score_c')
+    )
+
     # ★ 2026-09-22 修 **B8**（两段式，关键）：
     #   原先**每个协议一次 `update_or_create`** ⇒ 一次独立事务提交 = N+1 写入 × N 次提交。
     #   cProfile 实测（SC8075，268 个协议）：`commit` 累计 **7.76s / 共 9.21s（97%）**。
@@ -492,27 +515,32 @@ def recompute_product(product, embedding_fn=None):
             continue
         s_a = compute_axis_a(product, protocol)
         s_b, lit_n = compute_axis_b(product, protocol, bioz_lits=bioz_lits)
-        s_c = compute_axis_c(product, protocol, embedding_fn=embedding_fn)
+        if compute_c:
+            s_c = compute_axis_c(product, protocol, embedding_fn=embedding_fn)
+        else:
+            s_c = existing_c.get(pid)   # ★ 保留现值（可能为 None）；绝不写哨兵
         fused = fuse_relevance(score_a=s_a, score_b=s_b, score_c=s_c)
         if is_evidence_free(fused):
             continue          # ★ 低分不落库：零证据的协议不写行
-        rows.append((protocol, fused, lit_n))
+        rows.append((protocol, fused, lit_n, s_c))
 
     n = 0
     with transaction.atomic():                      # 只包写入 ⇒ 提交从 268 次降到 1 次
-        for protocol, fused, lit_n in rows:
+        for protocol, fused, lit_n, s_c in rows:
+            defaults = {
+                'relevance_score': fused['relevance_score'],
+                'score_a': fused['score_a'],
+                'score_b': fused['score_b'],
+                'literature_count': lit_n,
+                'relevance_basis': fused['relevance_basis'],
+                'tier': fused['tier'],
+                'link_source': ProductProtocol.LinkSource.INHERITED,
+            }
+            if compute_c:
+                defaults['score_c'] = s_c    # ★ 仅"能算出"时才写；否则保留库中现值
             ProductProtocol.objects.update_or_create(
                 product=product, protocol=protocol,
-                defaults={
-                    'relevance_score': fused['relevance_score'],
-                    'score_a': fused['score_a'],
-                    'score_b': fused['score_b'],
-                    'score_c': fused['score_c'],
-                    'literature_count': lit_n,
-                    'relevance_basis': fused['relevance_basis'],
-                    'tier': fused['tier'],
-                    'link_source': ProductProtocol.LinkSource.INHERITED,
-                },
+                defaults=defaults,
             )
             n += 1
     update_product_aggregate(product)  # S5：写完该商品 PP 行后刷新商品级聚合分

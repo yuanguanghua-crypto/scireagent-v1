@@ -13,6 +13,8 @@ TDD RED: 三轴融合打分 + recompute 命令（§14 + 决策 Q4 轴C离线持�
 - recompute_protocol_relevance 命令：为产品落/更新 ProductProtocol 行；幂等；
   轴C(score_c) 离线持久化（embedding 经由可注入 embedding_fn 计算，便于测试）
 """
+from unittest import mock
+
 from django.test import TestCase
 from django.core.management import call_command
 
@@ -154,9 +156,12 @@ class RecomputeCommandTest(TestCase):
         def fake_embed(product, protocol):
             return ((product.id * 7 + protocol.id * 13) % 100) / 100.0
 
-        call_command('recompute_protocol_relevance',
-                     '--product', product.catalog_no or str(product.id),
-                     embedding_fn=fake_embed)
+        # ★ 2026-09-24：夹具补"文档证据"（轴A>0），否则零证据（tier='weak'）会命中
+        #   「零证据不落库」而被跳过；本测试意图是"命令会落行"，与证据强弱无关。
+        with mock.patch('apps.bridges.services.relevance.compute_axis_a', return_value=0.5):
+            call_command('recompute_protocol_relevance',
+                         '--product', product.catalog_no or str(product.id),
+                         embedding_fn=fake_embed)
 
         pp = ProductProtocol.objects.filter(product=product, protocol=protocol).first()
         self.assertIsNotNone(pp, "recompute 应为派生协议落 ProductProtocol 行")
@@ -174,10 +179,12 @@ class RecomputeIdempotentTest(TestCase):
         def fake_embed(product, protocol):
             return 0.33
 
-        for _ in range(2):
-            call_command('recompute_protocol_relevance',
-                         '--product', str(product.id),
-                         embedding_fn=fake_embed)
+        # ★ 2026-09-24：同上，夹具补"文档证据"以避开「零证据不落库」；断言未改。
+        with mock.patch('apps.bridges.services.relevance.compute_axis_a', return_value=0.5):
+            for _ in range(2):
+                call_command('recompute_protocol_relevance',
+                             '--product', str(product.id),
+                             embedding_fn=fake_embed)
 
         # 幂等：唯一对约束，不应出现重复行
         count = ProductProtocol.objects.filter(product=product).count()

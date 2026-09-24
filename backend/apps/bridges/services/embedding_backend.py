@@ -17,6 +17,7 @@ _MODEL_NAME = "all-MiniLM-L6-v2"
 
 _model = None
 _injected = False
+_available = None
 
 
 def emb3_venv_path():
@@ -30,6 +31,26 @@ def emb3_venv_path():
     except Exception:
         configured = None
     return configured or DEFAULT_EMB3_VENV
+
+
+def embedding_available():
+    """embedding 后端是否**真的**可用（模型能否加载）。
+
+    ★ 2026-09-24：用于区分「模型算出 cos=0」与「后端缺失导致降级为 0」——
+      二者在 `compute_axis_c` 里都表现为 `score_c=0.5`（哨兵），无法分辨。
+      调用方（relevance.recompute_product）据此决定：**不可用时保留库中现值、
+      绝不写哨兵**（否则每次产品保存都会抹平离线算好的 score_c）。
+
+    首次调用探测并**缓存**结果（模型加载较重，只做一次）。
+    """
+    global _available
+    if _available is None:
+        try:
+            _get_model()
+            _available = True
+        except Exception:
+            _available = False
+    return _available
 
 
 def _ensure_injected():

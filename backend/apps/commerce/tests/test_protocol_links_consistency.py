@@ -53,7 +53,7 @@ class InheritedBridgeRefreshTest(TestCase):
 
         from apps.commerce.api.v1.serializers import ProductCreateUpdateSerializer
         # ★ 2026-09-24：给夹具补"文档证据"（轴A>0）。
-        #   否则产品零证据（S_A=S_B=0 且 score_c=0.5）会命中「低分不落库」而被跳过，
+        #   否则产品零证据（S_A=S_B=0 ⇒ tier='weak'）会命中「零证据不落库」而被跳过；
         #   本测试的意图是"保存会写出派生行 / 不会静默删链"，与证据强弱无关 ⇒ 故注入轴A。
         with mock.patch('apps.bridges.services.relevance.compute_axis_a', return_value=0.5):
             ser = ProductCreateUpdateSerializer(
@@ -142,7 +142,7 @@ class InheritedNoSilentDeleteTest(TestCase):
 
         from apps.commerce.api.v1.serializers import ProductCreateUpdateSerializer
         # ★ 2026-09-24：给夹具补"文档证据"（轴A>0）。
-        #   否则产品零证据（S_A=S_B=0 且 score_c=0.5）会命中「低分不落库」而被跳过，
+        #   否则产品零证据（S_A=S_B=0 ⇒ tier='weak'）会命中「零证据不落库」而被跳过；
         #   本测试的意图是"保存会写出派生行 / 不会静默删链"，与证据强弱无关 ⇒ 故注入轴A。
         with mock.patch('apps.bridges.services.relevance.compute_axis_a', return_value=0.5):
             ser = ProductCreateUpdateSerializer(
