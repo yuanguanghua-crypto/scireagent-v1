@@ -99,6 +99,15 @@ const pendingProductClassId = ref(null)
 const skus = ref([])
 const methodIds = ref([])
 const protocolIds = ref([])
+// ★ P0（2026-09-24）：载入时的方法链快照。只有与它不同（用户真改过链）才回传
+//   method_ids；否则后端会把"顺手保存"读成"显式断言链为空"，从而静默删除
+//   该产品全部 INHERITED 知识链接（且不可再生）。
+const methodIdsBaseline = ref([])
+function sameIdSet(a, b) {
+  if (a.length !== b.length) return false
+  const s = new Set(a)
+  return b.every((x) => s.has(x))
+}
 
 // #356 — enriched Protocol links from server (sort / TopN fold / 三轴徽标 / 来源).
 // productProtocolLinks = authoritative server-derived rows; displayProtocolRows
@@ -934,6 +943,7 @@ async function loadProduct() {
         }
       })
       methodIds.value = d.method_ids || []
+      methodIdsBaseline.value = [...methodIds.value]   // ★ P0：记录载入快照（与 payload 门控配对）
       protocolIds.value = d.protocol_ids || []
       productProtocolLinks.value = d.protocol_links || []
       // 回填 cascader 选中路径（从 product_class_id 反查 options 树）
@@ -1285,11 +1295,17 @@ async function saveDraft(isPublish = false) {
     pack_size: joinValueUnit(s.pack_size, pack_unit),
     concentration: joinValueUnit(s.concentration, conc_unit),
   }))
+  // ★ P0：只在**用户真正改动了方法链**时才回传 method_ids。
+  //   后端据此判断"本次是否显式给出方法链"——省略则**不删除**任何 INHERITED 行。
+  //   原先无条件回传（空链时为 []）会让"顺手保存一个无关字段"触发对该产品全部
+  //   知识链接的静默、不可逆删除（生产实测风险面 97 产品/20,299 行 + 11 产品/1,652 行）。
   const payload = {
     ...form,
     skus: skusPayload,
-    method_ids: methodIds.value,
     protocol_ids: protocolIds.value,
+  }
+  if (!sameIdSet(methodIds.value, methodIdsBaseline.value)) {
+    payload.method_ids = methodIds.value
   }
   ensureSlug(payload)
   sanitizeChoiceFields(payload)

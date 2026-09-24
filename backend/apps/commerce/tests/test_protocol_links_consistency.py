@@ -96,6 +96,85 @@ class InheritedBridgeRefreshTest(TestCase):
         )
 
 
+class InheritedNoSilentDeleteTest(TestCase):
+    """★ 2026-09-24 P0 回归：**未显式给出方法链时，保存不得删除任何 INHERITED 行**。
+
+    背景（生产实测）：97 个产品 / 20,299 行走 `else: qs.delete()`、11 个产品 / 1,652 行走
+    prune —— 共 21,951 行处于"一保存即被抹掉"的风险下，且被删行在当前图上不可达
+    ⇒ `recompute_product` 永远算不回来 ⇒ **不可再生**。
+
+    约定（沿用本文件 :453-455 既有的"显式 vs 省略"语义）：
+      只有客户端**显式**给出 method_ids / research_goal_ids / application_ids 时，
+      才允许按当前链收敛（清孤儿）；**省略**则一律不动 INHERITED 行。
+    """
+
+    def _mk_proto(self, slug):
+        return Protocol.objects.create(
+            name=slug, slug=slug, status='published', source='curated',
+        )
+
+    def test_keeps_orphan_when_chain_not_specified(self):
+        """有方法链 + 预置孤儿行；保存**不带** method 字段 ⇒ 孤儿必须保留。"""
+        p_good = self._mk_proto('keep-good')
+        p_orphan = self._mk_proto('keep-orphan')
+        m = Method.objects.create(name='MK', slug='m-keep')
+        MethodProtocol.objects.create(
+            method=m, protocol=p_good, explicit=True, featured=True,
+            status='published', display_order=1,
+        )
+        prod = Product.objects.create(
+            name='PK', catalog_no='TEST-KEEP-1', slug='test-keep-1', status='draft',
+        )
+        ProductMethod.objects.create(
+            product=prod, method=m, role='reagent', evidence_level='medium',
+        )
+        ProductProtocol.objects.create(
+            product=prod, protocol=p_orphan,
+            link_source=ProductProtocol.LinkSource.INHERITED,
+            tier=ProductProtocol.Tier.DOCUMENT, relevance_score=0.3,
+        )
+
+        from apps.commerce.api.v1.serializers import ProductCreateUpdateSerializer
+        ser = ProductCreateUpdateSerializer(
+            instance=prod, data={'name': 'PK', 'status': 'draft'}, partial=True,
+        )
+        self.assertTrue(ser.is_valid(), ser.errors)
+        ser.save()
+
+        inherited = set(
+            ProductProtocol.objects.filter(
+                product=prod, link_source=ProductProtocol.LinkSource.INHERITED,
+            ).values_list('protocol_id', flat=True)
+        )
+        self.assertIn(p_good.id, inherited)          # 派生行仍被重写（不阻断正常路径）
+        self.assertIn(p_orphan.id, inherited)        # ★ 孤儿**未被静默删除**
+
+    def test_keeps_rows_when_chain_not_specified_and_empty(self):
+        """无方法链 + 预置 INHERITED 行；保存**不带** method 字段 ⇒ 行必须保留（原面①）。"""
+        p_only = self._mk_proto('keep-only')
+        prod = Product.objects.create(
+            name='PK2', catalog_no='TEST-KEEP-2', slug='test-keep-2', status='draft',
+        )
+        ProductProtocol.objects.create(
+            product=prod, protocol=p_only,
+            link_source=ProductProtocol.LinkSource.INHERITED,
+            tier=ProductProtocol.Tier.DOCUMENT, relevance_score=0.3,
+        )
+
+        from apps.commerce.api.v1.serializers import ProductCreateUpdateSerializer
+        ser = ProductCreateUpdateSerializer(
+            instance=prod, data={'name': 'PK2', 'status': 'draft'}, partial=True,
+        )
+        self.assertTrue(ser.is_valid(), ser.errors)
+        ser.save()
+
+        self.assertTrue(
+            ProductProtocol.objects.filter(
+                product=prod, link_source=ProductProtocol.LinkSource.INHERITED,
+            ).exists()
+        )
+
+
 class ProtocolLinksSortTest(TestCase):
     def test_sort_by_relevance_not_tier(self):
         """去 tier 优先后，高 relevance 的 INHERITED(featured) 应排在

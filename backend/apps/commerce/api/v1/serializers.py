@@ -385,8 +385,15 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             self._sync_method_bridges(product, list(merged))
         self._sync_protocol_bridges(product, protocol_ids)
 
-        # 刷新继承链：清孤儿 INHERITED 行并重算当前方法链派生（#一致性修复）
-        self._refresh_inherited_bridges(product)
+        # 刷新继承链：**仅当本次显式给出方法链时**才清孤儿，并重算当前方法链派生（#一致性修复）
+        # ★ P0：省略方法链 ⇒ 不删除任何 INHERITED 行（详见 _refresh_inherited_bridges）
+        self._refresh_inherited_bridges(
+            product,
+            chain_specified=(
+                method_ids is not None or research_goal_ids is not None
+                or application_ids is not None
+            ),
+        )
 
         # Auto-generate SEO on publish (draft→active)
         self._auto_seo_on_publish(product)
@@ -457,8 +464,15 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             self._sync_method_bridges(instance, list(merged))
         self._sync_protocol_bridges(instance, protocol_ids)
 
-        # 刷新继承链：清孤儿 INHERITED 行并重算当前方法链派生（#一致性修复）
-        self._refresh_inherited_bridges(instance)
+        # 刷新继承链：**仅当本次显式给出方法链时**才清孤儿，并重算当前方法链派生（#一致性修复）
+        # ★ P0：省略方法链 ⇒ 不删除任何 INHERITED 行（详见 _refresh_inherited_bridges）
+        self._refresh_inherited_bridges(
+            instance,
+            chain_specified=(
+                method_ids is not None or research_goal_ids is not None
+                or application_ids is not None
+            ),
+        )
 
         # Auto-generate SEO when transitioning from draft to active
         if is_becoming_active:
@@ -475,13 +489,27 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                 )
         return instance
 
-    def _refresh_inherited_bridges(self, product):
-        """保存/恢复后刷新 ProductProtocol(link_source=INHERITED) 行，使其与当前方法链一致。
+    def _refresh_inherited_bridges(self, product, *, chain_specified=True):
+        """保存后刷新/补算 ProductProtocol(link_source=INHERITED) 行，使其与当前方法链一致。
 
-        - 删除不属于当前方法链派生的孤儿 INHERITED 行（续33 等批量落地残留）。
-        - 用 recompute_product 重写当前方法链派生的 INHERITED 行（带三轴分数；
-          embedding 不可用时安全降级 0，不阻断保存）。AUTO 行不受此影响
-          （由 `manage.py recompute_auto_links` 离线单独管理）。
+        `chain_specified`：**本次请求是否显式给出了方法链**（method_ids / research_goal_ids /
+        application_ids 任一非 None）。沿用本文件 create()/update() 既有的"显式 vs 省略"语义
+        （见 :453-455 与其他 bridge 同步处）：
+          - **显式给出** ⇒ 按当前链收敛：删掉不在派生集里的孤儿 INHERITED 行（保持既有契约）
+          - **省略**     ⇒ **一律不删除**，只对派生行做 upsert 补算
+
+        ★ 2026-09-24 修 P0（静默批量不可逆删除）：
+          原实现对"省略"与"显式"一视同仁地执行删除。生产实测 97 个产品 / 20,299 行走
+          `else: qs.delete()`、11 个产品 / 1,652 行走 prune —— 共 **21,951 行**处于
+          "保存任意字段即被抹掉"的风险下；而这些行在当前方法图上**不可达**
+          ⇒ `recompute_product` **永远算不回来** ⇒ 删了**不可再生**。
+          工作台编辑页原先**无条件**回传 `method_ids`（空链时为 `[]`），因此"顺手保存一个
+          无关字段"就会把该产品全部知识链接清空。现由 `chain_specified` 精确区分：
+          客户端没打算改链，就不动链的派生结果。
+
+        注意：AUTO 行不受影响（由 `manage.py recompute_auto_links` 离线单独管理）。
+        另注：本函数由 Product 的 create/update 调用；软归档（perform_destroy）与
+        restore() 均**不**调用它（原 docstring 误写为"保存/恢复后"）。
         """
         from apps.bridges.models import ProductMethod, MethodProtocol, ProductProtocol
         from apps.bridges.services.relevance import recompute_product
@@ -493,13 +521,14 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             MethodProtocol.objects.filter(method_id__in=method_ids)
             .values_list('protocol_id', flat=True).distinct()
         )
-        qs = ProductProtocol.objects.filter(
-            product=product, link_source=ProductProtocol.LinkSource.INHERITED
-        )
-        if derived_ids:
-            qs.exclude(protocol_id__in=derived_ids).delete()
-        else:
-            qs.delete()
+        if chain_specified:
+            qs = ProductProtocol.objects.filter(
+                product=product, link_source=ProductProtocol.LinkSource.INHERITED
+            )
+            if derived_ids:
+                qs.exclude(protocol_id__in=derived_ids).delete()
+            else:
+                qs.delete()
         if method_ids:
             recompute_product(product)
 
