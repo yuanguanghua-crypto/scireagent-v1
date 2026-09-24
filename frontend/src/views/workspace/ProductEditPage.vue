@@ -109,19 +109,34 @@ function sameIdSet(a, b) {
   return b.every((x) => s.has(x))
 }
 
+// ★ N3（2026-09-24）：载入时服务端返回的 protocol_ids 快照。
+//   服务端 `protocol_ids`（走 MethodProtocol **桥**）与 `protocol_links`（走 ProductProtocol **表**）
+//   本就不同源：前者含"链可达但尚未物化"的 id，最多比后者多 103 个（实测 product 34）。
+//   展示层绝不能把前者并入 —— 否则这些 id 会被当成"本地待保存"，以
+//   「仅语义相似/待保存」徽标混进「弱相关(N)」，使计数虚高（实测 6/8 产品不符）。
+const protocolIdsBaseline = ref([])
+/** 仅"本页载入之后新增、尚未保存"的 id —— 由基线推导，故覆盖全部 6 个写入点。 */
+const locallyAddedProtocolIds = computed(() => {
+  const base = protocolIdsBaseline.value
+  if (!base.length) return protocolIds.value   // 新建态：全部都是本地新增
+  const s = new Set(base)
+  return protocolIds.value.filter((id) => !s.has(id))
+})
+
 // #356 — enriched Protocol links from server (sort / TopN fold / 三轴徽标 / 来源).
 // productProtocolLinks = authoritative server-derived rows; displayProtocolRows
-// unions them with locally-added protocolIds not yet recomputed (铁律①不丢链)。
+// unions them with locally-added ids not yet persisted (铁律①不丢链)。
 const productProtocolLinks = ref([])
 const showAllProtocolLinks = ref(false)
 const showWeakLinks = ref(false)
 const displayProtocolRows = computed(() => {
-  // #356/#357 + S4: authoritative server rows ∪ locally-added ids (铁律①不丢链)。
+  // #356/#357 + S4: authoritative server rows ∪ **本地新增** ids (铁律①不丢链)。
+  // ⚠️ 这里只并 locallyAddedProtocolIds（不是整个 protocolIds）——理由见上方 N3 注释。
   // Union/dedup/defaults live in unionProtocolRows (unit-tested); sort+fold here.
   // S4: weak（弱相关/广播桶）拆为独立折叠区「弱相关(N)」，不污染强相关排序。
   const rows = unionProtocolRows(
     productProtocolLinks.value,
-    protocolIds.value,
+    locallyAddedProtocolIds.value,
     (pid) => knowledgeList.value.protocols.find((p) => p.id === pid)?.name || null
   )
   const { strong, weak } = splitWeakLinks(sortProtocolLinks(rows))
@@ -945,6 +960,7 @@ async function loadProduct() {
       methodIds.value = d.method_ids || []
       methodIdsBaseline.value = [...methodIds.value]   // ★ P0：记录载入快照（与 payload 门控配对）
       protocolIds.value = d.protocol_ids || []
+      protocolIdsBaseline.value = [...protocolIds.value]   // ★ N3：记录载入快照 ⇒ 只把"之后新增的"算本地新增
       productProtocolLinks.value = d.protocol_links || []
       // 回填 cascader 选中路径（从 product_class_id 反查 options 树）
       if (d.product_class_id) {
