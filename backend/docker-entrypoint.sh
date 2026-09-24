@@ -47,6 +47,16 @@ fi
 echo ">> Running database migrations..."
 python manage.py migrate --noinput
 
+# --- 5) 协议 Q 缓存自愈（性能，非正确性） ---
+#   背景：`recommend_protocols_for_enrich` 的**草稿分支**（新品页 / AI 预览）要按
+#   `P(品名/usage) ∩ Q(每个协议)` 对**全库协议**打分，Q 现算一次要 21.97s（14,084 条实测）。
+#   本步骤把它移到**容器启动**：新鲜则 `--check` 秒过；缺失/陈旧才重建（约 22s）。
+#   **失败不阻断启动** —— 缺文件时运行时会自动回退实时计算（慢，但结果永远正确）。
+echo ">> Ensuring protocol Q cache (offline precompute)..."
+python manage.py build_protocol_q_cache --check 2>/dev/null \
+  || python manage.py build_protocol_q_cache \
+  || echo ">> 警告：Q 缓存构建失败，协议推荐将回退实时计算（较慢，结果仍正确）。"
+
 if [ -n "${DJANGO_SUPERUSER_USERNAME:-}" ] && [ -n "${DJANGO_SUPERUSER_PASSWORD:-}" ]; then
   echo ">> Ensuring admin superuser exists (DJANGO_SUPERUSER_*)..."
   python manage.py createsuperuser --noinput 2>/dev/null || true

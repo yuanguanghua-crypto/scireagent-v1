@@ -17,15 +17,21 @@
 settings.EMB3_VENV_PATH 决定，本模块不作任何路径假设）；测试可注入 model。
 """
 import json
+import logging
+import os
 import random
 import time
 
 import numpy as np
 
+from django.db.models import Count, Max
+
 from apps.bridges.models import ProductProtocol as PP, ProductMethod, MethodProtocol
 from apps.bridges.services import relevance as REL
 from apps.commerce.models import Product
 from apps.knowledge.models import Protocol, Method
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_CANDIDATES_PATH = '._candidates.json'
 DEFAULT_TOPN = 20
@@ -299,20 +305,75 @@ def recompute_auto_links(candidates, *, topn=DEFAULT_TOPN,
 # R1：enrich 预览协议/方法推荐改走 auto_links 真 relevance（与正式 auto-link 同源）
 # ─────────────────────────────────────────────────────────────────────────────
 _PROTO_Q_CACHE = None
+# ★ 2026-09-24：Q 缓存离线预算文件。放在 `apps/bridges/data/`（与 domain_vocab.json 同目录）
+#   ⇒ 随镜像烘焙、dev/prod 路径一致（不依赖 `backend/data/` 的挂载差异）。
+_Q_CACHE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(__file__)), 'data', 'protocol_q_cache.json'
+)
+_Q_CACHE_META_KEY = '_meta'
+
+
+def _q_cache_fingerprint():
+    """Q 缓存指纹 = (协议总数, max(id))。协议被新增/删除/重建都会改变它。"""
+    agg = Protocol.objects.aggregate(n=Count('id'), mx=Max('id'))
+    return {'protocol_count': agg['n'] or 0, 'max_id': agg['mx'] or 0}
+
+
+def compute_q_cache():
+    """实时为**全库协议**预计算领域词集合 Q。实测 14,084 条 ≈ 21.97s（i7-13700KF）。"""
+    REL._load_vocab()
+    cache = {}
+    for p in Protocol.objects.all().only(
+        'id', 'name', 'objective', 'principle', 'materials',
+        'reagents', 'expected_results', 'references',
+    ):
+        cache[p.id] = REL._extract_domains(REL._protocol_q_text(p))
+    return cache
+
+
+def _load_q_cache_from_file():
+    """从离线预算文件加载 Q；**文件缺失/解析失败/指纹不符** ⇒ 返回 None（回退实时计算）。
+
+    ★ 为什么要指纹（`protocol_count` + `max_id`）：缓存文件是**快照**，协议被策展新增/删除后即陈旧。
+      若直接信任它，**新建的协议将永远不被推荐**（实测这类回归会打红
+      `test_ai_views.py::test_draft_protocol_via_domain_match` —— 该用例新建一条协议后
+      期望草稿分支能找到它）。指纹不符 ⇒ 回退实时计算 ⇒ 结果永远正确，代价只是这一次慢。
+    """
+    try:
+        with open(_Q_CACHE_PATH, encoding='utf-8') as fh:
+            payload = json.load(fh)
+    except FileNotFoundError:
+        return None
+    except Exception as exc:  # noqa: BLE001 — 任何异常都不得让推荐失效
+        logger.warning('Q 缓存文件解析失败，回退实时计算：%s', exc)
+        return None
+    if not isinstance(payload, dict):
+        logger.warning('Q 缓存文件格式异常（非对象），回退实时计算')
+        return None
+    meta = payload.get(_Q_CACHE_META_KEY) or {}
+    live = _q_cache_fingerprint()
+    if (meta.get('protocol_count') != live['protocol_count']
+            or meta.get('max_id') != live['max_id']):
+        logger.warning(
+            'Q 缓存文件指纹不符（文件 %s vs 实测 %s）⇒ 回退实时计算；'
+            '如需恢复快速路径请重跑 `manage.py build_protocol_q_cache`', meta, live)
+        return None
+    q = payload.get('q') or {}
+    return {int(k): set(v) for k, v in q.items()}
 
 
 def _get_proto_q_cache():
-    """协议侧领域词 Q 集合缓存：首次调用时对所有协议预计算，之后复用。"""
+    """协议侧领域词 Q 集合缓存。
+
+    ★ 2026-09-24：**优先读离线预算文件**（`apps/bridges/data/protocol_q_cache.json`），
+      否则回退实时全库预计算。实测：实时 14,084 条 = **21.97s**，读文件 = **0.007s**（3,000×）。
+      文件缺失/陈旧 ⇒ **自动回退**（慢但结果正确），绝不因缓存问题给出错误推荐。
+      文件由 `manage.py build_protocol_q_cache` 生成（可用 `--check` 核验新鲜度）。
+    """
     global _PROTO_Q_CACHE
     if _PROTO_Q_CACHE is None:
-        REL._load_vocab()
-        cache = {}
-        for p in Protocol.objects.all().only(
-            'id', 'name', 'objective', 'principle', 'materials',
-            'reagents', 'expected_results', 'references',
-        ):
-            cache[p.id] = REL._extract_domains(REL._protocol_q_text(p))
-        _PROTO_Q_CACHE = cache
+        from_file = _load_q_cache_from_file()
+        _PROTO_Q_CACHE = from_file if from_file is not None else compute_q_cache()
     return _PROTO_Q_CACHE
 
 
