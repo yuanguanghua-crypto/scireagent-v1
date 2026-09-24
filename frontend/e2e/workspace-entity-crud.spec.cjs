@@ -217,26 +217,16 @@ test('Method 治理页：Edit 应把 purpose 预填进 Purpose 框',
  *  3) 还原必须写成 `api.put(url, { data: {...} })` —— Playwright 的选项对象在**第二参**；
  *     把 body 直接当第二参会**静默不发 body**（本用例第一版即踩此坑 ⇒ 首行被留成改名值）。
  *
- * ⚠️ 已知缺陷 / 挂起原因（本组用例是它的闸门）：
- *  · `Reference` 的 `PUT 400 source_type=pubmed` **已修**（序列化器层并入 `pubmed`，不动模型）
- *    ⇒ 其 PUT 用例**已转正**。
- *  · `Protocol` 的 `PUT 500 NameError(MethodProtocol 未导入)` **已修**（补模块级导入），
- *    但本用例**仍挂起**，原因换成**夹具副作用**：
- *      协议 PUT 走通后，`update()` 会按**单选下拉**刷新该协议的 `explicit` 桥
- *      （已实测：夹具 2 条 explicit → 收敛为 1 条；非 explicit 桥不受影响）。
- *      本用例为不污染数据，只改名并靠 API 还原**名字**；但**没有清理 `MethodProtocol` 的接口**
- *      ⇒ 跑一次会在首行协议上**新建 1 条 explicit 桥**且无法回收。
- *    ⇒ 转正前置：① 明确「编辑保存收敛 explicit 桥」的口径；② 提供夹具桥的清理手段。
- *      （生产 `method_protocol.explicit=true` 实测 **0 条**（共 15,241）⇒ 该副作用**当前零波及**。）
+ * ⚠️ 已知缺陷 / 挂起原因（**历史**，两条均已处置）：
+ *  · `Reference` 的 `PUT 400 source_type=pubmed` **已修**（序列化器层并入 `pubmed`，不动模型）⇒ 已转正。
+ *  · `Protocol` 的 `PUT 500 NameError(MethodProtocol 未导入)` **已修**（补模块级导入）；
+ *    但随后暴露**夹具副作用**：协议 PUT 会按单选下拉刷新该协议的 `explicit` 桥，而旧写法只还原
+ *    **名字**、桥**无回收接口** ⇒ 跑一次就在首行协议上留一条 explicit 桥。
+ *    **2026-09-24 已转正** —— 改为**自建夹具**（`version='9999'` 抢首行，`DELETE` 靠 CASCADE 连桥一起回收），
+ *    见本文件末尾 `Protocol 治理页：自建夹具 …（零残留）`。⇒ **本组已无 fixme**。
  */
-const PUT_KNOWN_DEFECT = {
-  Protocol: 'PUT 已修(补导入)；本用例挂起＝夹具会在首行协议新建 1 条 explicit 桥且无接口回收',
-}
-for (const e of ENTITIES) {
-  const defect = PUT_KNOWN_DEFECT[e.noun]
-  const t = defect ? test.fixme : test
-  const suffix = defect ? `（已知缺陷：${defect}）` : ''
-  t(`${e.noun} 治理页：Edit → Save 走 PUT 且落库${suffix}`,
+for (const e of ENTITIES.filter((x) => x.noun !== 'Protocol')) {
+  test(`${e.noun} 治理页：Edit → Save 走 PUT 且落库`,
     { tag: ['@write', '@local-only'] }, async ({ page, request }) => {
       const errors = consoleErrors(page, WL)
       const api = await staffApi(request)
@@ -303,3 +293,92 @@ for (const e of ENTITIES) {
       }
     })
 }
+
+/**
+ * ★ Protocol 的 PUT 覆盖（**自建夹具版**，2026-09-24 由 fixme 转正）
+ *
+ * 为什么它不能沿用上面那条"编辑既有首行"的通用写法：
+ *   `ProtocolListSerializer.update()`（`backend/apps/knowledge/api/v1/serializers.py:282-305`）
+ *   在收到 `methods` 时会**刷新该协议的 explicit 桥**（删掉不再勾选的、补建新增的）。
+ *   而 `ProtocolsPage.save()` 固定发送 `{ name, methods: form.method_id ? [id] : [] }`
+ *   （`frontend/src/views/workspace/ProtocolsPage.vue:79-82`）
+ *   ⇒ 只要编辑一条**已挂方法**的既有协议，PUT 就会在该协议上增删 explicit 桥；
+ *   旧写法只还原**名字**，而桥**没有回收接口** ⇒ 每跑一次留一条。**这就是它被挂起的原因。**
+ *
+ * 夹具版把副作用关进自建夹具、再靠外键级联回收：
+ *   1) **抢首行**：`Protocol.Meta.ordering = ['-version']`（`models.py:319`），
+ *      而 `ProtocolsPage.loadList()` **不带 ordering**（`ProtocolsPage.vue:35`）
+ *      ⇒ 夹具用 `version='9999'` 必排第一。
+ *      已实证（2026-09-24，dev 库）：14,079 条 protocol 的 `version` **全部是 `'1.0'`**，
+ *      `Protocol.objects.filter(version__gt='9999').exists()` = **False** ⇒ 无字符串能排到它前面。
+ *      注：这里仍**用唯一名定位行**而不是 `rows().first()`，免得将来版本号变了就悄悄改错对象。
+ *   2) **走到收敛分支**：夹具创建时带 `methods=[<真实 method id>]` ⇒ 自带 1 条 explicit 桥，
+ *      于是 PUT 真的经过"刷新 explicit 桥"的代码路径（而不是空过）。
+ *   3) **零残留**：`MethodProtocol.protocol` 是 `on_delete=CASCADE`
+ *      （`backend/apps/bridges/models.py:59-62`）⇒ `DELETE /protocols/{id}/` 会把夹具桥一起带走；
+ *      收尾再按唯一名检索断言残留 = 0。
+ */
+test('Protocol 治理页：自建夹具 Edit → Save 走 PUT 且落库（零残留）',
+  { tag: ['@write', '@local-only'] }, async ({ page, request }) => {
+    const errors = consoleErrors(page, WL)
+    const api = await staffApi(request)
+    const uniq = `E2E-Protocol-${Date.now()}`
+    let fixtureId = null
+    try {
+      // ── Arrange：取一条真实 Method 建桥；自建 version='9999' 的夹具协议 ──
+      const mBody = await (await api.get('/methods/', { params: { page_size: 1 } })).json()
+      const mArr = Array.isArray(mBody?.data) ? mBody.data : mBody?.data?.results || []
+      expect(mArr.length, '需要有可用的 Method 供夹具建桥').toBeGreaterThan(0)
+      const methodId = mArr[0].id
+
+      const cResp = await api.post('/protocols/', {
+        data: { name: uniq, version: '9999', methods: [methodId] },
+      })
+      if (cResp.status() >= 300) {
+        console.log(`__E2E__ Protocol 夹具创建 ${cResp.status()} BODY=${String(await cResp.text()).slice(0, 400)}`)
+      }
+      expect(cResp.status(), '夹具协议应创建成功').toBeLessThan(300)
+      fixtureId = (await cResp.json())?.data?.id ?? null
+      expect(fixtureId, '夹具协议应返回 id').not.toBeNull()
+
+      // ── Act：走 UI 编辑夹具（按唯一名定位行，不依赖"首行"） ──
+      await loginAsStaff(page)
+      await goto(page, '/workspace/protocols')
+      const fixtureRow = page.locator('table.entity-table tbody tr', { hasText: uniq })
+      await expect
+        .poll(async () => fixtureRow.count(), { timeout: 25000, intervals: [300, 600, 1000] })
+        .toBe(1)
+      console.log(`__E2E__ Protocol 夹具已渲染（version=9999 ⇒ 首行）id=${fixtureId}`)
+
+      const editedName = `${uniq} [E2E-PUT]`
+      await fixtureRow.first().getByRole('button', { name: 'Edit' }).click()
+      await expect(dlg(page), 'Edit 后应出现编辑器').toHaveCount(1, { timeout: 10000 })
+      await expect(nameInput(page), 'Edit 应把夹具名预填').toHaveValue(uniq)
+
+      await nameInput(page).fill(editedName)
+      const [putResp] = await Promise.all([
+        page.waitForResponse((r) => r.request().method() === 'PUT' && r.url().includes('/protocols/')),
+        dlg(page).getByRole('button', { name: 'Save' }).click(),
+      ])
+      if (putResp.status() >= 300) {
+        console.log(`__E2E__ Protocol PUT ${putResp.status()} BODY=${String(await putResp.text()).slice(0, 400)}`)
+      }
+      expect(putResp.status(), 'Protocol 编辑保存的 PUT 应 2xx').toBeLessThan(300)
+      await expect(dlg(page), '保存后编辑器应关闭').toHaveCount(0, { timeout: 10000 })
+
+      const detail = await (await api.get(`/protocols/${fixtureId}/`)).json()
+      expect((detail?.data ?? detail)?.name, 'Protocol 编辑后新名应落库').toBe(editedName)
+      expect(errors).toEqual([])
+    } finally {
+      // ── Cleanup：删夹具 ⇒ MethodProtocol 级联删除 ⇒ 桥零残留 ──
+      if (fixtureId != null) {
+        const dResp = await api.delete(`/protocols/${fixtureId}/`).catch(() => null)
+        const after = await (await api.get('/protocols/', { params: { search: uniq, page_size: 20 } })).json()
+        const arr = Array.isArray(after?.data) ? after.data : after?.data?.results || []
+        const left = arr.filter((x) => String(x.name || '').startsWith(uniq)).length
+        console.log(`__E2E__ Protocol 夹具回收 id=${fixtureId} delete=${dResp ? dResp.status() : 'ERR'} 残留=${left}`)
+        expect(left, 'Protocol PUT 夹具应零残留').toBe(0)
+      }
+      await api.dispose()
+    }
+  })
