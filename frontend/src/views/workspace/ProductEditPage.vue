@@ -162,6 +162,26 @@ const displayProtocolRows = computed(() => {
   return { ...folded, weak }
 })
 
+/**
+ * ★ P0（2026-09-24）：strong=0 时的空态文案。
+ *
+ * 原位问题（**已实测**）：strong=0 而 weak>0 时，模板只渲染字面的 `None`，而全部候选
+ * 都躺在**默认收起**的「弱相关 (N) ▼」里 ⇒ 研究员判定"该产品没有知识实体"。
+ * 实测（浏览器 DOM + 截图，dev 夹具）：DB `ProductProtocol=0`、桥可达 **753** 条，
+ * 界面显示 `Protocols: None    弱相关 (753) ▼`。
+ *
+ * 本改动**只改文案**：元素仍是同一个 `.chip-none`（保持 v-if 条件不变），
+ * 因此所有既有断言（`toBeVisible` / `toHaveCount(0)`）不受影响 —— 见影响面评估。
+ * ⚠️ 刻意**不**默认展开弱相关区：753 条会带来 DOM 膨胀与渲染开销，
+ *    改为把数量点出来、并指向旁边的「弱相关」按钮（最小改动、零结构变化）。
+ */
+const protocolsEmptyHint = computed(() => {
+  const weak = displayProtocolRows.value.weak.length
+  return weak > 0
+    ? `None（另有 ${weak} 条弱相关候选 — 点击右侧「弱相关」查看）`
+    : 'None'
+})
+
 // ── Dropdown options — pulled from Product model Choices ────
 const purityOpts = ['≥ 99% (HPLC)', '≥ 98% (HPLC)', '≥ 97% (HPLC)', '≥ 95% (HPLC)', '≥ 90% (HPLC)', '≥ 99% (PAGE)', '≥ 95% (PAGE)', '≥ 98% (TLC)']
 const concentrationOpts = ['100 mM', '50 mM', '10 mM', '1 mM', '100 µM', '10 µM', 'solid']
@@ -1948,7 +1968,7 @@ watch(
             <button v-else type="button" class="chip-remove chip-remove--locked" disabled
                     title="该链接由方法链派生——如需移除，请先移除对应的方法（知识链接随方法链整体进出）">✕</button>
           </span>
-          <span v-if="!displayProtocolRows.visible.length" class="chip-none">None</span>
+          <span v-if="!displayProtocolRows.visible.length" class="chip-none">{{ protocolsEmptyHint }}</span>
           <button v-if="displayProtocolRows.folded" type="button" class="btn btn-ghost btn-xs" @click="showAllProtocolLinks = true">显示全部 ({{ displayProtocolRows.hidden.length }})</button>
           <button v-if="showAllProtocolLinks && displayProtocolRows.hidden.length" type="button" class="btn btn-ghost btn-xs" @click="showAllProtocolLinks = false">收起</button>
           <!-- S4: 弱相关（仅语义相似/广播桶）独立折叠区，默认收起，点击展开 -->
