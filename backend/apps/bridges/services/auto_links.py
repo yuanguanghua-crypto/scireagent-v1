@@ -16,6 +16,7 @@
 嵌入模型经 embedding_backend 惰性加载（路径由 EMB3_VENV 环境变量 /
 settings.EMB3_VENV_PATH 决定，本模块不作任何路径假设）；测试可注入 model。
 """
+import hashlib
 import json
 import logging
 import os
@@ -313,10 +314,49 @@ _Q_CACHE_PATH = os.path.join(
 _Q_CACHE_META_KEY = '_meta'
 
 
+def _vocab_sha1():
+    """`domain_vocab.json` 的**内容哈希**（对 key 与同义词排序后归一化 ⇒ 格式/顺序变化不误判）。"""
+    vocab = REL._load_vocab()
+    norm = json.dumps(
+        {k: sorted(v) for k, v in sorted(vocab.items())}, ensure_ascii=False,
+    )
+    return hashlib.sha1(norm.encode('utf-8')).hexdigest()
+
+
+def _protocol_text_sha1():
+    """协议侧**文本指纹**（Q 的来源字段），用于捕捉"文本被改但 id/总数不变"的陈旧。
+
+    实测代价：读全库 7 个文本字段 ≈ 14.2M 字符 ≈ **0.11s** + 哈希。只在**首次取缓存**时跑一次。
+    """
+    h = hashlib.sha1()
+    qs = (Protocol.objects
+          .only('id', 'name', 'objective', 'principle', 'materials',
+                'reagents', 'expected_results', 'references')
+          .order_by('id').iterator())
+    for p in qs:
+        h.update(str(p.id).encode('utf-8'))
+        h.update(b'\x1f')
+        h.update(REL._protocol_q_text(p).encode('utf-8'))
+        h.update(b'\x1e')
+    return h.hexdigest()
+
+
 def _q_cache_fingerprint():
-    """Q 缓存指纹 = (协议总数, max(id))。协议被新增/删除/重建都会改变它。"""
+    """Q 缓存指纹 = (协议数, max_id, **词表哈希**, **协议文本指纹**)。
+
+    ★ 2026-09-24 补后两项 —— 原先只有 `(protocol_count, max_id)`，**判不出两类陈旧**：
+      ① `domain_vocab.json` 被修改（Q 必须重算）；
+      ② 协议文本被策展修订（`objective`/`principle`/… 变了，但 id 与总数不变）。
+    实测后果：`recommend_protocols_for_enrich` 草稿分支会给出**基于旧词表/旧文本的分数**（静默偏差），
+    且 `--check` 会**假通过**（容器启动不重建）。⇒ 两类都必须进指纹。
+    """
     agg = Protocol.objects.aggregate(n=Count('id'), mx=Max('id'))
-    return {'protocol_count': agg['n'] or 0, 'max_id': agg['mx'] or 0}
+    return {
+        'protocol_count': agg['n'] or 0,
+        'max_id': agg['mx'] or 0,
+        'vocab_sha1': _vocab_sha1(),
+        'protocol_text_sha1': _protocol_text_sha1(),
+    }
 
 
 def compute_q_cache():
@@ -352,8 +392,9 @@ def _load_q_cache_from_file():
         return None
     meta = payload.get(_Q_CACHE_META_KEY) or {}
     live = _q_cache_fingerprint()
-    if (meta.get('protocol_count') != live['protocol_count']
-            or meta.get('max_id') != live['max_id']):
+    # ★ 整体比较（而非逐字段）⇒ 将来指纹加字段时**自动**纳入校验，不会漏。
+    #   旧文件只有 2 个字段 ⇒ 必然不等 ⇒ 回退重算（安全）。
+    if meta != live:
         logger.warning(
             'Q 缓存文件指纹不符（文件 %s vs 实测 %s）⇒ 回退实时计算；'
             '如需恢复快速路径请重跑 `manage.py build_protocol_q_cache`', meta, live)

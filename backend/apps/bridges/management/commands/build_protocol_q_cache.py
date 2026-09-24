@@ -62,8 +62,9 @@ class Command(BaseCommand):
             with open(path, encoding='utf-8') as fh:
                 payload = json.load(fh)
             meta = payload.get(A._Q_CACHE_META_KEY) or {}
-            same = (meta.get('protocol_count') == live['protocol_count']
-                    and meta.get('max_id') == live['max_id'])
+            # ★ 整体比较（与 `_load_q_cache_from_file` 同一口径）⇒ 词表哈希 / 协议文本指纹
+            #   一并纳入；将来加字段自动生效，不会再出现"加载端改了、命令端忘了"的偏差。
+            same = (meta == live)
             if same:
                 self.stdout.write(self.style.SUCCESS(
                     f'✔ 缓存新鲜：{path}（{len(payload.get("q") or {})} 条，{meta}）'))

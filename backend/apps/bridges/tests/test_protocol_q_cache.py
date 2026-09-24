@@ -173,3 +173,69 @@ class QCacheStalenessSafetyTest(TestCase):
             )
         finally:
             os.remove(p)
+
+
+class QCacheFingerprintCoversVocabAndTextTest(TestCase):
+    """★ 2026-09-24 补：指纹必须同时覆盖 **词表** 与 **协议文本**。
+
+    原缺陷：指纹只有 `(protocol_count, max_id)` ⇒ ① 改 `domain_vocab.json`
+    ② 协议文本被策展修订（id/总数不变）**都判不出陈旧** ⇒ AI 预览给旧分数、`--check` 假通过。
+    """
+
+    def setUp(self):
+        import io
+        import os
+        import tempfile
+
+        from django.core.management import call_command
+
+        from apps.bridges.services import relevance as REL
+
+        self._orig_path = A._Q_CACHE_PATH
+        self._orig_vocab = REL._DOMAIN_INDEX
+        self.dir = tempfile.mkdtemp()
+        self.path = os.path.join(self.dir, 'q.json')
+        A._Q_CACHE_PATH = self.path
+        A._PROTO_Q_CACHE = None
+        REL._DOMAIN_INDEX = None          # 从文件重新加载词表，保证与哈希一致
+        Protocol.objects.create(name='PCR protocol', slug='qc-fp-1',
+                                status='published', objective='pcr primer')
+        call_command('build_protocol_q_cache', stdout=io.StringIO())
+        self.assertIsNotNone(A._load_q_cache_from_file(), '刚构建后应可加载（基线）')
+
+    def tearDown(self):
+        import shutil
+
+        from apps.bridges.services import relevance as REL
+
+        A._Q_CACHE_PATH = self._orig_path
+        REL._DOMAIN_INDEX = self._orig_vocab
+        A._PROTO_Q_CACHE = None
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def test_stale_when_vocab_changed(self):
+        """改词表 ⇒ 指纹不符 ⇒ 拒绝加载 + `--check` exit 1。"""
+        import io
+        from django.core.management import call_command
+        from apps.bridges.services import relevance as REL
+
+        vocab = dict(REL._load_vocab())
+        vocab['__e2e_probe_domain__'] = ['zzz-probe-term']
+        REL._DOMAIN_INDEX = vocab
+        A._PROTO_Q_CACHE = None
+        self.assertIsNone(A._load_q_cache_from_file(), '改词表后缓存必须判为陈旧')
+        with self.assertRaises(SystemExit):
+            call_command('build_protocol_q_cache', check=True, stdout=io.StringIO())
+
+    def test_stale_when_protocol_text_changed(self):
+        """改协议文本（id 与总数不变）⇒ 指纹不符 ⇒ 拒绝加载 + `--check` exit 1。"""
+        import io
+        from django.core.management import call_command
+
+        p = Protocol.objects.get(slug='qc-fp-1')
+        p.objective = 'completely different objective text'
+        p.save(update_fields=['objective'])
+        A._PROTO_Q_CACHE = None
+        self.assertIsNone(A._load_q_cache_from_file(), '改协议文本后缓存必须判为陈旧')
+        with self.assertRaises(SystemExit):
+            call_command('build_protocol_q_cache', check=True, stdout=io.StringIO())
