@@ -30,20 +30,20 @@ import pytest
 pytestmark = pytest.mark.django_db
 
 
-# ── 待收口的 9 个（真·隐式；每一项都有明确计划，不是"永久豁免"） ────────────────
-_PENDING_FIX = {
-    # commerce：后台主数据/文档 —— 前端对这些**只有 GET** ⇒ 可安全收紧为 IsAdminOrReadOnly
-    'apps.commerce.api.v1.views:SKUViewSet',
-    'apps.commerce.api.v1.views:ProductClassViewSet',
-    'apps.commerce.api.v1.views:CatalogGroupViewSet',
-    'apps.commerce.api.v1.views:ProductDocumentViewSet',   # 含不可逆 DELETE /documents/{id}
-    'apps.commerce.api.v1.views:ProductDetailAPIView',
-    # transactions：订单/询价/收藏/购物车
-    'apps.transactions.api.v1.views:OrderViewSet',          # 前端不用 POST /orders/（走 /checkout/）
-    'apps.transactions.api.v1.views:QuoteViewSet',
-    'apps.transactions.api.v1.views:WishlistViewSet',       # 匿名 POST 必 500（模型 user 非空）
-    'apps.transactions.api.v1.views:BasketViewSet',         # 未被路由（死代码）
-}
+# ── 燃尽清单：**已清空**（2026-09-24 全部处置完毕） ────────────────────────────
+# 原本 9 项真·隐式，逐项处置：
+#   · commerce 5（SKU / ProductClass / CatalogGroup / ProductDocument / ProductDetailAPIView）
+#     ⇒ 补 `IsAdminOrReadOnly`（只封写、读不变）
+#   · transactions 4：
+#       Order / Quote     ⇒ 读维持匿名空列表契约（`get_queryset` 已 `.none()`），**写要求登录**
+#                            （与真实下单路径 `CheckoutView`/`POSubmitView` 的 `IsAuthenticated` 一致），
+#                            并把 `OrderListSerializer` 的 `status`/`grand_total` 改 `read_only`
+#                            以堵住"匿名造 status/grand_total 自定订单"
+#       Wishlist          ⇒ 修「匿名 POST 必 500」（`user` NOT NULL 而序列化器无 user）：
+#                            读维持匿名 200 空列表，**写要求登录** + `perform_create` 强制 `user=request.user`
+#       BasketViewSet     ⇒ **死代码**（未被任何 urls 路由），显式声明 `AllowAny` + 待删除标记
+# ⇒ 从此**无豁免**：任何 view 类都必须自己声明权限，否则本守卫红灯。
+_PENDING_FIX = set()
 
 _APPS_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

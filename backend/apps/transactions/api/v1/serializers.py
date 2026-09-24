@@ -28,6 +28,15 @@ class OrderItemSerializer(BaseModelSerializer):
 
 class OrderListSerializer(BaseModelSerializer):
     items_count = serializers.SerializerMethodField()
+    # ★ 2026-09-24 收紧：本序列化器同时用于 `OrderViewSet` 的 **list 与 create**
+    #   （`views.py:12` 与 `get_serializer_class`），而 `status` / `grand_total` 此前**可写**
+    #   ⇒ 匿名 `POST /orders/` 能造出「`status=completed`、`grand_total=0.01`、`user=null`」的订单
+    #   （2026-09-24 以生产实测确认：HTTP **201** 且 DB 落库）。这两个字段本应由**服务端**决定
+    #   （授权路径有 `/checkout/`、`POSubmitView` 等）⇒ 改 `read_only`：
+    #   读行为不变；创建时回落到模型默认（`status=DRAFT` / `grand_total=0`）。
+    #   注意前端**不使用** `POST /orders/`（下单走 `/checkout/`、PO 走 `/orders/po/`）⇒ 无影响。
+    status = serializers.CharField(read_only=True)
+    grand_total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
     class Meta:
         model = Order
