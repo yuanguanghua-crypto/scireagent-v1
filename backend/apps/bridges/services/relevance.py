@@ -14,6 +14,7 @@ import re
 
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 # 三轴权重（和=1）。wB 为硬上限：即便 S_B=1，对总分贡献封顶 0.10（#338 稀疏实证不喧宾夺主）
 WEIGHTS = {'a': 0.70, 'b': 0.10, 'c': 0.20}
@@ -584,24 +585,55 @@ def recompute_product(product, embedding_fn=None):
             continue          # ★ 低分不落库：零证据的协议不写行
         rows.append((protocol, fused, lit_n, s_c))
 
-    n = 0
-    with transaction.atomic():                      # 只包写入 ⇒ 提交从 268 次降到 1 次
-        for protocol, fused, lit_n, s_c in rows:
-            defaults = {
-                'relevance_score': fused['relevance_score'],
-                'score_a': fused['score_a'],
-                'score_b': fused['score_b'],
-                'literature_count': lit_n,
-                'relevance_basis': fused['relevance_basis'],
-                'tier': fused['tier'],
-                'link_source': ProductProtocol.LinkSource.INHERITED,
-            }
-            if compute_c:
-                defaults['score_c'] = s_c    # ★ 仅"能算出"时才写；否则保留库中现值
-            ProductProtocol.objects.update_or_create(
-                product=product, protocol=protocol,
-                defaults=defaults,
+    # ★ 2026-10-08 P2 可选增强：**真批量 upsert**（把 B8 之后仅剩的「N 次 SQL」也消掉）。
+    #
+    #   B8 解决的是"N 次提交"（268 次 commit → 1 次）；但循环体里**每个协议仍发 2 条 SQL**
+    #   （`update_or_create` = SELECT + INSERT/UPDATE）⇒ 759 条桥 ≈ 1500+ 条语句，
+    #   且事务要持锁到循环结束。改为 `bulk_create(update_conflicts=True)` 后：
+    #   **每批 1 条语句**（UPSERT），锁持有时间与语句数都大幅下降。
+    #
+    #   等价性（逐条核对）：
+    #   · 唯一键：靠 `unique_together = [('product','protocol')]`（`ProductProtocol.Meta`）✓
+    #   · `auto_now_add/auto_now`：`bulk_create` 会走 `field.pre_save`，故插入时两者都有值；
+    #     但**冲突更新时只写 `update_fields` 列出的列** ⇒ 显式把 `updated_at` 列入，
+    #     以保持"每次重算都刷新更新时间"的既有语义（`created_at` 不入列 ⇒ 保留原值）✓
+    #   · `compute_c=False` 时**不把 `score_c` 列入 `update_fields`** ⇒ 冲突行**保留库中现值**；
+    #     插入行则为 NULL —— 与原先"defaults 不含 score_c"完全一致 ✓
+    #   · 本模型**无 signals / 无自定义 save()**（已核）⇒ 不经 `save()` 无副作用 ✓
+    now = timezone.now()
+    objs = []
+    for protocol, fused, lit_n, s_c in rows:
+        obj = ProductProtocol(
+            product=product,
+            protocol=protocol,
+            relevance_score=fused['relevance_score'],
+            score_a=fused['score_a'],
+            score_b=fused['score_b'],
+            literature_count=lit_n,
+            relevance_basis=fused['relevance_basis'],
+            tier=fused['tier'],
+            link_source=ProductProtocol.LinkSource.INHERITED,
+            updated_at=now,
+        )
+        if compute_c:
+            obj.score_c = s_c    # ★ 仅"能算出"时才写；否则不入 update_fields ⇒ 保留库中现值
+        objs.append(obj)
+
+    n = len(objs)
+    if objs:
+        update_fields = [
+            'relevance_score', 'score_a', 'score_b', 'literature_count',
+            'relevance_basis', 'tier', 'link_source', 'updated_at',
+        ]
+        if compute_c:
+            update_fields.append('score_c')
+        with transaction.atomic():                 # 只包写入；每批仅 1 条 UPSERT 语句
+            ProductProtocol.objects.bulk_create(
+                objs,
+                batch_size=200,                     # ~12 列 × 200 ≈ 2400 参数（SQLite/PG 均安全）
+                update_conflicts=True,
+                unique_fields=['product', 'protocol'],
+                update_fields=update_fields,
             )
-            n += 1
     update_product_aggregate(product)  # S5：写完该商品 PP 行后刷新商品级聚合分
     return n
