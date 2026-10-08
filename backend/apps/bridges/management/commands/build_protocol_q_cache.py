@@ -76,14 +76,20 @@ class Command(BaseCommand):
         t0 = time.time()
         cache = A.compute_q_cache()
         elapsed = time.time() - t0
-        trimmed = {str(k): sorted(v) for k, v in cache.items() if v}
+        # ★ 2026-10-08：**空 Q 也要落盘**（存 `[]`）。此前这里是 `… if v`，把"无领域词"的协议
+        #   整个丢掉 ⇒ 读取端 `cache.get(pid)` 得到 None，会被当作 **miss** 而**逐条实时重抽**。
+        #   实测空 Q 协议占 **32%**（dev 4,470 / 14,087）⇒ 在 759 条桥里约 240 条，白花 ~0.34s。
+        #   落盘额外成本仅 ~36KB（4.5k 条 × ~8B），非常划算。
+        #   持久化后读取端 `set([])` 是**合法值**（≠ None）⇒ 不再误判为 miss。
+        trimmed = {str(k): sorted(v) for k, v in cache.items()}
         payload = {A._Q_CACHE_META_KEY: live, 'q': trimmed}
         blob = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
         size_kb = len(blob.encode('utf-8')) / 1024.0
 
         self.stdout.write(
             f'协议总数={live["protocol_count"]} max_id={live["max_id"]} '
-            f'Q 非空={len(trimmed)} 预算耗时={elapsed:.2f}s 体积={size_kb:.1f}KB')
+            f'落盘条目={len(trimmed)}（其中 Q 非空={sum(1 for v in cache.values() if v)}）'
+            f' 预算耗时={elapsed:.2f}s 体积={size_kb:.1f}KB')
 
         if options['dry_run']:
             self.stdout.write(self.style.WARNING('--dry-run：未写盘'))

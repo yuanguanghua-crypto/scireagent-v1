@@ -9,12 +9,15 @@
     （S_C 缺测 `None` 时按可用轴重归一化：(0.70·S_A + 0.10·S_B) / 0.80）
 """
 import json
+import logging
 import os
 import re
 
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 # 三轴权重（和=1）。wB 为硬上限：即便 S_B=1，对总分贡献封顶 0.10（#338 稀疏实证不喧宾夺主）
 WEIGHTS = {'a': 0.70, 'b': 0.10, 'c': 0.20}
@@ -97,6 +100,47 @@ def _protocol_q_text(protocol):
     ])
 
 
+# ── 离线 Q 缓存（按协议 id）────────────────────────────────────────────────
+# None = 不可用（缺失/陈旧/读取失败）⇒ 各处回退"实时逐条抽取"（即旧行为）。
+_PROTO_Q_MEMO = None
+_PROTO_Q_MEMO_READY = False
+
+
+def _protocol_Q(protocol):
+    """协议侧领域词 Q —— **优先复用离线 Q 缓存**，miss/不可用时回退实时抽取。
+
+    ★ 2026-10-08：此前 `compute_axis_a` / `compute_axis_b` / `_score_bridge_rows` 都各自
+    `_extract_domains(_protocol_q_text(protocol))` **现算** ⇒「每个被重算的产品 × 桥内每条协议」
+    都要重抽一次（实测量级 ~1.4ms/条；759 条 ≈ 1.1s）。而离线 Q 缓存早已存在、取用仅 ~0.33s。
+
+    **为什么现在才敢用**（此前 `_score_bridge_rows` 的 docstring 明确"刻意不引入"，两条顾虑均已消除）：
+      ① 缓存改为**容器启动时离线预建**（`docker-entrypoint.sh` 的 `--check || build`）
+         ⇒ 请求内**不再触发** 21.95s 全库首建；
+      ② 指纹已覆盖 **`domain_vocab.json` 内容哈希 + 协议文本指纹**（见 `_q_cache_fingerprint`）
+         ⇒ 协议被策展编辑 / 词表被改 ⇒ 缓存**自动判陈旧并被拒**，不再有"LRU 陈旧"风险。
+
+    **安全设计**：
+      · 只读**文件**（`_load_q_cache_from_file`）并本地 memo —— **绝不触发** `compute_q_cache()`
+        的 22s 实时全库重算；缓存缺失 ⇒ 直接回退逐条实时抽取，**无性能倒退**。
+      · 命中判据用 `is not None`：**空集是合法值**（"该协议无领域词"），不能当 miss。
+    """
+    global _PROTO_Q_MEMO, _PROTO_Q_MEMO_READY
+    if not _PROTO_Q_MEMO_READY:
+        _PROTO_Q_MEMO_READY = True
+        try:
+            # 函数级 import：`auto_links` 在**模块级** import 本模块 ⇒ 模块级反向 import 会成环
+            from apps.bridges.services import auto_links as _AL
+            _PROTO_Q_MEMO = _AL._load_q_cache_from_file()
+        except Exception as exc:          # 缓存只是优化 ⇒ 绝不让它把重算搞挂
+            logger.warning('协议 Q 缓存不可用，回退实时抽取：%s', exc)
+            _PROTO_Q_MEMO = None
+    if _PROTO_Q_MEMO:
+        q = _PROTO_Q_MEMO.get(getattr(protocol, 'id', None))
+        if q is not None:
+            return q
+    return _extract_domains(_protocol_q_text(protocol))
+
+
 def compute_axis_a(product, protocol):
     """轴A：docx 用途(P) × 协议领域词(Q) F-score。
 
@@ -108,7 +152,7 @@ def compute_axis_a(product, protocol):
     P = _extract_domains(usage)
     if not P:
         return None
-    Q = _extract_domains(_protocol_q_text(protocol))
+    Q = _protocol_Q(protocol)      # ★ 复用离线 Q 缓存（miss 回退实时抽取）
     if not Q:
         return 0.0
     inter = P & Q
@@ -139,7 +183,7 @@ def compute_axis_b(product, protocol, bioz_lits=None):
     """
     if not bioz_lits:
         return 0.0, 0
-    Q = _extract_domains(_protocol_q_text(protocol))
+    Q = _protocol_Q(protocol)      # ★ 复用离线 Q 缓存（miss 回退实时抽取）
     if not Q:
         return 0.0, 0
     lit_n = 0
@@ -356,7 +400,9 @@ def _score_bridge_rows(product, protocol_ids, proto_map):
 
     性能（2026-09-24 实测）：753 条桥 ⇒ 逐条 `_extract_domains` 约 **1.11s**；
     协议文本走 `proto_map`（调用方已批量取好）⇒ **零新增 DB 查询**。
-    刻意**不引入 Q 缓存**：全库缓存首建 21.95s，而 LRU 会在协议被编辑后陈旧 —— 第一版求稳。
+    ★ 2026-10-08 **改用离线 Q 缓存**（`_protocol_Q`）—— 原先这里写"刻意不引入 Q 缓存：
+    全库缓存首建 21.95s，而 LRU 会在协议被编辑后陈旧 —— 第一版求稳"。这两条现在都不成立了：
+    缓存改由**容器启动离线预建**（请求内不再首建），且指纹已含**协议文本指纹**（编辑即判陈旧）。
     """
     p_text = (getattr(product, 'usage', '') or '') or (getattr(product, 'name', '') or '')
     P = _extract_domains(p_text)
@@ -367,7 +413,7 @@ def _score_bridge_rows(product, protocol_ids, proto_map):
         proto = proto_map.get(pid)
         if proto is None:
             continue
-        Q = _extract_domains(_protocol_q_text(proto))
+        Q = _protocol_Q(proto)      # ★ 复用离线 Q 缓存（miss 回退实时抽取）
         if not Q:
             continue
         inter = P & Q

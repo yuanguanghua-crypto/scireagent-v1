@@ -239,3 +239,96 @@ class QCacheFingerprintCoversVocabAndTextTest(TestCase):
         self.assertIsNone(A._load_q_cache_from_file(), '改协议文本后缓存必须判为陈旧')
         with self.assertRaises(SystemExit):
             call_command('build_protocol_q_cache', check=True, stdout=io.StringIO())
+
+
+class ProtocolQCacheReuseTest(TestCase):
+    """★ 2026-10-08：`relevance._protocol_Q` **优先复用离线 Q 缓存**，且回退语义正确。
+
+    手法：注入一个**故意不同**的缓存值，若返回值来自它 ⇒ 证明缓存**真的被用**（不是悄悄绕过）。
+    """
+
+    def setUp(self):
+        from apps.bridges.services import relevance as REL
+
+        REL._load_vocab()
+        self.proto = Protocol.objects.create(
+            name='Q reuse probe', slug='q-reuse-probe', status='published',
+            objective='labeling of nucleotide analogs with fluorescent dyes')
+        self._saved = (REL._PROTO_Q_MEMO, REL._PROTO_Q_MEMO_READY)
+
+    def tearDown(self):
+        from apps.bridges.services import relevance as REL
+
+        REL._PROTO_Q_MEMO, REL._PROTO_Q_MEMO_READY = self._saved
+
+    def test_uses_injected_cache_value(self):
+        """注入哨兵值 ⇒ 返回它（证明走了缓存分支）。"""
+        from apps.bridges.services import relevance as REL
+
+        REL._PROTO_Q_MEMO = {self.proto.id: {'__sentinel__'}}
+        REL._PROTO_Q_MEMO_READY = True
+        self.assertEqual(REL._protocol_Q(self.proto), {'__sentinel__'})
+
+    def test_empty_q_in_cache_is_not_treated_as_miss(self):
+        """★ 空集是**合法值**（该协议无领域词）⇒ 必须直接返回，不得回退实时抽取。
+
+        回归背景：若构建命令把空 Q 协议整个丢掉（`… if v`），读取端 `get()` 得到 None
+        会被当成 miss 而逐条重抽 —— 实测空 Q 协议占全库 32%。
+        """
+        from apps.bridges.services import relevance as REL
+
+        REL._PROTO_Q_MEMO = {self.proto.id: set()}
+        REL._PROTO_Q_MEMO_READY = True
+        self.assertEqual(REL._protocol_Q(self.proto), set())
+        self.assertIsNot(REL._protocol_Q(self.proto), None)
+
+    def test_falls_back_when_id_absent_from_cache(self):
+        """缓存里没有该 id（协议在缓存建成后新增）⇒ 回退实时抽取，结果与实时一致。"""
+        from apps.bridges.services import relevance as REL
+
+        REL._PROTO_Q_MEMO = {}
+        REL._PROTO_Q_MEMO_READY = True
+        self.assertEqual(
+            REL._protocol_Q(self.proto),
+            REL._extract_domains(REL._protocol_q_text(self.proto)))
+
+    def test_falls_back_when_cache_unavailable(self):
+        """缓存整体不可用（None）⇒ 回退实时抽取（旧行为，无性能倒退也无结果差异）。"""
+        from apps.bridges.services import relevance as REL
+
+        REL._PROTO_Q_MEMO = None
+        REL._PROTO_Q_MEMO_READY = True
+        self.assertEqual(
+            REL._protocol_Q(self.proto),
+            REL._extract_domains(REL._protocol_q_text(self.proto)))
+
+    def test_build_persists_empty_q_entries(self):
+        """★ 构建命令必须**把空 Q 也落盘**（存 `[]`），否则读取端会把它当 miss。"""
+        import io
+        import os
+        import tempfile
+
+        from django.core.management import call_command
+
+        from apps.bridges.services import relevance as REL
+
+        Protocol.objects.create(name='no domain words here', slug='q-empty-probe',
+                                status='published', objective='zzz qqq')
+        d = tempfile.mkdtemp()
+        path = os.path.join(d, 'q.json')
+        orig = A._Q_CACHE_PATH
+        A._Q_CACHE_PATH = path
+        try:
+            call_command('build_protocol_q_cache', stdout=io.StringIO())
+            with open(path, encoding='utf-8') as fh:
+                payload = json.load(fh)
+            q = payload['q']
+            self.assertEqual(len(q), Protocol.objects.count(),
+                             '落盘条目数应等于协议总数（空 Q 也要有 key）')
+            self.assertTrue(any(v == [] for v in q.values()),
+                            '应存在空 Q 条目（值为 []）')
+        finally:
+            A._Q_CACHE_PATH = orig
+            A._PROTO_Q_CACHE = None
+            REL._PROTO_Q_MEMO = self._saved[0]
+            REL._PROTO_Q_MEMO_READY = self._saved[1]
