@@ -128,7 +128,10 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+# ★ 2026-10-13：**改为可从环境变量配置**（默认 'UTC'，与改动前行为一致 ⇒ 向后兼容）。
+#   背景：客户在美国时，发票日期与 Net30 到期日按 UTC 计算，跨零点前后可能**相差一天**。
+#   如需按美东时区显示，在 `.env` 设 TIME_ZONE=America/New_York 即可，无需改代码。
+TIME_ZONE = os.getenv('TIME_ZONE', 'UTC')
 USE_I18N = True
 USE_TZ = True
 
