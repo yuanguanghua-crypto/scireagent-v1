@@ -289,6 +289,20 @@ class ShippingService:
     def create_shipment(cls, order: Order, carrier: str, items: list,
                         tracking_number: str = '', tracking_url: str = '',
                         estimated_delivery=None, notes: str = '', actor=None) -> ShippingRecord:
+        # ★ 2026-10-13：**先校验全部 order_item 归属本订单，再落库**。
+        #   此前在循环内 `OrderItem.objects.get(pk=..., order=order)` 且**未捕获 DoesNotExist**，
+        #   异常一路上抛 ⇒ 500（本该是 400）。本方法本就有 @transaction.atomic ⇒ 数据不会残留半成品，
+        #   缺的只是"错误语义"。（实测：前端发的结构恰好正确，所以 UI 不踩；API 消费者/集成方会踩。）
+        item_ids = [it['order_item_id'] for it in items]
+        items_by_id = {
+            oi.pk: oi for oi in OrderItem.objects.filter(order=order, pk__in=item_ids)
+        }
+        invalid = [i for i in item_ids if i not in items_by_id]
+        if invalid:
+            raise ValueError(
+                f'order_item(s) {invalid} do not belong to order {order.pk}'
+            )
+
         shipment = ShippingRecord.objects.create(
             order=order,
             status=ShippingRecord.Status.PREPARING,
@@ -299,9 +313,10 @@ class ShippingService:
             notes=notes or '',
         )
         for it in items:
-            oi = OrderItem.objects.get(pk=it['order_item_id'], order=order)
             ShippingRecordItem.objects.create(
-                shipping_record=shipment, order_item=oi, quantity=it['quantity']
+                shipping_record=shipment,
+                order_item=items_by_id[it['order_item_id']],
+                quantity=it['quantity'],
             )
         StatusLog.objects.create(
             order=order, actor=actor, action_type=StatusLog.ActionType.SHIPMENT,

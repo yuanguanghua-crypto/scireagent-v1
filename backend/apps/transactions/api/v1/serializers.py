@@ -178,6 +178,18 @@ class ShippingRecordSerializer(BaseModelSerializer):
         ]
 
 
+class ShipmentItemSerializer(serializers.Serializer):
+    """发货明细项 —— 与 `ShippingService.create_shipment` 的取值约定保持一致。
+
+    ★ 2026-10-13 新增：此前 `ShipmentCreateSerializer.items` 用 `ListField(child=DictField())`
+    **完全不校验结构**，服务层直接取 `it['order_item_id']` ⇒ 缺字段抛 KeyError（500）。
+    前端 `PoShipmentDesk.vue` 恰好发的结构正确，所以 UI 不踩；但任何 API 消费者/集成方都会吃到 500。
+    """
+
+    order_item_id = serializers.IntegerField(min_value=1)
+    quantity = serializers.IntegerField(min_value=1)
+
+
 class ShipmentCreateSerializer(serializers.Serializer):
     """新建发货记录（支持分批发）入参。"""
     carrier = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
@@ -185,10 +197,8 @@ class ShipmentCreateSerializer(serializers.Serializer):
     tracking_url = serializers.URLField(required=False, allow_blank=True, default='')
     estimated_delivery = serializers.DateField(required=False, allow_null=True)
     notes = serializers.CharField(required=False, allow_blank=True, default='')
-    items = serializers.ListField(
-        child=serializers.DictField(),
-        allow_empty=False,
-    )
+    # ★ 结构不对 ⇒ 400 带字段错误（不再 500）
+    items = ShipmentItemSerializer(many=True, allow_empty=False)
 
 
 class PoAttachmentSerializer(BaseModelSerializer):

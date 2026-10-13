@@ -248,7 +248,14 @@ def _is_order_viewer(user, order) -> bool:
         return True
     if order.organization_id and order.organization_id == getattr(user, 'organization_id', None):
         return True
-    return IsProcurementOrAdmin().has_permission(None, None) and user.is_authenticated
+    # ★ 2026-10-13 修：原写法 `IsProcurementOrAdmin().has_permission(None, None)` 把 **None 当 request**
+    #   传给权限类，权限类内 `request.user` 直接抛 `AttributeError` ⇒ 一切「非订单归属人、非同机构」的
+    #   访问者（**包含内部采购/管理员**）下载发票 PDF 必然 500（实测：同一张发票客户本人 200、管理员 500）。
+    #   这里只需判"是否内部人员"，直接判角色即可 —— 语义与 IsProcurementOrAdmin.has_permission 保持一致。
+    return bool(
+        getattr(user, 'is_staff', False)
+        or getattr(user, 'role', None) in ('procurement', 'admin')
+    )
 
 
 class InvoicePdfDownloadView(EnvelopeMixin, APIView):
