@@ -142,6 +142,48 @@ class AssignRepView(EnvelopeMixin, APIView):
         return self.success_response(OrderDetailSerializer(order, context={'request': request}).data)
 
 
+class ConfirmQuoteView(EnvelopeMixin, APIView):
+    """POST /api/v1/orders/<id>/confirm-quote/ — 客户接受/拒绝报价（legacy 报价流）。
+
+    订单处于 `quoted` 时，客户 accept（→ quote_accepted → confirmed）或 reject（→ quote_rejected）。
+    ★ 2026-10-14 补：`OrderDetailPage.vue` 一直调用此端点，但此前后端缺失（前端有、后端无）。
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        order = get_object_or_404(Order, pk=pk)
+        if not _is_order_viewer(request.user, order):
+            return self.error_response(
+                'Not allowed to respond to this order', code='FORBIDDEN', status_code=403
+            )
+        action = request.data.get('action')
+        if action not in ('accept', 'reject'):
+            return self.error_response(
+                'action must be "accept" or "reject"', code='VALIDATION_ERROR', status_code=400
+            )
+        if order.status != Order.Status.QUOTED:
+            return self.error_response(
+                'Order is not awaiting quote response', code='INVALID_OPERATION', status_code=400
+            )
+        try:
+            if action == 'accept':
+                OrderStateMachine.transition_to(
+                    order, Order.Status.QUOTE_ACCEPTED, actor=request.user, note='Quote accepted'
+                )
+                OrderStateMachine.transition_to(
+                    order, Order.Status.CONFIRMED, actor=request.user, note='Quote accepted → confirmed'
+                )
+            else:
+                OrderStateMachine.transition_to(
+                    order, Order.Status.QUOTE_REJECTED, actor=request.user,
+                    action_type=StatusLog.ActionType.REJECTED, note='Quote rejected'
+                )
+        except InvalidTransitionError as e:
+            return self.error_response(str(e), code='INVALID_OPERATION', status_code=400)
+        return self.success_response(OrderDetailSerializer(order, context={'request': request}).data)
+
+
 class ShipmentCreateView(EnvelopeMixin, APIView):
     """POST /api/v1/orders/<id>/shipments/ — 新建发货记录（分批发）。"""
     permission_classes = [IsProcurementOrAdmin]
