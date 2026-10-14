@@ -8,6 +8,14 @@
 import http from '@/utils/http'
 
 /**
+ * 获取当前用户的报价列表（提交 PO 时关联 Quote 用）。
+ * GET /api/v1/quotes/ → data: { results: [{ id, quote_no, status, grand_total, ... }] }
+ */
+export function getMyQuotes() {
+  return http.get('/quotes/')
+}
+
+/**
  * 节点1 — 提交 PO。multipart/form-data：
  *   标量字段 + items[<i>][sku_id|quantity|unit_price|product_id] + attachments[]
  * 成功响应 data: { order_no, status }

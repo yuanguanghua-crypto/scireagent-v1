@@ -1,7 +1,7 @@
 <script setup>
 import { reactive, ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { submitPo, getOrderDetail } from '@/api/poPortal'
+import { submitPo, getOrderDetail, getMyQuotes } from '@/api/poPortal'
 import { getProducts, getProductDetail } from '@/api/products'
 import { SHIPPING_METHODS } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
@@ -20,10 +20,26 @@ onMounted(() => {
     reorderSourceId.value = route.query.reorder
     loadReorder()
   }
+  loadQuotes()
 })
+
+const quoteOptions = ref([])
+
+async function loadQuotes() {
+  try {
+    const res = await getMyQuotes()
+    const payload = res.data || res
+    const list = payload.results || payload.data || payload || []
+    // 只列可关联的报价（已核实 verified）；rejected/pending 不展示
+    quoteOptions.value = Array.isArray(list) ? list.filter((q) => q.status === 'verified') : []
+  } catch {
+    quoteOptions.value = []
+  }
+}
 
 const form = reactive({
   po_number: '',
+  quote_id: '',
   grant_code: '',
   shipping_method: '',
   requested_delivery_date: '',
@@ -190,6 +206,15 @@ async function handleSubmit() {
         <div class="po-field">
           <label class="po-label">PO Number（可选）</label>
           <input v-model="form.po_number" class="po-input" placeholder="无 PO 号可留空" />
+        </div>
+        <div class="po-field">
+          <label class="po-label">Quote / Reference #（可选）</label>
+          <select v-model="form.quote_id" class="po-select">
+            <option value="">— 不关联报价 —</option>
+            <option v-for="q in quoteOptions" :key="q.id" :value="q.id">
+              {{ q.quote_no }} · {{ q.grand_total }}
+            </option>
+          </select>
         </div>
         <div class="po-field">
           <label class="po-label">Grant / Sponsor Code</label>
