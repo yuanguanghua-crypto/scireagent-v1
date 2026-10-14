@@ -40,7 +40,7 @@ async function fetchOrders() {
 onMounted(fetchOrders)
 
 function goToDetail(order) {
-  router.push(`/admin/orders/${order.id}`)
+  router.push(`/ops/orders/${order.id}`)
 }
 </script>
 

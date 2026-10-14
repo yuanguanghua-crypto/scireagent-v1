@@ -10,7 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
   // 登录成功时把 is_staff 缓存进 localStorage，使路由守卫可同步判定角色（真实访问门禁仍在 AdminLayout 兜底）。
   const cachedIsStaff = ref(localStorage.getItem('is_staff') === 'true')
   // ★ 2026-10-14：同理缓存 role —— 守卫需判定"是否内部人员"（is_staff 或 role∈procurement/admin），
-  //   硬刷新时 user 未异步加载完，若无缓存会把 procurement 误判为外部而挡在 /admin/po/* 外。
+  //   硬刷新时 user 未异步加载完，若无缓存会把 procurement 误判为外部而挡在 /ops/po/* 外。
   const cachedRole = ref(localStorage.getItem('role') || '')
 
   const isAuthenticated = computed(() => !!token.value)

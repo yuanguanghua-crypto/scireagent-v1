@@ -69,13 +69,13 @@ const ROUTES = [
   { path: '/workspace/protocols', role: 'admin', name: 'ProtocolsPage' },
   { path: '/workspace/references', role: 'admin', name: 'ReferencesPage' },
   { path: '/workspace/knowledge-intake', role: 'admin', name: 'KnowledgeIntake' },
-  { path: '/admin/orders', role: 'admin', name: 'AdminOrdersPage' },
-  { path: '/admin/orders/1', role: 'admin', name: 'AdminOrderDetail' },
-  { path: '/admin/po/review', role: 'admin', name: 'PoReviewDesk' },
-  { path: '/admin/po/shipments', role: 'admin', name: 'PoShipmentDesk' },
-  { path: '/admin/po/invoicing', role: 'admin', name: 'PoInvoicingDesk' },
-  { path: '/admin/po/ar', role: 'admin', name: 'PoArReport' },
-  { path: '/admin/po/organizations', role: 'admin', name: 'PoOrgManagement' },
+  { path: '/ops/orders', role: 'admin', name: 'AdminOrdersPage' },
+  { path: '/ops/orders/1', role: 'admin', name: 'AdminOrderDetail' },
+  { path: '/ops/po/review', role: 'admin', name: 'PoReviewDesk' },
+  { path: '/ops/po/shipments', role: 'admin', name: 'PoShipmentDesk' },
+  { path: '/ops/po/invoicing', role: 'admin', name: 'PoInvoicingDesk' },
+  { path: '/ops/po/ar', role: 'admin', name: 'PoArReport' },
+  { path: '/ops/po/organizations', role: 'admin', name: 'PoOrgManagement' },
 ];
 
 // ── 用例级 tier（2026-09-23 复核）─────────────────────────────────────────

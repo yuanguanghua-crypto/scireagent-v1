@@ -46,7 +46,7 @@ test.describe('@po-full 全流程真浏览器', () => {
     // ───── ② staff：审核台 Approve ─────
     await logout(page); // ★ 切角色前必须先登出（已登录访问 /login 会被守卫重定向）
     await loginAsStaff(page);
-    await page.goto(`${BASE_URL}/admin/po/review`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/ops/po/review`, { waitUntil: 'domcontentloaded' });
     const reviewCard = page.locator('.po-card', { hasText: poNumber });
     await expect(reviewCard).toBeVisible({ timeout: 20000 });
     await reviewCard.getByRole('button', { name: 'Approve' }).click();
@@ -54,7 +54,7 @@ test.describe('@po-full 全流程真浏览器', () => {
     await expect(page.locator('.po-card', { hasText: poNumber })).toHaveCount(0, { timeout: 20000 });
 
     // ───── ③ staff：发货台 Create Shipment + Mark Shipped + Delivered ─────
-    await page.goto(`${BASE_URL}/admin/po/shipments`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/ops/po/shipments`, { waitUntil: 'domcontentloaded' });
     await page.locator('tr', { hasText: orderNo }).first().click();
     await page.locator('.po-field', { hasText: 'Carrier' }).locator('input').fill('FedEx');
     await page.locator('.po-field', { hasText: /Tracking #/ }).locator('input').fill(`TRK-${Date.now()}`);
@@ -70,7 +70,7 @@ test.describe('@po-full 全流程真浏览器', () => {
     await page.getByRole('button', { name: 'Mark Delivered' }).first().click();
 
     // ───── ④ staff：发票台 Issue Invoice ─────
-    await page.goto(`${BASE_URL}/admin/po/invoicing`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/ops/po/invoicing`, { waitUntil: 'domcontentloaded' });
     await page.locator('tr', { hasText: orderNo }).first().click();
     await page.getByRole('button', { name: 'Issue Invoice' }).click();
 

@@ -6,7 +6,7 @@
  *
  * ⚠ 角色可达性（2026-10-14 实测）：
  *   - 客户侧 /po/*  → requiresAuth（客户/proc/staff 均可）
- *   - 内部台 /admin/po/* → requiresAdmin → 前端守卫判 **isStaff** ⇒ 非 staff 的 procurement **够不着**
+ *   - 内部台 /ops/po/* → requiresAdmin → 前端守卫判 **isStaff** ⇒ 非 staff 的 procurement **够不着**
  *     （后端已允许 procurement 跨机构，但前端守卫拦住 ⇒ 待修，本 spec 用 staff(admin) 验内部台 UI）
  *
  * 运行：剥代理 + workers=1 --project=chromium --output=<独立目录> -g "@po-ui"
@@ -66,7 +66,7 @@ test.describe('@po-ui 客户侧 PO 页面', () => {
 test.describe('@po-ui 内部审核台（staff）', () => {
   test('非 staff 的 procurement 也能进审核台（守卫修复回归）', async ({ page }) => {
     await loginAsProcurement(page);
-    await page.goto(`${BASE_URL}/admin/po/review`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/ops/po/review`, { waitUntil: 'domcontentloaded' });
     // ★ 修复前：被守卫（!isStaff）重定向到 /；修复后：停留在内部台
     await expect(page).toHaveURL(/\/admin\/po\/review/);
     await expect(page.locator('h1.po-page-title', { hasText: 'Order Review Desk' })).toBeVisible();
@@ -75,7 +75,7 @@ test.describe('@po-ui 内部审核台（staff）', () => {
   test('审核台可见待审单，展开行明细显示 Available 库存列', async ({ page, request }) => {
     await seedPendingOrder(request); // 造一条待审单
     await loginAsStaff(page);
-    await page.goto(`${BASE_URL}/admin/po/review`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${BASE_URL}/ops/po/review`, { waitUntil: 'domcontentloaded' });
 
     await expect(page.locator('h1.po-page-title', { hasText: 'Order Review Desk' })).toBeVisible();
     // 至少有卡片

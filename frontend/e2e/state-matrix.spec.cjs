@@ -38,7 +38,7 @@ test.describe('PO 状态分支（AdminOrderDetail UI）', { tag: ['@readonly', '
   for (const s of PO_STATES) {
     test(`态 ${s.name} → 标签「${s.label}」+ 按钮集 ${JSON.stringify(s.buttons)}`, async ({ page }) => {
       const po = await s.seed(custToken, adminToken)
-      await page.goto(`${BASE_URL}/admin/orders/${po.id}`, { waitUntil: 'domcontentloaded' })
+      await page.goto(`${BASE_URL}/ops/orders/${po.id}`, { waitUntil: 'domcontentloaded' })
       await page.waitForSelector('.status-badge', { timeout: 10000 })
 
       // 状态标签文案

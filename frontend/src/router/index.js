@@ -151,13 +151,13 @@ const routes = [
     meta: { title: 'Order Detail', requiresAuth: true },
   },
   {
-    path: '/admin/orders',
+    path: '/ops/orders',
     name: 'AdminOrders',
     component: () => import('@/views/admin/AdminOrdersPage.vue'),
     meta: { title: 'Order Management', requiresAuth: true, requiresAdmin: true },
   },
   {
-    path: '/admin/orders/:id',
+    path: '/ops/orders/:id',
     name: 'AdminOrderDetail',
     component: () => import('@/views/admin/AdminOrderDetail.vue'),
     meta: { title: 'Order Processing', requiresAuth: true, requiresAdmin: true },
@@ -203,31 +203,31 @@ const routes = [
 
   // ── PO 采购门户 — 内部台（节点 A~E） ──
   {
-    path: '/admin/po/review',
+    path: '/ops/po/review',
     name: 'PoReviewDesk',
     component: () => import('@/views/admin/PoReviewDesk.vue'),
     meta: { title: 'Order Review Desk', requiresAuth: true, requiresAdmin: true },
   },
   {
-    path: '/admin/po/shipments',
+    path: '/ops/po/shipments',
     name: 'PoShipmentDesk',
     component: () => import('@/views/admin/PoShipmentDesk.vue'),
     meta: { title: 'Shipment Desk', requiresAuth: true, requiresAdmin: true },
   },
   {
-    path: '/admin/po/invoicing',
+    path: '/ops/po/invoicing',
     name: 'PoInvoicingDesk',
     component: () => import('@/views/admin/PoInvoicingDesk.vue'),
     meta: { title: 'Invoicing Desk', requiresAuth: true, requiresAdmin: true },
   },
   {
-    path: '/admin/po/ar',
+    path: '/ops/po/ar',
     name: 'PoArReport',
     component: () => import('@/views/admin/PoArReport.vue'),
     meta: { title: 'AR Aging Report', requiresAuth: true, requiresAdmin: true },
   },
   {
-    path: '/admin/po/organizations',
+    path: '/ops/po/organizations',
     name: 'PoOrgManagement',
     component: () => import('@/views/admin/PoOrgManagement.vue'),
     meta: { title: 'Organization Management', requiresAuth: true, requiresAdmin: true },
@@ -290,7 +290,7 @@ router.beforeEach((to, from, next) => {
   // auth.isStaff / auth.role 同步自 localStorage 缓存（auth.js cachedIsStaff/cachedRole），刷新页面也能即时判定。
   // ★ 2026-10-14：内部人员 = is_staff 或 role∈(procurement, admin) —— 与后端权限类口径对齐
   //   （后端已允许 procurement 跨机构看所有订单；此前守卫仅认 isStaff ⇒ 非 staff 的 procurement 够不着内部台）。
-  // 覆盖：5 个 PO 内部台 + /workspace + /admin/orders(+:id)。
+  // 覆盖：5 个 PO 内部台 + /workspace + /ops/orders(+:id)。
   if (to.meta.requiresAdmin) {
     if (!hasToken) {
       next({ path: '/login', query: { redirect: to.fullPath } })

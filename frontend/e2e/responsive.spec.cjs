@@ -22,7 +22,7 @@ const PUBLIC = [
   { name: 'ProductDetail', path: '/products/66', sel: 'main' },
 ]
 const STAFF = [
-  { name: 'AdminOrders', path: '/admin/orders', sel: '.order-table' },
+  { name: 'AdminOrders', path: '/ops/orders', sel: '.order-table' },
   { name: 'Workspace', path: '/workspace', sel: '.workspace-layout' },
 ]
 

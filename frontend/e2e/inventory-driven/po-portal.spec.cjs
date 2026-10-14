@@ -202,7 +202,7 @@ test.describe('阶段4 PO 门户穷举', () => {
     const poNumber = 'PO-E2E-RV-' + Date.now();
     const created = await submitPoApi(custToken, { poNumber, productId: shared.productId, skuId: shared.sku.id });
     await loginAsStaff(page);
-    await gotoPage(page, '/admin/po/review');
+    await gotoPage(page, '/ops/po/review');
     await expect(page.locator('.po-page-title')).toHaveText('Order Review Desk');
     const card = page.locator('.po-card', { hasText: created.order_no || poNumber });
     await expect(card).toBeVisible({ timeout: 10000 });
@@ -224,7 +224,7 @@ test.describe('阶段4 PO 门户穷举', () => {
     const id = await findOrderIdByPo(adminToken, poNumber);
     await approve(adminToken, id); // → confirmed
     await loginAsStaff(page);
-    await gotoPage(page, '/admin/po/shipments');
+    await gotoPage(page, '/ops/po/shipments');
     await expect(page.locator('.po-page-title')).toHaveText('Shipment Desk');
     const row = page.locator('.po-table tbody tr', { hasText: created.order_no });
     await expect(row).toBeVisible({ timeout: 10000 });
@@ -248,7 +248,7 @@ test.describe('阶段4 PO 门户穷举', () => {
     const id = await findOrderIdByPo(adminToken, poNumber);
     await advanceToDelivered(adminToken, id); // → delivered
     await loginAsStaff(page);
-    await gotoPage(page, '/admin/po/invoicing');
+    await gotoPage(page, '/ops/po/invoicing');
     await expect(page.locator('.po-page-title')).toHaveText('Invoicing Desk');
     const row = page.locator('.po-table tbody tr', { hasText: created.order_no });
     await expect(row).toBeVisible({ timeout: 10000 });
@@ -264,7 +264,7 @@ test.describe('阶段4 PO 门户穷举', () => {
   test('PoArReport: 渲染 4 账龄桶 + 总额', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
-    await gotoPage(page, '/admin/po/ar');
+    await gotoPage(page, '/ops/po/ar');
     await expect(page.locator('.po-page-title')).toHaveText('Accounts Receivable Aging');
     await expect(page.locator('.po-ar-cell')).toHaveCount(4, { timeout: 8000 });
     await expect(page.locator('.po-total-value').first()).toBeVisible();
@@ -275,7 +275,7 @@ test.describe('阶段4 PO 门户穷举', () => {
   test('PoOrgManagement: 渲染机构列表 + 选中机构显示订单', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
-    await gotoPage(page, '/admin/po/organizations');
+    await gotoPage(page, '/ops/po/organizations');
     await expect(page.locator('.po-page-title')).toHaveText('Organization Management');
     await expect(page.locator('.po-table tbody tr').first()).toBeVisible({ timeout: 8000 });
     await page.locator('.po-table tbody tr').first().click();

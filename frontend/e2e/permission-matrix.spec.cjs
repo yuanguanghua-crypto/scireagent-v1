@@ -5,7 +5,7 @@
  * 实证结论：
  *  - 匿名访问 requiresAuth / requiresAdmin → /login?redirect=<path>
  *  - customer 访问 requiresAuth → 进入（STAY）
- *  - customer 访问 requiresAdmin 页（独立 /admin/po/*、/admin/orders 及 /workspace/*）→ 前端 isStaff 拦截，redirect 到 /
+ *  - customer 访问 requiresAdmin 页（独立 /ops/po/*、/ops/orders 及 /workspace/*）→ 前端 isStaff 拦截，redirect 到 /
  *        （全局 beforeEach 守卫统一判定 is_staff；2026-07-11 修复：原独立 requiresAdmin 页缺前端拦截的缺口已关闭）
  *  - customer 访问 /workspace/*（AdminLayout 包裹）→ 被 redirect 到 /
  *  - staff（is_staff）访问所有受限页 → 进入（STAY）
@@ -20,9 +20,9 @@ const REQUIRES_AUTH = [
   '/po/addresses', '/po/reorder', '/po/downloads',
 ]
 const REQUIRES_ADMIN_STANDALONE = [
-  '/admin/po/review', '/admin/po/shipments', '/admin/po/invoicing',
-  '/admin/po/ar', '/admin/po/organizations',
-  '/admin/orders', '/admin/orders/1',
+  '/ops/po/review', '/ops/po/shipments', '/ops/po/invoicing',
+  '/ops/po/ar', '/ops/po/organizations',
+  '/ops/orders', '/ops/orders/1',
 ]
 const REQUIRES_ADMIN_WORKSPACE = [
   '/workspace', '/workspace/products', '/workspace/goals',

@@ -81,7 +81,7 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
   test('AdminOrdersPage: 渲染 + 状态过滤 + 搜索 + 行点击进详情', async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
-    await gotoPage(page, '/admin/orders');
+    await gotoPage(page, '/ops/orders');
 
     await expect(page.locator('.admin-orders-page .page-title')).toHaveText('Order Management');
     // 表格渲染（库里有订单，含种子 confirmed）
@@ -99,7 +99,7 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
       .toBeVisible({ timeout: 10000 });
     // 行点击进详情
     await page.locator('.order-table tbody tr', { hasText: shared.confirmed.order_no }).click();
-    await expect(page).toHaveURL(new RegExp(`/admin/orders/${shared.confirmed.id}`), { timeout: 10000 });
+    await expect(page).toHaveURL(new RegExp(`/ops/orders/${shared.confirmed.id}`), { timeout: 10000 });
     expect(errors).toEqual([]);
   });
 
@@ -107,7 +107,7 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
   test('AdminOrderDetail: delivered 订单渲染 header/items/customer/payment/shipping', async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
-    await gotoPage(page, `/admin/orders/${shared.delivered.id}`);
+    await gotoPage(page, `/ops/orders/${shared.delivered.id}`);
 
     await expect(page.locator('.order-title')).toHaveText(`Order ${shared.delivered.order_no}`);
     await expect(page.locator('.items-table tbody tr').first()).toBeVisible({ timeout: 10000 });
@@ -123,7 +123,7 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
   test('AdminOrderDetail: quote_pending → Enter Quote → Submit Quote → quoted', async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await loginAsStaff(page);
-    await gotoPage(page, `/admin/orders/${shared.quotePending.id}`);
+    await gotoPage(page, `/ops/orders/${shared.quotePending.id}`);
 
     await expect(page.locator('.quote-form h3')).toHaveText('Enter Quote');
     await page.locator('.quote-form input[type="number"]').fill('123.45');
@@ -140,7 +140,7 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
     const po = await seedPoReceived(custToken);
     allCreated.push(po.id);
     await loginAsStaff(page);
-    await gotoPage(page, `/admin/orders/${po.id}`);
+    await gotoPage(page, `/ops/orders/${po.id}`);
 
     await expect(page.locator('.btn-action', { hasText: 'Approve' })).toBeVisible({ timeout: 10000 });
     await page.locator('.btn-action', { hasText: 'Approve' }).click();
@@ -155,7 +155,7 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
     const po = await seedApproved(custToken, adminToken);
     allCreated.push(po.id);
     await loginAsStaff(page);
-    await gotoPage(page, `/admin/orders/${po.id}`);
+    await gotoPage(page, `/ops/orders/${po.id}`);
 
     await expect(page.locator('.btn-action', { hasText: 'Create & Mark Shipped' })).toBeVisible({ timeout: 10000 });
     await page.locator('.btn-action', { hasText: 'Create & Mark Shipped' }).click();
@@ -168,7 +168,7 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
     const po = await seedShipped(custToken, adminToken);
     allCreated.push(po.id);
     await loginAsStaff(page);
-    await gotoPage(page, `/admin/orders/${po.id}`);
+    await gotoPage(page, `/ops/orders/${po.id}`);
 
     await expect(page.locator('.btn-action', { hasText: 'Mark as Delivered' })).toBeVisible({ timeout: 10000 });
     await page.locator('.btn-action', { hasText: 'Mark as Delivered' }).click();
@@ -181,7 +181,7 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
     const po = await seedDelivered(custToken, adminToken);
     allCreated.push(po.id);
     await loginAsStaff(page);
-    await gotoPage(page, `/admin/orders/${po.id}`);
+    await gotoPage(page, `/ops/orders/${po.id}`);
 
     await expect(page.locator('.btn-action', { hasText: 'Generate Invoice' })).toBeVisible({ timeout: 10000 });
     await page.locator('.btn-action', { hasText: 'Generate Invoice' }).click();
@@ -196,7 +196,7 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
     const po = await seedInvoiced(custToken, adminToken);
     allCreated.push(po.id);
     await loginAsStaff(page);
-    await gotoPage(page, `/admin/orders/${po.id}`);
+    await gotoPage(page, `/ops/orders/${po.id}`);
 
     await expect(page.locator('.btn-action', { hasText: 'Record Payment' })).toBeVisible({ timeout: 10000 });
     await page.locator('.btn-action', { hasText: 'Record Payment' }).click();
@@ -209,7 +209,7 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
     const po = await seedPaid(custToken, adminToken);
     allCreated.push(po.id);
     await loginAsStaff(page);
-    await gotoPage(page, `/admin/orders/${po.id}`);
+    await gotoPage(page, `/ops/orders/${po.id}`);
 
     await expect(page.locator('.btn-action', { hasText: 'Mark as Completed' })).toBeVisible({ timeout: 10000 });
     await page.locator('.btn-action', { hasText: 'Mark as Completed' }).click();
@@ -222,7 +222,7 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
     const po = await seedApproved(custToken, adminToken);
     allCreated.push(po.id);
     await loginAsStaff(page);
-    await gotoPage(page, `/admin/orders/${po.id}`);
+    await gotoPage(page, `/ops/orders/${po.id}`);
 
     await expect(page.locator('.btn-action', { hasText: 'Cancel Order' })).toBeVisible({ timeout: 10000 });
     await page.locator('.btn-action', { hasText: 'Cancel Order' }).click();
