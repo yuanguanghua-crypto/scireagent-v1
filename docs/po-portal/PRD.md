@@ -60,6 +60,7 @@
 - **P0-2 PO 提交流程（含 PO 文件上传）**：客户端表单 → 生成 `Order`（初态 `PO_RECEIVED`）。复用 `Order.po_number` / `po_contact` / `payment_terms` / `payment_due_date` / `shipping_*` / `billing_*` / `notes` / `OrderItem` + `Basket` 购物车。PO PDF 上传需新增附件存管（见 §4 / §6 待确认）。
 - **P0-3 订单状态追踪**：订单追踪页按确认状态机渲染节点+时间戳。需扩展 `Order.Status` 与 `Order.VALID_TRANSITIONS`（见 §5 复用标注 / §6 待确认）。
 - **P0-4 Invoice PDF 自动生成**：复用 `Invoice` + `reportlab` 一键生成 PDF。`Invoice.due_date` 由 `issued_at + Net30` 推导；`payment_due_date` 同步。
+- **P0-5 免税（Sales Tax Exemption）**（✅ 已决策 2026-10-14，见 §6 #11）：目标客户为美国高校，公立高校普遍免缴销售税。`Organization` 新增 `tax_exempt_id`（可空，默认空 = 非免税）；提交 PO / 开票时按机构免税状态置 `tax_total = 0`（`grand_total = subtotal`），Invoice PDF 标注 Tax Exempt ID。
 
 ### P1（尽快加）
 - **P1-1 库存实时匹配**：基于 SKU / Batch 的可用量与占用量（**新增库存量模型，见 §6**）在审核台 / 备货台计算可满足 / 缺货量；`OrderItem` 行展示 `inventory_status`。
@@ -67,10 +68,10 @@
 - **P1-3 自动通知邮件**：Outbox 模式 + cron 管理命令（依赖 `django-anymail`）。触发点见设计文档第四部分（PO 提交 / 审核通过 / Shipped / Delivered / 发票发出 / 到期前 7 天 / 超期 30 天）。**新增 `EmailOutbox` 模型与 `send_outbox_emails` 管理命令**。
 - **P1-4 AR Aging 报表**：基于 `Invoice` + `PaymentRecord` 聚合 30/60/90 天账龄；`Invoice.is_overdue` 已可复用。
 - **P1-5 账户价 / 合同价**（源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §3.4）：行业标准为"未登录显示目录价、登录后显示账户/合同价"。本期若来不及做机构级价格模型，至少应在 UI 明确标注"合同价待议"，避免大客户看到错误目录价。
+- **P1-6 部分付款核销**（✅ 已决策 2026-10-14，原 P2-2 提前）：`PaymentRecord`（FK→`Invoice`，已支持多笔）+ `Invoice.balance_due` **派生属性**（`grand_total - sum(verified payments)`）；支持部分核销、余额挂账、记录短付原因。
 
 ### P2（锦上添花）
 - **P2-1 冷链温度记录上传**：发货台文件上传（节点 C），存管方案见 §6 待确认。
-- **P2-2 部分付款**：复用 `PaymentRecord`（FK→`Invoice`，已支持多笔）+ Invoice 余额字段（**需新增 `balance_due` / 派生**，见 §4）。
 - **P2-3 Re-order 一键复购**：历史订单 → 重建 `Basket` → 生成新 `Quote`。
 - **P2-4 客户账户自助注册**：注册流程（设计文档第七部分背景，仅 P2 自助注册入口），涉及 `Organization` 创建与资料录入。（注：此处指"客户自己注册账户"；与行业术语 vendor onboarding——供应商向机构报 W-9/ACH——方向相反，故改名以避免后续实现歧义。）
 - **P2-5 危险品运输合规字段**（源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §3.3）：若所售试剂含危险品，需在 `SKU` 增加 `hazmat_class` + `un_number`，并在发货单 / Packing List 打印运输合规提示（如干冰 UN1845、液氮 UN1977、感染性物质 B 类 UN3373）。若产品线不含危险品可暂缓（条件性需求）。
@@ -242,7 +243,7 @@
 8. **生产工单（WO）**：节点 B `Create Production WO` 是否本期建模？还是仅记录 ETD 占位、WO 留待后续内部系统？
 9. **Invoice 编号规则**：`INV-YYYY-NNNN` 的序列号自增与并发安全（DB 序列 / `select_for_update`），是否本期实现原子编号？
 10. **Net45 条款**：`Order.payment_terms` 默认 NET30，节点 D 需 Net45 选项；是否在 `Order` 与 `Invoice` 同时支持，且以 Invoice 为准？
-11. **免税（Sales Tax Exemption）**（源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §2）：目标客户为美国高校/科研机构，公立高校普遍免缴州/地方销售税，且供应商须支持"凭机构免税证明免收税"（否则含税金额会被客户拒付或整单挂起）。是否本期为 `Organization` 增加 `tax_exempt_id`，并在提交 PO / 开票时按机构免税状态置 `tax_total=0`、Invoice PDF 标注 Tax Exempt ID？**建议列 P0**。
+11. **免税（Sales Tax Exemption）**（✅ **已决策 2026-10-14：列 P0**，见 P0-5）：`Organization` 增加 `tax_exempt_id`（可空），提交 PO / 开票按机构免税状态置 `tax_total = 0`、Invoice PDF 标注 Tax Exempt ID。（历史机构不回溯补数，默认非免税。）
 
 ---
 
