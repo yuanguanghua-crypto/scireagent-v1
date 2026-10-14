@@ -92,3 +92,13 @@ class AllocateTest(TestCase):
             {'order_item_id': self.item.id, 'inventory_id': self.inventory.id, 'quantity': 1}
         ])
         self.assertEqual(r.status_code, 403)
+
+    def test_order_detail_includes_sku_available(self):
+        """审核台展示库存所需：订单详情（detail）的每个 item 应带 sku_available。"""
+        c = APIClient()
+        c.force_authenticate(self.researcher)  # 归属人 retrieve 自己的订单（非 staff 只能看自己的）
+        r = c.get(f'/api/v1/orders/{self.order.id}/')
+        self.assertEqual(r.status_code, 200, r.content[:300])
+        items = r.json()['data']['items']
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0]['sku_available'], 10, '应返回该 SKU 的可分配量')

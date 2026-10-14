@@ -20,10 +20,20 @@ class OrderItemSerializer(BaseModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     sku_code = serializers.CharField(source='sku.sku_code', read_only=True)
     pack_size = serializers.CharField(source='sku.pack_size', read_only=True)
+    sku_available = serializers.SerializerMethodField()  # ★ P1-1：审核台库存可分配量
 
     class Meta:
         model = OrderItem
-        fields = ['id', 'product_id', 'product_name', 'sku_id', 'sku_code', 'pack_size', 'quantity', 'unit_price', 'subtotal']
+        fields = [
+            'id', 'product_id', 'product_name', 'sku_id', 'sku_code', 'pack_size',
+            'quantity', 'unit_price', 'subtotal', 'sku_available',
+        ]
+
+    def get_sku_available(self, obj):
+        from apps.inventory.services import InventoryService
+        if not obj.sku_id:
+            return 0
+        return InventoryService.available_for_sku(obj.sku_id)['available']
 
 
 class OrderListSerializer(BaseModelSerializer):

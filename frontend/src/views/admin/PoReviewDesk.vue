@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue'
-import { getPendingReviews, approveOrder, rejectOrder, assignRep } from '@/api/adminPo'
+import { getPendingReviews, approveOrder, rejectOrder, assignRep, getOrderDetail } from '@/api/adminPo'
 import { formatCurrency } from '@/utils/helpers'
 import { StatusBadge } from '@/components/common'
 
@@ -9,6 +9,27 @@ const loading = ref(false)
 const rejectReason = ref({})
 const assignRepId = ref({})
 const repInput = ref('')
+
+// ★ P1-1 库存匹配：展开订单时拉明细（含 sku_available），缺货行高亮
+const expandedItems = ref({})
+const expanded = ref({})
+
+async function toggleItems(o) {
+  if (expanded.value[o.id]) {
+    expanded.value[o.id] = false
+    return
+  }
+  expanded.value[o.id] = true
+  if (!expandedItems.value[o.id]) {
+    try {
+      const res = await getOrderDetail(o.id)
+      const d = res.data || res
+      expandedItems.value[o.id] = d.items || []
+    } catch {
+      expandedItems.value[o.id] = []
+    }
+  }
+}
 
 async function load() {
   loading.value = true
@@ -71,6 +92,32 @@ onMounted(load)
         <button class="po-btn po-btn-danger" @click="reject(o.id)">Reject</button>
         <input v-model="assignRepId[o.id]" class="po-input" style="width:100px" placeholder="Rep ID" />
         <button class="po-btn po-btn-outline" @click="assign(o.id)">Assign Rep</button>
+        <button class="po-btn po-btn-outline" @click="toggleItems(o)">
+          {{ expanded[o.id] ? 'Hide Items' : 'View Items' }}
+        </button>
+      </div>
+
+      <div v-if="expanded[o.id]" style="margin-top:12px">
+        <table class="po-table">
+          <thead>
+            <tr>
+              <th>SKU</th><th>Pack</th><th>Qty</th><th>Available</th><th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="it in (expandedItems[o.id] || [])" :key="it.id"
+                :class="{ 'po-shortage': it.quantity > it.sku_available }">
+              <td class="po-mono">{{ it.sku_code || '—' }}</td>
+              <td>{{ it.pack_size || '—' }}</td>
+              <td>{{ it.quantity }}</td>
+              <td>{{ it.sku_available }}</td>
+              <td>
+                <span v-if="it.quantity > it.sku_available" class="po-shortage-badge">缺货 {{ it.quantity - it.sku_available }}</span>
+                <span v-else class="po-muted">可满足</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -78,3 +125,12 @@ onMounted(load)
     <div v-if="loading" class="po-empty">Loading…</div>
   </div>
 </template>
+
+<style scoped>
+.po-shortage td { color: #dc2626; }
+.po-shortage td:first-child { border-left: 3px solid #dc2626; }
+.po-shortage-badge {
+  display: inline-block; padding: 1px 8px; border-radius: 4px;
+  background: rgba(220, 38, 38, 0.12); color: #dc2626; font-size: 12px;
+}
+</style>
