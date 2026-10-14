@@ -254,6 +254,22 @@ class Invoice(TimeStampedModel):
             return False
         return self.due_date < timezone.now().date()
 
+    @property
+    def amount_paid(self):
+        """已核销金额（VERIFIED 付款之和）。"""
+        from decimal import Decimal
+        from django.db.models import Sum
+        total = self.payments.filter(
+            status=PaymentRecord.Status.VERIFIED
+        ).aggregate(s=Sum('amount'))['s']
+        return total if total is not None else Decimal('0')
+
+    @property
+    def balance_due(self):
+        """待付余额（派生属性 = grand_total - 已核销额，下限 0）。★ D2 部分付款"""
+        from decimal import Decimal
+        return max(self.grand_total - self.amount_paid, Decimal('0'))
+
     def void_invoice(self):
         if self.status == 'paid':
             raise InvalidTransitionError('Cannot void a paid invoice')

@@ -465,10 +465,8 @@ class PaymentArService:
             verified_at=paid_at,
             notes=notes or '',
         )
-        total_paid = invoice.payments.filter(
-            status=PaymentRecord.Status.VERIFIED
-        ).aggregate(s=Sum('amount'))['s'] or 0
-        if total_paid >= invoice.grand_total:
+        # ★ D2 部分付款：用 Invoice.amount_paid 派生属性（含刚入账的这笔）判断是否付清。
+        if invoice.amount_paid >= invoice.grand_total:
             invoice.status = Invoice.Status.PAID
             invoice.paid_at = paid_at
             invoice.save(update_fields=['status', 'paid_at', 'updated_at'])

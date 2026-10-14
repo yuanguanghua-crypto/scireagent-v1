@@ -135,6 +135,9 @@ class CheckoutSerializer(serializers.Serializer):
 # ── Invoice ──
 
 class InvoiceSerializer(BaseModelSerializer):
+    amount_paid = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    balance_due = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+
     class Meta:
         model = Invoice
         fields = [
@@ -142,6 +145,7 @@ class InvoiceSerializer(BaseModelSerializer):
             'issued_at', 'due_date', 'paid_at',
             'subtotal', 'tax_total', 'grand_total', 'currency',
             'payment_ref', 'notes', 'created_at',
+            'amount_paid', 'balance_due',
         ]
 
 
