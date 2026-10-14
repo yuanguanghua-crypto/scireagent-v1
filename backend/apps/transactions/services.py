@@ -92,12 +92,12 @@ class PoSubmissionService:
     @classmethod
     @transaction.atomic
     def submit(cls, user, data: dict, files: list = None, actor=None) -> Order:
-        po_number = data.get('po_number', '').strip()
-        if not po_number:
-            raise ValueError('po_number is required')
-        # 唯一冲突 → 由 View 转 409 信封
-        if Order.objects.filter(po_number=po_number).exists():
-            raise PoNumberConflictError(po_number)
+        # ★ PO 号不强制（口径 2026-10-14）：空/未填 → 存 None（unique 允许多个 NULL，不冲突）。
+        po_number = (data.get('po_number') or '').strip() or None
+        if po_number:
+            # 唯一冲突 → 由 View 转 409 信封（仅非空时校验）
+            if Order.objects.filter(po_number=po_number).exists():
+                raise PoNumberConflictError(po_number)
 
         org = getattr(user, 'organization', None)
         order = Order.objects.create(

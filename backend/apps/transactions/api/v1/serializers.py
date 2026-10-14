@@ -248,7 +248,7 @@ class PoSubmitItemSerializer(serializers.Serializer):
 
 class PoSubmitSerializer(serializers.Serializer):
     """PO 提交入参。"""
-    po_number = serializers.CharField(max_length=100)
+    po_number = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     quote_id = serializers.IntegerField(required=False, allow_null=True)
     grant_code = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
     shipping_method = serializers.ChoiceField(
