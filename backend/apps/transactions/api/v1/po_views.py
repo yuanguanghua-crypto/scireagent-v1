@@ -14,8 +14,10 @@ from core.permissions import IsProcurementOrAdmin, IsAdmin
 
 from apps.transactions.models import (
     Order, Invoice, ShippingRecord, StatusLog, InvalidTransitionError,
-    PoAttachment,
+    PoAttachment, OrderItem,
 )
+from apps.inventory.models import InsufficientInventoryError
+from apps.inventory.services import InventoryService
 from apps.transactions.api.v1.serializers import (
     OrderDetailSerializer, InvoiceSerializer, ShippingRecordSerializer,
     PoSubmitSerializer, ShipmentCreateSerializer, InvoiceIssueSerializer,
@@ -182,6 +184,32 @@ class ConfirmQuoteView(EnvelopeMixin, APIView):
         except InvalidTransitionError as e:
             return self.error_response(str(e), code='INVALID_OPERATION', status_code=400)
         return self.success_response(OrderDetailSerializer(order, context={'request': request}).data)
+
+
+class AllocateView(EnvelopeMixin, APIView):
+    """POST /api/v1/orders/<id>/allocate/ — 备货台锁定库存（P1-1 节点 B）。
+
+    body: {lines: [{order_item_id, inventory_id, quantity}]}
+    ★ 2026-10-14 补：服务层 `InventoryService.allocate_for_order` 早已实现，本端点仅补 API 入口。
+    """
+
+    permission_classes = [IsProcurementOrAdmin]
+
+    def post(self, request, pk):
+        order = get_object_or_404(Order, pk=pk)
+        if order.status not in (Order.Status.CONFIRMED, Order.Status.IN_PRODUCTION):
+            return self.error_response(
+                'Order must be CONFIRMED or IN_PRODUCTION to allocate',
+                code='INVALID_OPERATION', status_code=400,
+            )
+        lines = request.data.get('lines')
+        if not lines:
+            return self.error_response('lines is required', code='VALIDATION_ERROR', status_code=400)
+        try:
+            allocations = InventoryService.allocate_for_order(order, lines)
+        except (InsufficientInventoryError, OrderItem.DoesNotExist, KeyError, ValueError, TypeError) as e:
+            return self.error_response(str(e), code='INVALID_OPERATION', status_code=400)
+        return self.success_response({'allocated_lines': len(allocations)})
 
 
 class ShipmentCreateView(EnvelopeMixin, APIView):
