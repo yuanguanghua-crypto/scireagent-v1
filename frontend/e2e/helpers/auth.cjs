@@ -13,6 +13,9 @@ const ADMIN_USER = process.env.E2E_USER || 'admin';
 const ADMIN_PASS = process.env.E2E_PASS || 'admin123';
 const CUST_USER = process.env.E2E_CUSTOMER_USER || 'e2e_customer';
 const CUST_PASS = process.env.E2E_CUSTOMER_PASS || 'E2ePass123!';
+// ★ 内部采购/销售（procurement，**非 staff**）—— 用于验证跨机构可见 + 内部操作权限
+const PROC_USER = process.env.E2E_PROC_USER || 'e2e_proc';
+const PROC_PASS = process.env.E2E_PROC_PASS || 'E2ePass123!';
 
 // 登录等待超时。原为 15s，对"登录接口慢 / 跳转慢"偶发超时（重跑即过），放宽到 30s。
 const LOGIN_TIMEOUT_MS = 30000;
@@ -70,8 +73,18 @@ async function loginAsCustomer(page) {
   ]);
 }
 
-async function getToken(page) {
-  return page.evaluate(() => localStorage.getItem('token'));
+async function loginAsProcurement(page) {
+  // procurement 是**非 staff** ⇒ 登录后落到 /（非 /workspace），等待方式同 customer。
+  await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
+  await page.locator('input[placeholder="Enter your username"]').fill(PROC_USER);
+  await page.locator('input[placeholder="Enter your password"]').fill(PROC_PASS);
+  await Promise.all([
+    page.waitForURL((url) => !/\/login/.test(url.toString()), { timeout: 15000 }),
+    page.getByRole('button', { name: 'Sign In' }).click(),
+  ]);
+}
+
+async function getToken(page) {  return page.evaluate(() => localStorage.getItem('token'));
 }
 
 async function logout(page) {
@@ -86,8 +99,11 @@ module.exports = {
   ADMIN_PASS,
   CUST_USER,
   CUST_PASS,
+  PROC_USER,
+  PROC_PASS,
   loginAsStaff,
   loginAsCustomer,
+  loginAsProcurement,
   getToken,
   logout,
 };

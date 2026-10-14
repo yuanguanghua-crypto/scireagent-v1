@@ -27,6 +27,7 @@ user, created = User.objects.get_or_create(
         'role': 'researcher',
         'is_staff': False,
         'is_superuser': False,
+        'email_verified': True,   # ★ 登录要求 email_verified，否则 403
     },
 )
 # 每轮重跑都重置密码与关键字段，保证幂等且可登录
@@ -35,6 +36,7 @@ user.organization = org
 user.is_staff = False
 user.is_superuser = False
 user.role = 'researcher'
+user.email_verified = True
 user.save()
 
 print(f"{'CREATED' if created else 'UPDATED'} "
