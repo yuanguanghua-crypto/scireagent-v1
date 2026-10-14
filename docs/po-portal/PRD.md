@@ -56,7 +56,7 @@
 > 分级依据设计文档第六部分 MVP，并按阶段0确认范围裁剪。
 
 ### P0（必须有）
-- **P0-1 商品目录 + COA 下载**：复用 `commerce.Product`（CAS / `catalog_no` / `purity` / `concentration` / `storage` / `shipping` / `lead_time` / `structure_svg`）、`commerce.SKU`（`price`、`inventory_status`、`pack_size`）、`documents.ProductDocument`（`document_type='coa'` / `'msds'`）、`documents.Coa`（`pdf_path`、`status='published'`）。搜索/筛选走现有商品 API。
+- **P0-1 商品目录 + COA 下载**：复用 `commerce.Product`（CAS / `catalog_no` / `purity` / `concentration` / `storage` / `shipping` / `lead_time` / `structure_svg`）、`commerce.SKU`（`price`、`inventory_status`、`pack_size`）、`commerce.ProductDocument`（`document_type='coa'` / `'msds'`）、`documents.Coa`（`pdf_path`、`status='published'`）。搜索/筛选走现有商品 API。
 - **P0-2 PO 提交流程（含 PO 文件上传）**：客户端表单 → 生成 `Order`（初态 `PO_RECEIVED`）。复用 `Order.po_number` / `po_contact` / `payment_terms` / `payment_due_date` / `shipping_*` / `billing_*` / `notes` / `OrderItem` + `Basket` 购物车。PO PDF 上传需新增附件存管（见 §4 / §6 待确认）。
 - **P0-3 订单状态追踪**：订单追踪页按确认状态机渲染节点+时间戳。需扩展 `Order.Status` 与 `Order.VALID_TRANSITIONS`（见 §5 复用标注 / §6 待确认）。
 - **P0-4 Invoice PDF 自动生成**：复用 `Invoice` + `reportlab` 一键生成 PDF。`Invoice.due_date` 由 `issued_at + Net30` 推导；`payment_due_date` 同步。
@@ -76,12 +76,49 @@
 - **P2-4 客户账户自助注册**：注册流程（设计文档第七部分背景，仅 P2 自助注册入口），涉及 `Organization` 创建与资料录入。（注：此处指"客户自己注册账户"；与行业术语 vendor onboarding——供应商向机构报 W-9/ACH——方向相反，故改名以避免后续实现歧义。）
 - **P2-5 危险品运输合规字段**（源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §3.3）：若所售试剂含危险品，需在 `SKU` 增加 `hazmat_class` + `un_number`，并在发货单 / Packing List 打印运输合规提示（如干冰 UN1845、液氮 UN1977、感染性物质 B 类 UN3373）。若产品线不含危险品可暂缓（条件性需求）。
 
+### 3.1 验收标准（Definition of Done）
+
+> ★ 2026-10-14 补：原 PRD 每条需求只有"做什么"、无"怎么算做完"。以下为可判定验收标准。
+
+**P0**
+
+| 需求 | 验收标准（全部满足才算 Done） |
+|---|---|
+| **P0-1 商品目录 + COA 下载** | ① 商品页可按 CAS / 货号 / 纯度 / 价格筛选 ② 有 COA 的产品可下载、且**仅对有 COA 的显示下载入口** ③ 搜索命中与现有商品 API 一致 |
+| **P0-2 PO 提交流程** | ① 客户可提交 PO（PO 号、bill-to/ship-to、基金号、运输方式、PDF 上传）② 提交后生成 `Order` 且 `status=PO_RECEIVED` ③ PO 号重复提交被拦截（`unique`）④ **PO 号可空但 UI 提示输入（软校验，不强制）** |
+| **P0-3 订单状态追踪** | ① 追踪页按 8 节点渲染 ② 每节点有时间戳（`StatusLog`）③ Shipped 节点显示 Tracking # + 承运商 |
+| **P0-4 Invoice PDF 自动生成** | ① 已发货订单可一键生成 Invoice PDF ② `due_date = issued_at + Net30` ③ PDF 可下载 |
+| **P0-5 免税** | ① `Organization.tax_exempt_id` 可录入 ② 免税机构提交 PO / 开票 ⇒ `tax_total=0` 且 `grand_total=subtotal` ③ 非免税机构行为不变 ④ Invoice PDF 标注 Tax Exempt ID ⑤ **有测试覆盖以上 4 点** |
+
+**P1**
+
+| 需求 | 验收标准 |
+|---|---|
+| **P1-1 库存实时匹配** | ① 审核台 / 备货台逐行显示可满足 / 缺货量 ② 库存不足行高亮 ③ 有测试 |
+| **P1-2 Quote→PO 流程** | ① 提交 PO 时可关联已有 Quote 号 ② **不关联也能提交（非强制）** ③ 有测试 |
+| **P1-3 自动通知邮件** | ① 各触发点（PO 提交 / 审核 / Shipped / Delivered / 发票 / 到期前 7 天 / 超期 30 天）发对应模板 ② 邮件进 Outbox、可重发 ③ 有测试 |
+| **P1-4 AR Aging 报表** | ① 30/60/90 分桶聚合正确 ② 超期标红 ③ 与 `Invoice`/`PaymentRecord` 对账一致 |
+| **P1-5 账户价 / 合同价** | ① 登录后显示账户价（或 UI 明确标注"合同价待议"）② 未登录显示目录价 |
+| **P1-6 部分付款核销** | ① 部分收款后 `balance_due` 正确递减（派生属性）② 全额收款 ⇒ `status=paid` ③ 短付原因可记录 ④ 有测试 |
+
+**P2**
+
+| 需求 | 验收标准 |
+|---|---|
+| **P2-1 冷链温度记录** | ① 发货台可上传温度记录文件 ② 与发货记录关联、可查 |
+| **P2-3 Re-order 一键复购** | ① 历史订单可一键复购 ② 重建 `Basket` → 生成新 `Quote` |
+| **P2-4 客户账户自助注册** | ① 客户可自助注册并创建 `Organization` ② 注册后可提交 PO |
+| **P2-5 危险品运输合规字段** | ① `SKU` 可录入 `hazmat_class` + `un_number` ② 发货单 / Packing List 打印该信息 |
+
 ---
 
 ## 4. 功能点清单（对照设计文档节点）
 
 > 标注说明：`[复用]` = 直接复用现有模型/字段/接口；`[扩展]` = 在现有模型上新增字段或调整；`[新增]` = 新增模型/接口。
-> 凡 `[复用]`/`[扩展]` 涉及的字段名均来自本次实际 Read 到的模型，未编造接口名。
+> ⚠️ **标注时效声明（2026-10-14 独立审查）**：本节标注基于 **2026-07 的模型快照**，此后 PO 后端已推进。经实测核对：
+> **PO 数据层已基本实现** —— `Order` 扩展字段（`grant_code` / `quote` / `assigned_rep` / `shipping_method` / `etd` / `requested_delivery_date`）、
+> `Invoice.payment_terms`、`ShippingRecord.received_by`，以及 `StatusLog` / `PoAttachment` / `EmailOutbox` / `InvoiceSequence` / `Address` / `Inventory` 等模型**均已存在**。
+> 行内已逐条更新为 `[已实现]` 的字段可直接对照代码；**未更新处的标注以代码为准**。
 
 ### 客户侧 节点 1：商品页
 | 设计字段/交互 | 实现依据 | 标注 |
@@ -98,24 +135,26 @@
 |---|---|---|
 | 货号/品名/数量/单价/小计 | `Basket` + `SKU` + `Product` | `[复用]` |
 | Total 实时计算 | 前端计算 | `[复用]` |
-| Request a Quote 按钮 | `Quote` / `QuoteItem`（status=DRAFT→SUBMITTED） | `[复用]` |
-| Checkout with PO（关联已有 Quote） | `Order` 需关联 Quote | `[扩展]` 新增 `Order.quote` 外键 / `quote_no` |
+| Request a Quote 按钮 | `Quote` / `QuoteItem`（status=PENDING→VERIFIED/REJECTED） | `[复用]` |
+| Checkout with PO（关联已有 Quote） | `Order.quote`（FK 已实现） | `[已实现]` |
 
 > 注（源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §3.1）：**"请求报价（Request a Quote）"与"直接结账（Checkout with PO / 信用卡）"应是并列的一等入口** —— 报价是机构采购的常见路径，但**不强制**；标准目录品应能不经报价直接下单。二者不要做成"必须报价才能结账"的强依赖。
+
+> 注（★ 2026-10-14 澄清 `Basket` 结构）：`Basket` 真实模型是**单品行**（`user` / `product` / `sku` / `quantity` / `session_key`），即"一个用户对一个 SKU 的一行记录"，**没有独立的"购物车容器"模型**。多商品购物车由**前端按多行 `Basket` 聚合展示**，结账时逐行消费。若后续需"购物车快照 / 批量操作 / 分享购物车"，需评估是否引入容器模型（本期不做，见 §9）。
 
 ### 客户侧 节点 3：提交 PO 页面（核心）
 | 设计字段/交互 | 实现依据 | 标注 |
 |---|---|---|
-| PO Number（唯一性校验） | `Order.po_number`（`unique` 约束需加，当前非 unique） | `[扩展]` 增加唯一索引/校验 |
-| Quote/Reference # 下拉 | 同上 `Order.quote` | `[扩展]` |
+| PO Number（唯一性校验） | `Order.po_number`（`unique=True`，已实现） | `[已实现]` |
+| Quote/Reference # 下拉 | `Order.quote`（FK 已实现） | `[已实现]` |
 | Institution（下拉/手动） | `Organization`（含 `org_type=academic`）；注意 `country` 默认 `'China'`，需支持美国机构 | `[复用]` + `[扩展]` 国际化地址 |
 | Billing Address 自动填充可编辑 | `Organization` 扁平地址字段 / `User` 扁平地址 | `[复用]` 见 §6 地址模型待确认 |
 | Shipping Address（Building/Room/Street/City/State/ZIP） | `Order.shipping_name` / `shipping_address` / `shipping_phone` / `shipping_email` | `[复用]` |
 | Contact Person 自动填充 | 当前登录 `User` → `Order.po_contact` | `[复用]` |
-| Grant/Fund Code | `Order` 无此字段 | `[扩展]` 新增 `Order.grant_code` |
-| Shipping Method（Ambient/Cold Pack/Dry Ice/Blue Ice） | `Product.shipping`（枚举一致） | `[扩展]` 新增 `Order.shipping_method`（可选，或复用 product 级） |
+| Grant/Fund Code | `Order.grant_code`（已实现） | `[已实现]` |
+| Shipping Method（Ambient/Cold Pack/Dry Ice/Blue Ice） | `Product.shipping`（枚举一致）；`Order.shipping_method`（已实现） | `[复用]` + `[已实现]` |
 | PO 文件上传（PDF/图片拖拽） | 无现成字段 | `[新增]` 见 §6 PO 附件存管 |
-| Special Instructions / Requested Delivery Date | `Order.notes` / 新增 `Order.requested_delivery_date` | `[复用]` + `[扩展]` |
+| Special Instructions / Requested Delivery Date | `Order.notes` + `Order.requested_delivery_date`（均已实现） | `[已实现]` |
 
 > 提交后：生成 Sales Order，状态 `PO_RECEIVED`（**扩展 `Order.Status`，见 §5/§6**）。
 
@@ -125,7 +164,7 @@
 | PO Received / Order Confirmed / In Production / Shipped / Delivered / Invoiced / Payment Received / Complete | 需重构 `Order.Status` 与 `Order.VALID_TRANSITIONS` 为确认状态机 | `[扩展]` 状态机重定义 |
 | 每状态时间戳 | `Order` 当前仅含 `created_at`/`updated_at`；需状态变更历史 | `[新增]` `StatusLog` 表（见 §6） |
 | Shipped 节点 Tracking # + 承运商 | `ShippingRecord.carrier` / `tracking_number` / `tracking_url` / `shipped_at` | `[复用]` |
-| Delivered 签收时间/签收人 | `ShippingRecord.delivered_at`（签收人需 `[扩展]`） | `[复用]+[扩展]` |
+| Delivered 签收时间/签收人 | `ShippingRecord.delivered_at` + `received_by`（均已实现） | `[已实现]` |
 | Invoiced 发票号 + PDF | `Invoice.invoice_no` + PDF | `[复用]` |
 
 ### 客户侧 节点 5：发票与付款页面
@@ -154,7 +193,7 @@
 | 商品明细逐行 + 库存可用量 | `OrderItem` + SKU 库存量（**新增库存量模型**） | `[复用]+[新增]` |
 | 库存不足行高亮 | 同库存量 | `[新增]` |
 | Approve / Reject（原因） | 状态机 `PO_RECEIVED→CONFIRMED` / `→CANCELLED` | `[扩展]` 状态机 |
-| 分配 Sales Rep 下拉 | `User.role=procurement`；`Order` 需新增 `assigned_rep` 外键 | `[扩展]` 新增 `Order.assigned_rep` |
+| 分配 Sales Rep 下拉 | `User.role=procurement`；`Order.assigned_rep`（FK 已实现） | `[已实现]` |
 
 ### 内部侧 节点 B：库存与备货台
 | 设计字段/操作 | 实现依据 | 标注 |
@@ -163,7 +202,7 @@
 | Lead Time 估算（缺货项） | `Product.lead_time` / `SKU.lead_time` | `[复用]` |
 | Allocate Inventory（锁定扣减） | 需可用量/占用量字段 + 原子扣减 | `[新增]` 库存量模型 + 服务逻辑 |
 | Create Production WO（合成型） | 关联内部合成计划 **当前无模型** | `[待确认]` WO 是否本期建模 |
-| ETD 确认 → 同步客户端 | `Order` 新增 `etd` / `ShippingRecord.estimated_delivery` | `[扩展]` |
+| ETD 确认 → 同步客户端 | `Order.etd` + `ShippingRecord.estimated_delivery`（均已实现） | `[已实现]` |
 
 ### 内部侧 节点 C：发货台
 | 设计字段/操作 | 实现依据 | 标注 |
@@ -182,7 +221,7 @@
 | 已发货未开票列表（按发货日） | `Order.status=SHIPPED/DELIVERED` 且 `invoice` 为空 | `[复用]` |
 | 自动填充 PO/订单/商品/金额 | `Order` + `OrderItem` | `[复用]` |
 | 发票号规则 `INV-YYYY-NNNN` | `Invoice.invoice_no` 生成器 | `[扩展]` 编号规则 |
-| Net30/Net45 下拉 | `Order.payment_terms` 当前默认 NET30，需在 Invoice 上可选 | `[扩展]` `Invoice.payment_terms` |
+| Net30/Net45 下拉 | `Order.payment_terms` + `Invoice.payment_terms`（均已实现，默认 NET30） | `[已实现]` |
 | Invoice PDF 自动生成 | reportlab | `[新增]` |
 | Send Invoice（邮件） | Outbox → 客户 AP 联系人 | `[新增]` + `[复用]` |
 
@@ -293,4 +332,32 @@
 
 ---
 
-*PRD 完。开放项见 §6，待主理人评审决策后进入研发。*
+## 9. 非目标（本期明确不做）
+
+> ★ 2026-10-14 补：以下为**本期明确不做**，避免范围蔓延。
+
+1. **多币种**：币种固定 USD，不做多币种换算与汇率。
+2. **生产工单（WO）的完整生产管理**：仅记录 ETD 占位，不做生产计划 / 排程（ARCH §8.1 #8）。
+3. **批量折扣阶梯的完整定价模型**：不做 `SKUVolumePrice`（前端常量写死或延后，ARCH §8.1 #7）。
+4. **供应商向大学的注册（vendor onboarding / W-9 / ACH 银行信息）**：属线下流程，不在系统内构建（§0）。
+5. **客户内部审批链**：大学内部的采购审批流不在系统内（§0）。
+6. **冷链温度记录的实时监控**：P2-1 仅支持文件上传，不做实时温度采集 / 告警。
+7. **催款的法律 / 财务自动化**：仅发提醒邮件，不做自动扣款 / 法律追讨。
+
+## 10. 风险清单
+
+> ★ 2026-10-14 补：以下风险需在排期 / 开发时持续关注。
+
+| # | 风险 | 影响 | 缓解 |
+|---|---|---|---|
+| 1 | **PRD/ARCH 与代码脱节**（§4 标注基于 2026-07 快照，实际 PO 数据层已基本实现） | 实现者按"新增"重复造已存在的字段 / 模型 | 开工前以代码为准；已加 §4 时效声明 |
+| 2 | **免税未做则美国大学客户卡成交**（P0-5） | 含税金额被拒付 / 挂起 | 已列 P0，优先实现 |
+| 3 | **历史数据迁移**：`Order` 旧态（DRAFT/QUOTE_* 等）与新 8 态并存 | 状态机 / 报表需兼容旧数据 | ARCH §8.2 #7：保留原状、新流程仅作用于新单 |
+| 4 | **PO 号唯一 + 可空并存**：`unique=True` 但可空，历史空值 | 多单空 PO 号可能冲突 | R4 已实现 unique；需确认历史空值已清洗 |
+| 5 | **邮件依赖**：`django-anymail` 后端（SES/Mailgun/SendGrid）+ DKIM 未定 | 邮件不落地 | ARCH §8.2 #4 待拍板 |
+| 6 | **合规**：危险品运输（hazmat/UN）未建模（P2-5 条件性） | 卖危险品试剂时出货不合规 | 按产品线确认是否含危险品再决定 |
+| 7 | **多地址模型**：bill-to/ship-to 分离的 `Address` 表 vs 扁平快照 | 地址管理复杂 | ARCH §8.2 #2 待拍板 |
+
+---
+
+*PRD 完。开放项见 §6，非目标见 §9，风险见 §10，待主理人评审决策后进入研发。*

@@ -16,11 +16,11 @@
 | R1 | §6.2 "复用假设的 `assets.PdfFile`" | `assets.PdfFile` **确实存在**（`file`/`checksum`/`mime_type`/`page_count`/`extraction_state`），但它是为「PDF 文本抽取」设计的，含 `extraction_state` 等无关字段 | 按用户决策 #4 **新建 `po_attachments`**，自包含存 `FileField`；不污染 `PdfFile`。若未来需抽取 PO 文本再考虑关联 `PdfFile` |
 | R2 | §5 "Invoice / ShippingRecord 均为 `OneToOneField(Order)`" | 确认属实 | 按决策 #3：**仅 `ShippingRecord` 改为 `ForeignKey(Order)`（OneToMany）**；`Invoice` 保持 `OneToOne`（每单一张发票，符合 Net 条款语义） |
 | R3 | §6.4 "Batch 当前无数量字段" | 确认属实（`Batch` 仅 `lot_number`/`produced_at`/`retest_at`） | 按决策 #1 **不往 `Batch` 加字段**，独立 `Inventory` 表承载可用/占用，避免 Batch 模型膨胀 |
-| R4 | §4 节点3 "PO Number 唯一性校验" | `Order.po_number` 当前 `blank=True, default=''`，**非 unique** | 本期加 `unique=True`（全局唯一客户 PO 号）；迁移须先清洗历史空值（置唯一占位符） |
+| R4 | §4 节点3 "PO Number 唯一性校验" | `Order.po_number` **已实现 `unique=True`**（仍 `blank=True, null=True, default=''` 可空，符合"提示输入、不强制"口径） | ✅ 已实现：`unique=True` |
 | R5 | §5 状态机现状 | `Order.Status` 混合了采购态（DRAFT/CONFIRMED/INVOICED/PAID/PROCESSING/SHIPPED/COMPLETED/CANCELLED）与询价态（QUOTE_PENDING/QUOTED/QUOTE_ACCEPTED/QUOTE_REJECTED），且 `PROCESSING` 处于 `paid→shipped` 之间，与确认机倒挂 | 采购流以新 8 态为准；`QUOTE_*` 与 `PROCESSING` 标记为 **deprecated**（保留枚举值以兼容存量数据，新流程不再使用） |
-| R6 | Invoice 账期 | `Invoice` **无 `payment_terms` 字段**，仅 `Order.payment_terms` 默认 NET30；`Invoice.due_date` 为必填 `DateField`，`issued_at` 可空 | 按决策 #10 给 `Invoice` 加 `payment_terms`；开票时由 `issued_at + terms` 推导 `due_date`（见 §3） |
-| R7 | 节点4 "签收人需[扩展]" | `ShippingRecord` 仅 `delivered_at`，无签收人字段 | 新增 `ShippingRecord.received_by`（CharField） |
-| R8 | 地址 | `Organization` 已有扁平地址字段（`address_line1/2`/`city`/`state`/`postal_code`/`country` 默认 `'China'`），`User` 有 `shipping_*` 快照 | 按决策 #2 新建 `Address` 表（一对多挂 `Organization`，`type=billing/shipping`），`Order` 保留既有 `shipping_*`/`billing_*` 快照并增加可选 `Address` 溯源外键；`Organization.country` 允许录入 `'US'` |
+| R6 | Invoice 账期 | `Invoice` 原**无 `payment_terms` 字段**，现**已实现**（`Invoice.payment_terms` 存在，见 migration 0005）；`Invoice.due_date` 为必填 `DateField`，`issued_at` 可空 | ✅ 已实现：`Invoice.payment_terms`（见 §8.2 #10） |
+| R7 | 节点4 "签收人需[扩展]" | `ShippingRecord` 原仅 `delivered_at`，现**已实现 `received_by`** | ✅ 已实现：`ShippingRecord.received_by` |
+| R8 | 地址 | `Organization` 已有扁平地址字段（`address_line1/2`/`city`/`state`/`postal_code`/`country` 默认 `'China'`），`User` 有 `shipping_*` 快照；`Address` 表**已实现**（`accounts.Address`，`type=billing/shipping`） | ✅ 已实现：`Address` 表；`Order` 保留 `shipping_*`/`billing_*` 快照 + 可选溯源外键（`shipping_address_ref`/`billing_address_ref` 已实现）；`Organization.country` 允许录入 `'US'` |
 
 ---
 
