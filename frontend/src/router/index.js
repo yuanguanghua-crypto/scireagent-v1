@@ -287,15 +287,18 @@ router.beforeEach((to, from, next) => {
   }
 
   // requiresAdmin：在守卫层统一做角色判定（不再 defer 给 AdminLayout）。
-  // auth.isStaff 同步自 localStorage 缓存（auth.js:11,23），刷新页面也能即时判定，无需异步等待 profile。
+  // auth.isStaff / auth.role 同步自 localStorage 缓存（auth.js cachedIsStaff/cachedRole），刷新页面也能即时判定。
+  // ★ 2026-10-14：内部人员 = is_staff 或 role∈(procurement, admin) —— 与后端权限类口径对齐
+  //   （后端已允许 procurement 跨机构看所有订单；此前守卫仅认 isStaff ⇒ 非 staff 的 procurement 够不着内部台）。
   // 覆盖：5 个 PO 内部台 + /workspace + /admin/orders(+:id)。
   if (to.meta.requiresAdmin) {
     if (!hasToken) {
       next({ path: '/login', query: { redirect: to.fullPath } })
       return
     }
-    if (!auth.isStaff) {
-      next('/') // 已登录但非 staff：静默跳首页（与 AdminLayout 现状一致）
+    const isInternal = auth.isStaff || ['procurement', 'admin'].includes(auth.role)
+    if (!isInternal) {
+      next('/') // 已登录但非内部人员：静默跳首页
       return
     }
   }

@@ -9,6 +9,9 @@ export const useAuthStore = defineStore('auth', () => {
   // 守卫若仅依赖 user.is_staff 会误判为 false，导致已登录 staff 被错误重定向到首页而非 /workspace。
   // 登录成功时把 is_staff 缓存进 localStorage，使路由守卫可同步判定角色（真实访问门禁仍在 AdminLayout 兜底）。
   const cachedIsStaff = ref(localStorage.getItem('is_staff') === 'true')
+  // ★ 2026-10-14：同理缓存 role —— 守卫需判定"是否内部人员"（is_staff 或 role∈procurement/admin），
+  //   硬刷新时 user 未异步加载完，若无缓存会把 procurement 误判为外部而挡在 /admin/po/* 外。
+  const cachedRole = ref(localStorage.getItem('role') || '')
 
   const isAuthenticated = computed(() => !!token.value)
   const userInitial = computed(() => {
@@ -17,7 +20,7 @@ export const useAuthStore = defineStore('auth', () => {
   })
   const username = computed(() => user.value?.username || '')
   const email = computed(() => user.value?.email || '')
-  const role = computed(() => user.value?.role || '')
+  const role = computed(() => user.value?.role || cachedRole.value)
   const organization = computed(() => user.value?.organization || null)
   const isOrgAdmin = computed(() => user.value?.is_org_admin || false)
   const isStaff = computed(() => user.value?.is_staff ?? cachedIsStaff.value)
@@ -28,12 +31,16 @@ export const useAuthStore = defineStore('auth', () => {
       const result = await getMe()
       user.value = result.data
       cachedIsStaff.value = !!result.data?.is_staff
+      cachedRole.value = result.data?.role || ''
+      localStorage.setItem('role', cachedRole.value)
     } catch {
       token.value = ''
       user.value = null
       cachedIsStaff.value = false
+      cachedRole.value = ''
       localStorage.removeItem('token')
       localStorage.removeItem('is_staff')
+      localStorage.removeItem('role')
     }
   }
 
@@ -42,8 +49,10 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = result.data.token
     user.value = result.data.user
     cachedIsStaff.value = !!result.data.user?.is_staff
+    cachedRole.value = result.data.user?.role || ''
     localStorage.setItem('token', token.value)
     localStorage.setItem('is_staff', String(cachedIsStaff.value))
+    localStorage.setItem('role', cachedRole.value)
     return result
   }
 
@@ -59,8 +68,10 @@ export const useAuthStore = defineStore('auth', () => {
     token.value = result.token
     user.value = result.user
     cachedIsStaff.value = !!result.user?.is_staff
+    cachedRole.value = result.user?.role || ''
     localStorage.setItem('token', token.value)
     localStorage.setItem('is_staff', String(cachedIsStaff.value))
+    localStorage.setItem('role', cachedRole.value)
     return result
   }
 
@@ -77,6 +88,10 @@ export const useAuthStore = defineStore('auth', () => {
         cachedIsStaff.value = !!result.data.is_staff
         localStorage.setItem('is_staff', String(cachedIsStaff.value))
       }
+      if (result.data.role !== undefined) {
+        cachedRole.value = result.data.role || ''
+        localStorage.setItem('role', cachedRole.value)
+      }
     }
     return result
   }
@@ -87,6 +102,10 @@ export const useAuthStore = defineStore('auth', () => {
       if (patch.is_staff !== undefined) {
         cachedIsStaff.value = !!patch.is_staff
         localStorage.setItem('is_staff', String(cachedIsStaff.value))
+      }
+      if (patch.role !== undefined) {
+        cachedRole.value = patch.role || ''
+        localStorage.setItem('role', cachedRole.value)
       }
     }
   }

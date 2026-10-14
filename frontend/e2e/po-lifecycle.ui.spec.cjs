@@ -14,7 +14,7 @@
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 const fs = require('fs');
-const { loginAsCustomer, loginAsStaff, BASE_URL } = require('./helpers/auth.cjs');
+const { loginAsCustomer, loginAsStaff, loginAsProcurement, BASE_URL } = require('./helpers/auth.cjs');
 
 const API_BASE = process.env.API_BASE || 'http://localhost:8000/api/v1';
 const FIXTURE = JSON.parse(
@@ -64,6 +64,14 @@ test.describe('@po-ui 客户侧 PO 页面', () => {
 });
 
 test.describe('@po-ui 内部审核台（staff）', () => {
+  test('非 staff 的 procurement 也能进审核台（守卫修复回归）', async ({ page }) => {
+    await loginAsProcurement(page);
+    await page.goto(`${BASE_URL}/admin/po/review`, { waitUntil: 'domcontentloaded' });
+    // ★ 修复前：被守卫（!isStaff）重定向到 /；修复后：停留在内部台
+    await expect(page).toHaveURL(/\/admin\/po\/review/);
+    await expect(page.locator('h1.po-page-title', { hasText: 'Order Review Desk' })).toBeVisible();
+  });
+
   test('审核台可见待审单，展开行明细显示 Available 库存列', async ({ page, request }) => {
     await seedPendingOrder(request); // 造一条待审单
     await loginAsStaff(page);
