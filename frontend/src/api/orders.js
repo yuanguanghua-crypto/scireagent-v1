@@ -49,15 +49,6 @@ export function respondToQuote(id, action) {
   return http.post(`/orders/${id}/confirm-quote/`, { action })
 }
 
-/**
- * Submit payment proof
- * @param {number} id - Order ID
- * @param {Object} data - Payment proof data
- */
-export function submitPaymentProof(id, data) {
-  return http.post(`/orders/${id}/pay/`, data)
-}
-
 // ── Admin endpoints ──
 
 /**
@@ -90,15 +81,6 @@ export function confirmOrder(id) {
  */
 export function generateInvoice(id) {
   return http.post(`/admin/orders/${id}/invoice/`)
-}
-
-/**
- * Ship order (admin)
- * @param {number} id - Order ID
- * @param {Object} data - Shipping info { carrier, tracking_number }
- */
-export function shipOrder(id, data) {
-  return http.post(`/admin/orders/${id}/ship/`, data)
 }
 
 /**

@@ -128,10 +128,6 @@ async function loadReorder() {
 }
 
 async function handleSubmit() {
-  if (!form.po_number) {
-    alert('PO Number is required.')
-    return
-  }
   if (items.value.length === 0) {
     alert('Add at least one line item.')
     return
@@ -192,8 +188,8 @@ async function handleSubmit() {
       <h2 class="po-section-title">PO Information</h2>
       <div class="po-form-grid">
         <div class="po-field">
-          <label class="po-label">PO Number *</label>
-          <input v-model="form.po_number" class="po-input" required />
+          <label class="po-label">PO Number（可选）</label>
+          <input v-model="form.po_number" class="po-input" placeholder="无 PO 号可留空" />
         </div>
         <div class="po-field">
           <label class="po-label">Grant / Sponsor Code</label>
