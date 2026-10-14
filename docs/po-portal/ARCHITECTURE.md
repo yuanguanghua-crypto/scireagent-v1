@@ -643,11 +643,12 @@ sequenceDiagram
 
 1. **PO 号唯一粒度**：全局唯一（推荐，防跨机构撞号）还是「按 `organization` 唯一」？影响 `unique_together` 与冲突提示文案。
 2. **`Order` 是否保留 `shipping_address_ref`/`billing_address_ref` 溯源外键**（§3.1.4 标可选）：若内部台需「回写地址到机构」则建议保留；纯快照可省略。
-3. **部分付款 `Invoice.balance_due`**（P2-2）：本期是否需存储字段，还是用 `grand_total - sum(verified payments)` 派生属性即可？建议派生属性，避免双写。
+3. **部分付款 `Invoice.balance_due`**（原 P2-2，**源自行业对标审查 §3.2，建议提到 P1** —— 部分付款核销是 AR 标准实务，缺了会被客户质疑）：本期是否需存储字段，还是用 `grand_total - sum(verified payments)` 派生属性即可？建议派生属性，避免双写；并支持"部分核销、余额挂账、记录短付原因"。
 4. **邮件服务商后端**：`django-anymail` 具体后端（Amazon SES / Mailgun / SendGrid）与发件域名、DKIM，需运维/主理人确认环境变量。
 5. **cron 频率**：`send_outbox_emails` 建议每 1–5 分钟；`send_due_reminders` 每日一次（如 08:00）。是否需退避上限（建议 `retry_count` 上限 5，封顶后标记 FAILED 待人工）。
 6. **`Order.payment_method` 与付款展示**：客户侧节点5「Payment Method 纯展示」映射 `PaymentRecord.method`(WIRE/CHECK/ONLINE)→ACH/Wire/Check，是否需扩展 `PaymentRecord.Method` 加 `ACH`？建议加 `ACH` 枚举值。
 7. **存量数据迁移**：既有 `Order`（DRAFT/QUOTE_* 等）是否需批量映射或保留原状？建议保留原状、新流程仅作用于 `PO_RECEIVED` 起的新单。
+8. **免税（Sales Tax Exemption）**（新增，源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §2）：目标客户为美国高校，公立高校普遍免缴销售税。是否本期为 `Organization` 加 `tax_exempt_id`、提交 PO / 开票按机构免税状态置 `tax_total=0`、Invoice PDF 标注 Tax Exempt ID？**建议列 P0**（不补则美国大学客户会在财务环节卡住）。
 
 ---
 

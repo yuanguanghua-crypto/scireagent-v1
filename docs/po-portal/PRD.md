@@ -31,7 +31,7 @@
 
 ### 角色 A：客户侧 Requestor（对应 `accounts.User`，role 默认 `researcher`）
 1. 作为 Requestor，我希望在商品页按 CAS 号 / 货号 / 纯度 / 价格区间搜索与筛选，并查看实时库存徽标与 COA/SDS 下载，以便快速确认可买性。
-2. 作为 Requestor，我希望把商品加入购物车并先生成 Quote（报价单），确认价格后再关联 Quote 号提交 PO，符合美国实验室"先 Quote 后 PO"的习惯。
+2. 作为 Requestor，我希望**可以**先把商品加入购物车并生成 Quote（报价单），确认价格后再关联 Quote 号提交 PO —— 这是机构采购的常见做法（符合美国实验室"先 Quote 后 PO"习惯）；同时，对标准目录品，我也应能**不经报价直接以 PO 或信用卡结账**。
 3. 作为 Requestor，我希望在提交 PO 页录入 PO 号、机构、bill-to/ship-to 地址、联系人、基金号、运输方式，并拖拽上传大学系统生成的 PDF 版 PO，提交后系统生成 Sales Order。
 4. 作为 Requestor，我希望在订单追踪页看到 `PO_RECEIVED → CONFIRMED → IN_PRODUCTION → SHIPPED → DELIVERED → INVOICED → PAID → COMPLETED` 各节点与时间戳，以及在 Shipped 节点看到 Tracking # 与承运商。
 5. 作为 Requestor，我希望在发票页按时间倒序查看发票号、开票日、Net30 到期日、付款状态（Unpaid/Paid/Overdue 颜色标识），并下载 Invoice PDF。
@@ -66,12 +66,14 @@
 - **P1-2 Quote → PO 流程**：复用 `Quote` / `QuoteItem`，提交 PO 时可关联已发出 Quote 号（`Order` 需新增 `quote` 外键或 `quote_no` 字段，见 §4）。
 - **P1-3 自动通知邮件**：Outbox 模式 + cron 管理命令（依赖 `django-anymail`）。触发点见设计文档第四部分（PO 提交 / 审核通过 / Shipped / Delivered / 发票发出 / 到期前 7 天 / 超期 30 天）。**新增 `EmailOutbox` 模型与 `send_outbox_emails` 管理命令**。
 - **P1-4 AR Aging 报表**：基于 `Invoice` + `PaymentRecord` 聚合 30/60/90 天账龄；`Invoice.is_overdue` 已可复用。
+- **P1-5 账户价 / 合同价**（源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §3.4）：行业标准为"未登录显示目录价、登录后显示账户/合同价"。本期若来不及做机构级价格模型，至少应在 UI 明确标注"合同价待议"，避免大客户看到错误目录价。
 
 ### P2（锦上添花）
 - **P2-1 冷链温度记录上传**：发货台文件上传（节点 C），存管方案见 §6 待确认。
 - **P2-2 部分付款**：复用 `PaymentRecord`（FK→`Invoice`，已支持多笔）+ Invoice 余额字段（**需新增 `balance_due` / 派生**，见 §4）。
 - **P2-3 Re-order 一键复购**：历史订单 → 重建 `Basket` → 生成新 `Quote`。
-- **P2-4 客户自助注册供应商**：注册流程（设计文档第七部分背景，仅 P2 自助注册入口），涉及 `Organization` 创建与资料录入。
+- **P2-4 客户账户自助注册**：注册流程（设计文档第七部分背景，仅 P2 自助注册入口），涉及 `Organization` 创建与资料录入。（注：此处指"客户自己注册账户"；与行业术语 vendor onboarding——供应商向机构报 W-9/ACH——方向相反，故改名以避免后续实现歧义。）
+- **P2-5 危险品运输合规字段**（源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §3.3）：若所售试剂含危险品，需在 `SKU` 增加 `hazmat_class` + `un_number`，并在发货单 / Packing List 打印运输合规提示（如干冰 UN1845、液氮 UN1977、感染性物质 B 类 UN3373）。若产品线不含危险品可暂缓（条件性需求）。
 
 ---
 
@@ -97,6 +99,8 @@
 | Total 实时计算 | 前端计算 | `[复用]` |
 | Request a Quote 按钮 | `Quote` / `QuoteItem`（status=DRAFT→SUBMITTED） | `[复用]` |
 | Checkout with PO（关联已有 Quote） | `Order` 需关联 Quote | `[扩展]` 新增 `Order.quote` 外键 / `quote_no` |
+
+> 注（源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §3.1）：**"请求报价（Request a Quote）"与"直接结账（Checkout with PO / 信用卡）"应是并列的一等入口** —— 报价是机构采购的常见路径，但**不强制**；标准目录品应能不经报价直接下单。二者不要做成"必须报价才能结账"的强依赖。
 
 ### 客户侧 节点 3：提交 PO 页面（核心）
 | 设计字段/交互 | 实现依据 | 标注 |
@@ -238,6 +242,7 @@
 8. **生产工单（WO）**：节点 B `Create Production WO` 是否本期建模？还是仅记录 ETD 占位、WO 留待后续内部系统？
 9. **Invoice 编号规则**：`INV-YYYY-NNNN` 的序列号自增与并发安全（DB 序列 / `select_for_update`），是否本期实现原子编号？
 10. **Net45 条款**：`Order.payment_terms` 默认 NET30，节点 D 需 Net45 选项；是否在 `Order` 与 `Invoice` 同时支持，且以 Invoice 为准？
+11. **免税（Sales Tax Exemption）**（源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §2）：目标客户为美国高校/科研机构，公立高校普遍免缴州/地方销售税，且供应商须支持"凭机构免税证明免收税"（否则含税金额会被客户拒付或整单挂起）。是否本期为 `Organization` 增加 `tax_exempt_id`，并在提交 PO / 开票时按机构免税状态置 `tax_total=0`、Invoice PDF 标注 Tax Exempt ID？**建议列 P0**。
 
 ---
 
