@@ -67,7 +67,7 @@
 - **P1-2 Quote → PO 流程**：复用 `Quote` / `QuoteItem`，提交 PO 时可关联已发出 Quote 号（`Order` 需新增 `quote` 外键或 `quote_no` 字段，见 §4）。
 - **P1-3 自动通知邮件**：Outbox 模式 + cron 管理命令（依赖 `django-anymail`）。触发点见设计文档第四部分（PO 提交 / 审核通过 / Shipped / Delivered / 发票发出 / 到期前 7 天 / 超期 30 天）。**新增 `EmailOutbox` 模型与 `send_outbox_emails` 管理命令**。
 - **P1-4 AR Aging 报表**：基于 `Invoice` + `PaymentRecord` 聚合 30/60/90 天账龄；`Invoice.is_overdue` 已可复用。
-- **P1-5 账户价 / 合同价**（源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §3.4）：行业标准为"未登录显示目录价、登录后显示账户/合同价"。本期若来不及做机构级价格模型，至少应在 UI 明确标注"合同价待议"，避免大客户看到错误目录价。
+- **P1-5 账户价 / 合同价**（✅ 已决策 2026-10-14：**延后**，见 P2-6）：个性化价格当前由 Quote 流程兜底，暂无大客户协议价需求。
 - **P1-6 部分付款核销**（✅ 已决策 2026-10-14，原 P2-2 提前）：`PaymentRecord`（FK→`Invoice`，已支持多笔）+ `Invoice.balance_due` **派生属性**（`grand_total - sum(verified payments)`）；支持部分核销、余额挂账、记录短付原因。
 
 ### P2（锦上添花）
@@ -75,6 +75,7 @@
 - **P2-3 Re-order 一键复购**：历史订单 → 重建 `Basket` → 生成新 `Quote`。
 - **P2-4 客户账户自助注册**：注册流程（设计文档第七部分背景，仅 P2 自助注册入口），涉及 `Organization` 创建与资料录入。（注：此处指"客户自己注册账户"；与行业术语 vendor onboarding——供应商向机构报 W-9/ACH——方向相反，故改名以避免后续实现歧义。）
 - **P2-5 危险品运输合规字段**（源自 `DESIGN_REVIEW_INDUSTRY_FIT.md` §3.3）：若所售试剂含危险品，需在 `SKU` 增加 `hazmat_class` + `un_number`，并在发货单 / Packing List 打印运输合规提示（如干冰 UN1845、液氮 UN1977、感染性物质 B 类 UN3373）。若产品线不含危险品可暂缓（条件性需求）。
+- **P2-6 账户价 / 合同价**（P1-5 延后至此，2026-10-14 拍板暂不做）：机构级/账户级价格模型。个性化价格当前由 Quote 流程兜底；若后续出现"签协议价的大客户"再启动，届时可先做最轻量的 UI「合同价待议」提示。
 
 ### 3.1 验收标准（Definition of Done）
 
