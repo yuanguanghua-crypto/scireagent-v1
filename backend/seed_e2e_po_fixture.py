@@ -30,6 +30,11 @@ product, _ = Product.objects.get_or_create(
     slug='e2e-po-product',
     defaults={'name': 'E2E PO Test Product'},
 )
+# ★ 必须 active：商品 API 的 get_queryset 只返回 status='active'（draft 会被过滤）
+#   ⇒ 否则 PoSubmit 页搜不到该商品，UI 提交流程无法选中。
+product.name = 'E2E PO Test Product'
+product.status = Product.Status.ACTIVE
+product.save()
 sku, _ = SKU.objects.get_or_create(
     sku_code=SKU_CODE,
     defaults={'product': product, 'price': '10.00', 'pack_size': '1 mg'},
