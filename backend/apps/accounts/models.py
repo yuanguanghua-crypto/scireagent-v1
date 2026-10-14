@@ -38,6 +38,8 @@ class Organization(models.Model):
     state = models.CharField(max_length=100, blank=True, default='')
     postal_code = models.CharField(max_length=20, blank=True, default='')
     country = models.CharField(max_length=100, default='China')
+    # ★ D1 免税（P0-5）：免税号（美国高校等免税机构的州免税证明编号）。空 = 非免税。
+    tax_exempt_id = models.CharField(max_length=100, blank=True, default='', verbose_name='免税号')
     approval_required = models.BooleanField(default=True)
     credit_limit = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True

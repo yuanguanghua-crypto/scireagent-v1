@@ -155,6 +155,11 @@ class Order(TimeStampedModel):
     def __str__(self):
         return f'Order {self.order_no}'
 
+    @property
+    def tax_exempt_id(self) -> str:
+        """机构免税号（空 = 非免税）。供结账/开票置税为零与发票 PDF 标注使用。"""
+        return (self.organization.tax_exempt_id or '') if self.organization else ''
+
     def can_transition_to(self, new_status: str) -> bool:
         """Check if transition to new_status is valid."""
         allowed = self.VALID_TRANSITIONS.get(self.status, [])

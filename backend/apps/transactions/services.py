@@ -140,7 +140,10 @@ class PoSubmissionService:
         if total:
             order.subtotal = total
             order.grand_total = total
-            order.save(update_fields=['subtotal', 'grand_total'])
+            # ★ D1 免税（P0-5）：当前税制恒 0；免税机构税为零，非免税机构行为不变。
+            #   未来若引入税率，须按 order.tax_exempt_id 决定是否计税。
+            order.tax_total = 0
+            order.save(update_fields=['subtotal', 'grand_total', 'tax_total'])
 
         # 附件（双校验：白名单 + 10MB）
         for f in (files or []):
@@ -260,8 +263,13 @@ class InvoiceService:
             Paragraph(f'Issued: {invoice.issued_at.date()}', styles['Normal']),
             Paragraph(f'Due: {invoice.due_date}', styles['Normal']),
             Paragraph(f'Terms: {invoice.payment_terms}', styles['Normal']),
-            Spacer(1, 4 * mm),
         ]
+        # ★ D1 免税（P0-5）：免税机构在发票上标注 Tax Exempt ID
+        if invoice.order.tax_exempt_id:
+            story.append(Paragraph(
+                f'Tax Exempt ID: {invoice.order.tax_exempt_id}', styles['Normal']
+            ))
+        story.append(Spacer(1, 4 * mm))
         rows = [['SKU', 'Qty', 'Unit', 'Subtotal']]
         for item in invoice.order.items.all():
             rows.append([
