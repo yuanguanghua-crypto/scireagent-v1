@@ -26,7 +26,9 @@ class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_authenticated:
             return Order.objects.none()
-        if user.is_staff:
+        # ★ 2026-10-14 修：内部人员（is_staff 或 procurement/admin）跨机构可见所有订单（审核台），
+        #   客户仍只看自己的。此前仅 is_staff 可见全量 ⇒ procurement（非 staff）审核台空列表。
+        if user.is_staff or user.role in ('procurement', 'admin'):
             return Order.objects.all().order_by('-created_at')
         return Order.objects.filter(user=user).order_by('-created_at')
 
@@ -51,7 +53,7 @@ class QuoteViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_authenticated:
             return Quote.objects.none()
-        if user.is_staff:
+        if user.is_staff or user.role in ('procurement', 'admin'):
             return Quote.objects.prefetch_related('items').all().order_by('-created_at')
         return Quote.objects.filter(user=user).prefetch_related('items').order_by('-created_at')
 
