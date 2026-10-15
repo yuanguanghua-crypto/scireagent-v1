@@ -232,6 +232,13 @@ const routes = [
     component: () => import('@/views/admin/PoOrgManagement.vue'),
     meta: { title: 'Organization Management', requiresAuth: true, requiresAdmin: true },
   },
+  {
+    // ★ v4.1 DEV-1：库存管理台（入库/盘点调整/变动流水）—— F3 缺口
+    path: '/ops/inventory',
+    name: 'InventoryDesk',
+    component: () => import('@/views/admin/InventoryDesk.vue'),
+    meta: { title: 'Inventory Desk', requiresAuth: true, requiresAdmin: true },
+  },
   // ── Workspace routes ──────────────────────────────
   {
     path: '/workspace',

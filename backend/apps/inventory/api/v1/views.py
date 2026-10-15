@@ -1,4 +1,4 @@
-from django.db.models import Prefetch, Q
+from django.db.models import Q
 
 from rest_framework import mixins, viewsets
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -23,10 +23,11 @@ class InventoryViewSet(EnvelopeMixin, mixins.ListModelMixin, mixins.RetrieveMode
     serializer_class = srl.InventoryListSerializer
 
     def get_queryset(self):
-        qs = (Inventory.objects
-              .select_related('sku', 'sku__product', 'batch')
-              .prefetch_related(Prefetch(
-                  'movements', queryset=InventoryMovement.objects.all()[:50])))
+        # ⚠️ 不可在此 prefetch movements 的 slice queryset：related manager 会在 slice 上
+        #    再 filter ⇒ "Cannot filter a query once a slice has been taken"（实测 500，
+        #    且空表测试抓不到 —— prefetch_one_level 仅在有行时执行）。
+        #    movements 仅 retrieve 需要 ⇒ 在 retrieve() 内单独全量 prefetch。
+        qs = Inventory.objects.select_related('sku', 'sku__product', 'batch')
         q = self.request.query_params
         search = (q.get('search') or '').strip()
         if search:
@@ -47,6 +48,13 @@ class InventoryViewSet(EnvelopeMixin, mixins.ListModelMixin, mixins.RetrieveMode
         if self.action == 'retrieve':
             return srl.InventoryDetailSerializer
         return srl.InventoryListSerializer
+
+    def retrieve(self, request, *args, **kwargs):
+        inv = (Inventory.objects
+               .select_related('sku', 'sku__product', 'batch')
+               .prefetch_related('movements')
+               .get(pk=kwargs['pk']))
+        return self.success_response(srl.InventoryDetailSerializer(inv).data)
 
 
 class InventoryReceiptView(EnvelopeMixin, APIView):

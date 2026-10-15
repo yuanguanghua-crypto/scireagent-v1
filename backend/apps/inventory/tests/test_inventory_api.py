@@ -167,3 +167,24 @@ class MovementListTest(Base):
         self._auth(self.proc)
         r = self.client.get('/api/v1/inventory/movements/', {'inventory_id': inv.id})
         self.assertEqual(r.status_code, 200)
+
+
+class PrefetchRegressionTest(Base):
+    """回归：Prefetch slice 曾致 500（空表测试盲区）—— 有数据行时 list/detail 必须正常。"""
+
+    def test_list_with_rows_200(self):
+        Inventory.objects.create(sku=self.sku, location='MAIN', available=3)
+        self._auth(self.proc)
+        r = self.client.get('/api/v1/inventory/')
+        self.assertEqual(r.status_code, 200, r.content[:300])
+
+    def test_detail_with_movements_200(self):
+        inv = Inventory.objects.create(sku=self.sku, location='MAIN', available=3)
+        InventoryMovement.objects.create(
+            inventory=inv, kind=InventoryMovement.Kind.RECEIPT,
+            delta_available=3, quantity=3, reason='seed')
+        self._auth(self.proc)
+        r = self.client.get(f'/api/v1/inventory/{inv.id}/')
+        self.assertEqual(r.status_code, 200, r.content[:300])
+        data = r.json().get('data') or {}
+        self.assertEqual(len(data.get('movements') or []), 1)
