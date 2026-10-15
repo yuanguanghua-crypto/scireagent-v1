@@ -44,7 +44,8 @@ async function injectAuth(page, who) {
 test.use({ httpCredentials: { username: BASIC.username, password: BASIC.password } })
 test.describe.configure({ mode: 'serial' })
 
-let poNumber = ''  // 跨测试共享（serial 模式）
+let poNumber = ''   // 跨测试共享（serial 模式）
+let orderNo = ''    // ORD-xxx（发货台/发票台表格显示的是 order_no 而非 po_number）
 
 test.describe('Phase 2 · PO 全流程拟人', () => {
   test('① 客户：/po/submit UI 提交', async ({ page }) => {
@@ -66,8 +67,9 @@ test.describe('Phase 2 · PO 全流程拟人', () => {
 
     await page.getByRole('button', { name: 'Submit PO' }).click()
     await expect(page.locator('.po-callout')).toContainText(/submitted successfully/i, { timeout: 20000 })
-    const orderNo = (await page.locator('.po-callout .po-mono').innerText()).trim()
-    expect(orderNo).toMatch(/^ORD-/)
+    const ordNo = (await page.locator('.po-callout .po-mono').innerText()).trim()
+    expect(ordNo).toMatch(/^ORD-/)
+    orderNo = ordNo
     console.log(`__E2E__ ① 提交成功: ${orderNo} (PO=${poNumber})`)
   })
 
@@ -86,7 +88,7 @@ test.describe('Phase 2 · PO 全流程拟人', () => {
     test.setTimeout(120000)
     await injectAuth(page, 'admin')
     await page.goto(`${BASE_URL}/ops/po/shipments`, { waitUntil: 'domcontentloaded' })
-    const row = page.locator('tr', { hasText: poNumber }).first()
+    const row = page.locator('tr', { hasText: orderNo }).first()
     await expect(row).toBeVisible({ timeout: 20000 })
     await row.click()
     await page.locator('.po-field', { hasText: 'Carrier' }).locator('input').fill('FedEx')
@@ -106,7 +108,7 @@ test.describe('Phase 2 · PO 全流程拟人', () => {
     test.setTimeout(120000)
     await injectAuth(page, 'admin')
     await page.goto(`${BASE_URL}/ops/po/invoicing`, { waitUntil: 'domcontentloaded' })
-    const row = page.locator('tr', { hasText: poNumber }).first()
+    const row = page.locator('tr', { hasText: orderNo }).first()
     await expect(row).toBeVisible({ timeout: 20000 })
     await row.click()
     await page.getByRole('button', { name: 'Issue Invoice' }).click()
@@ -118,7 +120,7 @@ test.describe('Phase 2 · PO 全流程拟人', () => {
     test.setTimeout(120000)
     await injectAuth(page, 'admin')
     await page.goto(`${BASE_URL}/ops/po/invoicing`, { waitUntil: 'domcontentloaded' })
-    const row = page.locator('tr', { hasText: poNumber }).first()
+    const row = page.locator('tr', { hasText: orderNo }).first()
     await expect(row).toBeVisible({ timeout: 20000 })
     await row.click()
     const amount = page.locator('.po-field', { hasText: 'Amount' }).locator('input').first()
@@ -132,7 +134,7 @@ test.describe('Phase 2 · PO 全流程拟人', () => {
   test('⑥ 客户：订单列表可见 + 追踪', async ({ page }) => {
     await injectAuth(page, 'customer')
     await page.goto(`${BASE_URL}/po/orders`, { waitUntil: 'domcontentloaded' })
-    await expect(page.locator('body')).toContainText(poNumber, { timeout: 20000 })
+    await expect(page.locator('body')).toContainText(orderNo, { timeout: 20000 })
     console.log('__E2E__ ⑥ 客户确认订单可见')
   })
 })
