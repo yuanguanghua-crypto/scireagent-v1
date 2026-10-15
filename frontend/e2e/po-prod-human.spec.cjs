@@ -104,31 +104,22 @@ test.describe('Phase 2 · PO 全流程拟人', () => {
     console.log('__E2E__ ③ 发货+签收完成')
   })
 
-  test('④ staff：发票台 Issue Invoice', async ({ page }) => {
+  test('④ staff：发票台 Issue Invoice → Record Payment（同一会话）', async ({ page }) => {
     test.setTimeout(120000)
     await injectAuth(page, 'admin')
     await page.goto(`${BASE_URL}/ops/po/invoicing`, { waitUntil: 'domcontentloaded' })
     const row = page.locator('tr', { hasText: orderNo }).first()
     await expect(row).toBeVisible({ timeout: 20000 })
     await row.click()
+    // 开票
     await page.getByRole('button', { name: 'Issue Invoice' }).click()
     await expect(page.getByRole('button', { name: 'Record Payment' })).toBeVisible({ timeout: 20000 })
-    console.log('__E2E__ ④ 开票完成')
-  })
-
-  test('⑤ staff：收款 Record Payment → paid', async ({ page }) => {
-    test.setTimeout(120000)
-    await injectAuth(page, 'admin')
-    await page.goto(`${BASE_URL}/ops/po/invoicing`, { waitUntil: 'domcontentloaded' })
-    const row = page.locator('tr', { hasText: orderNo }).first()
-    await expect(row).toBeVisible({ timeout: 20000 })
-    await row.click()
+    // 收款（同一次选中，不重新导航）
     const amount = page.locator('.po-field', { hasText: 'Amount' }).locator('input').first()
     await expect(amount).toBeVisible({ timeout: 20000 })
     await amount.fill('25.00')
     await page.getByRole('button', { name: 'Record Payment' }).click()
-    await expect(page.locator('.po-card', { hasText: poNumber }).or(page.locator('body'))).toBeVisible()
-    console.log('__E2E__ ⑤ 收款完成（paid）')
+    console.log('__E2E__ ④⑤ 开票+收款完成（paid）')
   })
 
   test('⑥ 客户：订单列表可见 + 追踪', async ({ page }) => {
