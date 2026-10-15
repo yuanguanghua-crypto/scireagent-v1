@@ -20,7 +20,7 @@ const PROC = { u: 'proc_mgr', p: 'E2ePass123!' };
 test.use({ httpCredentials: BASIC, baseURL: BASE_URL });
 
 const CUST_PAGES = ['/po/submit', '/po/orders', '/po/addresses', '/po/reorder', '/po/downloads'];
-const INT_PAGES = ['/ops/po/review', '/ops/po/shipments', '/ops/po/invoicing', '/ops/po/ar', '/ops/po/organizations'];
+const INT_PAGES = ['/ops/po/review', '/ops/po/shipments', '/ops/po/invoicing', '/ops/po/ar', '/ops/po/organizations', '/ops/inventory'];
 
 /** 登录（含 429 限流重试）。 */
 async function login(page, { u, p }) {
