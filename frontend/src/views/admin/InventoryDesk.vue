@@ -50,7 +50,9 @@
         <tbody>
           <tr v-if="loading"><td colspan="8" style="text-align:center">Loading…</td></tr>
           <tr v-else-if="!rows.length"><td colspan="8" style="text-align:center">No inventory rows.</td></tr>
-          <tr v-for="r in rows" :key="r.id" :class="{ 'po-row-low': r.available <= lowStockThreshold }">
+          <tr v-for="r in rows" :key="r.id" :data-testid="'inv-row-' + r.sku_code"
+              :data-location="r.location"
+              :class="{ 'po-row-low': r.available <= lowStockThreshold }">
             <td class="po-mono">{{ r.sku_code }}</td>
             <td>{{ r.product_name }}</td>
             <td>{{ r.lot_number || '—' }}</td>
@@ -81,7 +83,7 @@
                  @input="searchProducts" data-testid="inv-receipt-search" />
           <div v-if="receipt.results.length" class="po-search-pop">
             <button v-for="p in receipt.results" :key="p.id" type="button"
-                    class="po-search-item" @click="pickProduct(p)">
+                    class="po-search-item" data-testid="inv-search-item" @click="pickProduct(p)">
               {{ p.name }}
             </button>
           </div>
