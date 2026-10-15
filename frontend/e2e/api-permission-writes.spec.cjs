@@ -70,7 +70,11 @@ const ADMIN_ONLY = [
 /** 仅要求**登录**即可写（与真实下单路径 CheckoutView / POSubmitView 的 IsAuthenticated 一致）。 */
 const AUTH_ONLY = [
   { name: 'OrderViewSet', path: '/orders', list: '/orders/' },
-  { name: 'QuoteViewSet', path: '/quotes', list: '/quotes/' },
+  // ★ 2026-10-15：QuoteViewSet 已**只读化**（`http_method_names` 禁写）⇒ 写方法一律 **405**。
+  //   背景：其 create 落到 QuoteListSerializer（不含 items/联系字段）⇒ 已登录 `POST /quotes/`
+  //   会建出「quote_no=null、grand_total=0.00、无 items」的空壳单（实测 201）；客户侧真实
+  //   询价入口是 `/quote-requests/`（apps/quotes）。故 DELETE 哨兵期望 **405**（非 404）。
+  { name: 'QuoteViewSet', path: '/quotes', list: '/quotes/', deleteExpect: 405 },
   { name: 'WishlistViewSet', path: '/wishlist', list: '/wishlist/' },
 ]
 /** 补齐默认探针 URL：集合型端点 = `<path>/<SENTINEL>/`；detail 型已在上面显式给出。 */
@@ -167,14 +171,17 @@ test.describe('customer（已登录非 staff）', { tag: ['@readonly', '@local-o
   //   松断言会被"URL 拼错 ⇒ 404"蒙混过关，那样这两条用例就完全没在验证东西。
   //   实测：customer 对 orders / quotes / wishlist 的 DELETE 哨兵均为 **404**（鉴权放行、对象不存在）。
   for (const e of AUTH_ONLY) {
-    test(`DELETE ${e.probe} → 404（customer 放行，按设计，${e.name}）`, async () => {
+    // QuoteViewSet 已只读化 ⇒ 405；其余仍是「鉴权放行 + 哨兵不存在」⇒ 404
+    const want = e.deleteExpect || 404
+    test(`DELETE ${e.probe} → ${want}（customer 放行，按设计，${e.name}）`, async () => {
       const r = await api.delete(`${e.probe}`)
       console.log(`__E2E__ ${e.name} customer DELETE 哨兵 → ${r.status()}`)
       expect(
         r.status(),
-        `${e.name} 的写口径是 IsAuthenticated ⇒ customer 应过鉴权并得到 404；` +
+        `${e.name}：customer 应过鉴权（**不是** 401/403）。默认口径 = IsAuthenticated ⇒ ` +
+        `落到 404（哨兵对象不存在，不产生写入）；QuoteViewSet 已只读化 ⇒ 405。` +
         `401/403 ⇒ 口径被改成仅 staff；其他值 ⇒ 探针 URL 或端点行为与预期不符`,
-      ).toBe(404)
+      ).toBe(want)
     })
   }
 })

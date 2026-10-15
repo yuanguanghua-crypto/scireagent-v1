@@ -39,6 +39,11 @@ class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
 
 class QuoteViewSet(EnvelopeMixin, viewsets.ModelViewSet):
+    # ★ 2026-10-15 只读化：create 会落到 QuoteListSerializer（fields 不含 items/联系字段）
+    #   ⇒ **已登录** POST /quotes/ 会建出「quote_no=null、grand_total=0.00、无 items」的**空壳单**（实测 201）。
+    #   客户侧真实询价入口是 /quote-requests/（apps/quotes）；前端对 /quotes/ 只做 GET（api/poPortal.js:15）。
+    #   ⇒ 写方法一律 405。注意 DRF 语义：dispatch() 先 check_permissions() 再查方法 ⇒ 匿名写仍 401（非 405）。
+    http_method_names = ['get', 'head', 'options']
     serializer_class = QuoteListSerializer
     filterset_fields = ['status']
     # ★ 2026-09-24 同 OrderViewSet：读维持匿名空列表契约，**写要求登录**。
