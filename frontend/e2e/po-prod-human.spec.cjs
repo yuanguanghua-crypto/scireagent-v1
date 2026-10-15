@@ -137,16 +137,18 @@ test.describe('Phase 3 · 库存台交互拟人', () => {
   test('⑦ API 建库存行 + UI 验证行出现', async ({ page, request }) => {
     test.setTimeout(120000)
     const t = await token(request, 'admin')
-    // 搜索产品拿 SKU ID
+    // 搜索产品拿 SKU ID（解析模式与 PoSubmit.vue 一致：data.product || data）
     const sr = await request.get(`${API_BASE}/products/?search=E2E Prod Flow`, {
       headers: { 'X-Auth-Token': t } })
     const products = (await sr.json()).data || []
     expect(products.length, '应能搜到测试商品').toBeGreaterThan(0)
     const pid = products[0].id
     const dr = await request.get(`${API_BASE}/products/${pid}/`, { headers: { 'X-Auth-Token': t } })
-    const prod = ((await dr.json()).data || {}).product || {}
+    const djson = await dr.json()
+    const d = djson.data || {}
+    const prod = d.product || d
     const skuId = (prod.skus || [])[0]?.id
-    expect(skuId, '应能取到 SKU ID').toBeTruthy()
+    expect(skuId, `应能取到 SKU ID（product keys=${Object.keys(prod).slice(0,6)}）`).toBeTruthy()
     // API 入库（建行）
     const rr = await request.post(`${API_BASE}/inventory/receipt/`, {
       headers: { 'X-Auth-Token': t },
