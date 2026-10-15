@@ -10,7 +10,7 @@
 
 | ID | 工作项 | 层 | 范围 | 量级 | 依赖 | 验收标准 | 状态 |
 |---|---|---|---|---|---|---|---|
-| DEV-1 | **库存管理工具**（F3） | L1 | Inventory API（receipt/adjust/list/movements）+ `/ops/inventory` UI + 变动流水台账 | 1-2 周 | 无（模型/服务已就绪） | 设计稿 `INVENTORY_TOOL_DESIGN.md` 全部测试绿 + E2E | open |
+| DEV-1 | **库存管理工具**（F3） | L1 | Inventory API（receipt/adjust/list/movements）+ `/ops/inventory` UI + 变动流水台账 | 1-2 周 | 无（模型/服务已就绪） | 设计稿 `INVENTORY_TOOL_DESIGN.md` 全部测试绿 + E2E | **done**（2026-10-15，`a2d7fb5`+`d943da8` 已部署生产；pytest 17+回归全绿；E2E `ops-inventory` **4 passed**；生产 401/403/200 实测） |
 | DEV-2 | **GDPR 最小包** | L0 | 隐私政策页 + Cookie 同意横幅 + 条款页 + 页脚链接（文本模板先行，律师后审） | 3-5 天 | 律师后审 | 三页可访问 + 横幅可关（localStorage）+ 真浏览器无 console error | open |
 | DEV-3 | **DB 自动备份** | 运维 | pg_dump 脚本 + cron + 保留 30 天 + 异地拷贝 | 2-3 天 | RPO 决策（建议日备/30 天） | 备份文件存在且 `pg_restore --list` 可读 + cron 在 crontab | open |
 | DEV-4 | **RUO 标注体系** | L1/L2 | SKU/商品字段 + 商品页 + 发票 PDF + 订单页展示 "For Research Use Only" | 1-2 天 | 无 | 商品页与 PDF 均含标注（E2E 断言） | open |
