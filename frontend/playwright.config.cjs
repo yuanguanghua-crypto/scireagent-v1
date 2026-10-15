@@ -38,7 +38,10 @@ module.exports = defineConfig({
       // 2026-09-23：本机已装 Playwright bundled 浏览器（ms-playwright 下现有 firefox-1522 / webkit-2287）；
       // chromium 仍走系统已装的 Microsoft Edge（channel: 'msedge'）——它稳定可用，暂不切换成 bundled chromium。
       // 运行：npx playwright test --project=chromium
-      use: { browserName: 'chromium', channel: 'msedge' },
+      // chromium 默认走系统已装的 Microsoft Edge（channel: 'msedge'）——它稳定可用。
+      // ★ 可用 PW_CHANNEL 环境变量覆盖：服务器上无 Edge，跑生产 E2E 时用自带 bundled chromium
+      //   （PW_CHANNEL='' 即清空 channel ⇒ bundled chromium-headless-shell）。
+      use: { browserName: 'chromium', channel: process.env.PW_CHANNEL || 'msedge' },
     },
     // 阶段 9 启用（需先 npx playwright install firefox webkit）：
     { name: 'firefox', use: { browserName: 'firefox' } },
