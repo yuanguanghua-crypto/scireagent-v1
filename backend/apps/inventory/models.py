@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from core.models import TimeStampedModel
 
@@ -93,3 +94,45 @@ class Allocation(TimeStampedModel):
 class InsufficientInventoryError(Exception):
     """Raised when an allocation/release would over-commit inventory."""
     pass
+
+
+class InventoryMovement(TimeStampedModel):
+    """库存变动流水 — available/allocated 的每次变化一条审计记录（v4.1 DEV-1）。
+
+    入库/盘点调整/订单占用/释放/发货出库均在此留痕；由 InventoryService 统一写入，
+    禁止绕过服务层直接改 Inventory.available/allocated。
+    """
+
+    class Kind(models.TextChoices):
+        RECEIPT = 'receipt', '入库'
+        ADJUST = 'adjust', '盘点调整'
+        ALLOCATE = 'allocate', '订单占用'
+        RELEASE = 'release', '占用释放'
+        SHIP = 'ship', '发货出库'
+
+    inventory = models.ForeignKey(
+        Inventory, on_delete=models.CASCADE, related_name='movements', verbose_name='库存'
+    )
+    kind = models.CharField(max_length=20, choices=Kind.choices, verbose_name='变动类型')
+    delta_available = models.IntegerField(default=0, verbose_name='可分配量变化')
+    delta_allocated = models.IntegerField(default=0, verbose_name='占用量变化')
+    quantity = models.IntegerField(default=0, verbose_name='操作数量')
+    reason = models.CharField(max_length=200, blank=True, default='', verbose_name='原因/备注')
+    order = models.ForeignKey(
+        'transactions.Order', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='inventory_movements', verbose_name='关联订单'
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+', verbose_name='操作人'
+    )
+
+    class Meta:
+        db_table = 'inventory_movement'
+        verbose_name = '库存变动流水'
+        verbose_name_plural = verbose_name
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return (f'{self.kind} inv={self.inventory_id} '
+                f'dA={self.delta_available} dAl={self.delta_allocated}')
