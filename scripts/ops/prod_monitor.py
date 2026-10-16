@@ -108,3 +108,10 @@ else:
 
 state.update({'alerting': now_alerting, 'last_check': ts, 'last_alerts': alerts})
 with open(STATE_FILE, 'w') as f: json.dump(state, f, indent=2)
+
+# ★ Healthchecks.io 死人开关：每次监控跑完 ping 一次
+# 服务器挂了 → 没收到 ping → Healthchecks.io 自动发邮件
+try:
+    run('curl -s --max-time 10 https://hc-ping.com/d3ff13a5-2754-4cbd-a219-b9564867191a > /dev/null 2>&1')
+except Exception:
+    pass
