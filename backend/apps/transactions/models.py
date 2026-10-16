@@ -1,6 +1,18 @@
+from zoneinfo import ZoneInfo
+
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 from core.models import TimeStampedModel
+
+
+def business_today():
+    """业务日历日（settings.BUSINESS_TIME_ZONE，默认东八区）。
+
+    逾期/账龄等"按日历日"的业务判断必须用它，**不能**用 timezone.localdate()：
+    生产 TIME_ZONE='UTC' 时 localdate() 等于 UTC 日期，与业务日历日差一天。
+    """
+    return timezone.now().astimezone(ZoneInfo(settings.BUSINESS_TIME_ZONE)).date()
 
 
 class InvalidTransitionError(Exception):
@@ -261,10 +273,9 @@ class Invoice(TimeStampedModel):
 
     @property
     def is_overdue(self):
-        from django.utils import timezone
         if self.status in ('paid', 'void'):
             return False
-        return self.due_date < timezone.now().date()
+        return self.due_date < business_today()
 
     @property
     def amount_paid(self):

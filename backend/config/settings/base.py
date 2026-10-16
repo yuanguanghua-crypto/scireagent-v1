@@ -135,6 +135,13 @@ TIME_ZONE = os.getenv('TIME_ZONE', 'UTC')
 USE_I18N = True
 USE_TZ = True
 
+# ★ 业务时区：所有"按日历日"判断的业务语义（逾期、账龄、对账日、NET 天数等）必须用它，
+#   **不能**用 settings.TIME_ZONE，也不能用 timezone.localdate()。
+#   原因：生产 TIME_ZONE='UTC'，此时 localdate() 退化成 UTC 日期；而 due_date 存的是
+#   业务日历日（东八区），东八区 00:00-08:00 这段时间内两者正好差一天，会误判逾期。
+#   与 TIME_ZONE 解耦：改 TIME_ZONE 只影响展示/日志格式化，不影响业务逾期判定。
+BUSINESS_TIME_ZONE = os.getenv('BUSINESS_TIME_ZONE', 'Asia/Shanghai')
+
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']

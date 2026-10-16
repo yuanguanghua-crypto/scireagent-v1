@@ -17,7 +17,7 @@ from rest_framework.test import APIClient
 
 from apps.transactions.models import (
     Order, OrderItem, Invoice, PaymentRecord, ShippingRecord,
-    InvalidTransitionError,
+    InvalidTransitionError, business_today,
 )
 from apps.transactions.tests.factories import (
     OrderFactory, OrderItemFactory, InvoiceFactory,
@@ -328,12 +328,17 @@ class TestInvoice:
 
     def test_tc_inv_05_is_overdue_true(self):
         """Invoice is overdue when past due_date"""
-        inv = InvoiceFactory(due_date=date.today() - timedelta(days=1), status='issued')
+        inv = InvoiceFactory(due_date=business_today() - timedelta(days=1), status='issued')
         assert inv.is_overdue is True
 
     def test_tc_inv_06_is_overdue_false(self):
         """Invoice is not overdue when before due_date"""
-        inv = InvoiceFactory(due_date=date.today() + timedelta(days=1), status='issued')
+        inv = InvoiceFactory(due_date=business_today() + timedelta(days=1), status='issued')
+        assert inv.is_overdue is False
+
+    def test_tc_inv_05b_due_today_not_overdue(self):
+        """Boundary: due_date == business date is NOT overdue (due today)."""
+        inv = InvoiceFactory(due_date=business_today(), status='issued')
         assert inv.is_overdue is False
 
     def test_tc_inv_07_void_invoice(self):
