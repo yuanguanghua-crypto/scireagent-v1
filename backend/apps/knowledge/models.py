@@ -144,6 +144,11 @@ class Application(StatusMixin, TimeStampedModel):
         indexes = []
         if _USE_POSTGRES:
             indexes.append(GinIndex(fields=['search_vector'], name='application_search_gin'))
+            # pg_trgm：让 search_views 的 icontains（ILIKE '%q%'）走索引，
+            # 消除全表扫描（实测 183ms → 0.13ms）
+            indexes.append(GinIndex(
+                fields=['name', 'summary'], name='application_name_summary_trgm',
+                opclasses=['gin_trgm_ops', 'gin_trgm_ops']))
 
     def __str__(self):
         return self.name
@@ -239,6 +244,9 @@ class Method(StatusMixin, TimeStampedModel):
         ]
         if _USE_POSTGRES:
             indexes.append(GinIndex(fields=['search_vector'], name='method_search_gin'))
+            indexes.append(GinIndex(
+                fields=['name', 'summary', 'purpose'], name='method_name_summary_purpose_trgm',
+                opclasses=['gin_trgm_ops', 'gin_trgm_ops', 'gin_trgm_ops']))
 
     def __str__(self):
         return self.name
@@ -324,6 +332,9 @@ class Protocol(TimeStampedModel):
         ]
         if _USE_POSTGRES:
             indexes.append(GinIndex(fields=['search_vector'], name='protocol_search_gin'))
+            indexes.append(GinIndex(
+                fields=['name', 'objective'], name='protocol_name_objective_trgm',
+                opclasses=['gin_trgm_ops', 'gin_trgm_ops']))
 
     def __str__(self):
         return f'{self.name} v{self.version}'
@@ -415,6 +426,9 @@ class Reference(TimeStampedModel):
         indexes = []
         if _USE_POSTGRES:
             indexes.append(GinIndex(fields=['search_vector'], name='reference_search_gin'))
+            indexes.append(GinIndex(
+                fields=['title', 'authors', 'doi'], name='reference_title_authors_doi_trgm',
+                opclasses=['gin_trgm_ops', 'gin_trgm_ops', 'gin_trgm_ops']))
 
     def save(self, *args, **kwargs):
         # 空字符串视为未填写，转为 NULL 以避免 unique 约束冲突
