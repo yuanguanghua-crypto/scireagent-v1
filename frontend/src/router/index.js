@@ -9,6 +9,18 @@ const routes = [
     meta: { title: 'Home', nav: 'public' },
   },
   {
+    path: '/privacy',
+    name: 'PrivacyPolicy',
+    component: () => import('@/views/PrivacyPolicyPage.vue'),
+    meta: { title: 'Privacy Policy', nav: 'public' },
+  },
+  {
+    path: '/terms',
+    name: 'TermsOfService',
+    component: () => import('@/views/TermsPage.vue'),
+    meta: { title: 'Terms of Service', nav: 'public' },
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/LoginPage.vue'),
