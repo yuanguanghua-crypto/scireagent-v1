@@ -128,10 +128,13 @@ class PoSubmissionService:
 
         total = 0
         for item in data.get('items', []):
-            unit_price = Decimal(str(item.get('unit_price', 0) or 0))
+            # ★ v4.1 对抗性自测 Fix：unit_price 服务端按 SKU 现价覆盖（客户端提交不可信）
+            from apps.commerce.models import SKU
+            sku = SKU.objects.select_related('product').get(pk=item['sku_id'])
+            unit_price = sku.price or Decimal('0')
             oi = OrderItem.objects.create(
                 order=order,
-                product_id=item.get('product_id'),
+                product_id=item.get('product_id') or sku.product_id,
                 sku_id=item['sku_id'],
                 quantity=item['quantity'],
                 unit_price=unit_price,

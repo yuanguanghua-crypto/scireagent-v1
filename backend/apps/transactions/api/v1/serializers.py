@@ -255,6 +255,13 @@ class PoSubmitItemSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1, max_value=10000)
     unit_price = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal('0'))
 
+    def validate_sku_id(self, value):
+        """★ v4.1 对抗性自测 Fix：sku_id 必须指向真实存在的 SKU（此前 500）。"""
+        from apps.commerce.models import SKU
+        if not SKU.objects.filter(pk=value).exists():
+            raise serializers.ValidationError(f'SKU {value} does not exist')
+        return value
+
 
 class PoSubmitSerializer(serializers.Serializer):
     """PO 提交入参。"""
