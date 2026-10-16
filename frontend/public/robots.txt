@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /ops/
+Disallow: /workspace/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /login
+Disallow: /register
+
+Sitemap: https://scireagent.com/sitemap.xml

@@ -325,4 +325,16 @@ router.beforeEach((to, from, next) => {
   next()
 })
 
+// ★ v4.1 DEV-7 SEO Phase B：每路由动态 title + meta description
+const SITE_NAME = 'SciReagent'
+router.afterEach((to) => {
+  const title = to.meta?.title
+  document.title = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — AI-Native Scientific Reagent Platform`
+  const desc = document.querySelector('meta[name="description"]')
+  if (desc) {
+    desc.setAttribute('content', to.meta?.description
+      || 'Search reagents by CAS number, explore research applications, methods and protocols. B2B sales with COA/SDS compliance.')
+  }
+})
+
 export default router
