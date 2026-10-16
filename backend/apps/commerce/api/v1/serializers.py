@@ -25,7 +25,8 @@ class SKUSerializer(BaseModelSerializer):
         model = SKU
         fields = [
             'id', 'product_id', 'sku_code', 'pack_size', 'price', 'currency',
-            'inventory_status', 'concentration', 'lead_time', 'is_default', 'is_ruo', 'created_at',
+            'inventory_status', 'concentration', 'lead_time', 'is_default', 'is_ruo',
+            'hs_code', 'export_controlled', 'created_at',
         ]
 
 

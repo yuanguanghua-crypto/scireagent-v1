@@ -257,6 +257,9 @@ class SKU(TimeStampedModel):
     is_default = models.BooleanField(default=False, verbose_name='默认SKU')
     # ★ v4.1 DEV-4：RUO 标注 — 试剂默认 True，法规要求商品页/发票/订单页展示
     is_ruo = models.BooleanField(default=True, verbose_name='仅供科研使用（RUO）')
+    # ★ v4.1 DEV-10：出口筛查 — hs_code 海关归类 + export_controlled 两用物项标志
+    hs_code = models.CharField(max_length=20, blank=True, default='', verbose_name='HS 编码')
+    export_controlled = models.BooleanField(default=False, verbose_name='出口受控（两用物项）')
 
     class Meta:
         db_table = 'sku'
