@@ -144,8 +144,11 @@ class Application(StatusMixin, TimeStampedModel):
         indexes = []
         if _USE_POSTGRES:
             indexes.append(GinIndex(fields=['search_vector'], name='application_search_gin'))
-            # pg_trgm：让 search_views 的 icontains（ILIKE '%q%'）走索引，
-            # 消除全表扫描（实测 183ms → 0.13ms）
+            # ⚠️ 声明仅作文档用：实际生效的 trigram 索引由 migration
+            #    0022_search_trgm_indexes.py 用 RunPython 手工创建。
+            #    原因是 Django 的 GinIndex(fields=...) 只能索引原列，
+            #    而 search_views 的 icontains 编译为 UPPER(col) LIKE UPPER('%q%')，
+            #    索引必须建在 UPPER(col) 表达式上（实测：索引原列 131ms / 表达式 0.33ms）。
             indexes.append(GinIndex(
                 fields=['name', 'summary'], name='application_name_summary_trgm',
                 opclasses=['gin_trgm_ops', 'gin_trgm_ops']))

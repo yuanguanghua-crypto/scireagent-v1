@@ -10,10 +10,11 @@ from django.db import migrations
 # 加上 gin_trgm_ops 后同一条查询 → Bitmap Index Scan, Execution Time: 0.130 ms（约 1400×）。
 #
 # ⚠️ 为什么不用 model Meta.indexes 自动生成：
-#   这些索引只对 PostgreSQL 有意义，SQLite 上 GinIndex/gin_trgm_ops 不可用。
+#   ① 这些索引只对 PostgreSQL 有意义，SQLite 上 GinIndex/gin_trgm_ops 不可用；
+#   ② 更关键：真正需要的是 UPPER(col) 上的**表达式**索引，而 Django 的
+#      GinIndex(fields=[...]) 只能索引原列，无法表达 UPPER()。
 #   本项目既有模式（见 0008_search_vectors.py）是「model Meta 里用 _USE_POSTGRES 条件
-#   声明 + migration 里用 RunPython 手工执行」，这样 SQLite 迁移保持 no-op。
-#   此处沿用同一模式，不发明新机制。
+#   声明 + migration 里用 RunPython 手工执行」，此处沿用同一模式，不发明新机制。
 #
 # ⚠️ 为什么不碰 search_vector / 不用全文检索：
 #   search_vector 字段在生产所有表的填充率都是 0（application 28570/0、method 47935/0、
@@ -36,11 +37,26 @@ _TRGM_INDEXES = [
 ]
 
 
-def enable_pg_trgm(apps, schema_editor):
-    """PostgreSQL-only: 启用 pg_trgm 扩展 + 建 trigram GIN 索引。
+def _upper_trgm_ddl(table, idx_name, columns):
+    """生成 UPPER(表达式) 上的 GIN trigram 索引。
 
-    CREATE INDEX（非 CONCURRENTLY）会锁表写入；生产数据量 application 28570 /
-    method 47935 / protocol 14128 行，实测建索引耗时在秒级，且部署窗口内可接受。
+    ⚠️ 必须索引 UPPER(col) 表达式本身，不能索引原列：
+    Django 的 `__icontains` 生成的是 `UPPER(col::text) LIKE UPPER('%q%')`
+    （实测见下方说明），字段上套了函数，普通 col 上的 trigram 索引用不上。
+    实测对照（production，同一条 application 查询）：
+      索引建在原列→ Seq Scan，Execution Time 131ms
+      索引建在 UPPER(col) → Bitmap Index Scan，Execution Time 0.332ms
+    """
+    exprs = ', '.join(f"(UPPER({c}::text)) gin_trgm_ops" for c in columns)
+    return f'CREATE INDEX IF NOT EXISTS {idx_name} ON {table} USING gin ({exprs});'
+
+
+def enable_pg_trgm(apps, schema_editor):
+    """PostgreSQL-only: 启用 pg_trgm 扩展 + 建 UPPER() 表达式 trigram GIN 索引。
+
+    CREATE INDEX（非 CONCURRENTLY）会锁表写入；生产实测建索引耗时：
+    application 4.0s、protocol 6.0s、method 0.3s、reference 0.1s，
+    且索引总量约 18MB/表级，部署窗口内可接受。
     如需零停机，改为 CREATE INDEX CONCURRENTLY 并在事务外执行。
     """
     if schema_editor.connection.vendor != 'postgresql':
@@ -48,11 +64,7 @@ def enable_pg_trgm(apps, schema_editor):
     with schema_editor.connection.cursor() as cursor:
         cursor.execute('CREATE EXTENSION IF NOT EXISTS pg_trgm;')
         for table, idx_name, columns in _TRGM_INDEXES:
-            # 多列 GIN + trigram：每列都必须显式声明 gin_trgm_ops
-            cols = ', '.join(f"{c} gin_trgm_ops" for c in columns)
-            cursor.execute(
-                f'CREATE INDEX IF NOT EXISTS {idx_name} ON {table} USING gin ({cols});'
-            )
+            cursor.execute(_upper_trgm_ddl(table, idx_name, columns))
 
 
 def disable_pg_trgm(apps, schema_editor):
