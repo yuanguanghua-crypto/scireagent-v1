@@ -94,6 +94,9 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             if not show_archived:
                 qs = qs.exclude(archived=True)
         query = self.request.query_params.get('search', '')
+        # ★ v4.1 对抗性自测加固：search 参数长度上限 200（此前 10000 字符靠 nginx 414 兜底）
+        if len(query) > 200:
+            query = query[:200]
         if query:
             # S2：必须保留基础 qs（含上面 exclude(archived=True) 与分类过滤），
             # 旧写法 `qs = selectors.filter_products(query)` 会整段覆盖、丢掉 archived 排除。

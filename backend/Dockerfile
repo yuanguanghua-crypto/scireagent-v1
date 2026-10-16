@@ -34,4 +34,4 @@ COPY docker-entrypoint.sh .
 RUN chmod +x docker-entrypoint.sh
 ENTRYPOINT ["./docker-entrypoint.sh"]
 # PORT is injected by Hugging Face Spaces (default 7860). Bind to 0.0.0.0:$PORT.
-CMD ["sh", "-c", "gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120"]
+CMD ["sh", "-c", "gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 5 --threads 4 --worker-class gthread --timeout 120"]
