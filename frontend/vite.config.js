@@ -13,6 +13,18 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  build: {
+    // ★ v4.1 DEV-8：主包拆分 — vendor 库独立 chunk，业务代码变更时浏览器缓存命中 vendor
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-element': ['element-plus'],
+          'vendor-vue': ['vue', 'vue-router', 'pinia'],
+          'vendor-http': ['axios'],
+        },
+      },
+    },
+  },
   server: {
     // host:true 让 vite 监听所有网卡(含 127.0.0.1 与 [::1]),
     // 消除浏览器把 localhost 解析成 IPv4 时连不上仅 IPv6 监听的 dev server 的问题。
