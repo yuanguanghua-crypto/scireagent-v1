@@ -255,6 +255,8 @@ class SKU(TimeStampedModel):
     concentration = models.CharField(max_length=64, blank=True, default='', verbose_name='浓度')
     lead_time = models.CharField(max_length=64, blank=True, default='', verbose_name='交货时间')
     is_default = models.BooleanField(default=False, verbose_name='默认SKU')
+    # ★ v4.1 DEV-4：RUO 标注 — 试剂默认 True，法规要求商品页/发票/订单页展示
+    is_ruo = models.BooleanField(default=True, verbose_name='仅供科研使用（RUO）')
 
     class Meta:
         db_table = 'sku'

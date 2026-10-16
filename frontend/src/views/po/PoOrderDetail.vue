@@ -102,6 +102,9 @@ function statusTransition(log) {
           </tr>
         </tbody>
       </table>
+      <p v-if="order.items?.some(it => it.is_ruo !== false)" class="po-muted" style="margin-top:6px; font-size:12px; color:#888">
+        For Research Use Only. Not for use in diagnostic or therapeutic procedures.
+      </p>
       <div class="po-total-row">
         <span>Grand Total</span>
         <span class="po-total-value">{{ formatCurrency(order.grand_total, order.currency) }}</span>

@@ -285,6 +285,13 @@ class InvoiceService:
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
         ]))
         story.append(table)
+        # ★ v4.1 DEV-4：RUO 法定标注 — 发票 PDF 页脚
+        if any(item.sku and getattr(item.sku, 'is_ruo', True) for item in invoice.order.items.all()):
+            story.append(Spacer(1, 6 * mm))
+            story.append(Paragraph(
+                'For Research Use Only. Not for use in diagnostic or therapeutic procedures.',
+                styles['Normal']
+            ))
         doc.build(story)
         return path
 
