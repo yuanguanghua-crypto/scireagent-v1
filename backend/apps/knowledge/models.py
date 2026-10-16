@@ -248,7 +248,7 @@ class Method(StatusMixin, TimeStampedModel):
         if _USE_POSTGRES:
             indexes.append(GinIndex(fields=['search_vector'], name='method_search_gin'))
             indexes.append(GinIndex(
-                fields=['name', 'summary', 'purpose'], name='method_name_summary_purpose_trgm',
+                fields=['name', 'summary', 'purpose'], name='method_nsp_trgm',
                 opclasses=['gin_trgm_ops', 'gin_trgm_ops', 'gin_trgm_ops']))
 
     def __str__(self):
@@ -430,7 +430,7 @@ class Reference(TimeStampedModel):
         if _USE_POSTGRES:
             indexes.append(GinIndex(fields=['search_vector'], name='reference_search_gin'))
             indexes.append(GinIndex(
-                fields=['title', 'authors', 'doi'], name='reference_title_authors_doi_trgm',
+                fields=['title', 'authors', 'doi'], name='reference_tad_trgm',
                 opclasses=['gin_trgm_ops', 'gin_trgm_ops', 'gin_trgm_ops']))
 
     def save(self, *args, **kwargs):

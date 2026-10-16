@@ -31,9 +31,9 @@ from django.db import migrations
 
 _TRGM_INDEXES = [
     ('application', 'application_name_summary_trgm', ['name', 'summary']),
-    ('method', 'method_name_summary_purpose_trgm', ['name', 'summary', 'purpose']),
+    ('method', 'method_nsp_trgm', ['name', 'summary', 'purpose']),
     ('protocol', 'protocol_name_objective_trgm', ['name', 'objective']),
-    ('reference', 'reference_title_authors_doi_trgm', ['title', 'authors', 'doi']),
+    ('reference', 'reference_tad_trgm', ['title', 'authors', 'doi']),
 ]
 
 
