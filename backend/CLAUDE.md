@@ -14,6 +14,14 @@ DB_ENGINE=sqlite PYTHONDONTWRITEBYTECODE=1 venv/Scripts/python.exe -B -m pytest 
 # Run specific test file
 DB_ENGINE=sqlite PYTHONDONTWRITEBYTECODE=1 venv/Scripts/python.exe -B -m pytest apps/commerce/tests/test_product_detail_api.py -p no:cacheprovider
 
+# ⚠️ 禁用 `manage.py test` —— 已加拦截守卫，误用会直接 exit 1
+# 原因：它走 unittest 发现器，只收集 TestCase 子类中以 test 开头的方法；
+#       本项目 34 个文件含 pytest 风格用例（模块级 def test_xxx + 裸 assert），
+#       对它不可见 —— 它不会报错，而是跑完能看见的那部分后返回 exit 0（假通过）。
+# 实测（2026-10-17）：manage.py test 收 1984 个 / pytest 收 2438 个。
+# 逃生阀（一般不需要）：SCIREAGENT_ALLOW_MANAGE_TEST=1 venv/Scripts/python.exe manage.py test ...
+# 守卫实现与已知局限：backend/config/guard_manage_py_test.py
+
 # Dev server
 DB_ENGINE=sqlite python manage.py runserver
 
