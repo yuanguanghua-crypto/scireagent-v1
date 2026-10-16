@@ -50,10 +50,19 @@ class InventoryViewSet(EnvelopeMixin, mixins.ListModelMixin, mixins.RetrieveMode
         return srl.InventoryListSerializer
 
     def retrieve(self, request, *args, **kwargs):
-        inv = (Inventory.objects
-               .select_related('sku', 'sku__product', 'batch')
-               .prefetch_related('movements')
-               .get(pk=kwargs['pk']))
+        # ★ v4.1 缺陷修复：不存在的 pk 必须返回 404 而非 500。
+        #   生产实测：`GET /api/v1/inventory/1/`（不存在的 pk）→ 500，
+        #   堆栈 apps.inventory.models.Inventory.DoesNotExist at views.py:56。
+        #   同类遗漏点在 InventoryAdjustView 已修（见下方 exists() 检查），
+        #   此处补齐 —— 用 RetrieveModelMixin 的标准处理，避免直接 .get() 抛异常。
+        try:
+            inv = (Inventory.objects
+                   .select_related('sku', 'sku__product', 'batch')
+                   .prefetch_related('movements')
+                   .get(pk=kwargs['pk']))
+        except Inventory.DoesNotExist:
+            from rest_framework.exceptions import NotFound
+            raise NotFound(f"Inventory {kwargs['pk']} not found")
         return self.success_response(srl.InventoryDetailSerializer(inv).data)
 
 

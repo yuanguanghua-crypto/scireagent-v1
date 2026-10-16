@@ -188,3 +188,41 @@ class PrefetchRegressionTest(Base):
         self.assertEqual(r.status_code, 200, r.content[:300])
         data = r.json().get('data') or {}
         self.assertEqual(len(data.get('movements') or []), 1)
+
+
+class RetrieveMissingTest(Base):
+    """★ v4.1 缺陷：GET /api/v1/inventory/{不存在的pk}/ 曾返回 500。
+
+    与 InventoryAdjustView 上轮已修的 404 处理是同一类遗漏 —— adjust 路径
+    加了 `if not Inventory.objects.filter(pk=pk).exists(): raise NotFound`，
+    但 retrieve 路径（views.py:52-57）仍直接 `.get(pk=...)`，未捕获
+    `Inventory.DoesNotExist`，导致生产实测 500。
+
+    生产实测证据（容器内直连，admin 有效token）：
+        GET /api/v1/inventory/1/  →  500 Internal Server Error
+        Traceback: apps.inventory.api.v1.views:56 in retrieve
+                    .get(pk=kwargs['pk'])
+                    apps.inventory.models.Inventory.DoesNotExist
+    """
+
+    def test_detail_missing_pk_returns_404(self):
+        self._auth(self.proc)
+        r = self.client.get('/api/v1/inventory/999999/')
+        self.assertEqual(r.status_code, 404, r.content[:300])
+
+    def test_detail_missing_pk_as_admin_returns_404(self):
+        self._auth(self.admin)
+        r = self.client.get('/api/v1/inventory/999999/')
+        self.assertEqual(r.status_code, 404, r.content[:300])
+
+    def test_detail_missing_pk_anon_still_401(self):
+        """不存在 pk 不应绕过认证 —— 匿名仍是 401，不是 404（防资源枚举）。"""
+        r = self.client.get('/api/v1/inventory/999999/')
+        self.assertEqual(r.status_code, 401, r.content[:300])
+
+    def test_detail_existing_still_200(self):
+        """回归：存在的 pk 必须仍然 200。"""
+        inv = Inventory.objects.create(sku=self.sku, location='MAIN', available=7)
+        self._auth(self.proc)
+        r = self.client.get(f'/api/v1/inventory/{inv.id}/')
+        self.assertEqual(r.status_code, 200, r.content[:300])
