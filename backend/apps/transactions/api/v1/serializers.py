@@ -124,7 +124,11 @@ class CheckoutSerializer(serializers.Serializer):
     PAYMENT_METHOD_CHOICES = ['purchase_order', 'credit_card', 'wire_transfer', 'quote']
 
     payment_method = serializers.ChoiceField(choices=PAYMENT_METHOD_CHOICES)
-    po_number = serializers.CharField(max_length=100, required=False, allow_blank=True, default='')
+    # ★ 2026-10-16 修 P0：原default='' 与模型 default='' 叠加，空串订单会撞唯一约束。
+    #   改为 default=None + allow_null，让"未填 PO 号"落NULL（不进唯一索引），
+    #   与 checkout_views.py:69 的 `data.get('po_number') or None` 口径一致。
+    po_number = serializers.CharField(
+        max_length=100, required=False, allow_blank=True, allow_null=True, default=None)
     po_contact = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')
     shipping_name = serializers.CharField(max_length=200)
     shipping_address = serializers.CharField()

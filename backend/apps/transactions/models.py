@@ -88,9 +88,13 @@ class Order(TimeStampedModel):
         max_length=20, choices=PaymentMethod.choices,
         default=PaymentMethod.PO, verbose_name='付款方式'
     )
-    # null=True so optional (non-PO) orders can store NULL instead of '' — a
-    # UNIQUE column must not collide on the empty string.
-    po_number = models.CharField(max_length=100, blank=True, null=True, default='', unique=True, verbose_name='PO 号')
+    # ★ 2026-10-16 修 P0：`unique=True` 对空串 '' 同样生效 ⇒ 任何走
+    #   `Order.objects.create()` 不显式传po_number 的路径落空串后，**第二个这样的订单
+    #   必然 IntegrityError（HTTP 500）**。实测：OrderViewSet.create 写权限是
+    #   IsAuthenticated ⇒ 任意登录用户连建两单，第二单就 500。
+    #   改为 Meta 上的**条件唯一约束**：非空 PO 号仍全局唯一；
+    #   NULL / 空串不进唯一索引（PostgreSQL、SQLite 的部分唯一索引对 NULL 不去重）⇒ 可共存。
+    po_number = models.CharField(max_length=100, blank=True, null=True, default='', verbose_name='PO 号')
     po_contact = models.CharField(max_length=200, blank=True, default='', verbose_name='PO 联系人')
     payment_terms = models.CharField(
         max_length=20, choices=PaymentTerms.choices,
@@ -151,6 +155,14 @@ class Order(TimeStampedModel):
         verbose_name = '订单'
         verbose_name_plural = verbose_name
         ordering = ['-created_at']
+        constraints = [
+            #非空 PO 号全局唯一；空串/NUL 行不进入唯一索引（允许"无 PO 号"的多张订单共存）
+            models.UniqueConstraint(
+                fields=['po_number'],
+                condition=~models.Q(po_number=''),
+                name='uniq_order_po_number_nonempty',
+            ),
+        ]
 
     def __str__(self):
         return f'Order {self.order_no}'

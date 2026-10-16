@@ -359,6 +359,10 @@ class ShippingService:
         shipment.save(update_fields=['status', 'shipped_at', 'updated_at'])
 
         # 释放对应 Allocation（实物已出）
+        # ★ 2026-10-16 修 P0：原代码 `remaining` 只决定何时停止遍历，释放量仍是
+        #   alloc.quantity 整额（InventoryService.release 无条件全额释放）
+        #   ⇒ 部分发货（占用 10 / 发货 5）把 allocated 直接归零，账实不符。
+        #   现按 `min(remaining, alloc 剩余占用量)` 部分释放；发完整批才转 SHIPPED。
         for item in shipment.items.select_related('order_item').all():
             remaining = item.quantity
             for alloc in Allocation.objects.filter(
@@ -366,8 +370,8 @@ class ShippingService:
             ).order_by('id'):
                 if remaining <= 0:
                     break
-                InventoryService.release(alloc)
-                remaining -= alloc.quantity
+                released = InventoryService.release(alloc, quantity=remaining)
+                remaining -= released
 
         # 任一批 shipped → 推进订单到 SHIPPED（仅当状态机允许）
         order = shipment.order

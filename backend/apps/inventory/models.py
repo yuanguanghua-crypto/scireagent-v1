@@ -62,7 +62,16 @@ class Inventory(TimeStampedModel):
 
 
 class Allocation(TimeStampedModel):
-    """库存占用 — 订单行对具体库存记录的锁定。"""
+    """库存占用 — 订单行对具体库存记录的锁定。
+
+    ★ 2026-10-16 修 P0（部分发货占用被整额释放）：`quantity` 是**原始占用量**（不可变，
+    审计口径），新增 `released_quantity` 记录**累计已出库量**。
+    分批发货时每次只释放实发量，`remaining = quantity - released_quantity`；
+    仅当 `released_quantity == quantity` 时 status 才转 SHIPPED。
+    选此方案而非「拆分 Allocation 行」：后者会让 `filter(status=RESERVED)`
+    （inventory/api/v1/serializers.py:40、tests/test_allocate.py:56）与
+    `Allocation.objects.count()` 类断言语义破碎，且占用行数量随发货次数膨胀。
+    """
 
     class Status(models.TextChoices):
         RESERVED = 'reserved', 'Reserved'
@@ -77,6 +86,7 @@ class Allocation(TimeStampedModel):
         Inventory, on_delete=models.CASCADE, related_name='allocations', verbose_name='库存'
     )
     quantity = models.IntegerField(default=1, verbose_name='占用数量')
+    released_quantity = models.IntegerField(default=0, verbose_name='累计已出库数量')
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.RESERVED
     )
@@ -89,6 +99,11 @@ class Allocation(TimeStampedModel):
 
     def __str__(self):
         return f'Alloc {self.order_item_id} → {self.inventory_id} x{self.quantity} ({self.status})'
+
+    @property
+    def remaining_quantity(self) -> int:
+        """尚未出库的占用量。"""
+        return max(0, self.quantity - self.released_quantity)
 
 
 class InsufficientInventoryError(Exception):

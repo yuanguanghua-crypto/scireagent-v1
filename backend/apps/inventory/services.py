@@ -45,19 +45,46 @@ class InventoryService:
 
     @staticmethod
     @transaction.atomic
-    def release(allocation: Allocation):
-        """发货：实物已出，释放占用量（allocated-=q，available 不变），标记 SHIPPED。"""
+    def release(allocation: Allocation, quantity: int | None = None) -> int:
+        """发货：实物已出，释放占用量（allocated-=q，available 不变）。
+
+        ★ 2026-10-16 修 P0（部分发货占用被整额释放）：原实现无条件释放
+          `allocation.quantity` 整额，而调用方（ShippingService.mark_shipped）
+          的 `remaining` 只决定何时停止遍历、不决定释放多少 ⇒ 占用 10、发货 5
+          会把 allocated 直接归零，账实不符。
+          现支持 `quantity` 参数做部分释放：只减实发量，流水按实发量写，
+          `allocation.released_quantity` 累计，仅当释放完毕才转 SHIPPED。
+          `quantity=None`（默认）时为全量释放，行为与修复前完全一致。
+
+        返回实际释放量。
+        """
+        # ★ 重取并加行锁：调用方传进来的 allocation 可能是发货前读出的快照，
+        #   同一 order_item 的多批发货并发 mark_shipped 时 released_quantity 会是陈值
+        #   ⇒ 累计量算错、status 误判。与本类「所有扣减/释放均经 select_for_update」一致。
+        allocation = Allocation.objects.select_for_update().get(pk=allocation.pk)
         inv = InventoryService._lock(allocation.inventory_id)
-        inv.release(allocation.quantity)
+        if quantity is None:
+            quantity = allocation.remaining_quantity
+        quantity = min(int(quantity), allocation.remaining_quantity)
+        if quantity <= 0:
+            return 0
+        inv.release(quantity)
         inv.save(update_fields=['allocated', 'updated_at'])
-        allocation.status = Allocation.Status.SHIPPED
-        allocation.save(update_fields=['status', 'updated_at'])
-        # ★ v4.1 DEV-1：发货出库流水（同事务审计）
+        allocation.released_quantity += quantity
+        update_fields = ['released_quantity', 'updated_at']
+        # ★ 仅在占用被全部释放时才置 SHIPPED；部分释放保持 RESERVED
+        if allocation.released_quantity >= allocation.quantity:
+            allocation.status = Allocation.Status.SHIPPED
+            update_fields.append('status')
+        allocation.save(update_fields=update_fields)
+        # ★ v4.1 DEV-1：发货出库流水（同事务审计）—— 按**实际释放量**写，
+        #   不能按 allocation.quantity 整额写，否则流水与账面不符。
         InventoryMovement.objects.create(
             inventory=inv, kind=InventoryMovement.Kind.SHIP,
-            delta_allocated=-allocation.quantity, quantity=allocation.quantity,
+            delta_allocated=-quantity, quantity=quantity,
             reason=f'order:{allocation.order_item.order_id}', order_id=allocation.order_item.order_id,
         )
+        return quantity
 
     @staticmethod
     @transaction.atomic
