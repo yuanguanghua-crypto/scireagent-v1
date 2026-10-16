@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password as django_validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 
 from apps.accounts.models import Organization, Address
 
@@ -103,6 +104,7 @@ class RegisterSerializer(serializers.Serializer):
 
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
         password = validated_data.pop('password')
         validated_data.pop('password_confirm')
@@ -137,7 +139,17 @@ class RegisterSerializer(serializers.Serializer):
             user.save()
 
         elif org_choice == 'join':
-            org = Organization.objects.get(pk=org_id, status='active')
+            # ★ P1 修复：此处不能裸 get。validate() 与 create() 是两次独立查询，
+            # 两者之间机构可能被停用（管理员操作 / 批量任务），裸 get 会把
+            # Organization.DoesNotExist 抛到视图外 ⇒ HTTP 500。该端点是
+            # AllowAny（匿名可打），未捕获异常会变成可被匿名触发的 500。
+            # 语义与 validate() 保持一致：解析不到「active」机构即字段级 400。
+            org = Organization.objects.filter(
+                pk=org_id, status=Organization.Status.ACTIVE).first()
+            if org is None:
+                raise serializers.ValidationError(
+                    {"organization_id": "Organization not found or not active"}
+                )
             user.organization = org
             user.is_org_admin = False
             user.save()

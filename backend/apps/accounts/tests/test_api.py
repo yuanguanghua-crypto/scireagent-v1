@@ -201,6 +201,136 @@ class RegisterAPITest(TestCase):
         self.assertEqual(resp.status_code, 400)
 
 
+class RegisterJoinOrgRaceTest(TestCase):
+    """`organization_choice='join'` 的机构解析在 create() 里不得抛未捕获异常。
+
+    背景：`validate()` 与 `create()` 各自独立查了一次 `Organization`。两次查询
+    之间机构可能被停用（管理员操作 / 批量任务），此时 `create()` 里的裸
+    `Organization.objects.get(...)` 会把 `DoesNotExist` 抛到视图外 ⇒ HTTP 500。
+
+    注意：单次 HTTP 请求里「机构已停用」会被 `validate()` 先拦住并返回 400，
+    所以**只有 validate 通过后再停用**（下面对序列化器直接做的 TOCTOU 用例）
+    才真正覆盖 create() 这条路径。
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.url = '/api/v1/auth/register'
+
+    def _payload(self, **overrides):
+        payload = {
+            'username': 'raceuser',
+            'email': 'race@example.com',
+            'password': 'testpass123',
+            'password_confirm': 'testpass123',
+            'role': 'researcher',
+            'organization_choice': 'join',
+        }
+        payload.update(overrides)
+        return payload
+
+    def _org(self, name='Join Race Org', status=Organization.Status.ACTIVE):
+        return Organization.objects.create(
+            name=name,
+            org_type=Organization.OrgType.ACADEMIC,
+            created_by=UserFactory(),
+            status=status,
+        )
+
+    def _error_details(self, resp):
+        """本项目响应统一裹了 envelope，字段级错误在 meta.error.details。"""
+        return resp.data['meta']['error']['details']
+
+    def test_join_active_org_registers_successfully(self):
+        """回归：合法机构必须仍能注册成功（别把正常路径搞坏）。"""
+        org = self._org()
+        resp = self.client.post(
+            self.url, self._payload(organization_id=org.id), format='json')
+        self.assertEqual(resp.status_code, 201)
+        user = User.objects.get(username='raceuser')
+        self.assertEqual(user.organization, org)
+        self.assertFalse(user.is_org_admin)
+
+    def test_join_missing_org_id_returns_400(self):
+        resp = self.client.post(self.url, self._payload(), format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('organization_id', self._error_details(resp))
+        self.assertFalse(User.objects.filter(username='raceuser').exists())
+
+    def test_join_nonexistent_org_returns_400(self):
+        resp = self.client.post(
+            self.url, self._payload(organization_id=99999), format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('organization_id', self._error_details(resp))
+        self.assertFalse(User.objects.filter(username='raceuser').exists())
+
+    def test_join_suspended_org_returns_400(self):
+        """已停用机构在 validate() 阶段即被拦 ⇒ 400，且不残留用户。"""
+        org = self._org(status=Organization.Status.SUSPENDED)
+        resp = self.client.post(
+            self.url, self._payload(organization_id=org.id), format='json')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('organization_id', self._error_details(resp))
+        self.assertFalse(User.objects.filter(username='raceuser').exists())
+
+    def test_register_endpoint_is_allow_any(self):
+        """确认注册端点确实匿名可打（RegisterView.permission_classes）。"""
+        from apps.accounts.api.v1.views import RegisterView
+        from rest_framework.permissions import AllowAny
+
+        self.assertEqual(list(RegisterView.permission_classes), [AllowAny])
+        self.assertEqual(list(RegisterView.authentication_classes), [])
+
+        # 不带任何凭据，匿名注册成功
+        org = self._org()
+        resp = self.client.post(
+            self.url, self._payload(organization_id=org.id), format='json')
+        self.assertEqual(resp.status_code, 201)
+
+    def test_org_deactivated_between_validate_and_create_raises_validation_error(self):
+        """★ 真正的回归靶点：validate() 通过后机构被停用，create() 不得抛
+        `Organization.DoesNotExist`（那会变成 HTTP 500），而应抛可读的
+        `serializers.ValidationError`。"""
+        from rest_framework import serializers as drf_serializers
+
+        from apps.accounts.api.v1.serializers import RegisterSerializer
+
+        org = self._org()
+        serializer = RegisterSerializer(
+            data=self._payload(organization_id=org.id))
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+        # TOCTOU：validate() 已通过，此刻机构被停用
+        Organization.objects.filter(pk=org.pk).update(
+            status=Organization.Status.SUSPENDED)
+
+        with self.assertRaises(drf_serializers.ValidationError) as ctx:
+            serializer.save()
+
+        self.assertIn('organization_id', ctx.exception.detail)
+
+    def test_org_deactivated_mid_request_does_not_leave_orphan_user(self):
+        """竞态失败时不得残留半成品用户（否则匿名可打 ⇒ 脏数据/账号占用）。"""
+        from rest_framework import serializers as drf_serializers
+
+        from apps.accounts.api.v1.serializers import RegisterSerializer
+
+        org = self._org()
+        serializer = RegisterSerializer(
+            data=self._payload(organization_id=org.id))
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        Organization.objects.filter(pk=org.pk).update(
+            status=Organization.Status.SUSPENDED)
+
+        with self.assertRaises(drf_serializers.ValidationError):
+            serializer.save()
+
+        self.assertFalse(
+            User.objects.filter(username='raceuser').exists(),
+            '竞态失败后残留了孤儿用户，匿名注册路径会堆积脏账号',
+        )
+
+
 class RegisterPasswordPolicyTest(TestCase):
     """AUTH_PASSWORD_VALIDATORS must actually reject weak passwords on the
     registration path (regression guard for the previously-unwired validators)."""
