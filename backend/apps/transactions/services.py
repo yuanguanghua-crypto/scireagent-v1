@@ -307,7 +307,12 @@ class ShippingService:
         # ★ 2026-10-13：**先校验全部 order_item 归属本订单，再落库**。
         #   此前在循环内 `OrderItem.objects.get(pk=..., order=order)` 且**未捕获 DoesNotExist**，
         #   异常一路上抛 ⇒ 500（本该是 400）。本方法本就有 @transaction.atomic ⇒ 数据不会残留半成品，
-        #   缺的只是"错误语义"。（实测：前端发的结构恰好正确，所以 UI 不踩；API 消费者/集成方会踩。）
+        #                 缺的只是"错误语义"。（实测：前端发的结构恰好正确，所以 UI 不踩；API 消费者/集成方会踩。）
+        # ★ v4.1 对抗性自测 Fix 2：发货单创建必须校验订单状态（此前任意状态都能挂 shipment）
+        if order.status not in ('confirmed', 'in_production'):
+            raise InvalidTransitionError(
+                f'Cannot create shipment for order in status {order.status}; '
+                f'expected confirmed or in_production')
         item_ids = [it['order_item_id'] for it in items]
         items_by_id = {
             oi.pk: oi for oi in OrderItem.objects.filter(order=order, pk__in=item_ids)

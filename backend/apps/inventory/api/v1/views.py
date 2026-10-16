@@ -83,6 +83,10 @@ class InventoryAdjustView(EnvelopeMixin, APIView):
         ser = srl.AdjustSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         vd = ser.validated_data
+        # ★ v4.1 对抗性自测 Fix 3：不存在库存 ID 返回 404 而非 500
+        if not Inventory.objects.filter(pk=pk).exists():
+            from rest_framework.exceptions import NotFound
+            raise NotFound(f'Inventory {pk} not found')
         try:
             inv = InventoryService.adjust(pk, vd['delta'], user=request.user, reason=vd['reason'])
         except (ValueError, InsufficientInventoryError) as e:

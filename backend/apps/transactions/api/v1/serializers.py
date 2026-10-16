@@ -201,7 +201,7 @@ class ShipmentItemSerializer(serializers.Serializer):
     """
 
     order_item_id = serializers.IntegerField(min_value=1)
-    quantity = serializers.IntegerField(min_value=1)
+    quantity = serializers.IntegerField(min_value=1, max_value=10000)
 
 
 class ShipmentCreateSerializer(serializers.Serializer):
@@ -252,7 +252,7 @@ class PaymentCreateSerializer(serializers.Serializer):
 class PoSubmitItemSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(required=False, allow_null=True)
     sku_id = serializers.IntegerField()
-    quantity = serializers.IntegerField(min_value=1)
+    quantity = serializers.IntegerField(min_value=1, max_value=10000)
     unit_price = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal('0'))
 
 
