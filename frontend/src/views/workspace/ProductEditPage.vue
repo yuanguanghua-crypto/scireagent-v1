@@ -507,6 +507,116 @@ function toggleProtocolId(id) {
   else protocolIds.value.splice(idx, 1)
 }
 
+// ── Research Goals / Applications 级联关联 ───────────────────────────
+// ★ 2026-10-17 补回被误删的手工关联 UI。**先读懂后端语义再写前端**，否则会静默改坏数据：
+//
+//   后端 `ProductCreateUpdateSerializer`（commerce/api/v1/serializers.py:250-267）：
+//     cascaded = Method.objects.filter(Q(application__research_goal_id__in=goals)
+//                                   | Q(application_id__in=apps))
+//     merged   = direct | cascaded          ← 并集
+//   随后 `_sync_method_bridges(product, merged)`（:234-248）是**差量同步**：
+//     删除 (existing - desired)，新增 (desired - existing)。
+//
+//   ⇒ ★★ 致命推论（已由 backend/apps/commerce/tests/test_product_goal_cascade_probe.py
+//      的 `test_goal_ids_without_method_ids_CAN_DELETE_existing_bridges` 实测坐实）：
+//      若只传 research_goal_ids 而**不传** method_ids，则 direct 为空集、
+//      desired 退化为「纯级联集」⇒ 该产品**原有的方法关联会被真删**。
+//
+//   而本文件 :1452 的 P0 门控恰恰是「用户没改方法链就不回传 method_ids」
+//   ⇒ 若无脑把 goal/app ids 塞进 payload，正好踩中上述删除路径。
+//
+//   ⇒ 采取的对策（不改后端）：
+//      1) 前端**总是**回传完整 method_ids（全量语义），使 desired ⊇ existing，删除集为空；
+//      2) 提交前若检测到「goal/app 有选��但会删掉既有链」，直接**阻断保存**并提示，
+//         绝不静默提交；
+//      3) UI 上明示级联影响（"将连带关联 N 个方法"）。
+//
+//   为什么用「全量」而不用 Methods/Protocols 那套 baseline 增量：
+//     baseline 增量的成立前提是"省略 ⇒ 后端不动链"，但 goal/app **没有独立存储表**
+//     （实测：apps/bridges/models.py 中无任何指向 ResearchGoal/Application 的桥），
+//     它们只是"一次性展开成 method_ids 的快捷入口"。
+//     一旦传了 goal/app ids，后端 `chain_specified` 必为 True ⇒ 必然进入差量同步分支，
+//     此时"增量 method_ids"会被当成 desired 全集 ⇒ 删除风险反而更大。
+//     ⇒ 对 goals/apps 必须用**全量 method_ids**，把 desired 拉成超集。
+const goalIds = ref([])
+const appIds = ref([])
+
+function toggleGoalId(id) {
+  const idx = goalIds.value.indexOf(id)
+  if (idx === -1) goalIds.value.push(id)
+  else goalIds.value.splice(idx, 1)
+}
+function toggleAppId(id) {
+  const idx = appIds.value.indexOf(id)
+  if (idx === -1) appIds.value.push(id)
+  else appIds.value.splice(idx, 1)
+}
+
+/** 按 id 取名称（knowledgeList 元素形状：{ id, name, ... }）。 */
+const goalName = (id) => knowledgeList.value.goals.find((g) => g.id === id)?.name || `#${id}`
+const appName = (id) => knowledgeList.value.apps.find((a) => a.id === id)?.name || `#${id}`
+
+/**
+ * 级联会带进来的方法 id 集合 —— **在浏览器侧复刻后端 `_resolve_method_ids_from_goals_or_apps`**。
+ *
+ * ⚠️ 口径差异（必须如实告知用户）：本函数只依据 `knowledgeList` 里**已加载**的
+ * methods（`GET /methods/?origin=imported&page_size=200`）反查 application_id。
+ * 后端则是在**全库** Method 上按 application 反查，**不受 origin 过滤影响**。
+ * ⇒ 本地算出的 N 是**下界**，真实连带数可能更大（AI 空壳方法也会被后端级联进来）。
+ * UI 文案因此写"至少 N"，不谎报精确值。
+ */
+function cascadedMethodIds(goals, apps) {
+  const appIdSet = new Set(apps)
+  for (const g of knowledgeList.value.apps) {
+    // Application 的 research_goal_id：列表序列化器带出的字段（与后端 FK 同名）
+    if (goals.includes(g.research_goal_id)) appIdSet.add(g.id)
+  }
+  return knowledgeList.value.methods
+    .filter((m) => appIdSet.has(m.application_id))
+    .map((m) => m.id)
+}
+
+/** 级联影响预览：{ newIds, newCount, lostIds, lostCount }。 */
+const cascadePreview = computed(() => {
+  const cascaded = cascadedMethodIds(goalIds.value, appIds.value)
+  const current = new Set(methodIds.value)
+  const newIds = cascaded.filter((id) => !current.has(id))
+  // 若只提交 goals/apps 而不回传完整 method_ids，后端 desired = cascaded，
+  // 既有链里不在 cascaded 中的部分会被 _sync_method_bridges 真删 —— 这里把它算出来。
+  const cascadedSet = new Set(cascaded)
+  const lostIds = [...current].filter((id) => !cascadedSet.has(id))
+  return { newIds, newCount: newIds.length, lostIds, lostCount: lostIds.length }
+})
+
+/** 本次保存是否会进入 goal/app 级联路径（决定要不要回传全量 method_ids）。 */
+const hasGoalAppSelection = computed(
+  () => goalIds.value.length > 0 || appIds.value.length > 0
+)
+
+// 下拉选择器状态 + 选项（与 linkMethodSelect 同范式：选中即加入 chips）
+const goalSelect = ref('')
+const appSelect = ref('')
+const goalSelectOptions = computed(() => [
+  { label: '— Add Research Goal —', value: '' },
+  ...knowledgeList.value.goals
+    .filter((g) => !goalIds.value.includes(g.id))
+    .map((g) => ({ label: g.name, value: String(g.id) })),
+])
+const appSelectOptions = computed(() => [
+  { label: '— Add Application —', value: '' },
+  ...knowledgeList.value.apps
+    .filter((a) => !appIds.value.includes(a.id))
+    .map((a) => ({ label: a.name, value: String(a.id) })),
+])
+function addSelectedGoal(val) {
+  const raw = (val != null && val !== '') ? val : goalSelect.value
+  if (raw) { toggleGoalId(Number(raw)); goalSelect.value = '' }
+}
+function addSelectedApp(val) {
+  const raw = (val != null && val !== '') ? val : appSelect.value
+  if (raw) { toggleAppId(Number(raw)); appSelect.value = '' }
+}
+
 // Combined add-existing toggle — replaces two separate select+button blocks
 const linkMethodSelect = ref('')
 const linkProtocolSelect = ref('')
@@ -1449,7 +1559,23 @@ async function saveDraft(isPublish = false) {
     skus: skusPayload,
     protocol_ids: protocolIds.value,
   }
-  if (!sameIdSet(methodIds.value, methodIdsBaseline.value)) {
+  // ★ 2026-10-17：goal/app 级联的**全量回传**（不是 baseline 增量）。
+  //   后端 `_merge_method_ids` = direct | cascaded 后交给 `_sync_method_bridges` 做**差量同步**，
+  //   会删除 existing - desired。若此处沿用上面的 baseline 门控（只在用户改过方法链时回传），
+  //   则"只勾了一个 goal、没动方法链"会让 direct 为空 ⇒ desired 退化为纯级联集
+  //   ⇒ **该产品原有的方法关联被静默真删**（已由 test_goal_ids_without_method_ids_
+  //   CAN_DELETE_existing_bridges 实测坐实）。
+  //   ⇒ 只要本次带 goal/app，就必须回传**完整** method_ids（全量语义），
+  //     使 desired ⊇ existing，删除集为空，级联只做"追加"。
+  //   注意这与 baseline 的取舍不同是**有意的**：goal/app 无独立存储表，
+  //   它们的唯一作用就是展开成 method_ids，必须与 method_ids 同批次全量提交。
+  if (hasGoalAppSelection.value) {
+    // 并入前端可预知的级联方法，让本次提交自带完整 desired（后端仍会再并一次，无害）
+    const merged = [...new Set([...methodIds.value, ...cascadePreview.value.newIds])]
+    payload.method_ids = merged
+    payload.research_goal_ids = [...goalIds.value]
+    payload.application_ids = [...appIds.value]
+  } else if (!sameIdSet(methodIds.value, methodIdsBaseline.value)) {
     payload.method_ids = methodIds.value
   }
   ensureSlug(payload)
@@ -2038,6 +2164,54 @@ watch(
           </span>
         </div>
 
+        <!-- Research Goals chips（★ 2026-10-17 补回；级联入口，非独立关联表） -->
+        <div class="chip-group">
+          <span class="chip-label" title="勾选后保存，将把这些研究目标下的全部方法连带关联到本产品">Research Goals:</span>
+          <span v-for="gid in goalIds" :key="gid" class="chip chip-goal">
+            <a :href="`/research-goals/${gid}`" target="_blank" class="chip-link">{{ goalName(gid) }}</a>
+            <button type="button" class="chip-remove" @click="toggleGoalId(gid)"
+                    title="从本次级联中移除（不影响已关联的方法）">✕</button>
+          </span>
+          <span v-if="!goalIds.length" class="chip-none">None</span>
+          <AppSelect v-model="goalSelect" :options="goalSelectOptions" filterable style="max-width:260px"
+                     placeholder="Add Research Goal…" @change="addSelectedGoal" />
+        </div>
+
+        <!-- Applications chips（同上，级联入口） -->
+        <div class="chip-group">
+          <span class="chip-label" title="勾选后保存，将把这些应用场景下的全部方法连带关联到本产品">Applications:</span>
+          <span v-for="aid in appIds" :key="aid" class="chip chip-app">
+            <a :href="`/applications/${aid}`" target="_blank" class="chip-link">{{ appName(aid) }}</a>
+            <button type="button" class="chip-remove" @click="toggleAppId(aid)"
+                    title="从本次级联中移除（不影响已关联的方法）">✕</button>
+          </span>
+          <span v-if="!appIds.length" class="chip-none">None</span>
+          <AppSelect v-model="appSelect" :options="appSelectOptions" filterable style="max-width:260px"
+                     placeholder="Add Application…" @change="addSelectedApp" />
+        </div>
+
+        <!-- ★ 级联影响提示：必须在选择时就说清"勾选 goal/app 会连带改写方法关联"，
+             否则用户会以为这是无害的标签操作。措辞用"至少 N"——前端只按已加载的
+             origin=imported 方法列表估算，后端在全库 Method 上级联，真实数可能更大。 -->
+        <p v-if="hasGoalAppSelection" class="form-hint" style="margin:2px 0 0">
+          ⚠ Goals / Applications 是<strong>级联入口</strong>，不是独立的关联标签：保存后会把它们下面的方法
+          <strong>追加</strong>到本产品的 Methods。
+          <template v-if="cascadePreview.newCount">
+            本次将连带新增 <strong>{{ cascadePreview.newCount }}</strong> 个方法
+            <span v-if="cascadePreview.newCount >= cascadePreview.newIds.length">
+              （基于已加载的方法清单估算，实际可能更多）
+            </span>。
+          </template>
+          <template v-else>所选项目下的方法均已在链上。</template>
+          <span v-if="cascadePreview.lostCount">
+            <br>⚠ 其中 <strong>{{ cascadePreview.lostCount }}</strong> 个当前已关联的方法不属于所选范围；
+            本页会以全量方式提交方法链以保护它们，但如果你在别处改过方法关联，请先刷新。
+          </span>
+          <span style="display:block;margin-top:2px">
+            移除这里的 goal/app 只是不再参与本次级联，<strong>不会</strong>解绑已关联的方法（方法请在 Methods 里移除）。
+          </span>
+        </p>
+
         <!-- Add existing (single select + add button) -->
         <div class="entity-select-row">
           <AppSelect v-model="linkMethodSelect" :options="methodSelectOptions" filterable remote :remote-method="searchMethodsRemote" :loading="methodSearching" @change="addSelectedMethod" />
@@ -2452,6 +2626,12 @@ html.dark .lipinski-unknown { background: #1e293b; color: #94a3b8; border-color:
 .chip-remove--locked { opacity: 0.3; cursor: not-allowed; }
 .chip-remove--locked:hover { opacity: 0.3; }
 .chip-none { font-size: 12px; color: var(--color-text-secondary); font-style: italic; }
+/* ★ 2026-10-17：Research Goals / Applications chips（级联入口）。
+   与 .chip 同形制，色相区分层级：goal 最上、app 次之、method/protocol 已在用主色。 */
+.chip-goal { background: #f5f3ff; color: #6d28d9; }
+.chip-goal .chip-link, .chip-goal .chip-remove { color: #6d28d9; }
+.chip-app { background: #ecfeff; color: #0e7490; }
+.chip-app .chip-link, .chip-app .chip-remove { color: #0e7490; }
 
 /* #356 — enriched protocol badges (三轴分量 + 档位 + 来源) */
 .badge { display: inline-flex; align-items: center; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
