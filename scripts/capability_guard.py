@@ -90,6 +90,20 @@ def rel(path: str) -> str:
     return os.path.relpath(path, REPO).replace("\\", "/")
 
 
+def apath(path: str) -> str:
+    """绝对路径 → **统一正斜杠**的绝对路径（索引键的唯一规范形态）。
+
+    ⚠️ 这不是洁癖，是 P0 漏洞的根因：`scan_api_layer` 走 `os.walk(API_DIR)`，
+    在 Windows 上 os.path.join 产出**反斜杠**键（`C:\\...\\api\\documents.js`）；
+    而 `resolve_spec` 内部 `.replace("\\\\","/")` 产出**正斜杠**
+    （`C:/.../api/documents.js`）。两者字符串不等，于是
+    `self.exports.get(target)` 恒得空集 —— 命名空间导入与
+    `export {a} from './b'` 转发**静默失效**，删除闸门因此漏放行。
+    统一成正斜杠后，跨平台（Windows/POSIX）都命中同一把键。
+    """
+    return os.path.abspath(path).replace("\\", "/")
+
+
 def _emit(text: str, out_path: str | None) -> None:
     """输出到 stdout；若给了 out_path 则同时落盘（自动建目录）。"""
     if out_path:
@@ -571,7 +585,7 @@ def resolve_spec(spec: str, importer: str) -> str | None:
     for cand in (p, p + ".js", p + ".vue", p + ".ts",
                  os.path.join(p, "index.js"), os.path.join(p, "index.vue")):
         if os.path.isfile(cand):
-            return cand
+            return apath(cand)           # 与索引键同形态（正斜杠绝对路径）
     return None
 
 
@@ -599,6 +613,7 @@ class FrontendIndex:
             self._scan_api_file(f)
 
     def _scan_api_file(self, path: str) -> None:
+        path = apath(path)                  # 键统一正斜杠，否则与 resolve_spec 查不到
         text = read(path)
         exported: set[str] = set()
 
@@ -705,9 +720,10 @@ class FrontendIndex:
             self._scan_consumer(f)
 
     def _scan_consumer(self, path: str) -> None:
+        path = apath(path)                  # 键统一正斜杠，与 exports/api_layer_refs 对齐
         text = read(path)
         rpath = self._store.setdefault(path, rel(path))
-        is_api_layer = os.path.abspath(path).startswith(os.path.abspath(API_DIR))
+        is_api_layer = apath(path).startswith(apath(API_DIR) + "/")
         specs: list[str] = []
         for m in IMPORT_STMT.finditer(text):
             specs.append(m.group("spec"))
@@ -722,7 +738,7 @@ class FrontendIndex:
                 continue
             rtarget = self._store.setdefault(target, rel(target))
             self.file_imports[rpath].add(rtarget)
-            if target.endswith(SOURCE_EXT) and not target.startswith(API_DIR):
+            if target.endswith(SOURCE_EXT) and not target.startswith(apath(API_DIR) + "/"):
                 self.component_refs[rtarget].add(rpath)
             if not is_api_layer:
                 # 命名空间别名：import { aiToolsApi } from '@/api'
@@ -763,6 +779,7 @@ class FrontendIndex:
     # ── api 层内部引用（闭包上卷用） ──
     def scan_api_layer_refs(self) -> None:
         for f in iter_source_files(API_DIR):
+            f = apath(f)
             text = read(f)
             rf_ = self._store.setdefault(f, rel(f))
             for stmt in IMPORT_STMT.finditer(text):
@@ -805,8 +822,10 @@ class FrontendIndex:
                     if c not in seen:
                         seen.add(c)
                 for ref_file in self.api_layer_refs.get(k, ()):
-                    # ref_file 是**相对**路径；exports 的键是绝对路径 → 需还原
-                    abs_ref = os.path.normpath(os.path.join(REPO, ref_file))
+                    # ref_file 是**相对**路径；exports 的键是绝对路径 → 需还原。
+                    # ⚠️ 必须走 apath()：os.path.join 在 Windows 上拼出反斜杠，
+                    # 与 exports 的正斜杠键对不上，会让整个上卷分支恒空。
+                    abs_ref = apath(os.path.join(REPO, ref_file))
                     for sym2 in self.exports.get(abs_ref, set()):
                         k2 = f"{ref_file}::{sym2}"
                         if k2 not in seen:
@@ -932,6 +951,25 @@ class Finding:
                 "evidence": self.evidence, "detail": self.detail, "hint": self.hint}
 
 
+def _sym_use_re(name: str) -> re.Pattern:
+    r"""匹配「导出符号 name 被真实使用」，且不被更长标识符的尾部骗到。
+
+    两种真实调用形态都必须认：
+      · 裸调用     getSdsList(id)
+      · 命名空间   documentsApi.getSdsList(id)
+
+    ⚠️ 这里的负向前瞻只放行 [\w$]（标识符字符）作前缀，**故意放行 '.'**：
+      · 放行 '.'  → `documentsApi.getSdsList(` 能命中（限定名访问）。
+      · 挡住 [\w$] → `fooBar(` 不会被 `bar` 命中（防子串误匹配）。
+    所以「防子串」靠的是 \w 而不是 '.'；把 '.' 也挡掉（原先的 [\w.$]）
+    正是 P0 的第二重根因 —— 它把限定名访问一并挡了。
+    注：尾部 [\.(] 要求符号被当作调用/属性用，纯提及（注释、字符串里
+    出现单词）不算。放行 '.' 只会带来「误认成调用」的偏保守方向，
+    对删除闸门而言是安全侧（多拦而非漏放）。
+    """
+    return re.compile(rf"(?<![\w$]){re.escape(name)}\s*[\.(]")
+
+
 class Gate:
     def __init__(self, backend: BackendIndex, frontend: FrontendIndex):
         self.be = backend
@@ -951,7 +989,7 @@ class Gate:
             mod, name = key.split("::")
             exported_by_name[name].add(mod)
         for name in exported_by_name:
-            if re.search(rf"(?<![\w.$]){re.escape(name)}\s*[\.(]", text):
+            if _sym_use_re(name).search(text):
                 used.add(name)
         # 命名空间别名：aiToolsApi.batchValidate(...)
         for mod, alias_map in self.fe.re_exports.items():
