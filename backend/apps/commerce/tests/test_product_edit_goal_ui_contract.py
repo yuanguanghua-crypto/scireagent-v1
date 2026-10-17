@@ -71,8 +71,14 @@ class ProductEditGoalCascadeContractTest(SimpleTestCase):
     def test_clear_selection_omits_keys_rather_than_sending_empty_array(self):
         """★ 清空语义：分支条件用 `.length > 0` ⇒ 清空后 key 不进 payload（而非传 []）。
 
-        传 [] 会让后端 `_merge_method_ids` 的 cascaded 为空、direct 为空
-        ⇒ desired 为空集 ⇒ 整条方法链被清空（已由 probe 测试实测坐实）。
+        历史背景（2026-10-17 已在后端修复）：传 [] 曾会让后端
+        `_merge_method_ids` 的 cascaded 为空、direct 也为空 ⇒ desired 退化为空集
+        ⇒ 整条方法链被清空（当时已由 probe 测试实测坐实）。
+
+        后端现已修复为"级联项只增不删"，故传 [] **不再**清空方法链；但本契约
+        **仍然保留**：前端少发两个无意义的 key 更干净，且它同时把"清空"与
+        "显式清空方法链（method_ids=[]）"这两种语义区分开，避免将来后端口径变化时
+        再次出现误删。前端护栏是第二道防线，不可移除。
         """
         self.assertIn('goalIds.value.length > 0 || appIds.value.length > 0', self.src,
                       'hasGoalAppSelection 未按"长度>0"判定 —— 清空时会误传空数组')

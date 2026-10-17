@@ -231,19 +231,47 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id']
 
-    def _sync_method_bridges(self, product, method_ids):
-        """Sync ProductMethod bridges: remove old, add new."""
+    def _sync_method_bridges(self, product, method_ids, *, cascaded_ids=None):
+        """同步 ProductMethod 桥：**按 `method_ids` 差量同步 + 把 `cascaded_ids` 纯追加**。
+
+        `method_ids`：**客户端显式给出的 desired 全集**（`None` = 本次未给出 ⇒ 不做任何删除）。
+        `cascaded_ids`：goal/app 级联解析出的方法（见 `_resolve_method_ids_from_goals_or_apps`），
+          **只增不删** —— 它们被并入最终结果，但**绝不参与"删除决策"**。
+
+        ★ 2026-10-17 修**数据误删隐患**（原实现把 `direct | cascaded` 混成一个集合传给本函数）：
+          原签名只有一个 `method_ids` 参数，同时承担"desired 全集"与"追加来源"两个语义。
+          由于本函数是**差量同步**（先删 `existing - desired`），一旦调用方**只传
+          research_goal_ids / application_ids、不传 method_ids**，`direct` 为空 ⇒
+          `desired` 退化为**纯级联集** ⇒ **不属于该 goal 的既有方法关联被静默真删**。
+          任何 API 调用方（curl / 脚本 / 未来客户端 / E2E）只要这么发一次即触发数据损失。
+
+          现在：删除决策的**唯一依据**是显式的 `method_ids`；级联项只走 `to_add` 通道。
+            · 只传 goal/app        ⇒ `method_ids is None` ⇒ **不删任何东西**，只追加级联方法
+            · 只传 method_ids      ⇒ 差量同步语义**完全不变**（含 `[]` 显式清空）
+            · 两者都传             ⇒ `method_ids` 表达 desired 全集并照常差量同步；
+                                    级联项即使不在 `method_ids` 里也**自动补上**，
+                                    但**不会**因此保住任何不在 `method_ids` 里的既有项
+        """
         from apps.bridges.models import ProductMethod
-        if method_ids is None:
-            return  # Not provided, don't touch
+        if method_ids is None and not cascaded_ids:
+            return  # Neither provided, don't touch
         existing = set(ProductMethod.objects.filter(product=product).values_list('method_id', flat=True))
-        desired = set(mid for mid in method_ids if Method.objects.filter(id=mid).exists())
-        # Remove bridges not in desired
-        to_remove = existing - desired
+        # 级联项只走新增通道；过滤不存在的 Method，避免写入脏 FK
+        cascaded = set(mid for mid in (cascaded_ids or ()) if Method.objects.filter(id=mid).exists())
+        if method_ids is None:
+            # ★ 本次未给出 method_ids ⇒ **没有任何删除决策依据** ⇒ 绝不删除既有桥，
+            #   只把 goal/app 级联出的方法追加进来。
+            to_remove = set()
+            to_add = cascaded - existing
+        else:
+            desired = set(mid for mid in method_ids if Method.objects.filter(id=mid).exists())
+            # 目标集 = 显式 desired ∪ 级联项。级联项并入目标集（而非"先删后建"），
+            # 保证"既在级联范围又被显式移出 desired"的方法是**原地保留**，行 id 不变。
+            target = desired | cascaded
+            to_remove = existing - target
+            to_add = target - existing
         if to_remove:
             ProductMethod.objects.filter(product=product, method_id__in=to_remove).delete()
-        # Add bridges not in existing
-        to_add = desired - existing
         for mid in to_add:
             ProductMethod.objects.create(product=product, method_id=mid)
 
@@ -261,10 +289,20 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         return set(Method.objects.filter(q).values_list('id', flat=True))
 
     def _merge_method_ids(self, method_ids, research_goal_ids, application_ids):
-        """合并前端传来的 method_ids 和从 goal/app 级联解析出的 method_ids。"""
-        direct = set(method_ids) if method_ids else set()
+        """返回 `(desired_ids, cascaded_ids)` —— **两者语义不同，不可再混成一个集合**。
+
+        ★ 2026-10-17：原实现返回 `direct | cascaded` 的**并集**，而该并集随后被当作
+        "desired 全集"交给差量同步的 `_sync_method_bridges` ⇒ 只传 goal/app 时
+        `direct` 为空、`desired` 退化为纯级联集 ⇒ **既有方法关联被静默真删**。
+        详见 `_sync_method_bridges` 的 docstring。
+
+          · `desired_ids`：仅来自显式 `method_ids`；**`None` 表示未给出**
+            （区别于 `[]` —— 后者是"显式清空全链"，必须保留该语义）。
+          · `cascaded_ids`：goal/app 级联出的方法，**纯追加**。
+        """
+        desired = set(method_ids) if method_ids is not None else None
         cascaded = self._resolve_method_ids_from_goals_or_apps(research_goal_ids, application_ids)
-        return direct | cascaded
+        return desired, cascaded
 
     def _sync_protocol_bridges(self, product, protocol_ids):
         """Sync MethodProtocol bridges via product's methods.
@@ -391,20 +429,20 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             ) from exc
 
         # Sync method bridges only if any method-related field was explicitly provided.
-        # Explicit empty list clears all bridges; omitting all fields preserves existing.
+        # Explicit empty method_ids clears all bridges; goal/app cascade is append-only.
         if method_ids is not None or research_goal_ids is not None or application_ids is not None:
-            merged = self._merge_method_ids(method_ids, research_goal_ids, application_ids)
-            self._sync_method_bridges(product, list(merged))
+            desired, cascaded = self._merge_method_ids(
+                method_ids, research_goal_ids, application_ids)
+            self._sync_method_bridges(product, desired, cascaded_ids=cascaded)
         self._sync_protocol_bridges(product, protocol_ids)
 
-        # 刷新继承链：**仅当本次显式给出方法链时**才清孤儿，并重算当前方法链派生（#一致性修复）
+        # 刷新继承链：**仅当本次显式给出 method_ids 时**才清孤儿（#一致性修复）
         # ★ P0：省略方法链 ⇒ 不删除任何 INHERITED 行（详见 _refresh_inherited_bridges）
+        # ★ 2026-10-17：口径与 update() 统一为只认 method_ids（goal/app 为纯追加，不参与删除）。
+        #   新建产品本就无既有桥，两种口径行为等价，此处仅为一致性与可读性。
         self._refresh_inherited_bridges(
             product,
-            chain_specified=(
-                method_ids is not None or research_goal_ids is not None
-                or application_ids is not None
-            ),
+            chain_specified=(method_ids is not None),
         )
 
         # Auto-generate SEO on publish (draft→active)
@@ -470,20 +508,22 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                 instance.skus.filter(id__in=stale_ids).delete()
 
         # Sync method bridges only if any method-related field was explicitly provided.
-        # Explicit empty list clears all bridges; omitting all fields preserves existing.
+        # Explicit empty method_ids clears all bridges; goal/app cascade is append-only.
         if method_ids is not None or research_goal_ids is not None or application_ids is not None:
-            merged = self._merge_method_ids(method_ids, research_goal_ids, application_ids)
-            self._sync_method_bridges(instance, list(merged))
+            desired, cascaded = self._merge_method_ids(
+                method_ids, research_goal_ids, application_ids)
+            self._sync_method_bridges(instance, desired, cascaded_ids=cascaded)
         self._sync_protocol_bridges(instance, protocol_ids)
 
-        # 刷新继承链：**仅当本次显式给出方法链时**才清孤儿，并重算当前方法链派生（#一致性修复）
+        # 刷新继承链：**仅当本次显式给出 method_ids 时**才清孤儿，并重算当前方法链派生
         # ★ P0：省略方法链 ⇒ 不删除任何 INHERITED 行（详见 _refresh_inherited_bridges）
+        # ★ 2026-10-17：`chain_specified` 收敛为**只认 method_ids**。原先 goal/app 也计入，
+        #   但 goal/app 级联现已是**纯追加**（不删方法桥）⇒ 方法链只增不减 ⇒ 派生集只增不减，
+        #   此时走 prune 分支**毫无收益**，却会在只传 goal/app 时删掉既有 INHERITED 协议行
+        #   （实测：before=[proto_other] after=[]）。删除权与 desired 的来源保持一致：只认 method_ids。
         self._refresh_inherited_bridges(
             instance,
-            chain_specified=(
-                method_ids is not None or research_goal_ids is not None
-                or application_ids is not None
-            ),
+            chain_specified=(method_ids is not None),
         )
 
         # Auto-generate SEO when transitioning from draft to active
@@ -504,8 +544,8 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     def _refresh_inherited_bridges(self, product, *, chain_specified=True):
         """保存后刷新/补算 ProductProtocol(link_source=INHERITED) 行，使其与当前方法链一致。
 
-        `chain_specified`：**本次请求是否显式给出了方法链**（method_ids / research_goal_ids /
-        application_ids 任一非 None）。沿用本文件 create()/update() 既有的"显式 vs 省略"语义
+        `chain_specified`：**本次请求是否显式给出了 desired 方法链**（即 `method_ids` 非None）。
+        沿用本文件 create()/update() 既有的"显式 vs 省略"语义
         （见 :453-455 与其他 bridge 同步处）：
           - **显式给出** ⇒ 按当前链收敛：删掉不在派生集里的孤儿 INHERITED 行（保持既有契约）
           - **省略**     ⇒ **一律不删除**，只对派生行做 upsert 补算
@@ -518,6 +558,14 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
           工作台编辑页原先**无条件**回传 `method_ids`（空链时为 `[]`），因此"顺手保存一个
           无关字段"就会把该产品全部知识链接清空。现由 `chain_specified` 精确区分：
           客户端没打算改链，就不动链的派生结果。
+
+        ★ 2026-10-17 收窄口径为**只认 `method_ids`**（不再把 goal/app 计入）：
+          `research_goal_ids` / `application_ids` 是**一次性级联入口**，语义为**纯追加**
+          （见 `_sync_method_bridges`），**不参与任何删除决策**。既然如此，让它们触发
+          INHERITED 行的 prune 就自相矛盾：方法链只增不减 ⇒ 派生集只增不减 ⇒ prune 无收益，
+          却会在"只传 goal/app"时删掉既有 INHERITED 协议行（实测坐实，见
+          `test_product_goal_cascade_append_only.py::InheritedProtocolRowsSurviveGoalOnlySubmitTest`）。
+          ⇒ 删除权的唯一来源与 desired 的唯一来源保持一致：`method_ids`。
 
         注意：AUTO 行不受影响（由 `manage.py recompute_auto_links` 离线单独管理）。
         另注：本函数由 Product 的 create/update 调用；软归档（perform_destroy）与

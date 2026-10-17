@@ -3,12 +3,19 @@
 本文件**不修改任何后端行为**，只把 `ProductCreateUpdateSerializer` 对
 `research_goal_ids` / `application_ids` 的既有真实语义钉死，供前端补 UI 时据以设计。
 
-★ 本任务的核心风险（见 serializers.py:263-267 `_merge_method_ids`）：
-  `merged = direct | cascaded` 是**并集**，随后交给 `_sync_method_bridges`，
+★ 本文件的核心风险（见 serializers.py 的 `_merge_method_ids`）：
+  旧实现 `merged = direct | cascaded` 是**并集**，随后交给 `_sync_method_bridges`，
   而后者是**差量同步**（先删 existing - desired，再加 desired - existing）。
   ⇒ `desired` 一旦小于 `existing`，**既有方法关联会被真删**。
-  由于前端在"用户没改方法链"时**不传 method_ids**（ProductEditPage.vue:1452 的 P0 门控），
+  由于"用户没改方法链"时可能**不传 method_ids**，
   此时 `direct` 为空集、`desired` 退化为**纯级联集** ⇒ 只传 goal 就可能删掉既有方法链。
+
+★ **2026-10-17 已修复**（后端根因，非前端绕过）：
+  `_sync_method_bridges` 已拆出独立的 `cascaded_ids` 通道 —— goal/app 级联项
+  **只增不删**，删除决策的唯一依据是显式 `method_ids`。
+  本文件中两条记录**缺陷行为**的用例（"只传 goal 会删既有桥"、"传 [] 会清空整链"）
+  已**翻转断言方向**，并保留"原始取证结论"的说明文字。
+  完整的修复后契约见 `test_product_goal_cascade_append_only.py`。
 
 下面 4 组用例分别锁定：并集追加、删除风险、"清空"语义、以及是否存在 goal 存储表。
 """
@@ -78,13 +85,20 @@ class ResearchGoalCascadeSemanticsTest(TestCase):
             _pm_ids(product), sorted([self.m_a1.id, self.m_a2.id, self.m_other.id])
         )
 
-    def test_goal_ids_without_method_ids_CAN_DELETE_existing_bridges(self):
-        """实测 3（★ 核心风险）：**只**传 research_goal_ids 而不传 method_ids
-        ⇒ direct 为空集，desired 退化为纯级联集
-        ⇒ `_sync_method_bridges` 把 existing-desired 的既有桥**真删掉**。
+    def test_goal_ids_without_method_ids_NO_LONGER_deletes_existing_bridges(self):
+        """★ 取证用例，**已于 2026-10-17 修复并翻转断言方向**。
 
-        这意味着：前端若在"用户没动方法链"时回传 research_goal_ids，
-        一次看似无害的 goal 勾选就会**静默抹掉该产品原有的方法关联**。
+        原始取证结论（`1333ccc` 时的真实行为）：**只**传 research_goal_ids 而不传
+        method_ids ⇒ direct 为空集，desired 退化为纯级联集 ⇒ `_sync_method_bridges`
+        把 existing-desired 的既有桥**真删掉**。据此曾判定"前端必须在带 goal 时回传
+        全量 method_ids"作为防线。
+
+        修复后（`serializers.py` 的 `_sync_method_bridges` 拆出 `cascaded_ids` 通道）：
+        删除决策的**唯一依据**是显式 `method_ids`；goal/app 级联项**只增不删**。
+        ⇒ 任何 API 调用方只传 goal/app 都**不会再造成数据损失**，前端护栏降级为
+        "锦上添花"而非"唯一防线"。
+
+        本用例现在钉死修复后的正确行为：既有桥**全部保留**，级联方法**追加**。
         """
         product = ProductFactory()
         # 预置一条与 goal 完全无关的既有方法关联
@@ -96,38 +110,51 @@ class ResearchGoalCascadeSemanticsTest(TestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
         serializer.save()
 
-        # 实测确认：既有的 self.m_other 被删除，只剩级联出的 2 条
-        self.assertEqual(_pm_ids(product), sorted([self.m_a1.id, self.m_a2.id]))
-        self.assertFalse(
+        # 修复后：既有的 self.m_other **保留**，级联出的 2 条**追加** ⇒ 共 3 条
+        self.assertEqual(
+            _pm_ids(product), sorted([self.m_a1.id, self.m_a2.id, self.m_other.id]))
+        self.assertTrue(
             ProductMethod.objects.filter(product=product, method=self.m_other).exists(),
-            '实测确认：未提交的既有方法关联被真删除（这是本 UI 必须防的数据损失）',
+            '只传 research_goal_ids 不得删除任何既有方法关联（2026-10-17 已修）',
         )
 
     def test_clearing_goal_selection_has_no_storage_to_clear(self):
-        """实测 4："清空 goal 选择后保存"到底发生什么。
+        """实测 4：**清空 goal 选择后保存**到底发生什么。
 
         后端**没有** Product↔ResearchGoal / Product↔Application 的存储表
         （见 apps/bridges/models.py —— 只有 ProductMethod / MethodProtocol /
         ProductProtocol / ProductReference / ProductCompatibility 等，无 goal/app 桥）。
         ⇒ 这两个字段纯粹是"一次性级联入口"，本身不留痕。
 
-        因此：
-          · 传 []       ⇒ cascaded 为空集；若同时传 method_ids 则按 method_ids 收敛
-                          （等价于"用 method_ids 覆盖全链"）
-          · 省略该 key  ⇒ 保留既有桥（`_sync_*` 的 None 早退）
-        无论哪种，**都不存在"goal 关联残留"需要清理** —— 因为压根没存过。
-        本用例把这个事实钉死：清空后数据库里 goal 侧无任何痕迹，方法链按 method_ids 走。
+        ★ 2026-10-17 修复后语义（断言已随之更新）：
+          · 传 []        ⇒ 级联集为空；因**未给出 method_ids** ⇒ **无删除决策依据**
+                          ⇒ **不删除任何既有方法关联**（原行为是清空整链，属数据误删）
+          · 传 method_ids=[] ⇒ 显式 desired 为空集 ⇒ **仍清空整链**（语义刻意不同，
+                          前端"清空方法链"走的就是这条路）
+          · 省略该key   ⇒ 保留既有桥（`_sync_*` 的 None 早退）
+
+        本用例钉死修复后的行为：清空 goal 选择**不会**动方法链，而"无存储表"这一事实不变。
         """
         product = ProductFactory()
         ProductMethodFactory(product=product, method=self.m_other)
 
-        # 传空数组：级联集为空 ⇒ desired 退化为空集 ⇒ 全链被清
+        # 传空数组：级联集为空且未给 method_ids ⇒ 既有关联**保留**（原行为会清空整链）
         data = {'research_goal_ids': [], 'application_ids': []}
         serializer = ProductCreateUpdateSerializer(product, data=data, partial=True)
         self.assertTrue(serializer.is_valid(), serializer.errors)
         serializer.save()
 
-        # 实测确认：传 [] 会【清空】整个方法链（因为 direct 也为空）
+        self.assertEqual(
+            _pm_ids(product), [self.m_other.id],
+            '传空 goal/app 数组只表示"本次不追加"，不等于"清空方法链"（2026-10-17 已修）',
+        )
+
+        # 对照：显式传 method_ids=[] 才是"清空整链"
+        data_clear = {'method_ids': []}
+        serializer_clear = ProductCreateUpdateSerializer(
+            product, data=data_clear, partial=True)
+        self.assertTrue(serializer_clear.is_valid(), serializer_clear.errors)
+        serializer_clear.save()
         self.assertEqual(_pm_ids(product), [])
 
         # 再验证"省略 key"分支：保留既有
