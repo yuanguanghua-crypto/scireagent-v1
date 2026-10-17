@@ -1,0 +1,5 @@
+.....F..s.                                          [ 33%]
+........                                            [100%]
+
+=== 16 passed, 1 failed, 1 skipped in 4.20s ===
+FAILED apps/x/tests/test_a.py::test_one - AssertionError

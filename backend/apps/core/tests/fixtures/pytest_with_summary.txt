@@ -1,0 +1,6 @@
+.....F..s.                                          [ 33%]
+.....F...                                           [100%]
+
+=== 13 passed, 2 failed, 1 skipped in 4.20s ===
+FAILED apps/x/tests/test_a.py::test_one - AssertionError
+FAILED apps/y/tests/test_b.py::test_two

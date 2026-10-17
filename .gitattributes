@@ -1,0 +1,43 @@
+# 行尾策略：按文件类型显式声明，不依赖 core.autocrlf。
+#
+# 为什么要显式写：
+#   本仓库 `core.autocrlf=true`（实测）。这意味着**入库时 LF、检出时 CRLF**。
+#   对文本代码无害，但会**直接搞坏 git hook**：
+#     bash 脚本被检出成 CRLF 后，Git Bash 执行会报
+#       `$'\r': command not found: ...`
+#     或更隐蔽的：shebang 行尾带 \r，导致 git 认不出解释器。
+#   ⇒ hook 必须**强制 LF**，且这条约束要跟着文件进仓库，
+#     否则换一台机器 clone 就又坏了（"在我这能跑" 型事故）。
+#
+# 规则：
+#   * 文本默认按检出时 LF 处理（跨机器一致，diff 干净）
+#   * git hook 强制 LF 且必须可执行
+#   * Windows 批处理强制 CRLF（cmd 不认 LF-only 的 .bat）
+#   * 二进制文件不做行尾转换
+
+* text=auto eol=lf
+
+# ── git hook：必须 LF ──────────────────────────────────────────────
+# 这些文件被 bash 执行；CRLF 会让它们在 Git Bash 下直接失效。
+scripts/hooks/*      text eol=lf
+*.sh                 text eol=lf
+
+# ── Windows 原生脚本：必须 CRLF ────────────────────────────────────
+*.bat                text eol=crlf
+*.cmd                text eol=crlf
+*.ps1                text eol=crlf
+
+# ── 二进制：禁止行尾转换 ───────────────────────────────────────────
+*.png                binary
+*.jpg                binary
+*.jpeg               binary
+*.gif                binary
+*.ico                binary
+*.pdf                binary
+*.docx               binary
+*.xlsx               binary
+*.pptx               binary
+*.zip                binary
+*.gz                 binary
+*.sqlite3            binary
+*.pyc                binary

@@ -1,0 +1,6 @@
+......F                                                                  [ 50%]
+.s.xX                                                                    [100%]
+tests/knowledge/tests/test_skill_export_service.py::test_export_skills_x
+tests/knowledge/tests/test_skill_expert_service.py::test_sync_expert_skills
+ValueError: I/O operation on closed file
+FAILED tests/core/tests/test_this.py::test_broken - RuntimeError: boom

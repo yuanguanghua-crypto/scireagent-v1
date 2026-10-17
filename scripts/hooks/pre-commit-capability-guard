@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# pre-commit-capability-guard — 删除文件前的能力入口闸门
+#
+# 为什么需要它（一次真实事故换来的）：
+#   `scripts/capability_guard.py` 已落地 1398 行 + 15 个自测，
+#   但 `.git/hooks/` 0 个自定义 hook、`.github/workflows/` 0 个 workflow
+#   ⇒ **零自动化接入**，只能靠人记得手动跑。
+#   而「零引用 ≠ 无能力」今天已经付出两项能力丢失的代价
+#   （批量 AI + goals/apps UI）。
+#   ⇒ 一个「人记得才会用」的闸门，等于没有闸门。
+#
+# 设计要点（每一条都是为了让「日常提交零负担，删文件时才认真检查」）：
+#   1. **只在删文件时触发**：`git diff --cached --diff-filter=D`。
+#      闸门全量跑约 1.6~3.8 秒。若每次提交都跑，会拖慢所有人 ⇒ 必然被关掉。
+#   2. **失败时给出可执行的指引**，而不只是"BLOCK"。
+#      特别强调「必须是页面可达的真实入口，孤儿模块不算」——
+#      否则会有人为了过闸门去注册一个没人访问的路由，那等于没删。
+#   3. **三条逃生口**（故意留的，不是漏洞）：
+#        git commit --no-verify
+#        SKIP_CAPABILITY_GUARD=1 git commit
+#        CAPABILITY_GUARD_FORCE=1 git commit   （BLOCK 也放行，保留告警输出）
+#   4. **fail-closed**：闸门自身出错（找不到解释器/git 取不回内容）也拦。
+#      只读工具报错时如果默默放行，等于给了一个假的"已检查"信号。
+#   5. **Windows 可执行**：仓库 `core.autocrlf=true`，若不特殊处理，
+#      本文件检出后是 CRLF，Git Bash 会报 `$'\r': command not found`。
+#      ⇒ 仓库根的 `.gitattributes` 里对本文件强制 `eol=lf`。
+#
+# 安装（两种）：
+#   A. 直接跑安装脚本（会先检查 core.hooksPath 是否已被占用）：
+#        python scripts/install_git_hooks.py
+#   B. 手工：
+#        cp scripts/hooks/pre-commit-capability-guard .git/hooks/pre-commit
+#        chmod +x .git/hooks/pre-commit        # Git Bash 下必须
+#
+# 卸载：
+#        rm .git/hooks/pre-commit
+#
+# 退出码：0 放行；非 0 阻止本次提交。
+
+set -uo pipefail
+
+# ── 逃生口 1：显式环境变量 ────────────────────────────────────────────
+if [ "${SKIP_CAPABILITY_GUARD:-0}" = "1" ]; then
+  echo "[capability-guard] 已跳过（SKIP_CAPABILITY_GUARD=1）—— 这次删除**未经闸门检查**。" >&2
+  echo "[capability-guard] 请在提交信息里写明为什么必须删，否则后人会失去这段记忆。" >&2
+  exit 0
+fi
+
+# ── 只在「有文件被删」时才触发 ─────────────────────────────────────────
+DELETED="$(git diff --cached --name-only --diff-filter=D -- 2>/dev/null || true)"
+if [ -z "${DELETED}" ]; then
+  exit 0                       # 日常提交零开销
+fi
+
+DELETED_COUNT="$(printf '%s\n' "${DELETED}" | grep -c . || true)"
+echo "[capability-guard] 本次提交删除了 ${DELETED_COUNT} 个文件，启动能力入口闸门…" >&2
+
+# ── 定位仓库根与解释器 ────────────────────────────────────────────────
+# ⚠️ 这里**不能**用 BASH_SOURCE 去推 REPO_ROOT：Windows 上 hook 脚本
+#    可能解析到另一个盘符（实测：hook 在 E: 而仓库在 C:），
+#    于是 relpath() 抛 "path is on mount 'E:', start on mount 'C:'"。
+# ⇒ 一律以 `git rev-parse --show-toplevel` 为准。
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "${REPO_ROOT}" ]; then
+  echo "[capability-guard] 错误：不在 git 仓库内，无法定位仓库根。已阻止提交。" >&2
+  exit 1
+fi
+cd "${REPO_ROOT}" || exit 1
+
+GUARD="${REPO_ROOT}/scripts/capability_guard.py"
+if [ ! -f "${GUARD}" ]; then
+  echo "[capability-guard] 错误：找不到 ${GUARD}" >&2
+  echo "[capability-guard] 闸门不存在 ⇒ 无法确认这次删除是否安全。已阻止提交。" >&2
+  echo "[capability-guard] 确需强推：SKIP_CAPABILITY_GUARD=1 git commit ..." >&2
+  exit 1
+fi
+
+# 优先用项目 venv 的解释器；找不到再退到 PATH 里的 python
+if [ -x "${REPO_ROOT}/backend/venv/Scripts/python.exe" ]; then
+  PY="${REPO_ROOT}/backend/venv/Scripts/python.exe"
+elif command -v python3 >/dev/null 2>&1; then
+  PY="python3"
+elif command -v python >/dev/null 2>&1; then
+  PY="python"
+else
+  echo "[capability-guard] 错误：找不到 python 解释器。已阻止提交。" >&2
+  echo "[capability-guard] 确需强推：SKIP_CAPABILITY_GUARD=1 git commit ..." >&2
+  exit 1
+fi
+
+# ── 跑闸门（--audit：从 HEAD 取回已删文件内容，按「待删」处理）────────
+# shellcheck disable=SC2086
+GUARD_OUT="$("${PY}" -B "${GUARD}" \
+  --audit \
+  --git-rev HEAD \
+  --paths ${DELETED} 2>&1)"
+RC=$?
+printf '%s\n' "${GUARD_OUT}"
+
+# ⚠️ 必须区分「真的 BLOCK」与「闸门自己崩了」。
+#    Python 未捕获异常的退出码**也是 1**，与 BLOCK 完全相同。
+#    若把 crash 说成「失去了能力入口」，人会以为「那就是要删的」而绕过
+#    ⇒ crash 反而成了放行通道。所以靠输出里的 Traceback 来归因。
+if printf '%s' "${GUARD_OUT}" | grep -q "Traceback (most recent call last)"; then
+  echo "" >&2
+  echo "[capability-guard] ❌ 闸门自身崩溃（不是 BLOCK）。" >&2
+  echo "[capability-guard]    ⇒ 这次删除**未经检查**，按 fail-closed 原则阻止提交。" >&2
+  echo "[capability-guard]    常见原因：Git Bash 下盘符解析异常 / venv 缺失 / 代码语法错误。" >&2
+  echo "[capability-guard]    确认是环境问题可用：SKIP_CAPABILITY_GUARD=1 git commit ..." >&2
+  exit 1
+fi
+
+# ── 逃生口 2：BLOCK 也放行（保留告警输出，供人工研判）─────────────────
+if [ "${CAPABILITY_GUARD_FORCE:-0}" = "1" ] && [ "${RC}" = "1" ]; then
+  echo "[capability-guard] CAPABILITY_GUARD_FORCE=1 ⇒ 强制放行 BLOCK。" >&2
+  echo "[capability-guard] ⚠️ 这次删除会让下列能力失去唯一前端入口，请自行确认后果。" >&2
+  exit 0
+fi
+
+if [ "${RC}" = "1" ]; then
+  cat >&2 <<'EOF'
+
+[capability-guard] ══════════════════════════════════════════════════════
+[capability-guard] 🛑 提交被阻止：这次删除会让某些能力失去唯一的前端入口。
+[capability-guard] ══════════════════════════════════════════════════════
+[capability-guard]
+[capability-guard] 上面的 BLOCK 明细说的是：**后端端点仍然存活，但删除这个文件后，
+[capability-guard] 就没有任何页面能调用它了** ⇒ 能力还在，入口没了。
+[capability-guard]
+[capability-guard] 判定标准（重要，别用错）：
+[capability-guard]   ✅ 合规入口 = 用户能从界面上真的走到这个能力（菜单/按钮/路由可达）。
+[capability-guard]   ❌ 孤儿模块 = 路由注册了但没有任何页面引用它。
+[capability-guard]      —— 孤儿模块**不算**入口，不许用它来过闸门。
+[capability-guard]      用孤儿入口骗过闸门，等于把「删掉了」换成「看不见了」，
+[capability-guard]      事故只是从显性变成隐性。
+[capability-guard]
+[capability-guard] 三条正当出路（按优先级）：
+[capability-guard]   1. 这个能力确实该下线 → 连**后端端点**一起摘掉，
+[capability-guard]      并在提交信息里写明「何时、被谁下线、替代方案是什么」。
+[capability-guard]   2. 能力要留 → 把入口**迁移**到另一个真实可达的页面，
+[capability-guard]      再重跑本闸门确认 BLOCK 消失。
+[capability-guard]   3. 确认是误报 → 先记 issue，临时用下面的逃生口，
+[capability-guard]      并在**同一个提交**里修掉误报原因（别只绕过）。
+[capability-guard]
+[capability-guard] 逃生口（都会留下痕迹，请慎用）：
+[capability-guard]   git commit --no-verify
+[capability-guard]   SKIP_CAPABILITY_GUARD=1 git commit ...
+[capability-guard]   CAPABILITY_GUARD_FORCE=1 git commit ...   （保留上面告警输出）
+[capability-guard] ══════════════════════════════════════════════════════
+EOF
+  exit 1
+fi
+
+if [ "${RC}" != "0" ]; then
+  echo "[capability-guard] 闸门自身报错（退出码 ${RC}），本次删除**未经检查**。" >&2
+  echo "[capability-guard] 已按 fail-closed 原则阻止提交。" >&2
+  echo "[capability-guard] 若确认是环境问题（如缺少 backend/venv），用：" >&2
+  echo "[capability-guard]   SKIP_CAPABILITY_GUARD=1 git commit ..." >&2
+  exit 1
+fi
+
+echo "[capability-guard] ✅ 通过：这次删除未发现能力入口丢失。" >&2
+exit 0
