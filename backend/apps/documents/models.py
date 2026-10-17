@@ -153,9 +153,26 @@ class SdsRevision(models.Model):
         LOW = 'low', '低 (类别模板)'
         VERY_LOW = 'very_low', '极低 (通用兜底)'
 
+    class Status(models.TextChoices):
+        """发布状态 — 与 Coa.Status 同构（SDS 下载门控的依据）。
+
+        ★ 2026-10-17 修 B10：此前本模型**无状态字段**，而 withdraw_sds 只清
+        Product.current_sds 指针、**刻意保留 PDF** ⇒ 已撤回的 SDS PDF 仍可被
+        匿名下载（实测 200 + application/pdf），违反 `docs/COA_SDS_PRD.md:80`
+        「仅 status=PUBLISHED 允许下载」。此处补齐字段与 COA 对齐。
+        """
+        DRAFT = 'draft', '草稿'
+        APPROVED = 'approved', '已审批'
+        PUBLISHED = 'published', '已发布'
+
     product = models.ForeignKey(
         'commerce.Product', on_delete=models.CASCADE,
         related_name='sds_revisions', verbose_name='产品'
+    )
+    status = models.CharField(
+        max_length=20, choices=Status.choices,
+        default=Status.DRAFT, verbose_name='状态',
+        help_text='draft=草稿/已撤回 / approved=已审批（历史兼容）/ published=已发布',
     )
     revision_no = models.IntegerField(verbose_name='修订版本号')
     revised_at = models.DateField(verbose_name='修订日期')

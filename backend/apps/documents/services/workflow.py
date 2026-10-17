@@ -311,6 +311,8 @@ def approve_sds(revision_id):
     # 生成 PDF
     pdf_rel_path = generate_sds_pdf(sds)
     sds.pdf_path = pdf_rel_path
+    # ★ B10：审批即发布 —— 与 approve_coa 同构，写 PUBLISHED（download 门控据此放行）
+    sds.status = SdsRevision.Status.PUBLISHED
     sds.save()
 
     # 设置为当前版本
@@ -324,11 +326,20 @@ def approve_sds(revision_id):
 
 def withdraw_sds(revision_id):
     """
-    撤回 SDS → 清空 Product.current_sds 指针（PDF 文件保留在 MEDIA）。
+    撤回 SDS → 状态回退到 DRAFT；清空 Product.current_sds 指针（PDF 文件保留在 MEDIA）。
 
     仅当该版本正是当前版本时才清指针；历史草稿版本不受影响。
+
+    ★ B10（2026-10-17）：此前本函数**只清指针、不动任何状态**，而 SdsRevision 当年
+    没有 status 字段 ⇒ download 无法判断发布态 ⇒ 已撤回 SDS PDF 仍可匿名下载
+    （实测 200 + application/pdf，违反 `docs/COA_SDS_PRD.md:80`）。
+    现与 withdraw_coa 同构：状态回 DRAFT，作为下载门控的判据。
+    PDF 文件保留（不删），故 staff 仍可下载以留审计痕迹。
     """
     sds = SdsRevision.objects.select_related('product').get(id=revision_id)
+    sds.status = SdsRevision.Status.DRAFT
+    sds.save(update_fields=['status'])
+
     product = sds.product
     if product.current_sds_id == sds.id:
         product.current_sds = None

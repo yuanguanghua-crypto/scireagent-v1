@@ -211,8 +211,22 @@ class SdsRevisionViewSet(EnvelopeMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='download')
     def download(self, request, pk=None):
-        """下载 SDS PDF"""
+        """下载 SDS PDF
+
+        ★ 2026-10-17 修 B10：加**发布状态门控**（COA 侧 B9 的对称补齐）。
+        此前只判 `pdf_path` 是否存在，而本 ViewSet 的 `IsAdminOrReadOnly` 放行**匿名 GET**、
+        `withdraw_sds` 又刻意**保留 pdf**（见 services/workflow.py:325-348），
+        ⇒ 已撤回(draft) 的 SDS **仍可被匿名下载**（实测 200 + application/pdf），
+        违反 L1 `COA_SDS_PRD.md:80`「仅 status=PUBLISHED 允许下载」。
+
+        口径与 COA（views.py:127-143，2026-09-22 B9）**完全一致**：
+        **对外（匿名/普通用户）一律 404；staff 仍可下载**（内部复核与审计需留痕，
+        故**不删 pdf**、只加门控）。
+        """
         sds = self.get_object()
+        is_staff = bool(getattr(request.user, 'is_authenticated', False) and request.user.is_staff)
+        if sds.status != SdsRevision.Status.PUBLISHED and not is_staff:
+            return Response({'error': '该 SDS 尚未发布'}, status=status.HTTP_404_NOT_FOUND)
         if not sds.pdf_path:
             return Response({'error': 'PDF 尚未生成'}, status=status.HTTP_404_NOT_FOUND)
         filepath = os.path.join(settings.MEDIA_ROOT, sds.pdf_path)

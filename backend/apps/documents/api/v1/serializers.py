@@ -98,14 +98,16 @@ class SdsRevisionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'product', 'product_name', 'catalog_no', 'cas',
             'revision_no', 'revised_at', 'change_note',
+            # ★ B10：发布状态（下载门控判据；与 COA 的 status 字段对齐）
+            'status', 'is_current',
             'signal_word', 'pictograms', 'hazard_codes', 'precaution_codes',
-            'section_data', 'pdf_path', 'is_current', 'created_at',
+            'section_data', 'pdf_path', 'created_at',
             'data_confidence', 'data_source_detail',
         ]
         read_only_fields = [
-            'id', 'revision_no', 'signal_word', 'pictograms',
-            'hazard_codes', 'precaution_codes', 'section_data',
-            'pdf_path', 'created_at', 'data_confidence', 'data_source_detail',
+            'id', 'revision_no', 'status',
+            'signal_word', 'pictograms', 'hazard_codes', 'precaution_codes',
+            'section_data', 'pdf_path', 'created_at', 'data_confidence', 'data_source_detail',
         ]
 
     def get_is_current(self, obj):
