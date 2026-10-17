@@ -201,7 +201,7 @@ Knowledge
 
 | 当前路由 | 问题 | 建议 |
 |----------|------|------|
-| `/products/new` 和 `/products/:id/edit` | 与 `/admin/products/new` 和 `/admin/products/:id/edit` 重复 | 只保留 admin 版本，前端编辑走管理后台 |
+| ~~`/products/new` 和 `/products/:id/edit`~~ | **原诊断「与 `/admin/products/*` 重复」不成立** —— `/admin/products/new` 与 `/admin/products/:id/edit` 在 `router/index.js` 中**从来就不存在**（grep 零命中） | **原建议「只保留 admin 版本」已于 2026-10-17 作废**：建议方向完全颠倒。现役产品编辑路由**只有 workspace 一组** —— `/workspace/products/new`（`WorkspaceProductNew`）与 `/workspace/products/:id/edit`（`WorkspaceProductEdit`），共用 `views/workspace/ProductEditPage.vue`（`router/index.js:264-265`）；而 `/products/*` 那组路由下的 `views/products/ProductEditPage.vue` 已于 2026-10-17 作为死代码删除（从未注册路由 + 零活引用 + 功能已由 workspace 版取代）。**故本行无冗余可删，建议从本表移除** |
 | `/knowledge-intake` | 管理员批量导入知识的页面，普通用户不需要看到 | 保留但导航栏隐藏入口，仅通过 admin 访问 |
 
 ---

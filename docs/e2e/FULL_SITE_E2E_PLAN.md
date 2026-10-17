@@ -62,11 +62,12 @@
 
 **交互密度 Top（E2E 优先级，详见 inventory）**：
 1. `workspace/ProductEditPage.vue` — 37 按钮 / 50 v-model / 2 弹层 / 表单校验（最密集）
-2. `products/ProductEditPage.vue` — 9 按钮 / 35 v-model（**遗留版，疑已被 workspace 版取代**）
-3. `workspace/ProductsPage.vue` — 15 按钮 / 3 弹层 / 可排序表格
-4. `SettingsPage` / `PoSubmit` / `CheckoutPage` / `CartPage` — 多字段表单 + 校验
+2. `workspace/ProductsPage.vue` — 15 按钮 / 3 弹层 / 可排序表格
+3. `SettingsPage` / `PoSubmit` / `CheckoutPage` / `CartPage` — 多字段表单 + 校验
 
-> 原第 3 位 `admin/AdminProductEdit.vue`（11 按钮 / 33 v-model / 上传 / 表单校验）已于 **2026-10-17 作为死代码删除**，故移出本榜单。删除依据见 §2.2 注 与 §5 K6。**注意：`products/ProductEditPage.vue` 是另一个文件（591 行），本次未删除**，其遗留状态见 §5 K5。
+> 原第 3 位 `admin/AdminProductEdit.vue`（11 按钮 / 33 v-model / 上传 / 表单校验）已于 **2026-10-17 作为死代码删除**，故移出本榜单。删除依据见 §2.2 注 与 §5 K6。
+>
+> 原第 2 位 `products/ProductEditPage.vue`（591 行 / 9 按钮 / 35 v-model，遗留版）**亦已于 2026-10-17 作为死代码删除**，故一并移出本榜单，序号上移。删除依据见 §5 K5。**注意：它与 `workspace/ProductEditPage.vue`（现役权威版，27 次提交，最后修改 2026-10-17）是两个不同文件** —— 遗留版 git 生命周期仅 1 条（`bdaaa45` monorepo 合并快照，2026-07-12），此后从未再改。
 
 **弹窗/弹层清单（自定义 dialog-overlay）**：ProductsPage(`showBatchLinkPanel`/`showArchiveDialog`/`showDeleteDialog`)、ProductEditPage(`showPublishDialog`/`showInlineEditor`)、MethodsPage/ProtocolsPage/GoalsPage/AppsPage/ReferencesPage(`showEditor`)、PoAddressList(`showForm`)、CartPage(`showSubmitApproval`)。
 
@@ -111,7 +112,7 @@
 | `/workspace/products/new`+`:id/edit` | ProductEditPage | **37 按钮 / 50 输入 / 发布弹层 / 上传 / 校验** | 仅 admin | 产品发布态 | ✓ | ✓ | ✓ | P0 |
 | `/workspace/goals` `/applications` `/methods` `/protocols` `/references` | 各管理页 | 增删改 / showEditor 弹层 / toast.error | 仅 admin | — | ✓ | ✓ | ✓ | P1 |
 | `/workspace/knowledge-intake` | KnowledgeIntake | 12 输入 / 产品下拉 / ki-toast | 仅 admin | — | ✓ | ✓ | ✓ | P1 |
-| `/admin/orders`+`:id` | AdminOrders/Detail | 过滤 / 状态流转 / alert 错误 / AiToolsPanel | 仅 admin | 订单旧态(legacy) | ✓ | ✓ | ✓ | P1 |
+| `/admin/orders`+`:id` | AdminOrders/Detail | 过滤 / 状态流转 / alert 错误 | 仅 admin | 订单旧态(legacy) | ✓ | ✓ | ✓ | P1 |
 | `/admin/po/review` | PoReviewDesk | 待审列表 / approve/reject/assign-rep | 仅 admin | PO 审核态 | ✓ | ✓ | ✓ | P1 |
 | `/admin/po/shipments` | PoShipmentDesk | 创建 ShippingRecord(多批发) / mark-shipped/delivered | 仅 admin | PO 发货态 | ✓ | ✓ | ✓ | P1 |
 | `/admin/po/invoicing` | PoInvoicingDesk | 对 DELIVERED 开票 / 开票字段 | 仅 admin | PO 开票态 | ✓ | ✓ | ✓ | P1 |
@@ -122,9 +123,13 @@
 >
 > **⚠️ 本行原文的「无独立路由（AdminLayout nav 内链）」是不实描述，已更正。** 实测 `views/workspace/AdminLayout.vue` 全部 11 条 `router-link`（第 17/26/37/47/53/59/65/72/78/84 行）**全部指向 `/workspace/*`**，无任何一条指向 admin 产品页 —— 即「AdminLayout nav 内链可达」不成立。该描述很危险：会被下一个人当作「可达」依据而保留甚至接线这两个文件。
 >
-> 删除依据（五项均已实测）：① 二者从未在 `router/index.js` 注册路由（8 条 admin 路由中无它们）；② 源码零活引用；③ 功能已由 `workspace/ProductEditPage.vue` 取代（最后修改 2026-09-24，晚于二者的 2026-07-11 / 07-17，时间线倒挂）；④ 后端 `commerce/admin.py:112` `ProductAdmin` 已只读化（`readonly_fields` 锁 26 字段 + `actions = None`，注释明写 "Product editing moved to Vue workspace; Django Admin is read-only snapshot"）；⑤ 二者调用的 6 个端点均无损失 —— `/products/`、`/research-goals/`、`/applications/`、`/methods/`、`/protocols/` 仍被 `workspace/ProductEditPage.vue` 等现役页面共用，`/products/{id}/detail/` 仍被 `products/ProductEditPage.vue` 使用。
+> 删除依据（五项均已实测）：① 二者从未在 `router/index.js` 注册路由（8 条 admin 路由中无它们）；② 源码零活引用；③ 功能已由 `workspace/ProductEditPage.vue` 取代（最后修改 2026-09-24，晚于二者的 2026-07-11 / 07-17，时间线倒挂）；④ 后端 `commerce/admin.py:112` `ProductAdmin` 已只读化（`readonly_fields` 锁 26 字段 + `actions = None`，注释明写 "Product editing moved to Vue workspace; Django Admin is read-only snapshot"）；⑤ 二者调用的 6 个端点均无损失 —— `/products/`、`/research-goals/`、`/applications/`、`/methods/`、`/protocols/` 仍被 `workspace/ProductEditPage.vue` 等现役页面共用。
 >
-> **`products/ProductEditPage.vue` 是另一个文件（591 行），本次未删除**，其遗留状态见 §5 K5。
+> **`products/ProductEditPage.vue`（591 行）已于 2026-10-17 一并作为死代码删除**，其遗留状态见 §5 K5。
+>
+> **⚠️ 更正本节原第⑤项的一处措辞歧义**：原文写「`/products/{id}/detail/` 仍被 `products/ProductEditPage.vue` 使用」，**容易被误读成「该端点只服务于遗留版」**。实测后端 `backend/apps/commerce/api/v1/urls.py:31` **独立注册** `ProductDetailAPIView`（`name='product-detail-v2'`），是产品详情页的正式聚合数据源，有 **28 处测试断言**（commerce 4 文件22 处 + knowledge 2 文件 6 处，其中 `test_product_detail_api.py` 独占 13 处 / 18 个 test 函数）。
+>
+> 该端点在前端**另有两个现役路由消费方**（均经 `api/products.js:45 getProductDetail()`）：`/workspace/products` 相关 `stores/products.js:42`、`admin/InventoryDesk.vue:251`（`InventoryDesk` 已注册路由，`router/index.js:251`）、`po/PoSubmit.vue:92`（`PoSubmit` 已注册路由，`router/index.js:183`）。⇒ **删除遗留版前端文件不会使该端点成为孤儿，也不触碰后端**。
 
 ### 2.3 权限矩阵（4 角色 × 受限页）
 
@@ -316,7 +321,7 @@ QuoteRequest (匿名可建: 必填 email + 产品描述)
 | **2 认证流程穷举** | 登录/注册/设置/购物车/结算/下单/我的订单/Quote 全字段校验+跳转+toast | I | `inventory-driven/auth.spec.cjs` | 交易链路绿 |
 | **3 Workspace 穷举** | ProductEditPage(37按钮/50输入/发布弹层/上传/校验) + Apps/Methods/Protocols/Goals/Refs/KnowledgeIntake 增删改弹层 | I | `inventory-driven/workspace.spec.cjs` | 研究员主流程绿 |
 | **4 PO 门户穷举** | 客户侧 6 页 + 内部台 5 页（提交+附件/审核/分批改发/开票/AR/地址/下载） | I | `inventory-driven/po-portal.spec.cjs` | 提交→审核→发货→开票→下载 绿 |
-| **5 Admin 穷举** | AdminOrders/Detail 审核/发货/开票 + AiToolsPanel | I | `inventory-driven/admin.spec.cjs` | legacy + 新流程绿 |
+| **5 Admin 穷举** | AdminOrders/Detail 审核/发货/开票 | I | `inventory-driven/admin.spec.cjs` | legacy + 新流程绿 |
 | **6 权限矩阵穷举** | §2.3 每受限页 × 4 角色 expected 行为 | P | `permission-matrix.spec.cjs` | 匿名→登录页(含 redirect)、customer→403/重定向、staff→OK 全绿 |
 | **7 状态分支穷举** | §2.4 PO 8 态 UI + 产品 3 态 UI + 订单旧态展示 | S | `state-matrix.spec.cjs` | 每态标签/按钮集/时间线绿 |
 | **8 响应式视口矩阵** | §10 四视口 × 关键页布局不崩+交互可用 | R | `responsive.spec.cjs` | 四视口关键页绿 |
@@ -362,8 +367,9 @@ QuoteRequest (匿名可建: 必填 email + 产品描述)
 | K2 | Jena apply 后 cascader 选中 L1 根失败（同 K1 根因） | 同 K1：阶段 3 实跑回填结论 |
 | K3 | 无 CAS 产品「生成 SDS」按钮禁用+tooltip（设计预期） | 断言 disabled + tooltip 文案 |
 | K4 | 匿名写返回 403（DRF 标准） | 断言 403 而非 401 |
-| **K5** | `products/ProductEditPage.vue` 遗留版与 `workspace/ProductEditPage.vue` 关系 | **2026-07-14 已确认**：`workspace/ProductEditPage.vue` 为权威完整版（产品编辑页是完整单元，勿拆碎）；`products/ProductEditPage.vue` 为遗留版，**E2E 只覆盖 workspace 版**，标记 K5 为「已取代/仅覆盖 workspace 版」 |
+| **K5** | ~~`products/ProductEditPage.vue` 遗留版与 `workspace/ProductEditPage.vue` 关系~~ | **已关闭（2026-07-14 定性、2026-10-17 删除）**：`workspace/ProductEditPage.vue` 为权威完整版（产品编辑页是完整单元，勿拆碎）；`products/ProductEditPage.vue` 为遗留版，**已作为死代码删除**（591 行，blob `87a5f77`）。删除依据（均已实测）：① **从未注册路由** —— `router/index.js` 中从未有它（不是「失效」而是「从未存在」），任何用户都到不了；② 源码零活引用（`frontend/src/` 全域 grep 零命中）；③ git 生命周期仅 1 条 `bdaaa45`（2026-07-12 monorepo 合并快照），此后从未再改，而现役版已 27 次提交、最后修改 2026-10-17，时间线倒挂；④ 能力被完全覆盖且现役版更强：遗留版调 5 个端点，现役版调 12 个（多出创建、SEO 生成、引用保存、parse-word），且现役版有 baseline 差异检测（`methodIdsBaseline`/`protocolIdsBaseline`）而遗留版没有；⑤ 后端 `ProductAdmin` 已只读化。**E2E 只覆盖 workspace 版**（不变），产品编辑 E2E 无需任何改动 |
 | **K6** | ~~`admin/AdminProductsPage`/`AdminProductEdit` 无独立路由，经 `/workspace/products` 内链访问~~ | **已关闭（2026-10-17 两文件已删除）**：无独立路由、源码零活引用、功能已由 `workspace/ProductEditPage.vue` 取代、后端 `ProductAdmin` 已只读化 → 判定死代码并删除。原「经 `/workspace/products` 内链访问／断言内链可达」经实测为**假**（`AdminLayout.vue` 11 条 `router-link` 全指向 `/workspace/*`），描述已更正，**不再需要「断言内链可达」这一 E2E 项**。产品编辑 E2E 只覆盖 `workspace/ProductEditPage.vue` |
+| **K7** | ~~`admin/components/AiToolsPanel.vue` 是 `/admin/orders` 的 AI 工具面板~~ | **已关闭（2026-10-17 文件已删除）**：394 行，blob `1c65fce4`。删除依据（均已实测）：① 源码零活引用 —— `AdminOrderDetail.vue` 实测 grep 无命中，其唯一宿主 `AdminProductEdit.vue` 已于上一批（`5868600`）删除 ⇒ 零引用；② `f324de0`（2026-07-17）已从 `AdminProductEdit.vue` 移除对它的引用并将能力合并进 AUTO MATCH（`docs/AI_AUTO_MATCH.md:15`、`docs/AI_FEATURES_USER_GUIDE.md:81` 均明载「已删除，能力合并进 AUTO MATCH」）；③ 该文件一度于 `6d93fbe`（2026-08-19）从远端恢复，但恢复提交自身的说明即写明「当前为未被引用的孤儿文件」，且恢复内容与 `f324de0` 删除前的版本不同（已被 i18n 改造）⇒ 恢复不构成「仍需保留」的依据。**E2E 无需覆盖 AI Tools 面板**，其能力已由 AUTO MATCH 承接 |
 | **K-UNIQUE** | `po_number` 空串 UNIQUE 冲突致 500（阶段 7 状态 seed 易触发） | factory 用随机后缀 / 显式 cleanup（见 §3.1.1），断言不 500 |
 
 ### 5.1 功能修复回归专项（v2026.07.14 三项修复）

@@ -10,7 +10,7 @@
 - **表格/分页**：无 `el-table`；列表页用原生 `<table>` + `<th class="sortable" @click>`，分页统一用 `<DataPagination>`（`:total`/`:page-size`/`@current-change`）。
 - **Toast**：自定义 `toast` 工具（`import { toast } from '@/components/common'`，`toast.success/.error`）；部分页用页内 `<div class="toast/ki-toast/save-msg">` 显示状态；校验失败用原生 `alert()`/`confirm()`。无 `ElMessage`/`ElMessageBox`。
 - **加载态**：`v-loading` 指令（MethodIndex、CheckoutPage、ProtocolDetail、CartPage、ProtocolIndex、ProductDetail、ResearchGoalDetail、workspace/ProductEditPage 等）+ `<LoadingSpinner>` 组件（CartPage、ProductDetail、AppsPage、MethodsPage、DashboardPage 等）。
-- **表单校验**：多为 `v-model` + 手动 `if (!x) alert(...)` 校验；少数用 `required`/`:rules`（见 AdminProductEdit、products/ProductEditPage、PoSubmit）。
+- **表单校验**：多为 `v-model` + 手动 `if (!x) alert(...)` 校验；少数用 `required`/`:rules`（见 workspace/ProductEditPage）。
 
 ---
 
@@ -80,8 +80,6 @@
 |---------|----------|-----------------|------|----------|------|------|-----|------|----------|------|-------|--------|---------|------|
 | views/admin/AdminOrdersPage.vue | 订单管理 | `/admin/orders` (AdminOrders) | 2 | — | — | 过滤输入 | — | — | filters + 列表 | 1 | — | — | — | 管理列表 + 过滤 |
 | views/admin/AdminOrderDetail.vue | 订单处理 | `/admin/orders/:id` (AdminOrderDetail) | 5 | — | — | 处理字段 5 输入(v-model) | — | — | — | 2 | alert(actionError) | — | — | 状态流转处理 |
-| views/admin/AdminProductsPage.vue | 产品管理 | 无独立路由(AdminLayout nav 内链) | 5 | — | — | 搜索 4 输入 | — | — | 列表 | 4 | — | — | — | 管理列表 |
-| views/admin/AdminProductEdit.vue | 产品编辑 | 无独立路由(AdminLayout nav 内链) | 11 | — | — | 大表单 33 输入(v-model) | — | 图片上传(el-upload 区域) | — | 2 | saveMessage toast(success/error) | — | required/:rules | 最密集后台表单之一 |
 | views/admin/PoReviewDesk.vue | 订单审核台 | `/admin/po/review` (PoReviewDesk) | 4 | — | — | — | — | — | DataPagination(2处) | — | — | — | 审核动作 | 审核流转 |
 | views/admin/PoShipmentDesk.vue | 发货台 | `/admin/po/shipments` (PoShipmentDesk) | 5 | — | — | 发货字段 6 输入(v-model) | — | — | 多选列表 | — | — | — | 发货操作 | 发货处理 |
 | views/admin/PoInvoicingDesk.vue | 开票台 | `/admin/po/invoicing` (PoInvoicingDesk) | 4 | — | — | 开票字段 6 输入(v-model) | — | — | 列表 | — | — | — | 开票操作 | 开票处理 |
@@ -106,9 +104,7 @@
 
 | 文件路径 | 页面/组件 | 路由(对照 router) | 按钮 | 选择/下拉 | 弹窗 | 输入 | Tab | 上传 | 表格/分页 | 跳转 | Toast | 加载态 | 表单校验 | 备注 |
 |---------|----------|-----------------|------|----------|------|------|-----|------|----------|------|-------|--------|---------|------|
-| views/admin/components/AiToolsPanel.vue | AI 工具面板 | 内嵌(AdminOrderDetail/AdminProductEdit) | 8 | — | — | 1 输入(v-model) | — | — | — | — | errorMsg 提示 | — | — | AI 调用按钮组 |
 | views/admin/components/ExpandableSection.vue | 可展开区 | 内嵌 | 1 (展开/收起) | — | — | — | — | — | 可见项 v-for | — | — | — | — | 折叠/展开交互 |
-| views/products/ProductEditPage.vue | 产品编辑(市场版,疑似遗留) | 无独立路由(或已被 workspace 版取代) | 9 | — | — | 大表单 35 输入(v-model) | — | — | — | 1 | saveMessage 横幅 | — | required/:rules | 与 AdminProductEdit 同源遗留 |
 | views/workspace/components/BiozEvidenceSection.vue | Bioz 证据段 | 内嵌(ReferencesPage) | 3 | — | — | — | — | — | visibleRefs 列表 | — | — | — | — | 证据卡片展示 |
 | views/workspace/components/JenaMatchSection.vue | Jena 匹配段 | 内嵌 | 1 | — | — | — | — | — | — | — | — | — | — | 匹配操作 |
 | views/workspace/components/StructureViewer.vue | 结构查看器 | 内嵌(ProductDetail/编辑) | — | — | — | — | — | — | — | — | — | — | — | 3D/结构图展示，无标准交互按钮 |
@@ -117,14 +113,14 @@
 
 ## 交互密度排名（Top，供 E2E 优先级）
 1. **workspace/ProductEditPage.vue** — 37 按钮 / 50 v-model / 2 弹层 / 表单校验（最密集）
-2. **products/ProductEditPage.vue** — 9 按钮 / 35 v-model / 表单校验（遗留版）
-3. **admin/AdminProductEdit.vue** — 11 按钮 / 33 v-model / 上传 / 表单校验
-4. **workspace/ProductsPage.vue** — 15 按钮 / 26 @click / 3 弹层 / 可排序表格
-5. **SettingsPage.vue** — 5 按钮 / 20 v-model
-6. **po/PoSubmit.vue** — 5 按钮 / 20 v-model / alert 校验
-7. **CheckoutPage.vue** — 11 按钮 / 12 v-model / v-loading
-8. **CartPage.vue** — 10 按钮 / 7 @click / toast
-9. **QuoteRequestPage.vue / RegisterPage.vue / PoAddressList.vue** — 多字段表单 + 校验
+2. **workspace/ProductsPage.vue** — 15 按钮 / 26 @click / 3 弹层 / 可排序表格
+3. **SettingsPage.vue** — 5 按钮 / 20 v-model
+4. **po/PoSubmit.vue** — 5 按钮 / 20 v-model / alert 校验
+5. **CheckoutPage.vue** — 11 按钮 / 12 v-model / v-loading
+6. **CartPage.vue** — 10 按钮 / 7 @click / toast
+7. **QuoteRequestPage.vue / RegisterPage.vue / PoAddressList.vue** — 多字段表单 + 校验
+
+> 原第 2 位 `products/ProductEditPage.vue`（9 按钮 / 35 v-model，遗留版）与原第 3 位 `admin/AdminProductEdit.vue`（11 按钮 / 33 v-model / 上传 / 表单校验）**均已作为死代码删除**（2026-10-17；后者于上一批 `5868600`、前者于本批），故移出本榜单，序号上移。删除依据见 `FULL_SITE_E2E_PLAN.md` §5 K5 / K6。**产品编辑 E2E 只覆盖 `workspace/ProductEditPage.vue`。**
 
 ## 几乎静态 / 低交互页（E2E 可轻量覆盖）
 - NotFound.vue、HomePage.vue（仅导航/搜索）、ApplicationDetail / MethodDetail / ResearchGoalDetail（详情+关联跳转）、PoReorder.vue、PoOrderDetail.vue、PoArReport.vue、PoOrgManagement.vue、StructureViewer.vue（纯展示）、AdminLayout.vue（仅导航）。
@@ -144,7 +140,7 @@
 - CartPage：`toast.success('Item removed from cart')`
 - ProductDetail：`toast.success('Added to cart')` / `toast.error('Failed to add')`
 - workspace/AppsPage、MethodsPage：`toast.error('Save failed: ...')`
-- AdminProductEdit / products/ProductEditPage / KnowledgeIntake / SettingsPage：页内 `saveMessage`/`ki-toast`/`successMessage` 状态横幅（success/error）
+- KnowledgeIntake / SettingsPage：页内 `ki-toast`/`successMessage`/`saveMessage` 状态横幅（success/error）
 - PoSubmit / PoAddressList / OrderDetailPage / AdminOrderDetail：原生 `alert()` / `confirm()` 校验与提示
 
 ## 加载态清单

@@ -44,8 +44,10 @@
 
 | 文件 | 变更 | 影响 |
 |------|------|------|
-| `views/products/ProductEditPage.vue` | 增加 3 个 section | 产品编辑表单 |
+| ~~`views/products/ProductEditPage.vue`~~ | ~~增加 3 个 section~~ → **改挂 `views/workspace/ProductEditPage.vue`** | 产品编辑表单 |
 | `api/products.js` | 可能需要增加 API 函数 | API 层 |
+
+> **⚠️ 2026-10-17 更新**：上表原第 1 行的目标文件 `views/products/ProductEditPage.vue`（遗留版，591 行）已作为死代码删除（从未在 `router/index.js` 注册路由 + 源码零活引用 + 功能已由 `workspace/ProductEditPage.vue` 取代 + 后端 `ProductAdmin` 已只读化）。**本计划本身尚未执行**（全文无「已完成」标记），其知识字段目标应挂到现役的 `views/workspace/ProductEditPage.vue` —— 该文件已含 `method_ids` / `protocol_ids` 回传与 baseline 差异检测逻辑，若继续执行本计划需先复核哪些 section 仍缺失。
 
 ### 不变的部分
 - Product 模型（不加字段，知识在桥接表）
