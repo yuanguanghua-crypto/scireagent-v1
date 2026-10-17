@@ -1,6 +1,6 @@
 """Phase 2 质量闸门（T2.1）：二维结果模型（MUST-4）。
 
-依据 product_association_infra_plan_v0.2.md §6 / §7 MUST-4 + 任务 T2.1。
+依据 Phase 2 基础设施方案 §6 / §7 MUST-4 + 任务 T2.1（该方案文档已不在本仓库中）。
 
 run_quality_gate(product, edges) 返回二维结果：
     (execution_result, scientific_quality)

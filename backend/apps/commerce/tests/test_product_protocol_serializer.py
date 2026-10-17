@@ -1,5 +1,10 @@
 """
-TDD RED: ProductDetailSerializer.protocol_links 排序 + 内联摘要（#355）。
+ProductDetailSerializer.protocol_links 排序 + 内联摘要（#355）。
+
+历史背景：本文件最初按 TDD 以 RED 写成——运行时应 FAIL（serializer 尚无 protocol_links
+字段 / 排序未实现），直至 #355 实现后转 GREEN。
+当前状态：#355 已完成，本文件当前全绿（2026-10-17 实测 13 passed）。
+下述用例是针对**已实现** serializer 的回归保护。
 
 定义编辑页/详情页所需的数据契约：
 - ProductDetailSerializer 新增 `protocol_links`，为派生协议集按
@@ -10,9 +15,6 @@ TDD RED: ProductDetailSerializer.protocol_links 排序 + 内联摘要（#355）�
 - 铁律①：即便产品尚无 ProductProtocol 行（recompute 未跑），也必须返回全部派生协议
   （回退 tier='weak' [S4]、relevance_score=0、link_source='inherited'、basis=''），不得丢数据。
 - `protocol_ids` 保持向后兼容（仍为 id 列表）。
-
-运行时应 FAIL（serializer 尚无 protocol_links 字段 / 排序未实现），
-直至 #355 实现后转 GREEN。
 """
 from django.test import TestCase
 

@@ -1,11 +1,13 @@
 """
-TDD RED: backfill_product_usage 命令（第一版 §9 步骤2 docx 入库之 usage 灌入）。
+backfill_product_usage 命令（第一版 §9 步骤2 docx 入库之 usage 灌入）。
 
-运行时应 FAIL：
+历史背景：本文件最初按 TDD 以 RED 写成——运行时应 FAIL：
 - 命令模块尚不存在 → ImportError / CommandError
 - 即便存在，未实现按 catalog 匹配灌入则断言失败
+当前状态：命令已实现并按 catalog 匹配灌入，本文件当前全绿（2026-10-17 实测 7 passed）。
+下述用例是针对**已实现**命令行为的回归保护。
 
-GREEN 后契约：
+契约：
 - 命令读取 backend/docx_products.json（key=`catalog`=SCxxxx, `usage`=厂商声称用途）
 - 按 Product.catalog_no == docx.catalog 匹配，将 usage 灌入对应 Product.usage
 - 空值安全：usage 为空/缺失的 docx 条目不覆盖已有值；无匹配的 Product 不动

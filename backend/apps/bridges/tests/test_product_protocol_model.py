@@ -1,8 +1,10 @@
 """
-TDD RED: ProductProtocol 模型（§14.3 三轴融合持久化）。
+ProductProtocol 模型（§14.3 三轴融合持久化）。
 
-这些测试在「实现前」定义 ProductProtocol 的期望行为；运行时应全部 FAIL
-（ImportError / 无表 / 字段缺失），直到 #352 实现模型 + 迁移后转 GREEN。
+历史背景：本文件最初按 TDD 以 RED 写成——在 #352 实现模型 + 迁移之前运行应全部 FAIL
+（ImportError / 无表 / 字段缺失）。
+当前状态：#352 已完成，模型与迁移均已落地，本文件当前全绿（2026-10-17 实测 13 passed）。
+下述用例是针对**已实现** ProductProtocol 的回归保护，不是「待实现」的 RED 契约。
 
 期望 schema（来自设计稿 §14.3 + 决策 Q2 link_source）：
 - product / protocol FK，related_name 分别为 protocol_links / product_protocols

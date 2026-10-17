@@ -1,6 +1,6 @@
 """Europe PMC 全文检索 → 写 DataSourceCache（复用 source='pubmed' 槽位）。
 
-背景（2026-09-15 生产实测，见 memory `2026-09-15.md` §11）：
+背景（2026-09-15 生产实测；当时的记录文档已不在本仓库中）：
   47 个零证据产品在 Bioz 上**有效命中 0/45**（24 TriLink + 21 Jena 货号逐个实查，
   仅 2 条记录且均为错配）；PubMed 商品名检索仅 **2/47**；
   而 **Europe PMC 全文检索 29/47（62%）有命中**（Biotin-11-ATP 44、5-Methoxy-UTP 25、

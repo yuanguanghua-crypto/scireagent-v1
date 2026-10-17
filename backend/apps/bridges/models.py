@@ -275,7 +275,15 @@ class ProductProtocol(TimeStampedModel):
 # Reagent Class 桥层（Reagent Class Schema V1.1 / Migration V2.1.3）
 # 三层：ReagentClass(knowledge) ← MethodReagentClass ← ProductReagentClass
 #       与 ProductMethodRelation（derived materialized cache / verified canonical）
-# 治理规则：RC-01~RC-11（见 Reagent_Class_Migration_Implementation_V212.md + Patch V2.1.3）
+# 治理规则：RC-01~RC-11
+#   ⚠️ 规则原文所载的实施文档（Reagent Class Migration Implementation V212 / Patch V2.1.3）
+#      已不在本仓库中，无法据此核验治理口径。代码里仅存规则「残片」：
+#        - RC-01/05/07/11 → 下方 MethodReagentClass docstring
+#        - RC-02/08/10    → 下方 ProductReagentClass docstring
+#        - RC-09          → 下方 ProductMethodRelation docstring
+#        - RC-04/06/08/10/11 → migrations/0006_* 与 knowledge/migrations/0020_reagentclass 的 help_text
+#        - RC-03          → 全仓无任何踪迹（仅存于已丢失文档）
+#      改动本段前须重新确认治理口径，不要把下列残片当作完整规则。
 # ---------------------------------------------------------------------------
 
 ALLOWED_EVIDENCE_REF_TYPES = {'PMID', 'DOI', 'PROTOCOL', 'MANUFACTURER', 'DOC'}

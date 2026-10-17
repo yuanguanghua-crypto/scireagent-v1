@@ -1,8 +1,11 @@
 """
-TDD RED: Product.usage 字段 + 迁移（第一版 §9 步骤1/2 轴A 地基）。
+Product.usage 字段 + 迁移（第一版 §9 步骤1/2 轴A 地基）。
 
-运行时应 FAIL（commerce Product 模型尚无 `usage` 字段），直至 #376 在模型加
-`usage = models.TextField(blank=True, default='')` 并生成迁移后转 GREEN。
+历史背景：本文件最初按 TDD 以 RED 写成——运行时应 FAIL（commerce Product 模型尚无
+`usage` 字段），直至 #376 在模型加 `usage = models.TextField(blank=True, default='')`
+并生成迁移后转 GREEN。
+当前状态：#376 已完成，模型已有该字段且迁移已生成，本文件当前全绿
+（2026-10-17 实测 3 passed）。下述用例是针对**已实现**字段的回归保护。
 
 契约：
 - Product 模型必须拥有名为 `usage` 的持久化文本字段（承载 docx 厂商声称用途）

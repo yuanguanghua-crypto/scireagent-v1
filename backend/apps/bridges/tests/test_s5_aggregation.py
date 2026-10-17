@@ -1,6 +1,13 @@
-"""S5 RED: 商品级聚合分（仅 non-weak）+ 排序接入。
+"""S5 商品级聚合分（仅 non-weak）+ 排序接入。
 
-契约（实现后转 GREEN）：
+历史背景：本文件最初按 TDD 以 RED 写成——契约（实现后转 GREEN），RED 时应整体 FAIL
+（函数/字段/排序面/序列化暴露均未实现），直至 S5 实现后转 GREEN。
+当前状态：S5 已全部完成（_aggregate_scores / aggregate_product_relevance /
+update_product_aggregate / Product.aggregate_relevance_score 字段 + 迁移 /
+ordering_fields 排序面 / serializer 暴露），本文件当前全绿（2026-10-17 实测 19 passed）。
+下述用例是针对**已实现**聚合与排序接入的回归保护。
+
+契约：
 - relevance.py 新增纯函数 `_aggregate_scores(scores, operator='mean')`：
     mean(默认)/max/top3_mean/logsumexp(t=5)；
     输入为空、或有效分全为 None/NaN -> 返回 None（诚实不冒充 0）。
@@ -13,8 +20,6 @@
 - Product 新增字段 `aggregate_relevance_score = FloatField(null=True, blank=True)` + 迁移。
 - ProductViewSet.ordering_fields 新增 'aggregate_relevance_score'（商品列表可按聚合分排序）。
 - ProductListSerializer.Meta.fields 暴露 'aggregate_relevance_score'。
-
-RED 时应整体 FAIL（函数/字段/排序面/序列化暴露均未实现），直至 S5 实现后转 GREEN。
 """
 import math
 from django.test import TestCase

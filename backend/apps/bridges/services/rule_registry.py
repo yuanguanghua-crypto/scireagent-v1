@@ -1,6 +1,6 @@
 """关联资格规则注册表（Python 配置 + 显式 version）。
 
-设计依据：product_association_infra_plan_v0.2.md
+设计依据：Phase 2 基础设施方案（该方案文档已不在本仓库中）
   - MUST-15 Derived Scientific Eligibility Guard
   - 配置级 allow-list（非 Schema 扩张，符合 Ontology/Schema/Mapping 三冻结）
 

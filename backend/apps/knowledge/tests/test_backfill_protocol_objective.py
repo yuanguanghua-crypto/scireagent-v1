@@ -1,5 +1,5 @@
 """
-TDD RED: backfill_protocol_objective 命令（任务2 — BioProCorpus 协议正文回填）。
+backfill_protocol_objective 命令（任务2 — BioProCorpus 协议正文回填）。
 
 背景：#400 导入 13971 条 source='bioprocorpus' 的 Protocol 时只写了 name/slug/source，
 正文字段全空。轴A(`_protocol_q_text`) 与轴C(`_protocol_embedding`) 都拼接 objective，
@@ -8,9 +8,11 @@ TDD RED: backfill_protocol_objective 命令（任务2 — BioProCorpus 协议正
 本命令从本地 BioProCorpus 源目录（backend/data/bioprocorpus/*.json）读取
 `title` → `abstract`，按 Protocol.name.strip() == title.strip() 回填 objective。
 
-运行时应 FAIL（命令模块尚不存在）。
+历史背景：本文件最初按 TDD 以 RED 写成——运行时应 FAIL（命令模块尚不存在）。
+当前状态：命令已实现，本文件当前全绿（2026-10-17 实测 17 passed）。
+下述用例是针对**已实现**命令行为的回归保护。
 
-GREEN 后契约：
+契约：
 - 数据源默认 settings.BASE_DIR/data/bioprocorpus，可用 --path 覆盖目录
 - 只扫描含 title+abstract 的记录；缺字段的文件/记录静默跳过（ERR/GEN/ORD/PQA 等）
 - 仅回填 source='bioprocorpus' 的 Protocol；curated 人工策展库绝不改动

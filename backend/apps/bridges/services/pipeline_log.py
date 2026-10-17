@@ -1,6 +1,6 @@
 """Phase 2 结构化审计日志（T2.2，修正 MUST-5）。
 
-依据 product_association_infra_plan_v0.2.md §6 / §7 MUST-5 + 任务 T2.2。
+依据 Phase 2 基础设施方案 §6 / §7 MUST-5 + 任务 T2.2（该方案文档已不在本仓库中）。
 不使用 StatusLog（订单维度表，order 外键必填，复用需迁移越 scope）。
 
 采用标准 logging 模块 + 专用 logger `association_pipeline`，每条记录以结构化 extra

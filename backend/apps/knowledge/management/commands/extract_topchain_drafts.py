@@ -130,7 +130,7 @@ class Command(BaseCommand):
         self.stdout.write(f'报告已写入 {path}')
 
     def _write_review_md(self, rows, report_path):
-        """黄金集抽检 md（与 C1 pilot_review.md 同款方法论）。"""
+        """黄金集抽检 md（与 C1 抽检报告同款方法论）。"""
         if not report_path:
             return
         base = os.path.splitext(report_path)[0]

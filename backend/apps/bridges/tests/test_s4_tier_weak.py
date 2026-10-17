@@ -1,6 +1,13 @@
-"""S4 RED: tier 语义修正 + 广播沉底。
+"""tier 语义修正 + 广播沉底（S4）。
 
-契约（实现后转 GREEN）：
+历史背景：本文件最初按 TDD 以 RED 写成——契约（实现后转 GREEN），运行时应 FAIL
+（Tier 无 WEAK / 默认仍为 featured / fuse 仍回 featured / relabel 服务与排序 helper
+尚未实现），直至 S4 实现后转 GREEN。
+当前状态：S4 已全部完成（Tier.WEAK、tier 默认 weak、fuse 兜底回 weak、relabel 服务、
+weak 恒沉底排序、序列化回退），本文件当前全绿（2026-10-17 实测 13 passed）。
+下述用例是针对**已实现**行为的回归保护。
+
+契约：
 - `Tier` 枚举新增 `WEAK='weak'`（label '弱相关'）；`FEATURED` 保留为历史值，
   但不再自动派生、也不再是字段默认。
 - `ProductProtocol.tier` 字段默认 `FEATURED → WEAK`。
@@ -9,9 +16,6 @@
 - 数据迁移：所有 `tier='featured'` 行重标 `'weak'`（dev 实测 974 行），零删除（铁律①）。
 - 排序：`weak` 恒沉底——任何 relevance 都排最后；其余按相关性降序。
 - 序列化回退 `tier` 由 `featured → weak`。
-
-运行时应 FAIL（Tier 无 WEAK / 默认仍为 featured / fuse 仍回 featured /
-relabel 服务与排序 helper 尚未实现），直至 S4 实现后转 GREEN。
 """
 from django.core.management import call_command
 from django.test import TestCase

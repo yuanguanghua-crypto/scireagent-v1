@@ -1,8 +1,10 @@
 """
-TDD RED: 三轴融合打分 + recompute 命令（§14 + 决策 Q4 轴C离线持久化）。
+三轴融合打分 + recompute 命令（§14 + 决策 Q4 轴C离线持久化）。
 
-运行时应 FAIL（relevance 服务模块 / fuse_relevance / recompute 命令尚未实现），
-直至 #353 实现后转 GREEN。
+历史背景：本文件最初按 TDD 以 RED 写成——在 #353 实现之前运行应 FAIL
+（relevance 服务模块 / fuse_relevance / recompute 命令均不存在）。
+当前状态：#353 已完成，上述三者均已实现，本文件当前全绿（2026-10-17 实测 15 passed）。
+下述用例是针对**已实现** fuse_relevance / recompute_protocol_relevance 的回归保护。
 
 核心契约：
 - fuse_relevance(S_A, S_B, S_C) = 0.70*S_A + 0.10*S_B + 0.20*S_C  （权重和=1）
@@ -25,11 +27,11 @@ from apps.knowledge.tests.factories import MethodFactory, ProtocolFactory
 
 
 def _make_product_with_usage(usage):
-    """轴A 地基（docx 厂商声称用途）在 §13 决策中仍冻结未落库，Product 尚无 usage 字段。
+    """轴A 地基（docx 厂商声称用途）经 #376 落库为 Product.usage 字段。
 
-    测试仅验证轴A 的「用途×协议领域词」重叠检测逻辑，故在内存实例上挂载 usage
-    属性（compute_axis_a 经 getattr 读取，无字段时返回 None 诚实不冒充），
-    不触及 Product schema（避免与冻结决策冲突）。
+    测试仅验证轴A 的「用途×协议领域词」重叠检测逻辑，故直接在实例上赋值 usage
+    （compute_axis_a 经 getattr 读取，取不到时返回 None 诚实不冒充），
+    不额外改动 Product schema。
     """
     p = ProductFactory()
     p.usage = usage
