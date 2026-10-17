@@ -71,6 +71,10 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('documents', '0005_alter_coa_options'),
+        # ★ 回填逻辑读 `commerce.Product.current_sds_id`（该 FK 由 commerce/0006 引入），
+        #   缺这条依赖时若 commerce 尚在 0005，迁移图里的 Product 没有该字段
+        #   ⇒ 回填抛 FieldError: Cannot resolve keyword 'current_sds_id'
+        ('commerce', '0006_product_current_sds'),
     ]
 
     operations = [
