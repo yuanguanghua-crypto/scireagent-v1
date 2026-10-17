@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from core.business_time import business_day_bounds
+from core.business_time import business_day_bounds, business_today
 from apps.transactions.models import Order, OrderItem, Basket, Invoice
 from apps.transactions.api.v1.serializers import CheckoutSerializer, OrderDetailSerializer
 
@@ -55,18 +55,21 @@ class CheckoutView(APIView):
                 initial_status = Order.Status.CONFIRMED
 
             # Generate order number
-            from django.utils import timezone
-            now = timezone.now()
-            # ★ 日切必须按业务日历日，不能用 `created_at__date=`：
-            #   Django 的 `__date` lookup 按 settings.TIME_ZONE（生产为 UTC）截断，
-            #   不是按 BUSINESS_TIME_ZONE ⇒ 东八区 00:00-07:59 期间会切错日，
-            #   单号序列错位 8 小时。改用业务日的显式 [00:00, 次日00:00) 区间。
+            # ★ 日切与单号前缀必须用**同一个**业务日历日，故先取一次 biz_date，
+            #   再把它同时喂给 business_day_bounds() 和前缀格式化。
+            #   1) 日切过滤不能用 `created_at__date=`：Django 的 `__date` lookup 按
+            #      settings.TIME_ZONE（生产为 UTC）截断，不是按 BUSINESS_TIME_ZONE
+            #      ⇒ 东八区 00:00-07:59 期间会切错日。改用显式 [00:00, 次日00:00) 区间。
+            #   2) 前缀不能直接用 `timezone.now().strftime('%Y%m%d')`：那是 UTC 日期，
+            #      与上面的业务日窗口差一天 ⇒ 同一业务日的订单被拆到两个前缀里，
+            #      且与 seq 统计窗口错位。
             #   （单号生成本身——序号算法/唯一性——是另一条 P1，此处不动。）
-            day_start, day_end = business_day_bounds()
+            biz_date = business_today()
+            day_start, day_end = business_day_bounds(biz_date)
             seq = Order.objects.filter(
                 created_at__gte=day_start, created_at__lt=day_end,
             ).count() + 1
-            order_no = f'ORD-{now.strftime("%Y%m%d")}-{seq:03d}'
+            order_no = f'ORD-{biz_date.strftime("%Y%m%d")}-{seq:03d}'
 
             # Create order
             order = Order.objects.create(

@@ -17,6 +17,11 @@ BUSINESS_TIME_ZONE 相差 8 小时，因此**本地时间 00:00-07:59 之间，U
     （4c SDS 修订日期的用例在其归属目录
      apps/documents/tests/test_business_timezone_sds.py。）
 
+★ 2026-10-17 再追加 4e：上一轮只把 4b 的 **seq 统计窗口**改成了业务日区间，
+   却漏改了 checkout 单号**日期前缀**（仍取 UTC 的 `timezone.now().strftime()`），
+   导致同一业务日的订单被拆到两个前缀里。4e 用三个用例锁死前缀本身：
+跨日窗口 / 跨年窗口 / 与 seq 窗口同源。
+
 伪造时刻统一用「东八区刚过零点、UTC 还在昨天」这一最恶劣窗口。
 """
 from contextlib import contextmanager
@@ -361,6 +366,66 @@ class TestOrderNoSequenceBusinessDate:
         seq = created.order_no.rsplit('-', 1)[1]
         assert seq == '002', (
             f'业务日 10-17 已有 1 单，新单序号应为 002，实际 {created.order_no}'
+        )
+
+    def _checkout(self, user, po_number):
+        client = APIClient()
+        client.force_authenticate(user)
+        product = ProductFactory()
+        sku = SKUFactory(product=product, price=Decimal('100.00'))
+        BasketFactory(user=user, product=product, sku=sku, quantity=1)
+        resp = client.post('/api/v1/checkout/', {
+            'payment_method': 'purchase_order',
+            'po_number': po_number,
+            'shipping_name': 'Test',
+            'shipping_address': '123 Main St',
+        }, format='json')
+        assert resp.status_code == 201, f'checkout 失败：{resp.data}'
+        return Order.objects.get(order_no=resp.data['order_no'])
+
+    def test_order_no_date_prefix_uses_business_date_not_utc_date(self):
+        """★ 本次缺陷：单号日期段曾直接取 UTC 的 `timezone.now().strftime()`。
+
+        东八区 00:30（UTC 还在前一天 16:30）checkout ⇒ 日期段必须是业务日 10-17，
+        而不是 UTC 日期 10-16。否则同一业务日的订单被拆到两个前缀里，
+        与按业务日做的 seq 统计窗口错位。
+        """
+        assert FAKE_UTC_DATE.strftime('%Y%m%d') != FAKE_BIZ_DATE.strftime('%Y%m%d'), \
+            '伪造时刻必须落在跨日窗口内，否则本测试无意义'
+
+        user = UserFactory()
+        with patch.object(dj_tz, 'now', return_value=FAKE_NOW):
+            order = self._checkout(user, 'PO-TZP-0001')
+        assert order.order_no.startswith(f'ORD-{FAKE_BIZ_DATE.strftime("%Y%m%d")}-'), (
+            f'单号 {order.order_no} 的日期段应为业务日 {FAKE_BIZ_DATE}'
+        )
+        assert not order.order_no.startswith(f'ORD-{FAKE_UTC_DATE.strftime("%Y%m%d")}-'), (
+            f'单号 {order.order_no} 的日期段回落成了 UTC 日期 {FAKE_UTC_DATE}'
+        )
+
+    def test_order_no_date_prefix_uses_business_year_not_utc_year(self):
+        """跨年窗口：东八区元旦凌晨（UTC 12-31）⇒ 年份必须是 2027 而非 2026。"""
+        user = UserFactory()
+        with patch.object(dj_tz, 'now', return_value=FAKE_NOW_YEAR):
+            order = self._checkout(user, 'PO-TZP-0002')
+        assert FAKE_NOW_YEAR.year != FAKE_BIZ_YEAR, '伪造时刻必须落在跨年窗口内'
+        assert order.order_no.startswith(f'ORD-{FAKE_BIZ_YEAR}0101-'), (
+            f'单号 {order.order_no} 的年份应为业务年 {FAKE_BIZ_YEAR}，不是 UTC 年 {FAKE_NOW_YEAR.year}'
+        )
+
+    def test_date_prefix_and_seq_window_share_one_business_day(self):
+        """★ 前缀与 seq 统计窗口必须出自**同一个**业务日变量。
+
+        锁住"同源"这条契约：单号前缀的日期段 == seq 过滤窗口左端点所在的业务日。
+        否则会出现"seq 按业务日统计、前缀按另一套日期"的错位（本次修复前的状态）。
+        """
+        day_start, day_end = business_day_bounds_probe(FAKE_BIZ_DATE)
+        user = UserFactory()
+        with patch.object(dj_tz, 'now', return_value=FAKE_NOW):
+            order = self._checkout(user, 'PO-TZP-0003')
+        assert order.order_no.split('-')[1] == day_start.strftime('%Y%m%d'), (
+            f'前缀日期段应与 seq 窗口左端点 {day_start} 同日，'
+            f'实际单号 {order.order_no}，窗口 [{day_start}, {day_end})'
         )
 
 
