@@ -2,6 +2,7 @@ import os
 import uuid
 from datetime import timedelta
 from decimal import Decimal
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db import transaction
@@ -11,7 +12,7 @@ from django.utils import timezone
 from .models import (
     Order, OrderItem, Invoice, PaymentRecord, ShippingRecord,
     ShippingRecordItem, PoAttachment, StatusLog, InvoiceSequence,
-    InvalidTransitionError, Basket,
+    InvalidTransitionError, Basket, business_today,
 )
 from apps.inventory.models import Allocation
 from apps.inventory.services import InventoryService
@@ -214,8 +215,12 @@ class InvoiceService:
         terms = payment_terms or order.payment_terms
         issued_at = timezone.now()
         days = cls.NET_DAYS.get(terms, 30)
-        due_date = (issued_at + timedelta(days=days)).date()
-        invoice_no = cls._next_invoice_no(issued_at.year)
+        # 账期与票号年份都按业务日历日（默认东八区）判定：生产 TIME_ZONE='UTC'，
+        # 东八区 00:00-08:00 期间 UTC 仍在前一天，用 UTC 会让 due_date 早一天、
+        # 跨年时开出上一年份的票号。
+        issued_biz = issued_at.astimezone(ZoneInfo(settings.BUSINESS_TIME_ZONE))
+        due_date = (issued_biz + timedelta(days=days)).date()
+        invoice_no = cls._next_invoice_no(issued_biz.year)
 
         invoice = Invoice.objects.create(
             order=order,
@@ -498,7 +503,9 @@ class PaymentArService:
     @staticmethod
     def ar_aging() -> dict:
         """按 due_date 聚合未付发票到 30/60/90 桶。"""
-        today = timezone.now().date()
+        # 必须用 business_today()：is_overdue 用业务日历日，这里若用 UTC 日期，
+        # 东八区 00:00-08:00 会同时出现"已逾期"且"落在 current 桶"的自相矛盾状态。
+        today = business_today()
         unpaid = Invoice.objects.filter(
             status__in=[Invoice.Status.ISSUED, Invoice.Status.OVERDUE]
         ).select_related('order')

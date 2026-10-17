@@ -212,8 +212,14 @@ class InvoicePdfTest(TestCase):
         invoice = InvoiceService.issue(order, payment_terms=Order.PaymentTerms.NET45, actor=user)
         self.assertTrue(invoice.invoice_no.startswith('INV-'))
         self.assertEqual(invoice.payment_terms, Order.PaymentTerms.NET45)
-        # NET45 => due_date = issued_at + 45d
-        self.assertEqual((invoice.due_date - invoice.issued_at.date()).days, 45)
+        # NET45 => due_date = 业务日历日 + 45d
+        # 注意：不能用 issued_at.date()（UTC 日期）——东八区 00:00-08:00 期间
+        # 业务日期比 UTC 日期晚一天，会误判成 46 天。issued_at 从库里读出是 UTC aware。
+        from zoneinfo import ZoneInfo
+        from django.conf import settings as dj_settings
+        issued_biz_date = invoice.issued_at.astimezone(
+            ZoneInfo(dj_settings.BUSINESS_TIME_ZONE)).date()
+        self.assertEqual((invoice.due_date - issued_biz_date).days, 45)
         # PDF 生成无异常（文件已写出）
         import os
         from django.conf import settings
