@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
+from core.business_time import business_day_bounds
 from apps.transactions.models import Order, OrderItem, Basket, Invoice
 from apps.transactions.api.v1.serializers import CheckoutSerializer, OrderDetailSerializer
 
@@ -56,7 +57,15 @@ class CheckoutView(APIView):
             # Generate order number
             from django.utils import timezone
             now = timezone.now()
-            seq = Order.objects.filter(created_at__date=now.date()).count() + 1
+            # ★ 日切必须按业务日历日，不能用 `created_at__date=`：
+            #   Django 的 `__date` lookup 按 settings.TIME_ZONE（生产为 UTC）截断，
+            #   不是按 BUSINESS_TIME_ZONE ⇒ 东八区 00:00-07:59 期间会切错日，
+            #   单号序列错位 8 小时。改用业务日的显式 [00:00, 次日00:00) 区间。
+            #   （单号生成本身——序号算法/唯一性——是另一条 P1，此处不动。）
+            day_start, day_end = business_day_bounds()
+            seq = Order.objects.filter(
+                created_at__gte=day_start, created_at__lt=day_end,
+            ).count() + 1
             order_no = f'ORD-{now.strftime("%Y%m%d")}-{seq:03d}'
 
             # Create order

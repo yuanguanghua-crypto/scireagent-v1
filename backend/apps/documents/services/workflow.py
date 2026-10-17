@@ -6,6 +6,7 @@ import datetime
 from django.utils import timezone
 from django.db import transaction
 
+from core.business_time import business_today
 from ..models import Batch, Coa, SdsRevision, PubChemCache
 from .coa_generator import generate_coa_pdf
 from .sds_generator import generate_sds_pdf
@@ -140,12 +141,18 @@ def _next_revision_no(product):
 
 def _create_sds_revision(product, *, signal_word, pictograms, hazard_codes,
                          precaution_codes, section_data, confidence, source_detail):
-    """统一创建 SdsRevision 草稿，并写入数据可信度与来源说明。"""
+    """统一创建 SdsRevision 草稿，并写入数据可信度与来源说明。
+
+    ★ revised_at 必须用 business_today()，不能用 datetime.date.today()：
+      后者取进程操作系统时区，生产容器 TZ 为 UTC 时等于 UTC 日期，
+      东八区 00:00-07:59 生成的 SDS 修订日期会回退一天。
+      助手在 core/ 而非 transactions —— documents 不应为此依赖交易域。
+    """
     next_no = _next_revision_no(product)
     sds = SdsRevision.objects.create(
         product=product,
         revision_no=next_no,
-        revised_at=datetime.date.today(),
+        revised_at=business_today(),
         change_note=source_detail,
         signal_word=signal_word,
         pictograms=json.dumps(pictograms),

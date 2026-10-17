@@ -1,7 +1,7 @@
-from datetime import date
 from decimal import Decimal
 
 from rest_framework import serializers
+from core.business_time import business_today
 from core.serializers import BaseModelSerializer
 from apps.transactions.models import (
     Order, OrderItem, Invoice, PaymentRecord, ShippingRecord,
@@ -289,8 +289,13 @@ class PoSubmitSerializer(serializers.Serializer):
 
     def validate_requested_delivery_date(self, value):
         """交付日期不得早于今天（运行时校验，避免迁移/时区硬编码带来的下限漂移）。
-        value 为 None 时跳过（该字段 required=False, allow_null=True）。"""
-        if value is not None and value < date.today():
+        value 为 None 时跳过（该字段 required=False, allow_null=True）。
+
+        ★ 必须用 business_today()，不能用 date.today()：
+          date.today() 取的是**进程操作系统时区**；生产容器 TZ 为 UTC 时它等于
+          UTC 日期，而东八区 00:00-07:59 期间 UTC 日期比业务日期晚一天 ⇒
+          用户能提交"昨天"的交付日期并通过校验。"""
+        if value is not None and value < business_today():
             raise serializers.ValidationError(
                 'Requested delivery date cannot be in the past.'
             )

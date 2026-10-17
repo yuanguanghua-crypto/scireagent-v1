@@ -1,18 +1,11 @@
-from zoneinfo import ZoneInfo
-
-from django.db import models
 from django.conf import settings
-from django.utils import timezone
+from django.db import models
+
+# ★ 业务日历日助手已下沉到 core.business_time（多个 app 共用，避免跨 app 依赖）。
+#   本模块继续转发 business_today / business_day_bounds / business_timezone，
+#   已有引用（含 tests/test_business_timezone.py、services.py）无需改动。
+from core.business_time import business_day_bounds, business_timezone, business_today  # noqa: F401
 from core.models import TimeStampedModel
-
-
-def business_today():
-    """业务日历日（settings.BUSINESS_TIME_ZONE，默认东八区）。
-
-    逾期/账龄等"按日历日"的业务判断必须用它，**不能**用 timezone.localdate()：
-    生产 TIME_ZONE='UTC' 时 localdate() 等于 UTC 日期，与业务日历日差一天。
-    """
-    return timezone.now().astimezone(ZoneInfo(settings.BUSINESS_TIME_ZONE)).date()
 
 
 class InvalidTransitionError(Exception):
