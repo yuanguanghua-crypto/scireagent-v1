@@ -465,6 +465,39 @@ class InvoiceSequence(models.Model):
         return f'{self.year}: {self.last_number}'
 
 
+class OrderSequence(models.Model):
+    """独立订单日计数器表 — 并发安全取号（biz_date, last_number）。
+
+    ★ 为什么必须有这张表（2026-10-17，生产已实际发生跳号）：
+      checkout 曾用 `Order.objects.filter(created_at__gte=day_start,
+      created_at__lt=day_end).count() + 1` 取序号，两个缺陷叠加：
+        ① 口径错：PO 单（uuid 版单号 `ORD-{hex8}`）也落在当日窗口内被计入
+           ⇒ 生产 2026-07-17 出现 004-007 跳号（Order.id 连续无删除）；
+        ② 会回退：删单后 count() 变小 ⇒ 生成与已存在单号冲突的编号。
+      改成独立计数器后，计数器**只数 checkout 单**，PO 单天然不污染。
+
+    ★ 用 biz_date（日粒度）而非 year：订单号前缀是 YYYYMMDD，按业务日分桶。
+      发票号是年粒度，用 InvoiceSequence，两者互不复用。
+    """
+
+    # ★ 唯一性用 Meta.constraints 显式命名，而不是字段上的 unique=True：
+    #   后者让 Django 自动生成 `order_sequence_biz_date_<hash>_uniq`（约 39 字符），
+    #   超出本项目 30 字符的索引名上限。本项目曾因索引名超长导致生产容器反复重启。
+    biz_date = models.DateField()
+    last_number = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = 'order_sequence'
+        constraints = [
+            models.UniqueConstraint(fields=['biz_date'], name='uniq_order_seq_biz_date'),
+        ]
+        verbose_name = '订单日序号'
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return f'{self.biz_date}: {self.last_number}'
+
+
 class Quote(TimeStampedModel):
     """询价单"""
     class Status(models.TextChoices):

@@ -336,11 +336,19 @@ class TestOrderNoSequenceBusinessDate:
         )
 
     def test_checkout_seq_resets_on_business_day_boundary(self):
-        """东八区 00:30 checkout：单号序号必须接着"业务日 10-17"的既有订单数。
+        """东八区 00:30 checkout：单号序号必须接着"业务日 10-17"的既有进度。
 
-        已存在 1 张业务日 10-17 的订单 ⇒ 新单 seq 必须是 002。
+        已存在 1 张业务日 10-17 的checkout 单⇒ 新单 seq 必须是 002。
         改前按 UTC 日期（10-16）统计，会把业务日 10-16 的订单也算进去 ⇒ seq 错位。
+
+        ★ 2026-10-17：取号改为专用计数器 OrderSequence 后，"当日已发到第几号"
+          的真相源是计数器行而非 `count()`（旧 count() 会把 uuid 版 PO 单也计入，
+          生产 2026-07-17 因此出现 004-007 跳号）。
+          故此处显式把计数器置为 1 来表达"当日已发出 1 单"，并保留业务日 10-16
+          的订单作为"不得串号"的反例 —— 跨业务日不得串号这条契约不变。
         """
+        from apps.transactions.models import OrderSequence
+
         client = APIClient()
         user = UserFactory()
         client.force_authenticate(user)
@@ -352,6 +360,10 @@ class TestOrderNoSequenceBusinessDate:
         self._order_at(user, 'ORD-PREV-0001', datetime(2026, 10, 16, 15, 30, tzinfo=ZoneInfo('UTC')))
         # 业务日 10-17 的订单（UTC 10-16 16:30）——应计入
         self._order_at(user, 'ORD-CURR-0001', datetime(2026, 10, 16, 16, 30, tzinfo=ZoneInfo('UTC')))
+        # 计数器：业务日 10-17 已发到 001；业务日 10-16 另有一桶更高进度，
+        # 用于反证"取号只看自己的业务日桶，不受相邻日影响"
+        OrderSequence.objects.create(biz_date=FAKE_BIZ_DATE, last_number=1)
+        OrderSequence.objects.create(biz_date=FAKE_BIZ_DATE - timedelta(days=1), last_number=7)
 
         with patch.object(dj_tz, 'now', return_value=FAKE_NOW):
             resp = client.post('/api/v1/checkout/', {
@@ -365,8 +377,11 @@ class TestOrderNoSequenceBusinessDate:
         created = Order.objects.get(order_no=resp.data['order_no'])
         seq = created.order_no.rsplit('-', 1)[1]
         assert seq == '002', (
-            f'业务日 10-17 已有 1 单，新单序号应为 002，实际 {created.order_no}'
+            f'业务日 10-17 计数器已到 001，新单序号应为 002，实际 {created.order_no}'
         )
+        # 相邻业务日的计数器不得被本次取号改动
+        prev_row = OrderSequence.objects.get(biz_date=FAKE_BIZ_DATE - timedelta(days=1))
+        assert prev_row.last_number == 7, '相邻业务日的计数器不得被污染'
 
     def _checkout(self, user, po_number):
         client = APIClient()

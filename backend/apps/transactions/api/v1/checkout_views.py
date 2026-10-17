@@ -7,8 +7,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 
-from core.business_time import business_day_bounds, business_today
+from core.business_time import business_today
 from apps.transactions.models import Order, OrderItem, Basket, Invoice
+from apps.transactions.services import OrderNoService
 from apps.transactions.api.v1.serializers import CheckoutSerializer, OrderDetailSerializer
 
 
@@ -56,20 +57,22 @@ class CheckoutView(APIView):
 
             # Generate order number
             # ★ 日切与单号前缀必须用**同一个**业务日历日，故先取一次 biz_date，
-            #   再把它同时喂给 business_day_bounds() 和前缀格式化。
-            #   1) 日切过滤不能用 `created_at__date=`：Django 的 `__date` lookup 按
+            #   再把它同时喂给取号器（计数器分桶键）和前缀格式化。
+            #   1) 键不能用 `created_at__date=`：Django 的 `__date` lookup 按
             #      settings.TIME_ZONE（生产为 UTC）截断，不是按 BUSINESS_TIME_ZONE
-            #      ⇒ 东八区 00:00-07:59 期间会切错日。改用显式 [00:00, 次日00:00) 区间。
+            #      ⇒ 东八区 00:00-07:59 期间会切错日。改用显式 biz_date 分桶。
             #   2) 前缀不能直接用 `timezone.now().strftime('%Y%m%d')`：那是 UTC 日期，
-            #      与上面的业务日窗口差一天 ⇒ 同一业务日的订单被拆到两个前缀里，
-            #      且与 seq 统计窗口错位。
-            #   （单号生成本身——序号算法/唯一性——是另一条 P1，此处不动。）
+            #      与业务日差一天 ⇒ 同一业务日的订单被拆到两个前缀里。
+            #
+            # ★ 2026-10-17：取号从 `count()+1` 改为专用计数器 OrderNoService。
+            #   旧写法的两个缺陷（生产已实际发生跳号）：
+            #     a) count() 不区分单据来源 ⇒ uuid 版 PO 单（PoSubmissionService.submit）
+            #        也落在当日窗口内被计入 ⇒ 生产 2026-07-17 出现 004-007 跳号；
+            #     b) 删单后 count() 回退 ⇒ 可能生成与已存在单号冲突的编号。
+            #   新写法用 OrderSequence(biz_date, last_number) 只数 checkout 单，
+            #   且单调不回退；单号格式 ORD-YYYYMMDD-NNN 保持不变。
             biz_date = business_today()
-            day_start, day_end = business_day_bounds(biz_date)
-            seq = Order.objects.filter(
-                created_at__gte=day_start, created_at__lt=day_end,
-            ).count() + 1
-            order_no = f'ORD-{biz_date.strftime("%Y%m%d")}-{seq:03d}'
+            order_no = OrderNoService.next_checkout_order_no(biz_date)
 
             # Create order
             order = Order.objects.create(

@@ -12,7 +12,7 @@ from django.utils import timezone
 from .models import (
     Order, OrderItem, Invoice, PaymentRecord, ShippingRecord,
     ShippingRecordItem, PoAttachment, StatusLog, InvoiceSequence,
-    InvalidTransitionError, Basket, business_today,
+    OrderSequence, InvalidTransitionError, Basket, business_today,
 )
 from apps.inventory.models import Allocation
 from apps.inventory.services import InventoryService
@@ -183,6 +183,38 @@ class PoSubmissionService:
             raise ValueError(f"Unsupported attachment type '{ctype}'. Allowed: pdf, png, jpeg.")
         if getattr(f, 'size', 0) > cls.PO_ATTACHMENT_MAX_BYTES:
             raise ValueError('Attachment too large (max 10MB).')
+
+
+class OrderNoService:
+    """checkout 订单号原子取号 — 独立日计数器（OrderSequence）。
+
+    ★ 修的是什么：checkout 曾用
+      `Order.objects.filter(created_at__gte=day_start, created_at__lt=day_end).count() + 1`
+      取序号。该count() 不区分单据来源 ⇒ uuid 版 PO 单被计入（生产 2026-07-17
+      实测 004-007 跳号），且删单后会回退 ⇒ 撞已存在单号。
+      改用专用计数器后，序号只数 checkout 单，且单调不回退。
+
+    ★ 口径：只服务 checkout（ORD-YYYYMMDD-NNN，日粒度）。
+      PO 提交走 `PoSubmissionService.submit` 的 uuid 版单号，与本计数器无关，
+      不得改动那条路径（生产 po_views 在调）。
+    """
+
+    @classmethod
+    @transaction.atomic
+    def next_checkout_order_no(cls, biz_date=None) -> str:
+        """返回下一个 checkout 单号 `ORD-YYYYMMDD-NNN`。
+
+        :param biz_date: 业务日历日；None 表示取当前业务日。
+            ⚠️ 必须与调用方用于订单落库的口径一致（同一业务日）。
+        """
+        if biz_date is None:
+            biz_date = business_today()
+        seq, _ = OrderSequence.objects.select_for_update().get_or_create(
+            biz_date=biz_date, defaults={'last_number': 0},
+        )
+        seq.last_number += 1
+        seq.save(update_fields=['last_number'])
+        return f'ORD-{biz_date.strftime("%Y%m%d")}-{seq.last_number:03d}'
 
 
 class InvoiceService:
