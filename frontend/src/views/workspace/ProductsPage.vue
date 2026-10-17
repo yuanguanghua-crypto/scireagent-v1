@@ -7,6 +7,7 @@ import { http } from '@/api/http'
 import { toast, LoadingSpinner, EmptyState } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
 import { archiveProduct, reactivateProduct, deleteProduct, getArchivedProducts, discontinueProduct, batchRestoreProducts } from '@/api/workspace/products'
+import { batchValidate, batchRecommendLiterature } from '@/api/aiTools'
 
 const router = useRouter()
 const route = useRoute()
@@ -531,6 +532,106 @@ async function confirmRestore() {
     restoreLoading.value = false
   }
 }
+
+// ── 批量 AI：校验 / 文献推荐 ────────────────────────
+// ★ 补回被 5868600 连同 AdminProductsPage.vue 一起删掉的前端入口。
+//   后端端点（ai_views.py:62 BatchValidateView / :95 BatchRecommendLiteratureView）
+//   与前端 API（api/aiTools.js:15-21）一直健在，只是无人调用 ⇒ 能力失去唯一前端入口。
+//
+// ★ 权限口径差异（本块入口额外要求 isStaff 的原因）：
+//   页面守卫用 isInternal(auth) = is_staff || role∈(procurement,admin)（utils/internalAccess.js），
+//   但这两个端点的 `permission_classes = [IsAdminUser]`（= **仅** is_staff，见 ai_views.py:68/:101）。
+//   ⇒ 非 staff 的 procurement 能进本页、却一点就 403。此处按**后端真实约束**收紧到 auth.isStaff：
+//   这不是前端"放宽"，而是避免给非 staff 呈现一个必然失败的操作。
+//   ⚠ 不要改后端权限；也不要改成 isInternal()。
+const canBatchAi = computed(() => Boolean(auth.isStaff))
+
+const showBatchAiDialog = ref(false)
+const batchAiMode = ref('')          // 'validate' | 'literature'
+const batchAiLoading = ref(false)
+const batchAiResults = ref([])
+const batchAiError = ref('')
+const batchAiOverlay = ref(null)
+const batchAiAttrs = useDialogA11y(showBatchAiDialog, batchAiOverlay, {
+  titleId: 'batch-ai-title',
+  close: () => { showBatchAiDialog.value = false },
+})
+
+// 单批上限：后端 batch 端点在**一个请求里**对每个产品打 PubChem / PubMed 外网
+//   （ProductValidator.validate + LiteratureRecommender.recommend，均无内网缓存短路），
+//   一次 76 个会让请求体与响应时间都爆掉 ⇒ 分批串行，每批 N 个，批间可观测。
+const BATCH_AI_CHUNK = 10
+
+const batchAiTitle = computed(() =>
+  batchAiMode.value === 'literature' ? 'Batch Literature Recommendations' : 'Batch Validation')
+
+/** 把选中 id 切成 <= size 的批（不改动原数组语义）。 */
+function chunkIds(ids, size) {
+  const out = []
+  for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size))
+  return out
+}
+
+/** 统一取结果数组：utils/http.js:73 响应拦截器已把信封解包 ⇒ body 就是 {success,data,meta}，
+ *  与本文件 applyProductsResponse(:37-43) 同口径，只能取一层 .data。 */
+function readBatchData(resp) {
+  if (Array.isArray(resp)) return resp
+  if (Array.isArray(resp?.data)) return resp.data
+  return []
+}
+
+async function runBatchAi(mode) {
+  if (!canBatchAi.value) return
+  const ids = Array.from(selectedIds.value)
+  if (!ids.length || batchAiLoading.value) return
+  batchAiMode.value = mode
+  batchAiResults.value = []
+  batchAiError.value = ''
+  batchAiLoading.value = true
+  showBatchAiDialog.value = true
+  try {
+    const merged = []
+    const chunks = chunkIds(ids, BATCH_AI_CHUNK)
+    for (const chunk of chunks) {
+      // 逐批串行：后端是同步外网调用，并发只会互相拖慢并放大失败面。
+      const resp = mode === 'literature'
+        ? await batchRecommendLiterature(chunk)
+        : await batchValidate(chunk)
+      merged.push(...readBatchData(resp))
+    }
+    batchAiResults.value = merged
+    if (!merged.length) {
+      toast.warning('No results returned — the selected products may no longer exist')
+    }
+  } catch (e) {
+    // 失败/超时必须让用户看见：对话框内给错误块，toast 兜底。
+    const msg = e?.response?.data?.meta?.error?.message
+      || e?.response?.data?.detail
+      || e?.message
+      || 'Request failed'
+    batchAiError.value = mode === 'literature'
+      ? `Batch literature failed: ${msg}`
+      : `Batch validation failed: ${msg}`
+    toast.error(batchAiError.value)
+  } finally {
+    batchAiLoading.value = false
+  }
+}
+
+/** 校验结果里 mismatches 非空 ⇔ 运营需要人工介入（后端 report.mismatches = 跨字段不一致项）。 */
+function hasMismatch(item) {
+  const m = item?.validation?.mismatches
+  return Array.isArray(m) && m.length > 0
+}
+function mismatchText(item) {
+  return (item?.validation?.mismatches || []).join(', ')
+}
+function litRefCount(item) {
+  return (item?.literature?.references || []).length
+}
+function litKeywords(list) {
+  return (list || []).join(', ')
+}
 </script>
 
 <template>
@@ -559,6 +660,23 @@ async function confirmRestore() {
         <template v-if="selectedCount > 0">
           <template v-if="viewMode === 'active'">
             <button class="btn btn-ghost btn-sm" @click="openBatchLink">Batch Link</button>
+            <!-- 批量 AI 入口（补回 5868600 删除的 AdminProductsPage.vue 里的能力）：
+                 条件渲染沿用被删文件的 header 范式 —— 仅在勾选了 ≥1 个产品时出现。
+                 canBatchAi(= is_staff)：后端两个端点是 IsAdminUser，procurement 调了必 403。 -->
+            <template v-if="canBatchAi">
+              <button
+                class="btn btn-ghost btn-sm"
+                data-testid="batch-ai-validate"
+                :disabled="batchAiLoading"
+                @click="runBatchAi('validate')"
+              >🔬 Batch validate</button>
+              <button
+                class="btn btn-ghost btn-sm"
+                data-testid="batch-ai-literature"
+                :disabled="batchAiLoading"
+                @click="runBatchAi('literature')"
+              >📚 Batch literature</button>
+            </template>
             <button class="btn btn-ghost btn-sm" @click="openBatchArchive">Batch archive</button>
             <button class="btn btn-danger-ghost btn-sm" @click="openBatchDelete">Batch delete</button>
           </template>
@@ -675,6 +793,76 @@ async function confirmRestore() {
           <button class="btn btn-primary btn-sm" @click="applyBatchLink" :disabled="batchLinkLoading">{{ batchLinkLoading ? 'Linking...' : 'Confirm' }}</button>
         </div>
         <button class="btn btn-ghost btn-sm" style="margin-top:12px" @click="showBatchLinkPanel = false">Cancel</button>
+      </div>
+    </div>
+
+    <!-- 批量 AI 结果对话框（校验 / 文献推荐共用） -->
+    <div v-if="showBatchAiDialog" ref="batchAiOverlay" class="dialog-overlay" v-bind="batchAiAttrs" @click.self="showBatchAiDialog = false">
+      <div class="dialog dialog--wide" data-testid="batch-ai-dialog">
+        <h3 id="batch-ai-title">{{ batchAiTitle }}</h3>
+        <p class="dialog-sub">
+          {{ selectedCount }} product(s) selected
+          <template v-if="selectedCount > BATCH_AI_CHUNK">
+            — sent in batches of {{ BATCH_AI_CHUNK }} because each product triggers a live PubChem / PubMed lookup.
+          </template>
+        </p>
+
+        <p v-if="batchAiLoading" class="batch-ai-loading">Running AI checks… this can take a while for large selections.</p>
+        <p v-if="batchAiError" class="dialog-warn" data-testid="batch-ai-error">{{ batchAiError }}</p>
+
+        <!-- 批量校验：mismatches 非空 ⇔ 跨字段不一致，运营最需要看的信号，视觉上单独标出 -->
+        <div v-if="batchAiMode === 'validate'" class="batch-ai-list">
+          <div
+            v-for="r in batchAiResults"
+            :key="r.product_id"
+            class="batch-ai-row"
+            :class="{ 'has-mismatch': hasMismatch(r) }"
+            data-testid="batch-ai-row"
+            :data-has-mismatch="hasMismatch(r) ? 'true' : 'false'"
+          >
+            <div class="batch-ai-row__head">
+              <span class="batch-ai-name">{{ r.product_name || `#${r.product_id}` }}</span>
+              <span v-if="hasMismatch(r)" class="tag tag-incomplete" data-testid="batch-ai-mismatch-flag">⚠ {{ mismatchText(r) }}</span>
+              <span v-else class="tag tag-complete">✓ consistent</span>
+            </div>
+            <div class="batch-ai-row__meta">
+              <span>status: {{ r.validation?.status || '—' }}</span>
+              <span :class="r.validation?.overall_match ? 'ok' : 'bad'">
+                overall_match: {{ r.validation?.overall_match ? 'yes' : 'no' }}
+              </span>
+              <span>mismatches: {{ (r.validation?.mismatches || []).length }}</span>
+              <span>pubchem_cid: {{ r.validation?.pubchem_cid ?? '—' }}</span>
+            </div>
+          </div>
+          <p v-if="!batchAiLoading && !batchAiResults.length" class="batch-ai-empty">No validation results.</p>
+        </div>
+
+        <!-- 批量文献推荐：按后端 BatchRecommendLiteratureView 实际返回的 literature 结构展示 -->
+        <div v-else class="batch-ai-list">
+          <div v-for="r in batchAiResults" :key="r.product_id" class="batch-ai-row" data-testid="batch-ai-row">
+            <div class="batch-ai-row__head">
+              <span class="batch-ai-name">{{ r.product_name || `#${r.product_id}` }}</span>
+              <span class="tag tag-gray">{{ litRefCount(r) }} reference(s)</span>
+            </div>
+            <div class="batch-ai-row__meta">
+              <span>applications: {{ litKeywords(r.literature?.applications) || '—' }}</span>
+              <span>methods: {{ litKeywords(r.literature?.methods) || '—' }}</span>
+            </div>
+            <ul v-if="(r.literature?.references || []).length" class="batch-ai-refs">
+              <li v-for="ref in r.literature.references" :key="ref.pmid">
+                <a v-if="ref.doi" :href="`https://doi.org/${ref.doi}`" target="_blank" rel="noopener">{{ ref.title }}</a>
+                <span v-else>{{ ref.title }}</span>
+                <span class="batch-ai-refs__src">{{ ref.source || '—' }}{{ ref.pubdate ? ` · ${ref.pubdate}` : '' }}{{ ref.doi ? ` · PMID ${ref.pmid}` : '' }}</span>
+              </li>
+            </ul>
+            <p v-else class="batch-ai-empty">No literature found for this product.</p>
+          </div>
+          <p v-if="!batchAiLoading && !batchAiResults.length" class="batch-ai-empty">No literature results.</p>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="btn btn-ghost" @click="showBatchAiDialog = false" :disabled="batchAiLoading">Close</button>
+        </div>
       </div>
     </div>
 
@@ -818,4 +1006,19 @@ async function confirmRestore() {
 .batch-link-form select { width: 100%; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px; background: var(--color-bg); color: var(--color-text); }
 .batch-preview { background: var(--color-success-bg); border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 13px; }
 .batch-preview p { margin: 0 0 8px; color: var(--color-success); }
+/* ── 批量 AI 结果 ── */
+.batch-ai-list { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.batch-ai-row { border: 1px solid var(--color-border); border-radius: 8px; padding: 10px 12px; background: var(--color-surface); font-size: 13px; color: var(--color-text); }
+/* mismatches 非空：左侧红条 + 警示底色，与「一致」行视觉上必须一眼可分 */
+.batch-ai-row.has-mismatch { border-left: 3px solid var(--color-danger); background: var(--color-danger-bg); }
+.batch-ai-row__head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.batch-ai-name { font-weight: 600; }
+.batch-ai-row__meta { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: var(--color-text-secondary); }
+.batch-ai-row__meta .ok { color: var(--color-success); }
+.batch-ai-row__meta .bad { color: var(--color-danger); font-weight: 600; }
+.batch-ai-refs { margin: 8px 0 0; padding-left: 18px; font-size: 12px; color: var(--color-text-secondary); }
+.batch-ai-refs li { margin-bottom: 4px; }
+.batch-ai-refs__src { color: var(--color-text-tertiary); margin-left: 6px; }
+.batch-ai-empty, .batch-ai-loading { font-size: 13px; color: var(--color-text-secondary); }
+.batch-ai-loading { padding: 8px 0; }
 </style>
