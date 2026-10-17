@@ -786,9 +786,18 @@ class FrontendIndex:
 
     # ── 上卷：把 api 层内部调用折叠成「入口调用方」 ──
     def entry_consumers(self, sym_key: str) -> set[str]:
-        """符号的真实入口调用方（递归穿透 api 层 re-export / 内部调用）。"""
+        """符号的真实入口调用方（递归穿透 api 层 re-export / 内部调用）。
+
+        ⚠️ 键类型必须全程一致。本索引里有两套键，混用会让分支静默失效：
+          · self.exports   以**绝对路径**为键（scan_api_layer 走 os.walk(API_DIR)）
+          · file_imports /
+            api_layer_refs 的值 / consumers 的文件部分 以**相对路径**为键
+        因此查 self.exports 时必须把 ref_file 还原成绝对路径；
+        用相对路径去查只会恒得空集，让「api 层内部调用」这条上卷路径形同虚设。
+        """
         seen: set[str] = set()
         frontier = {sym_key}
+        api_prefix = rel(API_DIR) + "/"          # 相对形态的 api 层前缀
         while frontier:
             nxt: set[str] = set()
             for k in frontier:
@@ -796,18 +805,20 @@ class FrontendIndex:
                     if c not in seen:
                         seen.add(c)
                 for ref_file in self.api_layer_refs.get(k, ()):
-                    # ref_file 是 api 层文件：谁引用了它？
-                    for sym2 in self.exports.get(ref_file, set()):
-                        k2 = f"{rel(ref_file)}::{sym2}"
+                    # ref_file 是**相对**路径；exports 的键是绝对路径 → 需还原
+                    abs_ref = os.path.normpath(os.path.join(REPO, ref_file))
+                    for sym2 in self.exports.get(abs_ref, set()):
+                        k2 = f"{ref_file}::{sym2}"
                         if k2 not in seen:
                             nxt.add(k2)
-                    for c in self.consumers.get(f"{rel(ref_file)}::*", ()):
-                        seen.add(c)
-                    # api 层文件被非 api 层直接 import 整个命名空间的情形
-                    for other in self.file_imports:
-                        if ref_file in self.file_imports[other] and not other.startswith(
-                                os.path.abspath(API_DIR).replace("\\", "/")):
-                            seen.add(rel(other))
+                    # api 层文件被非 api 层直接 import 整个命名空间的情形。
+                    # ⚠️ 排除条件必须用**相对**前缀比较：other 是相对路径，
+                    # 拿绝对 API_DIR 去 startswith 恒为 False，会把 api 层文件
+                    # 误当成入口调用方（方向是漏拦：让本该 BLOCK 的被放过）。
+                    for other, imports in self.file_imports.items():
+                        if ref_file in imports and not other.startswith(api_prefix):
+                            if other not in seen:
+                                seen.add(other)
             frontier = nxt - seen
         return seen
 
