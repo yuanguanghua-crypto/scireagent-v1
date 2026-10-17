@@ -1,11 +1,14 @@
 <script setup>
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
+import { isInternal } from '@/utils/internalAccess'
 
 const auth = useAuthStore()
 const router = useRouter()
 
-if (!auth.isStaff) {
+// ★ 内部人员判定收敛到 utils/internalAccess.js（口径= is_staff || role∈(procurement,admin)）
+//   ——与后端 permissions.py IsProcurementOrAdmin 一致；普通注册用户仍被踢回首页。
+if (!isInternal(auth)) {
   router.replace('/')
 }
 </script>

@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { isInternal } from '@/utils/internalAccess'
 import { useBasketStore } from '@/stores/basket'
 import { AppButton } from '@/components/common'
 
@@ -16,6 +17,10 @@ const showDropdown = ref(false)
 const userMenuRef = ref(null)
 const globalSearchQuery = ref('')
 const isDark = ref(false)
+
+// ★ 内部台入口可见性 —— 与路由守卫/页面守卫同一判定（utils/internalAccess.js）
+//   此前认 authStore.isStaff ⇒ 非 staff 的 procurement 看得到路由却看不到入口。
+const showInternalLinks = computed(() => isInternal(authStore))
 
 function handleToggleSidebar() {
   emit('toggle-sidebar')
@@ -139,20 +144,20 @@ async function handleLogout() {
               </div>
             </div>
             <div class="dropdown-divider"></div>
-            <!-- Admin links (visible to staff users) -->
-            <router-link v-if="authStore.isStaff" to="/workspace" class="dropdown-item" @click="closeDropdown">
+            <!-- Internal links (visible to internal users: staff / procurement / admin) -->
+            <router-link v-if="showInternalLinks" to="/workspace" class="dropdown-item" @click="closeDropdown">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                 <path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
               </svg>
               Workspace
             </router-link>
-            <router-link v-if="authStore.isStaff" to="/ops/orders" class="dropdown-item" @click="closeDropdown">
+            <router-link v-if="showInternalLinks" to="/ops/orders" class="dropdown-item" @click="closeDropdown">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                 <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
               Order Management
             </router-link>
-            <div v-if="authStore.isStaff" class="dropdown-divider"></div>
+            <div v-if="showInternalLinks" class="dropdown-divider"></div>
             <router-link to="/settings" class="dropdown-item" @click="closeDropdown">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                 <circle cx="12" cy="12" r="3" />

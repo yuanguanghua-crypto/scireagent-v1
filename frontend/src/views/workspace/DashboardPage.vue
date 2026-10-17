@@ -2,15 +2,16 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
+import { isInternal } from '@/utils/internalAccess'
 import { http } from '@/api/http'
 import { LoadingSpinner, EmptyState } from '@/components/common'
 
 const auth = useAuthStore()
 const router = useRouter()
 
-console.log('DashboardPage mounted, isStaff:', auth.isStaff, 'token:', !!localStorage.getItem('token'))
-
-if (!auth.isStaff) {
+// ★ 内部人员判定收敛到 utils/internalAccess.js（口径= is_staff || role∈(procurement,admin)）
+//   ——与后端 permissions.py IsProcurementOrAdmin 一致；普通注册用户仍被踢回首页。
+if (!isInternal(auth)) {
   router.replace('/')
 }
 

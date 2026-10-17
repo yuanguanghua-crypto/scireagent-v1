@@ -2,6 +2,7 @@
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { isInternal } from '@/utils/internalAccess'
 import { http } from '@/api/http'
 import * as documentsApi from '@/api/documents'
 import { openPreview } from '@/utils/previewInject'
@@ -19,7 +20,9 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-if (!auth.isStaff) { router.replace('/') }
+// ★ 内部人员判定收敛到 utils/internalAccess.js（口径= is_staff || role∈(procurement,admin)）
+//   ——与后端 permissions.py IsProcurementOrAdmin 一致；普通注册用户仍被踢回首页。
+if (!isInternal(auth)) { router.replace('/') }
 
 const isEdit = computed(() => !!route.params.id)
 const productId = computed(() => route.params.id)

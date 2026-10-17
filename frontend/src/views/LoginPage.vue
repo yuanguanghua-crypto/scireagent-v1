@@ -2,6 +2,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { isInternal } from '@/utils/internalAccess'
 
 const router = useRouter()
 const route = useRoute()
@@ -69,11 +70,13 @@ async function handleSubmit() {
       username: form.username.trim(),
       password: form.password,
     })
-    // Staff users → workspace; others → home; respect redirect param
+    // Internal users → workspace; others → home; respect redirect param
+    // ★ 口径收敛到 utils/internalAccess.js：此前仅认 isStaff ⇒ 非 staff 的 procurement
+    //   登录后被送去首页，明明有工作台却要手动敲 URL。
     const redirect = route.query.redirect
     if (redirect) {
       router.push(redirect)
-    } else if (authStore.isStaff) {
+    } else if (isInternal(authStore)) {
       router.push('/workspace')
     } else {
       router.push('/')

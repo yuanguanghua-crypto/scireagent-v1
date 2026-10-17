@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useBasketStore } from '@/stores/basket'
 import { useAuthStore } from '@/stores/auth'
+import { isInternal } from '@/utils/internalAccess'
 import { AppButton } from '@/components/common'
 
 const router = useRouter()
@@ -10,6 +11,10 @@ const basketStore = useBasketStore()
 const authStore = useAuthStore()
 const scrolled = ref(false)
 const searchQuery = ref('')
+
+// Workspace 入口可见性 —— 与路由守卫/页面守卫/AppHeader 同一判定（utils/internalAccess.js）。
+// 此前对**所有**登录用户显示 ⇒ 普通注册用户点了 /workspace 又被守卫弹回首页。
+const showWorkspaceLink = computed(() => isInternal(authStore))
 
 function handleSearch() {
   if (searchQuery.value.trim()) {
@@ -131,7 +136,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
             {{ authStore.userInitial }}
           </button>
           <div v-if="showUserMenu" class="nav-user-dropdown">
-            <router-link to="/workspace" class="nav-user-item" @click="closeUserMenu">Workspace</router-link>
+            <router-link v-if="showWorkspaceLink" to="/workspace" class="nav-user-item" @click="closeUserMenu">Workspace</router-link>
             <button type="button" class="nav-user-item" @click="handleLogout">Sign Out</button>
           </div>
         </div>

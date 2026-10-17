@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { isInternal } from '@/utils/internalAccess'
 
 const routes = [
   {
@@ -296,7 +297,7 @@ router.beforeEach((to, from, next) => {
 
   // 已登录用户不应停留在登录/注册页（guest 路由），按角色跳离
   if (to.meta.guest && hasToken) {
-    next(auth.isStaff ? '/workspace' : '/')
+    next(isInternal(auth) ? '/workspace' : '/')
     return
   }
 
@@ -306,17 +307,17 @@ router.beforeEach((to, from, next) => {
   }
 
   // requiresAdmin：在守卫层统一做角色判定（不再 defer 给 AdminLayout）。
-  // auth.isStaff / auth.role 同步自 localStorage 缓存（auth.js cachedIsStaff/cachedRole），刷新页面也能即时判定。
   // ★ 2026-10-14：内部人员 = is_staff 或 role∈(procurement, admin) —— 与后端权限类口径对齐
   //   （后端已允许 procurement 跨机构看所有订单；此前守卫仅认 isStaff ⇒ 非 staff 的 procurement 够不着内部台）。
+  // ★ 2026-10-17：口径改为调用 utils/internalAccess.js 单一真相源（此前此处内联、9 个页面各一份，
+  //   导致"路由放行 → 页面踢回"的分裂）。
   // 覆盖：5 个 PO 内部台 + /workspace + /ops/orders(+:id)。
   if (to.meta.requiresAdmin) {
     if (!hasToken) {
       next({ path: '/login', query: { redirect: to.fullPath } })
       return
     }
-    const isInternal = auth.isStaff || ['procurement', 'admin'].includes(auth.role)
-    if (!isInternal) {
+    if (!isInternal(auth)) {
       next('/') // 已登录但非内部人员：静默跳首页
       return
     }
