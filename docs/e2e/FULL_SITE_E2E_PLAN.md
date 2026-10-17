@@ -63,9 +63,10 @@
 **交互密度 Top（E2E 优先级，详见 inventory）**：
 1. `workspace/ProductEditPage.vue` — 37 按钮 / 50 v-model / 2 弹层 / 表单校验（最密集）
 2. `products/ProductEditPage.vue` — 9 按钮 / 35 v-model（**遗留版，疑已被 workspace 版取代**）
-3. `admin/AdminProductEdit.vue` — 11 按钮 / 33 v-model / 上传 / 表单校验
-4. `workspace/ProductsPage.vue` — 15 按钮 / 3 弹层 / 可排序表格
-5. `SettingsPage` / `PoSubmit` / `CheckoutPage` / `CartPage` — 多字段表单 + 校验
+3. `workspace/ProductsPage.vue` — 15 按钮 / 3 弹层 / 可排序表格
+4. `SettingsPage` / `PoSubmit` / `CheckoutPage` / `CartPage` — 多字段表单 + 校验
+
+> 原第 3 位 `admin/AdminProductEdit.vue`（11 按钮 / 33 v-model / 上传 / 表单校验）已于 **2026-10-17 作为死代码删除**，故移出本榜单。删除依据见 §2.2 注 与 §5 K6。**注意：`products/ProductEditPage.vue` 是另一个文件（591 行），本次未删除**，其遗留状态见 §5 K5。
 
 **弹窗/弹层清单（自定义 dialog-overlay）**：ProductsPage(`showBatchLinkPanel`/`showArchiveDialog`/`showDeleteDialog`)、ProductEditPage(`showPublishDialog`/`showInlineEditor`)、MethodsPage/ProtocolsPage/GoalsPage/AppsPage/ReferencesPage(`showEditor`)、PoAddressList(`showForm`)、CartPage(`showSubmitApproval`)。
 
@@ -117,7 +118,13 @@
 | `/admin/po/ar` | PoArReport | AR aging 30/60/90 展示 | 仅 admin | — | ✓ | ✓ | ✓ | P2 |
 | `/admin/po/organizations` | PoOrgManagement | 机构/地址/订单查看 | 仅 admin | — | ✓ | ✓ | ✓ | P2 |
 
-> 注：`admin/AdminProductsPage`、`admin/AdminProductEdit` **无独立路由**（AdminLayout nav 内链），经 `/workspace/products` 入口覆盖；`products/ProductEditPage` 为遗留版，确认是否被 `workspace/ProductEditPage` 取代（见 §5 K5）。
+> 注：`admin/AdminProductsPage`、`admin/AdminProductEdit` 已于 **2026-10-17 作为死代码删除**。
+>
+> **⚠️ 本行原文的「无独立路由（AdminLayout nav 内链）」是不实描述，已更正。** 实测 `views/workspace/AdminLayout.vue` 全部 11 条 `router-link`（第 17/26/37/47/53/59/65/72/78/84 行）**全部指向 `/workspace/*`**，无任何一条指向 admin 产品页 —— 即「AdminLayout nav 内链可达」不成立。该描述很危险：会被下一个人当作「可达」依据而保留甚至接线这两个文件。
+>
+> 删除依据（五项均已实测）：① 二者从未在 `router/index.js` 注册路由（8 条 admin 路由中无它们）；② 源码零活引用；③ 功能已由 `workspace/ProductEditPage.vue` 取代（最后修改 2026-09-24，晚于二者的 2026-07-11 / 07-17，时间线倒挂）；④ 后端 `commerce/admin.py:112` `ProductAdmin` 已只读化（`readonly_fields` 锁 26 字段 + `actions = None`，注释明写 "Product editing moved to Vue workspace; Django Admin is read-only snapshot"）；⑤ 二者调用的 6 个端点均无损失 —— `/products/`、`/research-goals/`、`/applications/`、`/methods/`、`/protocols/` 仍被 `workspace/ProductEditPage.vue` 等现役页面共用，`/products/{id}/detail/` 仍被 `products/ProductEditPage.vue` 使用。
+>
+> **`products/ProductEditPage.vue` 是另一个文件（591 行），本次未删除**，其遗留状态见 §5 K5。
 
 ### 2.3 权限矩阵（4 角色 × 受限页）
 
@@ -356,7 +363,7 @@ QuoteRequest (匿名可建: 必填 email + 产品描述)
 | K3 | 无 CAS 产品「生成 SDS」按钮禁用+tooltip（设计预期） | 断言 disabled + tooltip 文案 |
 | K4 | 匿名写返回 403（DRF 标准） | 断言 403 而非 401 |
 | **K5** | `products/ProductEditPage.vue` 遗留版与 `workspace/ProductEditPage.vue` 关系 | **2026-07-14 已确认**：`workspace/ProductEditPage.vue` 为权威完整版（产品编辑页是完整单元，勿拆碎）；`products/ProductEditPage.vue` 为遗留版，**E2E 只覆盖 workspace 版**，标记 K5 为「已取代/仅覆盖 workspace 版」 |
-| **K6** | `admin/AdminProductsPage`/`AdminProductEdit` 无独立路由，经 `/workspace/products` 内链访问 | E2E 从 workspace 入口覆盖，断言内链可达 |
+| **K6** | ~~`admin/AdminProductsPage`/`AdminProductEdit` 无独立路由，经 `/workspace/products` 内链访问~~ | **已关闭（2026-10-17 两文件已删除）**：无独立路由、源码零活引用、功能已由 `workspace/ProductEditPage.vue` 取代、后端 `ProductAdmin` 已只读化 → 判定死代码并删除。原「经 `/workspace/products` 内链访问／断言内链可达」经实测为**假**（`AdminLayout.vue` 11 条 `router-link` 全指向 `/workspace/*`），描述已更正，**不再需要「断言内链可达」这一 E2E 项**。产品编辑 E2E 只覆盖 `workspace/ProductEditPage.vue` |
 | **K-UNIQUE** | `po_number` 空串 UNIQUE 冲突致 500（阶段 7 状态 seed 易触发） | factory 用随机后缀 / 显式 cleanup（见 §3.1.1），断言不 500 |
 
 ### 5.1 功能修复回归专项（v2026.07.14 三项修复）
