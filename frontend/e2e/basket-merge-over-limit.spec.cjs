@@ -354,13 +354,65 @@ async function assertSkusUsable(page) {
   );
 }
 
-/** 收尾：清掉本 spec 用过的全部 SKU 的账户行 */
+/** 收尾：清掉本 spec 用过的全部 SKU 的**账户**行 */
 async function cleanupAll(request) {
   for (const sku of ALL_SKUS) {
     await purgeAccountRowsForSku(request, sku).catch((e) => {
       console.warn(`[cleanup] sku ${sku} 清理失败：${String(e.message).split('\n')[0]}`);
     });
   }
+}
+
+/**
+ * ★★ 清掉本用例造的**游客作用域**行（`Basket(user=NULL, session_key=K)`）。
+ *
+ * ⚠️⚠️ 两个实测踩出来的约束，缺一个都会出问题：
+ *
+ * **约束①：必须显式传 `sessionKey`，不能用「当前 localStorage 里的 key」。**
+ *   `mergeLocalBasket` 成功后 `basket.js:242-243` 会轮换 session key ⇒ 登录后
+ *   「当前 key」已是新值，用它 `GET /basket` 返回 `[]`（实测），那些行
+ *   **再也删不掉** ⇒ 每跑一轮就在共享 dev 库里**永久累积**孤儿游客行
+ *   （实测首版跑 5 轮积了 24 行）。账户 API（带 token）也查不到它们 ——
+ *   `_get_basket_queryset` 按作用域分流（`basket_views.py:44-54`）。
+ *   ⇒ 调用方必须在**登录前**把 key 存下来、登录后显式传进来。
+ *   （`DeleteBasketItemView` 只比对 `item.session_key != session_key`，
+ *     后端**不**校验 key 是否已轮换 ⇒ 用老 key 删自己的行是合法的。）
+ *
+ * **约束②：必须在 `loginViaForm` 之后调用，绝不能在它之前。**
+ *   ⚠️ 首版把清理放在登录前，结果 5 个用例**全红**——`waitForMerge` 超时，
+ *   即 merge 压根没触发。原因是清理动作会让 store 失去那批 `_guest` 行，
+ *   而 merge 的触发源正是 **store 内存**（`auth.js:58-60`）+ 守卫
+ *   `guestItems.length > 0`（`auth.js:75`）⇒ store 空 ⇒ 不触发。
+ *   登录后调用则只碰后端，不影响 store 快照，被测行为完全不变。
+ *
+ * @param {string} sessionKey 登录**前**的 session key
+ * @returns {Promise<number>} 实际删除的行数
+ */
+async function cleanupGuestRows(page, sessionKey) {
+  return page.evaluate(async (sk) => {
+    if (!sk) return 0;
+    try {
+      const r = await fetch('/api/v1/basket', { headers: { 'X-Session-Key': sk } });
+      if (!r.ok) return 0; // ⚠️ 浏览器 fetch 的 `ok` 是**属性**，不是方法（勿写 r.ok()）
+      const b = await r.json();
+      const rows = b?.data?.items || [];
+      let n = 0;
+      for (const it of rows) {
+        const d = await fetch(`/api/v1/basket/items/${it.id}/delete`, {
+          method: 'DELETE', headers: { 'X-Session-Key': sk },
+        });
+        if (d.ok) n += 1;
+      }
+      return n;
+    } catch {
+      return 0;
+    }
+  }, sessionKey);
+}
+
+/** 读当前 session key（登录**前**调用并存下来，供登录后清理游客行用） */
+function readSessionKey(page) {
+  return page.evaluate(() => localStorage.getItem('scireagent_session_key'));
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -389,8 +441,12 @@ test.describe('RT1 — 叠加超999：跳过 + 明细回传 + 重试不死循环
       '★ store 里必须真的拿到 _guest 行，否则 merge 不会触发（防假绿）',
     ).toEqual(expect.arrayContaining([SKU_OVER, SKU_OK]));
 
+    // ★ 登录前记下 session key —— 登录后用它清理本用例造的游客行
+    const sk1 = await readSessionKey(page);
+
     // ★ 真实 UI 表单登录 ⇒ `auth.js:77` 触发真实 merge
     await loginViaForm(page);
+    await cleanupGuestRows(page, sk1);
     const first = await waitForMerge(merge, 1);
 
     // ── 断言组 A：响应契约 ──────────────────────────────────────────────
@@ -427,9 +483,11 @@ test.describe('RT1 — 叠加超999：跳过 + 明细回传 + 重试不死循环
     await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded' });
     await addGuestRowViaApi(page, SKU_OVER, 2);   // 同样的 payload 重放
     await loadGuestRowsIntoStore(page);
+    const sk2 = await readSessionKey(page);
 
     const retry = observeMerge(page);   // ★ 新一轮观测
     await loginViaForm(page);
+    await cleanupGuestRows(page, sk2);
     const second = await waitForMerge(retry, 1);
 
     expect(
@@ -445,7 +503,6 @@ test.describe('RT1 — 叠加超999：跳过 + 明细回传 + 重试不死循环
     expect(await qtyOf(request, SKU_OVER),
       '★★ 重试后数量必须仍是 998（不得叠加、不得截断）').toBe(998);
 
-    await cleanupAll(request);
   });
 });
 
@@ -464,7 +521,9 @@ test.describe('RT2 — 整批只有超限这一件（★ 真实后端）', () =>
     await addGuestRowViaApi(page, SKU_ONLY, 2);   // 998 + 2 = 1000 > 999
     const merge = observeMerge(page);
     await loadGuestRowsIntoStore(page);
+    const sk1 = await readSessionKey(page);
     await loginViaForm(page);
+    await cleanupGuestRows(page, sk1);
 
     const r = await waitForMerge(merge, 1);
     expect(r.status, '★ 整批只有超限这一件时也必须 200').toBe(200);
@@ -483,7 +542,6 @@ test.describe('RT2 — 整批只有超限这一件（★ 真实后端）', () =>
     } finally { await fresh.dispose().catch(() => {}); }
     expect(rowCount, '★ 不得出现半成品行（应仍只有预置的那1 行）').toBe(1);
 
-    await cleanupAll(request);
   });
 });
 
@@ -520,7 +578,9 @@ test.describe('RT3 — 全部成功时整键清理不回归（★ 真实后端�
 
     const merge = observeMerge(page);
     await loadGuestRowsIntoStore(page);
+    const sk1 = await readSessionKey(page);
     await loginViaForm(page);
+    await cleanupGuestRows(page, sk1);
 
     const r = await waitForMerge(merge, 1);
     expect(r.status, '全部合法时必须是 200').toBe(200);
@@ -540,7 +600,6 @@ test.describe('RT3 — 全部成功时整键清理不回归（★ 真实后端�
       { timeout: 15000 },
     ).not.toBe(sessionKeyBefore);
 
-    await cleanupAll(request);
   });
 });
 
@@ -559,7 +618,9 @@ test.describe('RT4 — 整数边界：999 成功 / 1000 跳过（★ 真实后�
     await addGuestRowViaApi(page, SKU_ONLY, 2);
     const m1 = observeMerge(page);
     await loadGuestRowsIntoStore(page);
+    const sk1 = await readSessionKey(page);
     await loginViaForm(page);
+    await cleanupGuestRows(page, sk1);
     const r1 = await waitForMerge(m1, 1);
 
     expect(r1.status).toBe(200);
@@ -575,7 +636,9 @@ test.describe('RT4 — 整数边界：999 成功 / 1000 跳过（★ 真实后�
     await addGuestRowViaApi(page, SKU_ONLY, 1);
     const m2 = observeMerge(page);
     await loadGuestRowsIntoStore(page);
+    const sk2 = await readSessionKey(page);
     await loginViaForm(page);
+    await cleanupGuestRows(page, sk2);
     const r2 = await waitForMerge(m2, 1);
 
     expect(r2.status, '★ 超 1 个也必须是 200+跳过，不是 400').toBe(200);
@@ -586,8 +649,19 @@ test.describe('RT4 — 整数边界：999 成功 / 1000 跳过（★ 真实后�
     expect(await qtyOf(request, SKU_ONLY), '★ 数量必须仍 999（不得叠加/截断）').toBe(999);
     console.log('[RT4] 边界② 999+1=1000 ⇒ merged=0, skipped=1, 落库仍 999 ✅');
 
-    await cleanupAll(request);
   });
+});
+
+/**
+ * ★★ 收尾清理钩子 —— **必须放`afterEach`，不能放在用例体内**。
+ *
+ * ⚠️ 实测踩过：清理写在用例体最后一行时，**RT5 是故意失败的** ⇒ 抛异常 ⇒
+ *   `cleanupAll` 根本执行不到 ⇒ 每次跑都往共享 dev 库里留一行孤儿账户行
+ *   （实测残留 `(613, 461, 998)`）。游客行已在用例内（登录后）清掉，
+ *   但账户行必须靠 `afterEach` 兜底。
+ */
+test.afterEach(async ({ request }) => {
+  await cleanupAll(request);
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -617,7 +691,9 @@ test.describe('RT5 — ★ 已知缺陷：被跳过的商品应仍可被用户�
 
     const merge = observeMerge(page);
     await loadGuestRowsIntoStore(page);
+    const sk1 = await readSessionKey(page);
     await loginViaForm(page);
+    await cleanupGuestRows(page, sk1);
     const r = await waitForMerge(merge, 1);
     expect(r.status).toBe(200);
     expect(r.body?.data?.skipped, '前置：本用例针对「被跳过」这一支').toBe(1);
@@ -650,6 +726,5 @@ test.describe('RT5 — ★ 已知缺陷：被跳过的商品应仍可被用户�
       + ' ⚠️ 勿放宽断言。',
     ).toBe(oldSessionKey);
 
-    await cleanupAll(request);
   });
 });
