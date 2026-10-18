@@ -36,6 +36,10 @@ if (isProdTarget) {
   if (!API_BASE) missing.push('E2E_API_BASE=https://scireagent.com');
   if (!BASIC_USER) missing.push('E2E_BASIC_USER=<nginx 第1层账号>');
   if (!BASIC_PASS) missing.push('E2E_BASIC_PASS=<nginx 第1层口令>');
+  // 第2 层（应用层 Django 登录）也必须**显式**给：仓库里的默认值（admin/admin123 等）
+  // 在生产同样有效（实测），但"默认口令能登进生产"本身就是隐患 ⇒ 生产一律要求显式注入。
+  if (!process.env.E2E_USER) missing.push('E2E_USER=<应用层 staff 账号>');
+  if (!process.env.E2E_PASS) missing.push('E2E_PASS=<应用层 staff 口令>');
   if (missing.length) {
     throw new Error(
       '[生产前置守卫] 目标是生产但缺少必需环境变量，已拒绝启动（避免跑到一半才报 ECONNREFUSED / ' +

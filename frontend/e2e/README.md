@@ -82,6 +82,16 @@ cd /e/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/frontend   # �
 
 > ⚠️ 生产工作台需**应用层**登录（与 nginx Basic Auth 是两套）；凭据按纪律**不写进仓库**。
 
+> ★ **所有生产 spec 的凭据一律走环境变量**（2026-10-18 起）。原先 `po-prod-sweep` /
+> `po-prod-human` / `http2-verify` / `scripts/ops/prod_monitor.py` 把**真实可用的生产口令**
+> 硬编码在仓库里 ⇒ 已移除，改为上表变量注入；缺任一必需项 ⇒ **清晰跳过**（附缺哪个变量 + 去哪取），
+> **绝不回落任何默认口令**。
+> 涉及变量：`E2E_BASIC_USER`/`E2E_BASIC_PASS`（第 1 层 nginx）、`E2E_USER`/`E2E_PASS`（staff）、
+> `E2E_CUSTOMER_USER`/`E2E_CUSTOMER_PASS`（客户）、`E2E_PROC_USER`/`E2E_PROC_PASS`（内部采购）。
+> ⚠️ **生产一律要求显式注入应用层账号**（`E2E_USER`/`E2E_PASS`）：仓库里的默认值
+> （`admin`/`admin123` 等）在生产**同样有效**（实测）⇒ "默认口令能登进生产"本身就是隐患
+> ⇒ 生产前置守卫会因缺这两个变量而**拒绝启动**。
+
 ### ★ §3.1 生产只读回归：完整配方（2026-10-18 生产实测通过）
 
 生产站点在 **nginx Basic Auth 之后**，且**两层认证都必需**。少任一层都会失败，但报错很误导：
@@ -101,6 +111,8 @@ export BASE_URL=https://scireagent.com
 export E2E_API_BASE=https://scireagent.com
 export E2E_BASIC_USER=<nginx 第1层账号>                  # 见 deploy/CREDENTIALS.txt
 export E2E_BASIC_PASS=<nginx 第1层口令>                  # 同上；**不写进仓库**
+export E2E_USER=<应用层 staff 账号>                        # 第2 层；生产**必须显式给**
+export E2E_PASS=<应用层 staff 口令>                        # 同上
 export PW_CHANNEL=''                                      # 服务器无 Edge，用自带 chromium
 node node_modules/@playwright/test/cli.js test \
   --project=chromium --reporter=line --retries=0 --grep '@prod-ok'

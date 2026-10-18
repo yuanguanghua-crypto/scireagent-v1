@@ -7,17 +7,50 @@
  * 前置：临时测试商品（E2E Prod Flow Product，active）由外部脚本创建，跑完清理。
  * 认证：token 注入（API 登录一次 + addInitScript 写 localStorage）。
  * 运行：服务器上 `node node_modules/@playwright/test/cli.js test e2e/po-prod-human.spec.cjs ...`
+ *
+ * ★ 2026-10-18 安全修正：**生产口令不再硬编码在仓库里**（原为真实可用的生产口令）。
+ *   改为**环境变量注入**，沿用项目既有命名（见 e2e/README.md §3）：
+ *     第 1 层 nginx Basic ：E2E_BASIC_USER / E2E_BASIC_PASS
+ *     第 2 层 应用层登录   ：E2E_USER / E2E_PASS（staff）、E2E_CUSTOMER_USER / E2E_CUSTOMER_PASS（客户）
+ *   口令来源：服务器 deploy/CREDENTIALS.txt（权限 600，**不在仓库内**）。
+ *   ⚠️ 缺任一必需项 ⇒ **整份 spec 清晰跳过**（不硬跑、不用假账号）。
  */
 const { test, expect } = require('@playwright/test')
 
-const BASE_URL = 'https://scireagent.com'
+const BASE_URL = process.env.PROD_BASE || process.env.BASE_URL || 'https://scireagent.com'
 const API_BASE = `${BASE_URL}/api/v1`
-const BASIC = { username: 'scire01', password: 'RalyeNdTsXWfN3Pc' }
+const BASIC = {
+  username: process.env.E2E_BASIC_USER || '',
+  password: process.env.E2E_BASIC_PASS || process.env.PROD_BASIC_PASS || '',
+}
 
 const USERS = {
-  customer: { u: 'e2e_customer', p: 'E2ePass123!', isStaff: false, role: 'researcher' },
-  admin:    { u: 'admin',         p: 'admin123',        isStaff: true,  role: 'admin' },
+  customer: {
+    u: process.env.E2E_CUSTOMER_USER || '',
+    p: process.env.E2E_CUSTOMER_PASS || '',
+    isStaff: false,
+    role: 'researcher',
+  },
+  admin: {
+    u: process.env.E2E_USER || '',
+    p: process.env.E2E_PASS || '',
+    isStaff: true,
+    role: 'admin',
+  },
 }
+
+// ★ 缺生产凭据 ⇒ 整份 spec 清晰跳过（绝不回落任何默认口令）。
+const REQUIRED = [
+  ['E2E_BASIC_USER', BASIC.username], ['E2E_BASIC_PASS', BASIC.password],
+  ['E2E_CUSTOMER_USER', USERS.customer.u], ['E2E_CUSTOMER_PASS', USERS.customer.p],
+  ['E2E_USER', USERS.admin.u], ['E2E_PASS', USERS.admin.p],
+]
+const MISSING = REQUIRED.filter(([, v]) => !v).map(([k]) => k)
+const SKIP_REASON =
+  `缺少生产凭据环境变量：${MISSING.join(', ')}。\n` +
+  '  ⇒ 请从服务器 deploy/CREDENTIALS.txt 取对应口令后注入（口令**不入库**）。\n' +
+  '  ⇒ 两层认证互不相通：nginx Basic 与 Django 登录各需一套账号。'
+
 const _tokens = {}
 
 async function token(request, who) {
@@ -48,6 +81,8 @@ let poNumber = ''   // 跨测试共享（serial 模式）
 let orderNo = ''    // ORD-xxx（发货台/发票台表格显示的是 order_no 而非 po_number）
 
 test.describe('Phase 2 · PO 全流程拟人', () => {
+  // ★ 缺生产凭据 ⇒ 整份 spec 清晰跳过（绝不回落任何默认口令）。
+  test.skip(MISSING.length > 0, SKIP_REASON);
   test('① 客户：/po/submit UI 提交', async ({ page }) => {
     test.setTimeout(120000)
     await injectAuth(page, 'customer')
@@ -131,6 +166,9 @@ test.describe('Phase 2 · PO 全流程拟人', () => {
 })
 
 test.describe('Phase 3 · 库存台交互拟人', () => {
+  // ★ 缺生产凭据 ⇒ 整份 spec 清晰跳过（同上）。
+  test.skip(MISSING.length > 0, SKIP_REASON);
+
   /** API 前置：为 E2E-PROD-SKU-001 建库存行（不走 UI 搜索，生产搜索行为待查）。 */
   let invRow = null
 

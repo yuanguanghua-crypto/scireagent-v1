@@ -422,16 +422,16 @@ QuoteRequest (匿名可建: 必填 email + 产品描述)
 // playwright.config.cjs 或 spec 内
 use: {
   httpCredentials: { username: process.env.E2E_BASIC_USER, password: process.env.E2E_BASIC_PASS },
-  // 或 baseURL 内联： https://scire01:c5CCzN7LadMr@localhost
+  // 或 baseURL 内联： https://<user>:<pass>@localhost（**不要**把口令写进代码/文档）
 }
 ```
 - Basic Auth 账号（来自服务器 `deploy/CREDENTIALS.txt`，明文，**已 gitignore**）：
 
 | 账号 | 密码 | 用途 |
 |------|------|------|
-| `scire01` | `c5CCzN7LadMr` | 站点访问（休斯顿/北京测试人员共用入口之一） |
-| `scire02` | `l618tWxn1CDi` | 站点访问 **+ Django staff**（见 6.3） |
-| `scire03` | `TpJOAXrameB3` | 站点访问 **+ Django staff**（见 6.3） |
+| `scire01` | 见 `CREDENTIALS.txt` | 站点访问（休斯顿/北京测试人员共用入口之一） |
+| `scire02` | 见 `CREDENTIALS.txt` | 站点访问 **+ Django staff**（见 6.3） |
+| `scire03` | 见 `CREDENTIALS.txt` | 站点访问 **+ Django staff**（见 6.3） |
 | `scire04`~`scire06` | 见 `CREDENTIALS.txt` | 站点访问（普通） |
 
 - 本地 dev（`localhost:5173` + `localhost:8000`）若未套 nginx basic auth，则无需此步；**仅真环境/预发需带**。
@@ -440,22 +440,22 @@ use: {
 
 | 账号 | 密码 | 角色 | 状态 | E2E 用途 |
 |------|------|------|------|---------|
-| `admin` | **`admin123`** | superuser（兼管订单/发票） | 存在 | Workspace + Admin 全部；spec 默认 staff/admin 身份 |
-| `scire02` | `l618tWxn1CDi` | **Django staff（is_staff）** | 2026-07-14 建库并授权 | **休斯顿实验室研究员**测试账号；执行 Workspace E2E，其轨迹留痕有价值（§4.2） |
-| `scire03` | `TpJOAXrameB3` | **Django staff（is_staff）** | 2026-07-14 建库并授权 | **北京产品测试人员**测试账号；执行前端/Workspace E2E，轨迹留痕有价值 |
-| `e2e_customer` | `E2ePass123!` | customer（is_staff=False） | **已存在**（非「待建」） | 认证用户/PO 客户侧用例 |
+| `admin` | 见 `CREDENTIALS.txt` | superuser（兼管订单/发票） | 存在 | Workspace + Admin 全部；spec 默认 staff/admin 身份 |
+| `scire02` | 见 `CREDENTIALS.txt` | **Django staff（is_staff）** | 2026-07-14 建库并授权 | **休斯顿实验室研究员**测试账号；执行 Workspace E2E，其轨迹留痕有价值（§4.2） |
+| `scire03` | 见 `CREDENTIALS.txt` | **Django staff（is_staff）** | 2026-07-14 建库并授权 | **北京产品测试人员**测试账号；执行前端/Workspace E2E，轨迹留痕有价值 |
+| `e2e_customer` | 见 `CREDENTIALS.txt` | customer（is_staff=False） | **已存在**（非「待建」） | 认证用户/PO 客户侧用例 |
 | `e2e_user_demo` | （测试库既有） | customer | 存在 | 补充认证用例 |
 | `solo_researcher` | — | — | **2026-07-14 已删除**（不明来历） | 不再使用 |
 
-> 纠正旧文档：admin 密码为 **`admin123`**（非 `AdminPass123!`）；`e2e_customer` 已存在（非待建）；`scire02`/`scire03` 为 2026-07-14 新增的 staff 测试账号（休斯顿/北京），其访问/操作轨迹具分析价值，E2E 报告应带账号元信息（§4.2）。
+> 纠正旧文档：admin 密码见 `CREDENTIALS.txt`（非 `AdminPass123!`）；`e2e_customer` 已存在（非待建）；`scire02`/`scire03` 为 2026-07-14 新增的 staff 测试账号（休斯顿/北京），其访问/操作轨迹具分析价值，E2E 报告应带账号元信息（§4.2）。
 
 ### 6.4 环境变量（运行命令配套）
 
 ```bash
-E2E_BASIC_USER=scire01 E2E_BASIC_PASS=c5CCzN7LadMr \
-E2E_USER=admin E2E_PASS=admin123 \
-E2E_CUSTOMER_USER=e2e_customer E2E_CUSTOMER_PASS=E2ePass123! \
-E2E_STAFF_USER=scire02 E2E_STAFF_PASS=l618tWxn1CDi \
+E2E_BASIC_USER=scire01 E2E_BASIC_PASS=见 CREDENTIALS.txt \
+E2E_USER=admin E2E_PASS="$(<从 CREDENTIALS.txt 取>)" \
+E2E_CUSTOMER_USER=e2e_customer E2E_CUSTOMER_PASS="$(<从 CREDENTIALS.txt 取>)" \
+E2E_STAFF_USER=scire02 E2E_STAFF_PASS=见 CREDENTIALS.txt \
 npx playwright test
 ```
 
@@ -496,10 +496,10 @@ npx playwright test --project=firefox          # 跨浏览器
 npx playwright test e2e/responsive.spec.cjs     # 响应式
 
 # 环境变量（含 Basic Auth 前置，见 §6.2；密码以 2026-07-14 核实为准）
-E2E_BASIC_USER=scire01 E2E_BASIC_PASS=c5CCzN7LadMr \
-E2E_USER=admin E2E_PASS=admin123 \
-E2E_CUSTOMER_USER=e2e_customer E2E_CUSTOMER_PASS=E2ePass123! \
-E2E_STAFF_USER=scire02 E2E_STAFF_PASS=l618tWxn1CDi \
+E2E_BASIC_USER=scire01 E2E_BASIC_PASS=见 CREDENTIALS.txt \
+E2E_USER=admin E2E_PASS="$(<从 CREDENTIALS.txt 取>)" \
+E2E_CUSTOMER_USER=e2e_customer E2E_CUSTOMER_PASS="$(<从 CREDENTIALS.txt 取>)" \
+E2E_STAFF_USER=scire02 E2E_STAFF_PASS=见 CREDENTIALS.txt \
 npx playwright test
 ```
 

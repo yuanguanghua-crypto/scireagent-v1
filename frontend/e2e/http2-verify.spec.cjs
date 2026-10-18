@@ -13,8 +13,17 @@
 const { chromium } = require('playwright');
 
 const BASE = process.env.TARGET_BASE || 'https://scireagent.com';
-const USER = process.env.SITE_USER || 'scire01';
-const PASS = process.env.SITE_PASS || 'RalyeNdTsXWfN3Pc';
+// ★ 2026-10-18 安全修正：生产口令不再硬编码在仓库里（原为真实可用的生产 nginx 口令）。
+//   沿用项目既有命名：E2E_BASIC_USER / E2E_BASIC_PASS（nginx 第 1 层）。
+//   来源：服务器 deploy/CREDENTIALS.txt（权限 600，不在仓库内）。
+const USER = process.env.E2E_BASIC_USER || process.env.SITE_USER || '';
+const PASS = process.env.E2E_BASIC_PASS || process.env.SITE_PASS || '';
+if (!USER || !PASS) {
+  console.error(
+    '缺少 nginx Basic 凭据：请注入 E2E_BASIC_USER / E2E_BASIC_PASS（见 deploy/CREDENTIALS.txt）。',
+  );
+  process.exit(2);
+}
 
 (async () => {
   const browser = await chromium.launch({
