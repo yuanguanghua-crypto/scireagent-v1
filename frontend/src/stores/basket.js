@@ -215,9 +215,23 @@ export const useBasketStore = defineStore('basket', () => {
         pruneMergedLocalItems(submittedSkus, skippedSkus)
         // ⚠️ 提示绝不阻断登录：toast 是非阻塞的，且已合并成功的行照常展示。
         //   仅 skipped > 0 时提示，全部成功时不打扰用户。
+        //
+        //   后端对每条跳过都带 `reason`（basket_views.py 的 skipped_items），
+        //   这里用它区分两类原因，给出可行动的建议：
+        //     - 「超过数量上限」⇒ 用户调小数量即可合并，重试有意义；
+        //     - 其余（SKU 不存在/非法等）⇒ 重试无用，提示保持笼统。
+        const skippedRows = Array.isArray(data.skipped_items) ? data.skipped_items : []
+        const overLimit = skippedRows.filter((r) =>
+          typeof r?.reason === 'string' && r.reason.includes('上限')
+        ).length
+        const detail = overLimit > 0
+          ? ` ${overLimit} item${overLimit === 1 ? '' : 's'} would exceed the ` +
+            `per-item limit; lower the quantity to merge ${overLimit === 1 ? 'it' : 'them'}.`
+          : ''
         toast.warning(
           `Merged ${merged} item${merged === 1 ? '' : 's'} into your cart; ` +
-            `${skipped} could not be merged and ${skipped === 1 ? 'was' : 'were'} kept for retry.`
+            `${skipped} could not be merged and ${skipped === 1 ? 'was' : 'were'} kept for retry.` +
+            detail
         )
       }
 
@@ -247,6 +261,9 @@ export const useBasketStore = defineStore('basket', () => {
    *
    * 行的稳定标识用 `sku_id ?? sku` —— 与 payload 的构造（:181）保持同一套键。
    * 写回时保留原字段，仅剔除行本身，不重塑行内容。
+   *
+   * ⚠️ 后端 `skipped_items` 现额外带 `reason` 字段（跳过原因），此处**不受影响**：
+   *   过滤只读 `row.sku_id ?? row.sku`，`reason` 被完全忽略。向后兼容。
    *
    * @param {Set<string>} submittedSkus - 本次提交给后端的 sku 键集合
    * @param {Set<string>} skippedSkus - 后端回传的被跳过的 sku 键集合

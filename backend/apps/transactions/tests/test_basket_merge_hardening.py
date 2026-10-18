@@ -228,15 +228,25 @@ class MergeBasketInputHardeningTest(TestCase):
         )
 
     def test_merge_accumulates_up_to_max_without_exceeding(self):
-        """叠加后不得超过 max_value=999（修复前 900 + 900 = 1800 可落库）。"""
+        """叠加后不得超过 max_value=999（修复前 900 + 900 = 1800 可落库）。
+
+        ⚠️ 设计变更（本次）：超上限从「整条 400」改为「跳过该行 + 明细回传」。
+        原因：`mergeLocalBasket` 提交的是**整个购物车**，1 件超限就整条拒绝 ⇒
+        其余全部有效的行一件都合并不进去；而重试是同样 payload ⇒ 同样 400 ⇒
+        永久死循环（实测复现，见test_basket_merge_overflow_skip.py）。
+        故此处断言 200 + skipped=1，且**已有行数量不得被改动**。
+        """
         Basket.objects.create(
             user=self.user, product=self.product, sku=self.sku, quantity=900
         )
         resp = self._merge({'items': [{'sku_id': self.sku.id, 'quantity': 900}]})
-        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()['data']
+        self.assertEqual(data['merged'], 0, '超限行不计入 merged')
+        self.assertEqual(data['skipped'], 1)
         self.assertEqual(
             Basket.objects.get(user=self.user, sku=self.sku).quantity, 900,
-            '被拒的请求不得改动已有行的数量',
+            '被跳过的行不得改动已有数量（不静默截断、不叠加）',
         )
 
     def test_merge_still_requires_authentication(self):

@@ -59,8 +59,16 @@
  *
  *   分支 4 `get_or_create` 写库抛 TypeError/ValueError/OverflowError（:280-283）
  *     ⇒ **HTTP 不可达**。quantity 被 `max_value=999` 夹住 ⇒ 不会有超大整数；且
- *       叠加超 999 在 :271-277 是**主动 `raise ValidationError`（整请求 400）**，
- *       不是跳过。此分支是给绕过 serializer 的调用方兜底的。
+ *       叠加超 999 的那条（:291）现在是**跳过该行**（返回 200 + skipped_items，
+ *       带 `reason` 说明超上限），不是整请求 400。此分支是给绕过 serializer
+ *       的调用方兜底的。
+ *
+ *   ⚠️ 追加说明（后续变更）：「叠加超 999」原本在这里被记为"主动 raise
+ *     ValidationError ⇒ 整请求 400"。现已改为跳过语义 —— 因为前端提交的是
+ *     **整个购物车**，1 件超限就整条 400 会让其余有效行也合并不进去，且重试
+ *     仍 400 ⇒ 死循环。前端侧无影响：`pruneMergedLocalItems` 只按 `sku_id`
+ *     匹配，`skipped_items` 多出的 `reason` 字段被忽略；toast 用它区分
+ *     「超上限（调小数量即可重试）」与「非法输入（重试无用）」。
  *
  * ⇒ 既然真实后端也只能触发分支 2 一条，用 `page.route()` 直接控制 merge 响应体
  *   更稳、更快、更可控。沿用既有写法：`frontend/e2e/knowledge-intake.spec.cjs`

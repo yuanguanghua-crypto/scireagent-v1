@@ -14,7 +14,6 @@ Anonymous users are identified by the ``X-Session-Key`` request header.
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import serializers
 from rest_framework import status as http_status
 from apps.transactions.models import Basket
 from apps.commerce.models import SKU
@@ -226,12 +225,20 @@ class MergeBasketView(APIView):
         #   （实测后果：那些商品既没进账户、也没留在本地，彻底丢失）。
         #   故这里额外回传**被跳过的行的标识**，让前端能精确保留它们。
         skipped_items = []
+        # ⚠️ `reason` 是本次新增的可诊断字段（只加字段，**不改**既有
+        #   `merged` / `skipped` / `skipped_items` 的字段名与语义）。
+        #   前端 `pruneMergedLocalItems` 只按 `sku_id` 匹配，多出 `reason`
+        #   对它无影响；但 toast 可以据此区分「超上限（调小数量即可重试）」
+        #   与「非法输入（重试无用）」。
         for item_data in serializer.validated_data['items']:
             sku_id = item_data.get('sku_id')
             quantity = item_data.get('quantity', 1)
             if not sku_id:
                 skipped_count += 1
-                skipped_items.append({'sku_id': sku_id, 'quantity': quantity})
+                skipped_items.append({
+                    'sku_id': sku_id, 'quantity': quantity,
+                    'reason': '缺少 sku_id',
+                })
                 continue
 
             # ⚠️ 第二道防线：`MergeBasketItemSerializer` 已把输入约束成
@@ -246,16 +253,29 @@ class MergeBasketView(APIView):
             # 语义与既有的 `SKU.DoesNotExist → continue` 保持一致。
             try:
                 sku = SKU.objects.select_related('product').get(id=sku_id)
-            except (SKU.DoesNotExist, TypeError, ValueError):
+            except SKU.DoesNotExist:
                 skipped_count += 1
-                skipped_items.append({'sku_id': sku_id, 'quantity': quantity})
+                skipped_items.append({
+                    'sku_id': sku_id, 'quantity': quantity,
+                    'reason': 'SKU 不存在或已下架',
+                })
+                continue
+            except (TypeError, ValueError):
+                skipped_count += 1
+                skipped_items.append({
+                    'sku_id': sku_id, 'quantity': quantity,
+                    'reason': 'sku_id 非法',
+                })
                 continue
 
             try:
                 quantity = int(quantity)
             except (TypeError, ValueError):
                 skipped_count += 1
-                skipped_items.append({'sku_id': sku_id, 'quantity': quantity})
+                skipped_items.append({
+                    'sku_id': sku_id, 'quantity': quantity,
+                    'reason': 'quantity 非法',
+                })
                 continue
 
             try:
@@ -269,17 +289,44 @@ class MergeBasketView(APIView):
                 )
                 if not created:
                     if basket_item.quantity + quantity > self.max_line_quantity:
-                        # 叠加会突破上限 ⇒ 整条拒绝而非静默截断（截断会让用户
-                        # 拿到一个既非其请求值、也非原值的数量）。
-                        raise serializers.ValidationError({
-                            'items': f'合并后数量将超过上限 '
-                                     f'{self.max_line_quantity}'
+                        # ⚠️ 叠加会突破上限 ⇒ **跳过该行**而非整条400。
+                        #
+                        # 设计决策（本次变更）：这里曾`raise ValidationError`
+                        # 让整条请求 400。但 `mergeLocalBasket` 提交的是
+                        # **整个购物车列表**（前端 stores/basket.js:185），于是
+                        # 「5 件里1 件超限」的实际后果是：
+                        #   - 整条 400 ⇒ 前端进 catch 分支 ⇒ 5 件一件都
+                        #     合并不进去，全部留在 localStorage 等重试；
+                        #   - 重试仍是同样 payload ⇒ 同样 400 ⇒ **死循环，
+                        #     永久合并不了**（实测复现：两次提交均 400，
+                        #     落库只有预置的那1 件）。
+                        # 用「1/5 会出问题的场景」换「全部失败且不可逆」代价太大。
+                        #
+                        # 选「跳过」而非「静默截断」：截断会让用户拿到一个
+                        # 既非其请求值、也非原值的数量（提示不足）；整条拒绝的
+                        # 缺陷是损害不可逆。两者瑕疵方向不同，此处取损害可逆
+                        # 的一档 —— 被跳过的行会留在 localStorage（前端
+                        # `pruneMergedLocalItems` 只剔除已确认合并成功的行），
+                        # 用户自行调整数量后可重试，天然无累积问题。
+                        skipped_count += 1
+                        skipped_items.append({
+                            'sku_id': sku_id,
+                            'quantity': quantity,
+                            # 带上下文以便前端区分「超上限」与「非法输入」
+                            'reason': (
+                                f'合并后数量将超过上限 {self.max_line_quantity}'
+                                f'（已有 {basket_item.quantity} + 本次 {quantity}）'
+                            ),
                         })
+                        continue
                     basket_item.quantity += quantity
                     basket_item.save(update_fields=['quantity', 'updated_at'])
             except (TypeError, ValueError, OverflowError):
                 skipped_count += 1
-                skipped_items.append({'sku_id': sku_id, 'quantity': quantity})
+                skipped_items.append({
+                    'sku_id': sku_id, 'quantity': quantity,
+                    'reason': '写入购物车失败',
+                })
                 continue
             merged_count += 1
 
