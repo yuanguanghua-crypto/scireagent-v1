@@ -17,6 +17,25 @@ const CUST_PASS = process.env.E2E_CUSTOMER_PASS || 'E2ePass123!';
 const PROC_USER = process.env.E2E_PROC_USER || 'e2e_proc';
 const PROC_PASS = process.env.E2E_PROC_PASS || 'E2ePass123!';
 
+// ★ 2026-10-18 生产实测：**会话复用**开关（默认开）。
+//
+// 为什么需要：后端 `core/permissions.py` 的 `LoginRateThrottle` = **5 次/分钟/IP**。
+//   生产 E2E 的全部流量来自**同一台机器的同一个出口 IP**，而每个用例要登录**2 次**
+//   （UI 表单登录 1 次 + API 取 token 1 次）⇒ 连跑几个用例就必然 429 ⇒ 用例随机失败
+//   （实测：3 连跑得到 2 passed / 1 failed，两种失败形态分别是
+//     ① `loginAsStaff 未确认登录成功`（表单提交被 429 打断）
+//     ② 断言成 "0 products"（API 侧登录静默失败 ⇒ 静默降级成空列表））。
+//
+// 做法：整轮**只登录 1 次**，把 DRF Token（**不过期**，生产实测 40 位 hex 长期有效）
+//   直接写进 localStorage，跳过 UI 登录 ⇒ 登录请求数从 2N 降到 1，限流不再触发。
+//   落盘键与前端 `src/stores/auth.js:67-69` 完全一致（token / is_staff / role），
+//   前端判定登录态也只读这三个键（`router/index.js:295`）⇒ 语义等价。
+//
+// ⚠️ 不适用于**要验证登录页本身**的用例（那种用例请自己填表单，见 cascader-workflow /
+//   verify-dialog-* 等，它们各自定义了本地 loginAsStaff，未走本 helper）。
+// ⚠️ 本地 dev 无此需求，但复用同样成立（DRF token 同样不过期）⇒ 默认开启，行为一致。
+const REUSE_SESSION = process.env.E2E_REUSE_SESSION !== '0';
+
 // 登录等待超时。原为 15s，对"登录接口慢 / 跳转慢"偶发超时（重跑即过），放宽到 30s。
 const LOGIN_TIMEOUT_MS = 30000;
 
@@ -35,7 +54,50 @@ function _hasToken() {
   return !!(localStorage.getItem('token') || '').trim();
 }
 
+/**
+ * 会话复用登录：**不发起 UI 登录**，直接注入 localStorage。
+ *
+ * 依据（生产实测）：
+ *   - 前端 `src/stores/auth.js:8,12,15,67-69` 登录态只落在 localStorage 的
+ *     `token` / `is_staff` / `role` 三个键；`router/index.js:295` 守卫也只读 `token`。
+ *   - DRF `Token` 恒定不过期（`apps/accounts/api/v1/views.py:94` get_or_create）⇒ 可整轮复用。
+ *   ⇒ 注入这三个键 ≡ 登录成功，且**零登录请求** ⇒ 绕开 5 次/分钟的 LoginRateThrottle。
+ */
+async function loginViaSession(page) {
+  const { getSession } = require('./api.cjs');
+  // 用 `page.request`（与该页面同一 browser context 共享 cookie 与 httpCredentials）
+  // ⇒ 生产 nginx Basic 层自动带上。
+  const request = page.request || (await require('@playwright/test').request.newContext());
+  const session = await getSession(request, ADMIN_USER, ADMIN_PASS);
+
+  // 必须先落到**同源**页面才能写 localStorage（localStorage 按 origin 隔离）。
+  await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(
+    (s) => {
+      localStorage.setItem('token', s.token);
+      localStorage.setItem('is_staff', String(s.isStaff));
+      localStorage.setItem('role', s.role || '');
+    },
+    session,
+  );
+  // 落到目标页并确认前端确实认了登录态（token 在 + 路由守卫放行到 /workspace）。
+  await page.goto(`${BASE_URL}/workspace`, { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(_hasToken, null, { timeout: LOGIN_TIMEOUT_MS });
+  return session;
+}
+
 async function loginAsStaff(page) {
+  // 优先走会话复用（少一次登录请求 ⇒ 不撞限流）；失败则回落到 UI 表单登录。
+  if (REUSE_SESSION) {
+    try {
+      return await loginViaSession(page);
+    } catch (err) {
+      // 回落前先给一次清晰提示：为何没用复用路径。
+      console.warn(
+        `[auth] 会话复用登录未成功，回落到 UI 表单登录：${String(err.message).split('\n')[0]}`,
+      );
+    }
+  }
   await page.goto(`${BASE_URL}/login`, { waitUntil: 'domcontentloaded' });
   await page.locator('input[placeholder="Enter your username"]').fill(ADMIN_USER);
   await page.locator('input[placeholder="Enter your password"]').fill(ADMIN_PASS);

@@ -77,8 +77,70 @@ cd /e/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/frontend   # �
 | `E2E_API_BASE` | `http://localhost:8000` | **API 根**（`helpers/api.cjs` 自动补 `/api/v1`） |
 | `E2E_BASIC_USER` / `E2E_BASIC_PASS` | 空 | **仅生产需要**：nginx Basic Auth 凭据（本地留空） |
 | `E2E_DOCX_DIR` | `E:\试剂网站的\试剂产品说明文档` | docx 语料目录（**不进 repo**） |
+| `E2E_REUSE_SESSION` | `1`（开） | 整轮复用同一个 token，只登录 1 次（见 §3.2）；设 `0` 回到"每例各登录" |
+| `E2E_SSH_KEY` / `E2E_SSH_HOST` | 见 `helpers/prod-db.cjs` | 需要 ssh 进生产机读 DB 时用（`J4` 等） |
 
 > ⚠️ 生产工作台需**应用层**登录（与 nginx Basic Auth 是两套）；凭据按纪律**不写进仓库**。
+
+### ★ §3.1 生产只读回归：完整配方（2026-10-18 生产实测通过）
+
+生产站点在 **nginx Basic Auth 之后**，且**两层认证都必需**。少任一层都会失败，但报错很误导：
+
+| 缺哪层 | 实际报错 | 真实原因 |
+|---|---|---|
+| 缺 `E2E_BASIC_*`（浏览器层） | `page.goto: net::ERR_INVALID_AUTH_CREDENTIALS` | nginx 弹框层 401，**不是**应用层账号错 |
+| 缺 `E2E_API_BASE` | `connect ECONNREFUSED ::1:8000` | API 地址静默回落到 `localhost:8000` |
+| 应用层账号/密码错 | HTTP 401 `Invalid username or password` | 第 2 层凭据不对 |
+
+**完整命令**（在生产机 `47.82.156.48` 上跑，只读用例）：
+
+```bash
+cd /home/admin/scireagent/frontend
+unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY     # ⚠️ 必须：否则 e2e 走代理必挂
+export BASE_URL=https://scireagent.com
+export E2E_API_BASE=https://scireagent.com
+export E2E_BASIC_USER=<nginx 第1层账号>                  # 见 deploy/CREDENTIALS.txt
+export E2E_BASIC_PASS=<nginx 第1层口令>                  # 同上；**不写进仓库**
+export PW_CHANNEL=''                                      # 服务器无 Edge，用自带 chromium
+node node_modules/@playwright/test/cli.js test \
+  --project=chromium --reporter=line --retries=0 --grep '@prod-ok'
+```
+
+> ⚠️ **两层口令互不相通**（见 `deploy/CREDENTIALS.txt` 抬头）：nginx 账号（如 `scire01`）在应用层
+> **不存在**；应用层账号（如 `admin`）在 nginx 层也未必可用 ⇒ 两套都要各自提供。
+> ⚠️ 凭据来源：服务器 `deploy/CREDENTIALS.txt`（权限 600，**不在仓库内**）。
+
+> ★ **生产前置守卫**（`playwright.config.cjs`）：目标是生产却缺上述任一变量时，
+> **启动即拒绝**并列出缺哪个，而不是跑到一半才报 ECONNREFUSED / ERR_INVALID_AUTH_CREDENTIALS。
+
+### ★ §3.2 限流：为什么必须整轮复用 token（2026-10-18 生产实测）
+
+后端 `backend/core/permissions.py:36` 的 `LoginRateThrottle` = **5 次/分钟/IP**。
+生产 E2E 的**全部流量来自同一台机器的同一个出口 IP**，而改前每个用例要登录 **2 次**
+（UI 表单登录 1 次 + API 取 token 1 次）⇒ 连跑几个用例就必然 429 ⇒ **用例随机失败**
+（实测失败形态有两种，都极具误导性）：
+
+1. `loginAsStaff 未确认登录成功` —— 表单提交被 429 打断，30s 超时；
+2. 断言成 `Expected "0 products"` —— **API 侧登录静默失败**（`getToken` 原来返回 `null`
+   ⇒ 后续 GET 全 401 ⇒ `data` 为 null ⇒ 看起来"生产没数据"）。
+
+**修复**（`helpers/api.cjs` + `helpers/auth.cjs`）：
+- **整轮只登录 1 次**：DRF `Token` 不过期（`views.py:94` `get_or_create`）⇒ 缓存复用；
+  浏览器侧直接注入 localStorage 的 `token`/`is_staff`/`role`（与 `src/stores/auth.js:67-69`
+  落盘键一致，路由守卫 `router/index.js:295` 也只读 `token`）⇒ **零额外登录请求**。
+- **失败不再静默降级**：`getToken` 登录失败时**显式抛错**并区分 429/401。
+
+**实测对比**（生产，2 个 `@prod-ok` 用例）：
+
+| | 旧行为 | 新行为 |
+|---|---|---|
+| 跑完剩余登录额度（上限 5） | 2/5（消耗 3 次） | **5/5（消耗 0 次）** |
+| 连跑 3 轮 | 2 failed / 1 passed 交替 | **3/3 全 passed** |
+
+> ⚠️ 会话复用**不适用于**要验证"登录页本身"的用例 —— 那类用例自己填表单
+> （`cascader-workflow` / `verify-dialog-*` 等各自定义了本地 `loginAsStaff`）。
+> ⚠️ 本套 e2e **没有任何 spec 调用服务端 logout**（服务端 logout 会 `auth_token.delete()`
+> 令缓存 token 失效），故整轮复用安全。
 
 ### ★ 两层认证的正确配方（2026-09-22 实测，R2 必需）
 
@@ -142,6 +204,25 @@ expect(errors).toEqual([])
 - 位置：`afterAll`（不要放 `afterEach`，否则同 spec 内后续用例的夹具会被提前删）
 - **生产真实写**：只碰 `E2E-` 前缀数据；**绝不改 125 条真实产品的状态**
 - docx 夹具：`findDocx('SC8001')` 从 `E2E_DOCX_DIR` 取，**不复制进 repo**
+
+### ★ PO 夹具 `e2e_po_fixture.json`：**故意不入库**（2026-10-18 核查结论）
+
+- **生成脚本**：`backend/seed_e2e_po_fixture.py`（**已入库**）——造专用 `E2E-PO-SKU-001`
+  + SKU/Inventory + Order，并把 `product_id`/`sku_id`/`inventory_id` 写入 JSON。
+- **为什么不入库**：JSON 里是**dev 库专属的行 id**（实测 `product_id=5460`）⇒ 入库后任何
+  新 clone / 另一台机器都会指向**不存在的行** ⇒ 比"缺文件"更危险。故根 `.gitignore:130` 排除。
+- **消费方**：`po-lifecycle.api` / `po-lifecycle.ui` / `ops-inventory`（**均无 `@prod-ok` 用例**，
+  属 dev-only）⇒ **不需要**为跑生产回归而入库。
+- **本地生成**：
+  ```bash
+  cd src_claude/backend
+  DB_ENGINE=sqlite venv/Scripts/python.exe manage.py shell -c "exec(open('seed_e2e_po_fixture.py').read())"
+  ```
+- ★ **历史缺陷已修**（2026-10-18）：这三个 spec 原先在**模块顶层** `JSON.parse(fs.readFileSync(...))`
+  ⇒ 夹具缺失时在 **Playwright 收集阶段**就抛 `ENOENT`，**整个 e2e 目录都跑不起来**
+  （实测生产机 `47.82.156.48`：`--grep '@prod-ok'` 也被它卡死）。
+  现行由 `helpers/po-fixture.cjs` **惰性加载** + 缺件时**逐例清晰跳过**（附生成命令），
+  收集阶段不再崩溃（实测生产：641 tests / 59 files 正常收集）。
 
 ---
 

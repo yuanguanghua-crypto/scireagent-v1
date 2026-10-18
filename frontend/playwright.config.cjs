@@ -1,6 +1,52 @@
 const { defineConfig } = require('@playwright/test');
 
 /**
+ * ★ 生产（站点在 nginx Basic Auth 之后）所需的**第1 层**认证 —— 浏览器原生弹框那一层。
+ *
+ * 根因（2026-10-18 生产实测）：`https://scireagent.com/login` 返回
+ *   `401 + WWW-Authenticate: Basic realm="SciReAgent Internal Test"`
+ * 而本套 e2e 从未给**浏览器上下文**配 `httpCredentials` ⇒ 任何 `page.goto` 直接
+ *   `net::ERR_INVALID_AUTH_CREDENTIALS`。
+ * ⚠️ 这层与「应用层 Django 登录」是**两套独立口令**（见 deploy/CREDENTIALS.txt）：
+ *   第 1 层 nginx Basic（弹框）→ 第 2 层 Django（登录页输入）。
+ *   拿第 2 层口令填第 1 层 ⇒ 同样报 Invalid username or password。
+ *   ⚠️ 因此**只设 `E2E_USER`/`E2E_PASS` 不足以跑生产**，必须同时给 `E2E_BASIC_*`。
+ *
+ * 本地 dev 无 nginx ⇒ 两个变量留空即可（此时不注入 httpCredentials，行为与从前一致）。
+ */
+const BASIC_USER = process.env.E2E_BASIC_USER || '';
+const BASIC_PASS = process.env.E2E_BASIC_PASS || '';
+// 仅在显式提供了第1 层凭据时注入 ⇒ 本地完全不受影响。
+const httpCredentials =
+  BASIC_USER && BASIC_PASS ? { username: BASIC_USER, password: BASIC_PASS } : undefined;
+
+/**
+ * 生产前置守卫：把「跑生产却漏配变量」从**跑到一半的诡异报错**变成**启动即拦**。
+ *
+ * 背景：`E2E_API_BASE` 若漏设，`helpers/api.cjs` 会静默回落到 `http://localhost:8000`
+ * ⇒ 生产服务器上得到 `ECONNREFUSED ::1:8000`（实测，见 README「生产只读回归」）。
+ * 这个回落对本地是**刻意**的，所以不能删；正确做法是「目标看起来是生产 却没配 API 地址」时**拒绝启动**。
+ */
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+const API_BASE = process.env.E2E_API_BASE || '';
+const isProdTarget = /scireagent\.com|^https?:\/\/(?!localhost|127\.0\.0\.1)/.test(BASE_URL);
+
+if (isProdTarget) {
+  const missing = [];
+  if (!API_BASE) missing.push('E2E_API_BASE=https://scireagent.com');
+  if (!BASIC_USER) missing.push('E2E_BASIC_USER=<nginx 第1层账号>');
+  if (!BASIC_PASS) missing.push('E2E_BASIC_PASS=<nginx 第1层口令>');
+  if (missing.length) {
+    throw new Error(
+      '[生产前置守卫] 目标是生产但缺少必需环境变量，已拒绝启动（避免跑到一半才报 ECONNREFUSED / ' +
+        'ERR_INVALID_AUTH_CREDENTIALS 这类看不懂的错）：\n  - ' +
+        missing.join('\n  - ') +
+        '\n口令来源见服务器 deploy/CREDENTIALS.txt（**不在仓库内**）。本地跑请勿设置 BASE_URL。',
+    );
+  }
+}
+
+/**
  * SciReAgent 前端 E2E 配置
  *
  * 运行前提：后端 :8000 + 前端 :5173 已启动。
@@ -26,11 +72,14 @@ module.exports = defineConfig({
   //   ⇒ 任何依赖 DB 快照 Δ 的断言都要求串行；此处统一锁死为 1 worker。
   workers: 1,
   use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:5173',
+    baseURL: BASE_URL,
     headless: true,
     viewport: { width: 1280, height: 720 },
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
+    // ★ 第1 层 nginx Basic（仅生产注入；本地为 undefined ⇒ 行为不变）。
+    //放在全局 `use` 而非单个 spec ⇒ `@prod-ok` 用例不必各自重复 test.use({httpCredentials})。
+    ...(httpCredentials ? { httpCredentials } : {}),
   },
   projects: [
     {

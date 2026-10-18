@@ -13,11 +13,14 @@ const { test, expect } = require('@playwright/test')
 const fs = require('fs')
 const path = require('path')
 const { BASE_URL } = require('./helpers/auth.cjs')
+const { loadFixture, GENERATE_HINT } = require('./helpers/po-fixture.cjs')
 
 const API_BASE = process.env.API_BASE || 'http://localhost:8000/api/v1'
-const FIXTURE = JSON.parse(
-  fs.readFileSync(path.join(__dirname, '..', '..', 'e2e_po_fixture.json'), 'utf8'))
-const SKU_CODE = FIXTURE.sku_code
+// ★ 惰性加载：夹具缺失不再在**收集阶段**炸掉整个 e2e（见 helpers/po-fixture.cjs 的来龙去脉）。
+const FIXTURE = loadFixture()
+const SKU_CODE = FIXTURE ? FIXTURE.sku_code : null
+// 缺夹具 ⇒ 逐例清晰跳过（附生成命令）。
+test.beforeEach(() => { test.skip(!FIXTURE, GENERATE_HINT) })
 
 const USERS = {
   proc: { u: process.env.E2E_PROC_USER || 'e2e_proc', p: process.env.E2E_PROC_PASS || 'E2ePass123!',

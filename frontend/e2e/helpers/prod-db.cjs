@@ -38,6 +38,34 @@ function runSshSync(args, timeoutMs = 60000) {
 
 const SSH_KEY = process.env.E2E_SSH_KEY || 'C:/Users/yuankaifeng/.ssh/scireagent_deploy_ed25519'
 const SSH_HOST = process.env.E2E_SSH_HOST || 'admin@47.82.156.48'
+
+/**
+ * ★ 2026-10-18 生产实测：SSH 私钥**不一定在跑测的机器上**。
+ *   本 helper 默认的 key 路径是**开发机**的 Windows 路径；而生产回归常常**就在生产机上跑**
+ *   （生产机只有 `~/.ssh/authorized_keys`，**没有**私钥）⇒ `ssh -i <不存在>` 直接
+ *   `Permission denied (publickey)`，报错完全看不出"是没配 key"还是"网络不通"。
+ *
+ *   ⇒ 提供本函数供用例 `test.skip(...)`：私钥不可用时**清晰跳过**并说明原因。
+ *
+ * @returns {{ok: boolean, reason: string}}
+ */
+function sshKeyStatus() {
+  const fs = require('fs')
+  if (!SSH_KEY) {
+    return { ok: false, reason: 'E2E_SSH_KEY 未设置（无法做容器内只读探针）' }
+  }
+  if (!fs.existsSync(SSH_KEY)) {
+    return {
+      ok: false,
+      reason:
+        `SSH 私钥不存在：${SSH_KEY}。` +
+        '生产 D-DB 只读探针（容器内 SELECT count(*））需要能 ssh 进生产机的私钥；' +
+        '生产机自身只有 authorized_keys、没有私钥 ⇒ 该类用例须在**持有私钥的机器**上跑，' +
+        '或设 E2E_SSH_KEY 指向可用私钥。',
+    }
+  }
+  return { ok: true, reason: '' }
+}
 const DB_CONTAINER = process.env.E2E_DB_CONTAINER || 'scireagent-db-1'
 const PG_USER = process.env.E2E_DB_USER || 'scireagent'
 const PG_DB = process.env.E2E_DB_NAME || 'scireagent'
@@ -97,4 +125,4 @@ function prodCounts(tables = TABLES) {
   return res
 }
 
-module.exports = { prodCounts, TABLES, assertProdTarget, SSH_KEY, SSH_HOST, DB_CONTAINER }
+module.exports = { prodCounts, TABLES, assertProdTarget, SSH_KEY, SSH_HOST, DB_CONTAINER, sshKeyStatus }

@@ -14,11 +14,13 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
+const { loadFixture, GENERATE_HINT } = require('./helpers/po-fixture.cjs');
 
 const API_BASE = process.env.API_BASE || 'http://localhost:8000/api/v1';
-const FIXTURE = JSON.parse(
-  fs.readFileSync(path.join(__dirname, '..', '..', 'e2e_po_fixture.json'), 'utf8'),
-);
+// ★ 惰性加载：夹具缺失不再在**收集阶段**炸掉整个 e2e（见 helpers/po-fixture.cjs 的来龙去脉）。
+const FIXTURE = loadFixture();
+// 缺夹具 ⇒ 逐例清晰跳过（附生成命令），而不是让收集期ENOENT 或 `undefined.sku_id` 报错。
+test.beforeEach(() => { test.skip(!FIXTURE, GENERATE_HINT); });
 
 const ADMIN = { u: process.env.E2E_USER || 'admin', p: process.env.E2E_PASS || 'admin123' };
 const CUST = { u: process.env.E2E_CUSTOMER_USER || 'e2e_customer', p: process.env.E2E_CUSTOMER_PASS || 'E2ePass123!' };

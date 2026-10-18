@@ -51,7 +51,7 @@ const path = require('node:path')
 const { BASE_URL, ADMIN_USER, ADMIN_PASS } = require('./helpers/auth')
 const { getToken, apiContext } = require('./helpers/api')
 const { expectApi, expectDelta, zeroSpec, getPath } = require('./helpers/assertions.cjs')
-const { prodCounts } = require('./helpers/prod-db.cjs')
+const { prodCounts, sshKeyStatus } = require('./helpers/prod-db.cjs')
 
 // ── 生产两层认证：nginx Basic 交 httpCredentials（仅当提供了生产凭据） ──
 const BASIC_USER = process.env.E2E_BASIC_USER || ''
@@ -288,6 +288,9 @@ test.describe('Part1 · 新建页组 D「AI AUTO MATCH」生产只读', () => {
   })
 
   test('D13 @readonly @prod-ok Knowledge Chain Matches：Methods 分组 + ✓/✕ 开关 + 🔗 级联（D13↑）', async ({ page, request }) => {
+    // ★ 2026-10-18：生产 D-DB 探针需 ssh 私钥；生产机自身没有私钥 ⇒ 清晰跳过（而非报 ssh 255）。
+    const sk = sshKeyStatus()
+    test.skip(!sk.ok, sk.reason)
     const c2 = await cap(request, 'd2', D2_BODY)
     if (!c2) test.skip(true, 'CAP_D2 未取到（504/上游超时）')
 
@@ -335,6 +338,9 @@ test.describe('Part1 · 新建页组 D「AI AUTO MATCH」生产只读', () => {
   })
 
   test('D16 @readonly @prod-ok 未 Import 协议就 enrich：product/协议/方法血缘 + audit_log 计数 Δ0', async ({ request }) => {
+    // ★ 2026-10-18：同上——生产 D-DB 探针需 ssh 私钥；生产机自身没有私钥 ⇒ 清晰跳过。
+    const sk = sshKeyStatus()
+    test.skip(!sk.ok, sk.reason)
     const before = prodCounts()
     const api = await staffApi(request)
     const r = await enrichLive(api, D2_BODY)

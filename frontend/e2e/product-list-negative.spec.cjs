@@ -8,6 +8,19 @@
  *     --project=chromium --reporter=line --retries=0 --output=test-results-qa > ../../_qa_negative.log 2>&1
  *
  * 标签：H1 纯只读 ⇒ @readonly；H2–H7 真实写 dev 库 ⇒ @write @local-only（**不**加 @prod-ok）。
+ *
+ * ★ 2026-10-18 生产核查 —— 标签判定（逐例读代码，非一刀切）：
+ *   | 用例 | 写操作 | 判定 | 依据 |
+ *   |---|---|---|---|
+ *   | H1a–H1g | 无写请求 | **保持 @readonly（不加 @prod-ok）** | 均用 `expectNoWrites`→`snapshotDb`→只读**本地 dev 库**（`db-snapshot.cjs` 的 `assertLocalTarget` 拒绝非本地目标）⇒ 生产跑不了 |
+ *   | H2a–H2d | **有**（Unpublish/Discontinue/Recycle/Restore） | **@write @local-only（不变）** | 真改产品状态 ⇒ 绝不能跑生产 |
+ *   | H3a–H4 | **有**（同上） | **@write @local-only（不变）** | 同上 |
+ *   | H5 | **有**（批量 Unpublish 3 条） | **@write @local-only（不变）** | 批量真写 ⇒ 绝不能跑生产 |
+ *   | H6 | **有**（Restore 写库） | **@write @local-only（不变）** | 同上 |
+ *   | H7 | **有**（批量写 + 主键序列） | **@write @local-only（不变）** | 同上 |
+ *   ⚠️ 本 spec **无任何 `@prod-ok` 用例** ⇒ 跑 `-g "@prod-ok"` 时**不会选中本文件**的用例
+ *      （历史故障：模块顶层读 `e2e_po_fixture.json` 缺失 ⇒ 收集期 ENOENT ⇒ 整个 e2e 起不来；
+ *        已由 `helpers/po-fixture.cjs` 惰性加载 + 逐例清晰跳过修复）。
  * 判据：L0 铁律 > L1 规格（Part2 §3 组 H + 后端 views.py/models.py 的设计意图）> L2 代码现值。
  * 期望值现算：一律先跑只读探针（快照 / ORM）现取基线与目标值，不硬编码。
  * 纪律：不真跑生产；afterAll 按 `E2E-` 前缀硬删清理；不改任何应用代码。

@@ -19,6 +19,16 @@
  *   node node_modules/@playwright/test/cli.js test e2e/product-new-negative.spec.cjs -g "J4" … 
  *
  * 实测选择器来源：ProductEditPage.vue（name :1684 / catalog_no :1688 / cas :1692 / 高级区 details.ai-advanced :1504）
+ *
+ * ★ 2026-10-18 生产核查 —— 标签判定（逐例读代码，非一刀切）：
+ *   | 用例 | 写操作 | 判定 | 依据 |
+ *   |---|---|---|---|
+ *   | J1 | 无写请求 | **保持 @readonly（不加 @prod-ok）** | 用 `expectNoWrites`→`snapshotDb`→只读**本地 dev 库**（`db-snapshot.cjs` 的 `assertLocalTarget` 拒绝非本地目标）⇒ 生产跑不了 |
+ *   | J2a | **有**（`POST /products/` + `hard-delete`） | **@write @local-only（不变）** | 真建产品 ⇒ 绝不能跑生产 |
+ *   | J2b | **有**（`POST` + `PATCH` + `hard-delete`） | **@write @local-only（不变）** | 真改产品 ⇒ 绝不能跑生产 |
+ *   | J3 | 无写请求 | **保持 @readonly（不加 @prod-ok）** | 用 `dbQuery` 读**本地** dev 库 ⇒ 生产跑不了 |
+ *   | J5 | 无写请求（enrich 不 Import） | **保持 @readonly（不加 @prod-ok）** | 用 `dbQuery` 读**本地** dev 库 ⇒ 生产跑不了 |
+ *   | J4 | 无（只发 SELECT 查 Postgres 序列） | **保留 @prod-ok** | 唯一天然只属于生产的用例（Postgres 语义）；已修硬编码 SSH key ⇒ 改用 `E2E_SSH_KEY`/`E2E_SSH_HOST`；私钥不在**生产机**上时**清晰跳过**（该用例须在持有私钥的机器上跑） |
  */
 const { test, expect } = require('@playwright/test')
 const { runSync } = require('./helpers/sync-spawn.cjs')
@@ -26,6 +36,7 @@ const { BASE_URL, loginAsStaff, ADMIN_USER, ADMIN_PASS } = require('./helpers/au
 const { getToken, apiContext } = require('./helpers/api')
 const { expectApi, snapshotDb, expectDelta, expectNoWrites, consoleErrors } = require('./helpers/assertions.cjs')
 const { dbQuery } = require('./helpers/db-snapshot.cjs')
+const { SSH_KEY, SSH_HOST, sshKeyStatus } = require('./helpers/prod-db.cjs')
 const { catalogNo, slug } = require('./fixtures/index.cjs')
 
 const WL = ['wasm streaming compile failed', 'falling back to ArrayBuffer instantiation']
@@ -128,11 +139,16 @@ test.describe('Part 1 · 组 J 负向与不变量', () => {
   test('J4 @readonly @prod-ok 生产主键序列普查：每张表 last_value >= max(id)', async () => {
     const base = process.env.E2E_API_BASE || 'http://localhost:8000'
     test.skip(/localhost|127\.0\.0\.1/.test(base), '主键序列是 Postgres 语义，本地 SQLite 不适用（J4 只在生产有意义）')
-    const KEY = 'C:/Users/yuankaifeng/.ssh/scireagent_deploy_ed25519'
+    // J4 需从**持有私钥的机器**ssh 进生产机读 Postgres 序列。生产机上并没有该私钥
+    // （只有 authorized_keys）⇒ 这里给出清晰跳过而非 ssh 报错（用共享 helper 的判定）。
+    const sk = sshKeyStatus()
+    test.skip(!sk.ok, sk.reason)
+    const KEY = SSH_KEY
+    const HOST = SSH_HOST
     const TABLES = ['product', 'protocol', 'method', 'audit_log', 'product_protocol', 'product_method']
     const selects = TABLES.map((t) => `SELECT '${t}' t, (SELECT max(id) FROM ${t}) mx, (SELECT last_value FROM ${t}_id_seq) lv`)
     const sql = selects.join(' UNION ALL ')
-    const out = runSync('ssh', ['-i', KEY, '-o', 'StrictHostKeyChecking=no', 'admin@47.82.156.48',
+    const out = runSync('ssh', ['-i', KEY, '-o', 'StrictHostKeyChecking=no', HOST,
       `docker exec scireagent-db-1 psql -U scireagent -d scireagent -tAc "${sql}"`],
       { timeout: 60000, label: 'prod seq probe' })
     const rows = out.split(/\r?\n/).map((l) => l.split('|')).filter((a) => a.length === 3)

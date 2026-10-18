@@ -18,6 +18,17 @@
  *       须用 `/usr/bin/bash`，或直接按脚本内的两条命令分别起）。
  *
  * 验收线：**每个 test 的函数体 ≤ 15 行**（断言全部来自 helpers，不在用例里重写）。
+ *
+ * ★ 2026-10-18 生产核查 —— 标签判定（逐例读代码，非一刀切）：
+ *   | 用例 | 写操作 | 判定 | 依据 |
+ *   |---|---|---|---|
+ *   | A1 | 无（仅 `api.get` + UI 读取） | **保留 @prod-ok** | 唯一写入口是 API 的 GET |
+ *   | A2 | 无（同上） | **保留 @prod-ok** | 同上 |
+ *   | A3 | 无写请求，但用 `expectNoWrites` | **保持 @readonly（不加 @prod-ok）** | `expectNoWrites`→`snapshotDb`→**只读本地 dev 库**（`db-snapshot.cjs` 的 `assertLocalTarget` 拒绝非本地目标）⇒ 生产跑不了 |
+ *   | F0 | 无（纯函数断言） | **保持 @readonly** | 与生产数据无关，非回归项 |
+ *   | F1 | 无（只 GET） | **保持 @readonly** | 断言"dev 库无 E2E- 残留"，是**本地**数据卫生闸门；在生产恒真（生产不该有 E2E- 夹具）⇒ 无判别力 |
+ *   ⚠️ A1/A2 的期望值是**现算**的（先调 A-API 数在售/归档数，再与 UI 行数比对），
+ *      **不硬编码 125** ⇒ 生产 125 个产品时依然成立。
  */
 const { test, expect } = require('@playwright/test')
 const { BASE_URL, loginAsStaff, ADMIN_USER, ADMIN_PASS } = require('./helpers/auth')

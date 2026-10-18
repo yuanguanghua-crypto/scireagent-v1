@@ -15,11 +15,13 @@ const { test, expect } = require('@playwright/test');
 const path = require('path');
 const fs = require('fs');
 const { loginAsCustomer, loginAsStaff, loginAsProcurement, BASE_URL } = require('./helpers/auth.cjs');
+const { loadFixture, GENERATE_HINT } = require('./helpers/po-fixture.cjs');
 
 const API_BASE = process.env.API_BASE || 'http://localhost:8000/api/v1';
-const FIXTURE = JSON.parse(
-  fs.readFileSync(path.join(__dirname, '..', '..', 'e2e_po_fixture.json'), 'utf8'),
-);
+// ★ 惰性加载：夹具缺失不再在**收集阶段**炸掉整个 e2e（见 helpers/po-fixture.cjs 的来龙去脉）。
+const FIXTURE = loadFixture();
+// 缺夹具 ⇒ 逐例清晰跳过（附生成命令）。
+test.beforeEach(() => { test.skip(!FIXTURE, GENERATE_HINT); });
 
 async function apiLogin(request, u, p) {
   const res = await request.post(`${API_BASE}/auth/login`, { data: { username: u, password: p } });
