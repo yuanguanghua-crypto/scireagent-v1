@@ -59,8 +59,24 @@ class UpdateBasketItemSerializer(serializers.Serializer):
     quantity = serializers.IntegerField(min_value=1, max_value=999)
 
 
+class MergeBasketItemSerializer(serializers.Serializer):
+    """Validate one line of a guest basket submitted by the merge endpoint.
+
+    约束与 `AddToBasketSerializer`(:49) / `UpdateBasketItemSerializer`(:59)
+    完全对齐 —— merge 同样是写入 `Basket.quantity` 的入口，历史上用了裸
+    `DictField()`（无 child 约束）导致任意 key-value 都能进来（实测可打成 500
+    或写入负数/超大数），属疏漏而非设计。
+
+    ⚠️ 字段集刻意只含 `sku_id` / `quantity`：前端 `stores/basket.js` 的
+    `mergeLocalBasket` 在 :179-184 重新 map 后提交的也只有这两个键
+    （`auth.js:58-60` 传入的三键 guestItems 是函数入参，不进 HTTP body）。
+    """
+    sku_id = serializers.IntegerField(min_value=1)
+    quantity = serializers.IntegerField(min_value=1, max_value=999)
+
+
 class MergeBasketSerializer(serializers.Serializer):
     """Validate input for merging localStorage basket after login."""
     items = serializers.ListField(
-        child=serializers.DictField(), allow_empty=False
+        child=MergeBasketItemSerializer(), allow_empty=False
     )

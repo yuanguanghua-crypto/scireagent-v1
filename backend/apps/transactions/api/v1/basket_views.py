@@ -14,6 +14,7 @@ Anonymous users are identified by the ``X-Session-Key`` request header.
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework import serializers
 from rest_framework import status as http_status
 from apps.transactions.models import Basket
 from apps.commerce.models import SKU
@@ -209,33 +210,67 @@ class MergeBasketView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    #: 与 `MergeBasketItemSerializer.quantity` 的 max_value 对齐 —— 叠加后的
+    #: 单行总量同样不得突破它（实测修复前 900 + 900 = 1800 可落库）。
+    max_line_quantity = 999
+
     def post(self, request):
         serializer = MergeBasketSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         merged_count = 0
+        skipped_count = 0
         for item_data in serializer.validated_data['items']:
             sku_id = item_data.get('sku_id')
             quantity = item_data.get('quantity', 1)
             if not sku_id:
+                skipped_count += 1
+                continue
+
+            # ⚠️ 第二道防线：`MergeBasketItemSerializer` 已把输入约束成
+            # (int>=1, 1<=quantity<=999)，但**不能只依赖它**。实测四类 500 的
+            # 真实炸点分散在三层，光包 `int()` 挡不住：
+            #   A/C sku_id 非法 → `SKU.get()` 在 Django `IntegerField
+            #       .get_prep_value` 里 `int()` 抛 ValueError（:224）
+            #   B     quantity 非法 → 裸 `int()` 抛 ValueError（:233）
+            #   D     quantity 超大整数 → `int()` **不抛**，炸在
+            #       `get_or_create` 的 DB 写入（sqlite3: Python int too large）
+            # 故这里必须把 SKU 查询与整个写库过程一并兜住，跳过并计数，
+            # 语义与既有的 `SKU.DoesNotExist → continue` 保持一致。
+            try:
+                sku = SKU.objects.select_related('product').get(id=sku_id)
+            except (SKU.DoesNotExist, TypeError, ValueError):
+                skipped_count += 1
                 continue
 
             try:
-                sku = SKU.objects.select_related('product').get(id=sku_id)
-            except SKU.DoesNotExist:
+                quantity = int(quantity)
+            except (TypeError, ValueError):
+                skipped_count += 1
                 continue
 
-            basket_item, created = Basket.objects.get_or_create(
-                user=request.user,
-                sku=sku,
-                defaults={
-                    'product': sku.product,
-                    'quantity': int(quantity),
-                },
-            )
-            if not created:
-                basket_item.quantity += int(quantity)
-                basket_item.save(update_fields=['quantity', 'updated_at'])
+            try:
+                basket_item, created = Basket.objects.get_or_create(
+                    user=request.user,
+                    sku=sku,
+                    defaults={
+                        'product': sku.product,
+                        'quantity': quantity,
+                    },
+                )
+                if not created:
+                    if basket_item.quantity + quantity > self.max_line_quantity:
+                        # 叠加会突破上限 ⇒ 整条拒绝而非静默截断（截断会让用户
+                        # 拿到一个既非其请求值、也非原值的数量）。
+                        raise serializers.ValidationError({
+                            'items': f'合并后数量将超过上限 '
+                                     f'{self.max_line_quantity}'
+                        })
+                    basket_item.quantity += quantity
+                    basket_item.save(update_fields=['quantity', 'updated_at'])
+            except (TypeError, ValueError, OverflowError):
+                skipped_count += 1
+                continue
             merged_count += 1
 
         # Return the fully updated basket
@@ -246,6 +281,8 @@ class MergeBasketView(APIView):
         total = _compute_total(serialized.data)
         return Response({
             'merged': merged_count,
+            # 让前端能感知"部分合并失败"，而不是看到 merged 就以为全部成功。
+            'skipped': skipped_count,
             'items': serialized.data,
             'total': total,
             'count': items.count(),
