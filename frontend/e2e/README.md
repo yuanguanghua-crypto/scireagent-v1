@@ -125,7 +125,7 @@ node node_modules/@playwright/test/cli.js test \
 > ★ **生产前置守卫**（`playwright.config.cjs`）：目标是生产却缺上述任一变量时，
 > **启动即拒绝**并列出缺哪个，而不是跑到一半才报 ECONNREFUSED / ERR_INVALID_AUTH_CREDENTIALS。
 
-> ★ **`PW_CHANNEL` 的三态**（2026-10-18 实测修正）：
+> ⚠️ **`PW_CHANNEL` 的三态**（2026-10-18 实测修正）：
 > | 设置 | 实际浏览器 |
 > |---|---|
 > | **未设** | `msedge`（本地开发默认，行为不变）|
@@ -137,6 +137,19 @@ node node_modules/@playwright/test/cli.js test \
 > ⇒ 已改为"变量存在即按其值解析"。⇒ 生产回归显式 `PW_CHANNEL=''` 才真的用自带 chromium。
 > ⚠️ 另注：生产机**其实装了 Edge**（实测 `channel="msedge"` 可启动 155.0.4283.45），
 > 故 `PW_CHANNEL=''` 主要是为了固定浏览器版本（bundled chromium 148.0.7778.96），而非"绕开缺 Edge"。
+
+> ★★ **跑生产回归的机器资源要求**（2026-10-18 实测踩坑，重要）
+> 在**生产机自身**跑浏览器 E2E 会与生产服务**抢资源** ⇒ 偶发失败，且报错**极具误导性**：
+>   - 典型报错：`Test timeout of 45000ms exceeded while setting up "context"`
+>     （= **浏览器 context 创建超时**，不是断言失败！重跑即过）
+>   - 连带效应：上游 `/products/enrich/`（PubChem/jena 外部依赖，150s 超时 + 504 重试）
+>     被拖慢 ⇒ 整轮耗时从 2.4m 涨到 **8.5m**，后续用例跟着超时 ⇒ 看起来像"业务坏了"。
+> 实测生产机：**3.4GB 内存、swap=0**（backend 容器已占 1.6GB）⇒ 内存压力直接体现为上述超时。
+> ⇒ **建议**：
+>   1. 优先在**本地机器**跑生产回归（指向 `https://scireagent.com`），别和生产服务抢内存；
+>   2. 若必须在生产机跑：**先看 `uptime` 的 load average**（>2 时等它回落再跑），
+>      并把 `product-new-ai-automatch` 这类**依赖外部上游**的 spec 单独跑（它最吃资源）。
+> ⇒ 判据：报错若是 `while setting up "context"` ⇒ **先怀疑机器资源，别急着改业务代码**。
 
 ### ★ §3.2 限流：为什么必须整轮复用 token（2026-10-18 生产实测）
 
