@@ -414,3 +414,102 @@ class MergeBasketOverflowIsolationTest(TestCase):
         self.assertEqual(rows[self.skus[1].id], 11)
         self.assertEqual(rows[self.skus[2].id], 22)
         self.assertEqual(rows[self.skus[0].id], 999)
+
+
+class MergeBasketSkippedItemNameTest(TestCase):
+    """`skipped_items[].product_name` —— 让用户能认出「是哪件没合并」。
+
+    背景（实测）：原 `skipped_items` 只有 `sku_id` / `quantity` / `reason`，
+    前端只能提示「N 件未能合并」，用户既不知道是哪件，也无从手动补救
+    （被跳过的行在真实链路上已彻底消失，见
+    `frontend/e2e/basket-merge-over-limit.spec.cjs` 的 RT5）。
+
+    本次契约（只**新增**字段，不改既有字段名与语义）：
+      - 能拿到 SKU 的分支 ⇒ `product_name` == `sku.product.name`
+        （`sku` 由 `select_related('product')` 取出，零额外查询）
+      - 拿不到 SKU 的分支 ⇒ `product_name` 为 `None`，但**键必须存在**
+        （前端无需判断键的有无，直接 `|| fallback`）
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.user = UserFactory()
+        self.product = ProductFactory(
+            name='GelRed Nucleic Acid Stain', status='active')
+        self.over_sku = SKUFactory(product=self.product, sku_code='NAME-OVER')
+        self.ok_sku = SKUFactory(product=self.product, sku_code='NAME-OK')
+        self.client.force_authenticate(user=self.user)
+
+    def _merge(self, payload):
+        return self.client.post('/api/v1/basket/merge', payload, format='json')
+
+    def test_overflow_skip_carries_product_name(self):
+        """超 999 被跳过时，前端必须能拿到商品名（用户据此识别是哪件）。"""
+        Basket.objects.create(
+            user=self.user, product=self.product,
+            sku=self.over_sku, quantity=998,
+        )
+        resp = self._merge({'items': [
+            {'sku_id': self.over_sku.id, 'quantity': 2},   # 998 + 2 = 1000 > 999
+        ]})
+        self.assertEqual(resp.status_code, 200)
+        row = resp.json()['data']['skipped_items'][0]
+        self.assertEqual(
+            row['product_name'], 'GelRed Nucleic Acid Stain',
+            '超限跳过必须回传商品名，否则用户无法识别是哪件',
+        )
+        # 既有契约字段一字不改
+        self.assertEqual(row['sku_id'], self.over_sku.id)
+        self.assertEqual(row['quantity'], 2)
+
+    def test_unknown_sku_skip_has_product_name_key_set_to_none(self):
+        """查不到 SKU 时无名字可给 ⇒ 值为 None，但**键必须在**。"""
+        resp = self._merge({'items': [{'sku_id': 99999999, 'quantity': 1}]})
+        self.assertEqual(resp.status_code, 200)
+        row = resp.json()['data']['skipped_items'][0]
+        self.assertIn(
+            'product_name', row,
+            '键必须存在：前端不判断键有无，只判断值是否为空',
+        )
+        self.assertIsNone(row['product_name'])
+
+    def test_every_skipped_row_has_product_name_key(self):
+        """混批（能查到 / 查不到 SKU）⇒ 每条跳过明细都带同一个键集合。"""
+        Basket.objects.create(
+            user=self.user, product=self.product,
+            sku=self.over_sku, quantity=998,
+        )
+        resp = self._merge({'items': [
+            {'sku_id': self.over_sku.id, 'quantity': 2},   # 超限
+            {'sku_id': 99999999, 'quantity': 1},           # SKU 不存在
+            {'sku_id': self.ok_sku.id, 'quantity': 3},     # 正常合并
+        ]})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()['data']
+        rows = data['skipped_items']
+        self.assertEqual(len(rows), data['skipped'])
+        self.assertEqual(data['skipped'], 2)
+        self.assertEqual(data['merged'], 1)
+        for row in rows:
+            self.assertIn('product_name', row)
+            self.assertIn('sku_id', row)
+            self.assertIn('quantity', row)
+            self.assertIn('reason', row)
+        names = {r['sku_id']: r['product_name'] for r in rows}
+        self.assertEqual(names[self.over_sku.id], 'GelRed Nucleic Acid Stain')
+        self.assertIsNone(names[99999999])
+
+    def test_merged_plus_skipped_equals_submitted_rows(self):
+        """加了字段也不得影响 `merged + skipped == 提交行数` 这一不变量。"""
+        Basket.objects.create(
+            user=self.user, product=self.product,
+            sku=self.over_sku, quantity=999,
+        )
+        resp = self._merge({'items': [
+            {'sku_id': self.over_sku.id, 'quantity': 1},   # 999 + 1 = 1000 > 999
+            {'sku_id': self.ok_sku.id, 'quantity': 1},
+            {'sku_id': 99999999, 'quantity': 1},
+        ]})
+        data = resp.json()['data']
+        self.assertEqual(data['merged'] + data['skipped'], 3)
+        self.assertEqual(len(data['skipped_items']), data['skipped'])

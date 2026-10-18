@@ -157,6 +157,76 @@ export const useBasketStore = defineStore('basket', () => {
   }
 
   /**
+   * `Product.name` 最长 255 字符 ⇒ toast 里必须截断，否则整条提示会被撑爆。
+   */
+  const SKIPPED_NAME_MAX = 40
+  /** toast 最多点名几件；更多的收口成 "and N more" */
+  const SKIPPED_NAMES_SHOWN = 3
+
+  function truncateName(name) {
+    const text = String(name).trim()
+    return text.length > SKIPPED_NAME_MAX
+      ? `${text.slice(0, SKIPPED_NAME_MAX)}…`
+      : text
+  }
+
+  /** 单件被跳过商品的展示名：优先商品名，无名字兜底 `SKU #<id>`，附数量 */
+  function skippedItemLabel(row) {
+    const raw = typeof row?.product_name === 'string' ? row.product_name : ''
+    const name = raw.trim() ? truncateName(raw) : `SKU #${row?.sku_id ?? '?'}`
+    const quantity = Number(row?.quantity)
+    return Number.isFinite(quantity) && quantity > 0
+      ? `${name} (${quantity})`
+      : name
+  }
+
+  /**
+   * 构造「部分商品未能合并」的 toast 文案（英文，与项目本地化一致）。
+   *
+   * ★ 语义铁律：必须让用户明白「这件**没进来**，需要手动重新加购」。
+   *   ⚠️ 绝不能写 "kept for retry" —— 实测真实链路上被跳过的行
+   *   在账户、localStorage、可达的游客作用域里**都不存在**，那是对用户的
+   *   假承诺（本函数的旧实现正是如此，已修正）。
+   *
+   * 后端 `skipped_items[]` 形如：
+   *   { sku_id, quantity, product_name: string|null, reason }
+   * `product_name` 为 null 的分支（SKU 不存在/非法）用 `SKU #<id>` 兜底；
+   * `reason.includes('上限')` 仍用于区分「调小数量可再试」与「重加也无用」。
+   *
+   * @param {Array<object>} skippedRows - 后端回传的被跳过明细
+   * @param {number} merged - 成功合并件数
+   * @param {number} skipped - 被跳过件数
+   * @returns {string}
+   */
+  function buildMergeSkipMessage(skippedRows, merged, skipped) {
+    const rows = Array.isArray(skippedRows) ? skippedRows : []
+    const labels = rows.slice(0, SKIPPED_NAMES_SHOWN).map(skippedItemLabel)
+    const restCount = Math.max(skipped - labels.length, 0)
+    const listed = labels.join(', ') + (restCount > 0 ? ` and ${restCount} more` : '')
+
+    const head =
+      `Merged ${merged} item${merged === 1 ? '' : 's'} into your cart. ` +
+      `${skipped} item${skipped === 1 ? '' : 's'} ` +
+      `${skipped === 1 ? 'was' : 'were'} not merged` +
+      // 明细缺失时只报件数，不编造名字
+      (labels.length ? `: ${listed}.` : '.')
+
+    const overLimit = rows.filter((r) =>
+      typeof r?.reason === 'string' && r.reason.includes('上限')
+    ).length
+
+    if (overLimit === 0) {
+      // 原因不明/SKU 无效 ⇒ 调数量也没用，只能请用户重新加购
+      return `${head} Add ${skipped === 1 ? 'it' : 'them'} again from the product page.`
+    }
+    if (overLimit === skipped) {
+      return `${head} Lower the quantity and add ${skipped === 1 ? 'it' : 'them'} again.`
+    }
+    return `${head} Some of them exceed the per-item limit — ` +
+      'lower the quantity and add again.'
+  }
+
+  /**
    * Merge guest basket into the authenticated user's server basket.
    *
    * P0-2：匿名加购主要落在**服务端** —— 后端 `AddToBasketView` 按 `X-Session-Key`
@@ -173,11 +243,20 @@ export const useBasketStore = defineStore('basket', () => {
    *   若保留，登出后再登录会把同一批陈旧行二次合并（实测 3 → 6）。
    *
    * ⚠️⚠️ 部分跳过（`skipped > 0`）时**不能**无条件 `removeItem(LOCAL_STORAGE_KEY)`
-   *   —— 那是整键删除：跳过的行既没合并进账户、也被从本地抹掉 ⇒ 彻底丢失
-   *   （用户看到"购物车少了东西"却无任何提示）。此时只剔除**已确认合并成功**的行，
-   *   跳过的行留在 localStorage。`skipped_items`（后端 basket_views.py:288）
-   *   就是为此回传明细：只有 `skipped` 计数时无法区分"少的是哪几条"，
-   *   也就无法精确保留它们。
+   *   —— 那是整键删除。此时只剔除**已确认合并成功**的行（见
+   *   `pruneMergedLocalItems`），避免把降级副本里尚未核对的行一并抹掉。
+   *
+   * ⚠️ 但**不要**由此推断"被跳过的行会留在 localStorage 等重试" —— 实测事实是：
+   *   真实链路（匿名加购落服务端 + `loadBasket()` 成功）下 localStorage
+   *   **从来就没有副本**，`pruneMergedLocalItems` 的 `if (!stored) return`
+   *   直接返回 ⇒ 那套「保留待重试」在主路径上**从未生效**。被跳过的行只剩
+   *   后端游客行，而本函数成功后无条件轮换 session key ⇒ 对用户不可达。
+   *   ⇒ 用户提示必须明确"手动重新加购"（见 `buildMergeSkipMessage`）。
+   *   要真正支持"可重试"需要改 `auth.js` 的数据来源，属更大改动，本次未做。
+   *
+   * `skipped_items` 因此承担两个职责：
+   *   1) 让前端能精确剔除已合并成功的本地行（仅对降级副本有实际作用）；
+   *   2) ★ 让 toast 能点名**是哪件**商品没合并（`product_name`）。
    *
    * @param {Array<{sku?: number, sku_id?: number, quantity: number}>} [itemsToMerge]
    * @returns {Promise<boolean>} 是否合并成功；失败返回 false，绝不抛出（不得阻断登录）
@@ -211,28 +290,15 @@ export const useBasketStore = defineStore('basket', () => {
         // 全部成功 ⇒ 整键清理是正确的（保留即可）。
         localStorage.removeItem(LOCAL_STORAGE_KEY)
       } else {
-        // 部分跳过 ⇒ 只剔除已确认合并成功的行，跳过的行留在本地等下次重试。
+        // ⚠️ 实测事实：真实链路下 localStorage **通常没有副本** ——
+        //   `loadBasket()` 成功路径不写 localStorage，只有 `addItem`/更新/删除
+        //   的 API 失败降级分支才写（见本文件 saveLocalBasket 的调用点）。
+        //   ⇒ 下面这次 prune 在主路径上**不产生任何效果**，它只对降级副本有意义。
+        //   ⇒ **不要**据此推断"被跳过的行还留在本地等着重试"：它不在。
         pruneMergedLocalItems(submittedSkus, skippedSkus)
-        // ⚠️ 提示绝不阻断登录：toast 是非阻塞的，且已合并成功的行照常展示。
+        // ⚠️ 提示绝不阻断登录：toast 是非阻塞的。
         //   仅 skipped > 0 时提示，全部成功时不打扰用户。
-        //
-        //   后端对每条跳过都带 `reason`（basket_views.py 的 skipped_items），
-        //   这里用它区分两类原因，给出可行动的建议：
-        //     - 「超过数量上限」⇒ 用户调小数量即可合并，重试有意义；
-        //     - 其余（SKU 不存在/非法等）⇒ 重试无用，提示保持笼统。
-        const skippedRows = Array.isArray(data.skipped_items) ? data.skipped_items : []
-        const overLimit = skippedRows.filter((r) =>
-          typeof r?.reason === 'string' && r.reason.includes('上限')
-        ).length
-        const detail = overLimit > 0
-          ? ` ${overLimit} item${overLimit === 1 ? '' : 's'} would exceed the ` +
-            `per-item limit; lower the quantity to merge ${overLimit === 1 ? 'it' : 'them'}.`
-          : ''
-        toast.warning(
-          `Merged ${merged} item${merged === 1 ? '' : 's'} into your cart; ` +
-            `${skipped} could not be merged and ${skipped === 1 ? 'was' : 'were'} kept for retry.` +
-            detail
-        )
+        toast.warning(buildMergeSkipMessage(data.skipped_items, merged, skipped))
       }
 
       // 使这批游客行不再可达，否则登出→再登录会二次合并导致数量翻倍。
@@ -253,17 +319,24 @@ export const useBasketStore = defineStore('basket', () => {
   /**
    * 从 localStorage 副本中剔除「已确认合并成功」的行，保留其余行。
    *
+   * ⚠️⚠️ 前提（实测，别想当然）：**只有在本地副本存在时才有意义**。真实链路
+   *   （匿名加购落服务端 + `loadBasket()` 成功）下 localStorage 从无副本
+   *   （`saveLocalBasket()` 只在 3 个 API 失败降级分支被调用）⇒ 本函数在
+   *   主路径上第一行就 `if (!stored) return` 返回，**什么都没做**。
+   *   它的实际作用域 = `addItem`/`updateQuantity`/`removeItem` 降级留下的副本。
+   *
    * ⚠️ 逐行剔除而非整键删除：整键删除会把**没合并成功**的行一并抹掉。保留条件
    *   是"不在本次提交集合内"或"在跳过集合内"，因此：
    *     - 已合并的行  → 剔除（否则下次重试会二次叠加，数量翻倍）
-   *     - 被跳过的行  → 保留（数据不丢，下次仍有机会重试）
+   *     - 被跳过的行  → 保留在**这份副本**里（副本存在时才有这一行可保留；
+   *                     不构成"用户还能重试"的保证，见上）
    *     - 没提交的脏行 → 保留（本次根本没参与合并，不该由本次操作决定其生死）
    *
-   * 行的稳定标识用 `sku_id ?? sku` —— 与 payload 的构造（:181）保持同一套键。
+   * 行的稳定标识用 `sku_id ?? sku` —— 与 payload 的构造保持同一套键。
    * 写回时保留原字段，仅剔除行本身，不重塑行内容。
    *
-   * ⚠️ 后端 `skipped_items` 现额外带 `reason` 字段（跳过原因），此处**不受影响**：
-   *   过滤只读 `row.sku_id ?? row.sku`，`reason` 被完全忽略。向后兼容。
+   * ⚠️ 后端 `skipped_items` 额外带 `reason` / `product_name` 字段，此处**不受影响**：
+   *   过滤只读 `row.sku_id ?? row.sku`，其余字段被完全忽略。向后兼容。
    *
    * @param {Set<string>} submittedSkus - 本次提交给后端的 sku 键集合
    * @param {Set<string>} skippedSkus - 后端回传的被跳过的 sku 键集合
