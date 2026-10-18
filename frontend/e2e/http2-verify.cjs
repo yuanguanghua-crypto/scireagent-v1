@@ -9,6 +9,12 @@
  *   1. 响应中 h2/h3 字段出现 "h2" ⇒ 协议协商成功
  *   2. connectionFinished 事件统计 ⇒ 是否复用连接
  *   3. 加载耗时对比
+ *
+ * ⚠️ 这是**独立脚本**，不是 Playwright spec（没有 test()）⇒ 文件名**不带 .spec**
+ *    （2026-10-18 修正：原名 http2-verify.spec.cjs 会被 Playwright 的
+ *     testMatch（`**` + `*.spec.cjs`）**收集**，而本文件的模块级 process.exit(2)
+ *     会在**收集阶段**中断整个 e2e ⇒ 连带所有 spec 都跑不了。已改名规避。）
+ *    运行：`node e2e/http2-verify.cjs`（需注入 E2E_BASIC_USER / E2E_BASIC_PASS）
  */
 const { chromium } = require('playwright');
 
