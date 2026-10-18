@@ -83,7 +83,7 @@ cd /e/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/frontend   # �
 > ⚠️ 生产工作台需**应用层**登录（与 nginx Basic Auth 是两套）；凭据按纪律**不写进仓库**。
 
 > ★ **所有生产 spec 的凭据一律走环境变量**（2026-10-18 起）。原先 `po-prod-sweep` /
-> `po-prod-human` / `http2-verify` / `scripts/ops/prod_monitor.py` 把**真实可用的生产口令**
+> `po-prod-human` / `http2-verify`（独立脚本，非 spec）/ `scripts/ops/prod_monitor.py` 把**真实可用的生产口令**
 > 硬编码在仓库里 ⇒ 已移除，改为上表变量注入；缺任一必需项 ⇒ **清晰跳过**（附缺哪个变量 + 去哪取），
 > **绝不回落任何默认口令**。
 > 涉及变量：`E2E_BASIC_USER`/`E2E_BASIC_PASS`（第 1 层 nginx）、`E2E_USER`/`E2E_PASS`（staff）、
