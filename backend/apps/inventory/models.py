@@ -24,9 +24,11 @@ class Inventory(TimeStampedModel):
     )
     # ★ P2：裸 IntegerField 无任何下界约束（实测 ORM 直接写 available=-500 能成功）。
     # 补应用层校验（比 DB 约束更早失败，且不触碰存量数据）。
-    # ⚠️ 只加 MinValueValidator、不加 CheckConstraint：后者是DDL 约束，
-    #    若生产已存在负数行，migration 会直接失败 —— 生产数据尚未核实（无 docker 环境），
-    #    故DB 层兜底暂缓，等生产负数行数确认后再决策。
+    # ✅ 2026-10-18 补 DB 层 CheckConstraint：生产 `inventory` 表已实测核实为
+    #    0 行（total_rows=0，available/allocated 负数行与超 int4 行均为 0），
+    #    ⇒ AddConstraint 不会因存量负数行而失败，兜底已放行。
+    #    命名沿用本项目 `ck_` 前缀惯例（如 ck_mrc_conditional_not_essential），
+    #    不用 Django 自动生成的带哈希后缀名，便于回滚定位。
     available = models.IntegerField(
         default=0, validators=[MinValueValidator(0)], verbose_name='可分配量')
     allocated = models.IntegerField(
@@ -38,6 +40,17 @@ class Inventory(TimeStampedModel):
         verbose_name_plural = verbose_name
         unique_together = [('sku', 'batch', 'location')]
         ordering = ['sku_id', 'location']
+        constraints = [
+            # DB 层兜底：即使绕过应用层（raw SQL / 脚本 / 未来新代码漏校验），
+            # 也写不进负库存。MinValueValidator 只在 full_clean() 时跑，
+            # ORM save() 不调用它 —— 这才是 DB 约束不可省的原因。
+            models.CheckConstraint(
+                condition=models.Q(available__gte=0),
+                name='ck_inv_available_nonneg'),
+            models.CheckConstraint(
+                condition=models.Q(allocated__gte=0),
+                name='ck_inv_allocated_nonneg'),
+        ]
 
     def __str__(self):
         return f'{self.sku_id} @ {self.location} (avail={self.available}, alloc={self.allocated})'
