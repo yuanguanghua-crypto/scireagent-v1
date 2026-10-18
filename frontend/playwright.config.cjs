@@ -91,10 +91,18 @@ module.exports = defineConfig({
       // 2026-09-23：本机已装 Playwright bundled 浏览器（ms-playwright 下现有 firefox-1522 / webkit-2287）；
       // chromium 仍走系统已装的 Microsoft Edge（channel: 'msedge'）——它稳定可用，暂不切换成 bundled chromium。
       // 运行：npx playwright test --project=chromium
-      // chromium 默认走系统已装的 Microsoft Edge（channel: 'msedge'）——它稳定可用。
-      // ★ 可用 PW_CHANNEL 环境变量覆盖：服务器上无 Edge，跑生产 E2E 时用自带 bundled chromium
-      //   （PW_CHANNEL='' 即清空 channel ⇒ bundled chromium-headless-shell）。
-      use: { browserName: 'chromium', channel: process.env.PW_CHANNEL || 'msedge' },
+      // ★ 可用 PW_CHANNEL 环境变量覆盖；**空串可显式清空 channel** ⇒ 走自带 bundled chromium。
+      //   ⚠️ 2026-10-18 实测修正：原写法 `process.env.PW_CHANNEL || 'msedge'` 让
+      //      `PW_CHANNEL=''`（空串）**回落到 'msedge'**，与注释宣称的"清空 channel"**相反**
+      //      （实测生产机 channel="msedge" 仍启动 Edge 155.0.4283.45）。
+      //      ⇒ 改为：变量**存在**（哪怕是空串）就按其值解析；空串 ⇒ undefined ⇒ bundled chromium。
+      //         不存在（未设）⇒ 保持 'msedge'（本地开发默认，行为不变）。
+      use: {
+        browserName: 'chromium',
+        channel: 'PW_CHANNEL' in process.env
+          ? (process.env.PW_CHANNEL || undefined)
+          : 'msedge',
+      },
     },
     // 阶段 9 启用（需先 npx playwright install firefox webkit）：
     { name: 'firefox', use: { browserName: 'firefox' } },

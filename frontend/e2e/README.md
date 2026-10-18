@@ -113,7 +113,7 @@ export E2E_BASIC_USER=<nginx 第1层账号>                  # 见 deploy/CREDEN
 export E2E_BASIC_PASS=<nginx 第1层口令>                  # 同上；**不写进仓库**
 export E2E_USER=<应用层 staff 账号>                        # 第2 层；生产**必须显式给**
 export E2E_PASS=<应用层 staff 口令>                        # 同上
-export PW_CHANNEL=''                                      # 服务器无 Edge，用自带 chromium
+export PW_CHANNEL=''                                      # 空串 ⇒ 用自带 bundled chromium（见下）
 node node_modules/@playwright/test/cli.js test \
   --project=chromium --reporter=line --retries=0 --grep '@prod-ok'
 ```
@@ -124,6 +124,19 @@ node node_modules/@playwright/test/cli.js test \
 
 > ★ **生产前置守卫**（`playwright.config.cjs`）：目标是生产却缺上述任一变量时，
 > **启动即拒绝**并列出缺哪个，而不是跑到一半才报 ECONNREFUSED / ERR_INVALID_AUTH_CREDENTIALS。
+
+> ★ **`PW_CHANNEL` 的三态**（2026-10-18 实测修正）：
+> | 设置 | 实际浏览器 |
+> |---|---|
+> | **未设** | `msedge`（本地开发默认，行为不变）|
+> | `PW_CHANNEL=''`（**空串**）| **自带 bundled chromium**（`channel=undefined`）|
+> | `PW_CHANNEL=chromium` | `chromium` |
+>
+> ⚠️ 原写法 `process.env.PW_CHANNEL || 'msedge'` 让**空串回落到 msedge**，
+> 与其注释宣称的"空串即清空 channel"**相反**（实测生产机空串仍启动 Edge 155.0.4283.45）
+> ⇒ 已改为"变量存在即按其值解析"。⇒ 生产回归显式 `PW_CHANNEL=''` 才真的用自带 chromium。
+> ⚠️ 另注：生产机**其实装了 Edge**（实测 `channel="msedge"` 可启动 155.0.4283.45），
+> 故 `PW_CHANNEL=''` 主要是为了固定浏览器版本（bundled chromium 148.0.7778.96），而非"绕开缺 Edge"。
 
 ### ★ §3.2 限流：为什么必须整轮复用 token（2026-10-18 生产实测）
 

@@ -36,6 +36,13 @@ const PROC_PASS = process.env.E2E_PROC_PASS || 'E2ePass123!';
 // ⚠️ 本地 dev 无此需求，但复用同样成立（DRF token 同样不过期）⇒ 默认开启，行为一致。
 const REUSE_SESSION = process.env.E2E_REUSE_SESSION !== '0';
 
+/**
+ * 每个 page 上"会话注入"的 init script（Playwright 1.60 的 `Disposable`，可 `dispose()` 摘除）。
+ * ⚠️ 必须摘：否则 `addInitScript` 会在后续每次导航把 token 写回去，
+ *   破坏"登出后换角色"的用例（`po-lifecycle.fullflow` 靠 `logout()` 切客户/staff）。
+ */
+const _sessionInitScriptDisposables = new Map();
+
 // 登录等待超时。原为 15s，对"登录接口慢 / 跳转慢"偶发超时（重跑即过），放宽到 30s。
 const LOGIN_TIMEOUT_MS = 30000;
 
@@ -70,17 +77,31 @@ async function loginViaSession(page) {
   const request = page.request || (await require('@playwright/test').request.newContext());
   const session = await getSession(request, ADMIN_USER, ADMIN_PASS);
 
-  // 必须先落到**同源**页面才能写 localStorage（localStorage 按 origin 隔离）。
-  await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded' });
-  await page.evaluate(
-    (s) => {
+  // ★ 用 `addInitScript` 而非"先 goto('/') 写 localStorage 再 goto('/workspace')"：
+  //   后者两次导航**存在竞态** —— 第二次 goto 会**中断**第一次尚未完成的导航
+  //   ⇒ 报 `net::ERR_ABORTED; maybe frame was detached`（2026-10-18 生产实测，
+  //     表现为「会话复用登录未成功，回落到 UI 表单登录」+ 随后 90s networkidle 超时）。
+  //   `addInitScript` 在**每次导航的页面脚本之前**执行 ⇒ 只需**一次**导航即可，
+  //   天然没有竞态；且 localStorage 按 origin 隔离，注入目标就是 BASE_URL 同源。
+  //
+  // ⚠️ 但 `addInitScript` 会**对该 page 的后续每次导航**都重新注入 ⇒ 会破坏
+  //   "登出后换角色"的用例（`po-lifecycle.fullflow` 用 `logout()` 切客户/staff）。
+  //   ⇒ Playwright 1.60 的 `addInitScript` 返回 **`Disposable`**（`dispose()` 可摘除），
+  //   把它记下来，`logout()` 里 `dispose()` 掉 ⇒ 登出后不再被自动写回。
+  const disposable = await page.addInitScript((s) => {
+    try {
       localStorage.setItem('token', s.token);
       localStorage.setItem('is_staff', String(s.isStaff));
       localStorage.setItem('role', s.role || '');
-    },
-    session,
-  );
+    } catch {
+      /* 某些页面（如 about:blank）无 localStorage ⇒ 忽略，交给后续严格校验 */
+    }
+  }, session);
+  _sessionInitScriptDisposables.set(page, disposable);
+
   // 落到目标页并确认前端确实认了登录态（token 在 + 路由守卫放行到 /workspace）。
+  // ⚠️ `waitUntil: 'domcontentloaded'`：默认的 'networkidle' 在生产 SPA 上
+  //   会被长连接/轮询拖到 90s 超时（实测）⇒ 显式改掉。
   await page.goto(`${BASE_URL}/workspace`, { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(_hasToken, null, { timeout: LOGIN_TIMEOUT_MS });
   return session;
@@ -150,9 +171,20 @@ async function getToken(page) {  return page.evaluate(() => localStorage.getItem
 }
 
 async function logout(page) {
+  // ★ 先摘掉会话注入的 init script（若本 page 用过 `loginAsStaff` 的会话复用路径）：
+  //   否则它会在**下一次导航**又把 token 写回 localStorage ⇒ 登出失效、换角色失败。
+  const disposable = _sessionInitScriptDisposables.get(page);
+  if (disposable) {
+    try {
+      await disposable.dispose();
+    } catch {
+      /* page 已关闭等情况 ⇒ 忽略 */
+    }
+    _sessionInitScriptDisposables.delete(page);
+  }
   // 清空 token + 跳首页，确保下个用例从匿名态开始
   await page.evaluate(() => localStorage.clear());
-  await page.goto(`${BASE_URL}/`);
+  await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded' });
 }
 
 module.exports = {
