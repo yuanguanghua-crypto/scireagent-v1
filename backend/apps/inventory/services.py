@@ -1,6 +1,29 @@
 from django.db import transaction
 from apps.inventory.models import Inventory, Allocation, InsufficientInventoryError, InventoryMovement
 
+# ★ P2：`available`/`allocated` 是裸 IntegerField，Postgres 侧为 int4（上限 2147483647）。
+# 本模块的 quantity/delta 都是**增量**语义（available += x）⇒ 单字段合法 ≠ 累加后合法：
+#   available=2,000,000,000 + quantity=300,000,000 ⇒ 2,300,000,000 溢出 int4（实测 500）。
+# 故除serializer 的单字段上界外，累加前必须再查一次上界。
+INT4_MAX = 2_147_483_647
+
+
+def _guard_accumulation(current: int, delta: int, field: str = 'available') -> int:
+    """累加上界守卫：返回累加结果，越界则抛 ValueError。
+
+    ⚠️ 必须抛 `ValueError`：api/v1/views.py:82/101 的
+    `except (ValueError, InsufficientInventoryError)` 已捕获它 ⇒ 零新增捕获逻辑即变400。
+    ⚠️ 不能只靠 DB 兜底：SQLite 是 int8，会静默接受越界值（本地测试也测不出 500），
+    而生产 Postgres 会直接抛 DataError/OverflowError ⇒ 500。
+    """
+    result = current + delta
+    if result > INT4_MAX:
+        raise ValueError(
+            f'累加后超出上限：当前 {field}={current}，本次变更 {delta:+d}，'
+            f'累加后 {result}，超出 int4 上限 {INT4_MAX}。请调小本次数量。'
+        )
+    return result
+
 
 class InventoryService:
     """库存原子操作 — 所有扣减/释放均经 select_for_update，禁止直接改 available。"""
@@ -15,6 +38,11 @@ class InventoryService:
         """锁定指定库存并记录占用（RESERVED）。"""
         inv = InventoryService._lock(inventory_id)
         inv.allocate(quantity)  # raises InsufficientInventoryError if over-commit
+        # ★ P2：`allocated` 同为裸 IntegerField，且是**累加**语义 ——
+        #   models.Inventory.allocate 的 `available >= qty` 兜底只管 available，
+        #   allocated 可被反复占用同一行推过 int4 ⇒ 同样要在写库前查上界。
+        #   ValueError 已被 transactions/api/v1/po_views.py:210 的 except 捕获 ⇒ 自动 400。
+        _guard_accumulation(inv.allocated, quantity, field='allocated')
         inv.save(update_fields=['available', 'allocated', 'updated_at'])
         allocation = Allocation.objects.create(
             order_item=order_item,
@@ -114,7 +142,7 @@ class InventoryService:
         if inv is None:
             inv = Inventory.objects.create(**lookup, available=0, allocated=0)
             inv = InventoryService._lock(inv.pk)
-        inv.available += quantity
+        inv.available = _guard_accumulation(inv.available, quantity)
         inv.save(update_fields=['available', 'updated_at'])
         InventoryMovement.objects.create(
             inventory=inv, kind=InventoryMovement.Kind.RECEIPT,
@@ -133,7 +161,7 @@ class InventoryService:
             raise InsufficientInventoryError(
                 f'Adjust would over-draw: available {inv.available}, delta {delta}'
             )
-        inv.available += delta
+        inv.available = _guard_accumulation(inv.available, delta)
         inv.save(update_fields=['available', 'updated_at'])
         InventoryMovement.objects.create(
             inventory=inv, kind=InventoryMovement.Kind.ADJUST,

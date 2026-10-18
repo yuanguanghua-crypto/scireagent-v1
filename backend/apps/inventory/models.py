@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from core.models import TimeStampedModel
 
@@ -21,8 +22,15 @@ class Inventory(TimeStampedModel):
     location = models.CharField(
         max_length=20, choices=Location.choices, default=Location.MAIN, verbose_name='库位'
     )
-    available = models.IntegerField(default=0, verbose_name='可分配量')
-    allocated = models.IntegerField(default=0, verbose_name='已占用量')
+    # ★ P2：裸 IntegerField 无任何下界约束（实测 ORM 直接写 available=-500 能成功）。
+    # 补应用层校验（比 DB 约束更早失败，且不触碰存量数据）。
+    # ⚠️ 只加 MinValueValidator、不加 CheckConstraint：后者是DDL 约束，
+    #    若生产已存在负数行，migration 会直接失败 —— 生产数据尚未核实（无 docker 环境），
+    #    故DB 层兜底暂缓，等生产负数行数确认后再决策。
+    available = models.IntegerField(
+        default=0, validators=[MinValueValidator(0)], verbose_name='可分配量')
+    allocated = models.IntegerField(
+        default=0, validators=[MinValueValidator(0)], verbose_name='已占用量')
 
     class Meta:
         db_table = 'inventory'
