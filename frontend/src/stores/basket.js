@@ -7,6 +7,7 @@ import {
   removeBasketItem as removeBasketItemApi,
   mergeBasket as mergeBasketApi,
 } from '@/api/basket'
+import { toast } from '@/components/common/AppToast'
 
 export const useBasketStore = defineStore('basket', () => {
   const items = ref([])
@@ -171,6 +172,13 @@ export const useBasketStore = defineStore('basket', () => {
    * ⚠️ 合并成功后必须清掉 session key：后端不会删除游客的 session_key 行，
    *   若保留，登出后再登录会把同一批陈旧行二次合并（实测 3 → 6）。
    *
+   * ⚠️⚠️ 部分跳过（`skipped > 0`）时**不能**无条件 `removeItem(LOCAL_STORAGE_KEY)`
+   *   —— 那是整键删除：跳过的行既没合并进账户、也被从本地抹掉 ⇒ 彻底丢失
+   *   （用户看到"购物车少了东西"却无任何提示）。此时只剔除**已确认合并成功**的行，
+   *   跳过的行留在 localStorage。`skipped_items`（后端 basket_views.py:288）
+   *   就是为此回传明细：只有 `skipped` 计数时无法区分"少的是哪几条"，
+   *   也就无法精确保留它们。
+   *
    * @param {Array<{sku?: number, sku_id?: number, quantity: number}>} [itemsToMerge]
    * @returns {Promise<boolean>} 是否合并成功；失败返回 false，绝不抛出（不得阻断登录）
    */
@@ -185,9 +193,34 @@ export const useBasketStore = defineStore('basket', () => {
     if (payload.length === 0) return false
 
     try {
-      await mergeBasketApi(payload)
-      // 仅在成功后清理：失败时保留本地副本，游客下次登录仍可重试。
-      localStorage.removeItem(LOCAL_STORAGE_KEY)
+      const result = await mergeBasketApi(payload)
+      // http interceptor 返回信封 {success, data: {...}, meta}（见 core/renderers.py
+      // 的 EnvelopeRenderer）。后端字段名实测为 `skipped` / `skipped_items`
+      //（basket_views.py:285-288），不是 skipped_count。
+      const data = result?.data || result || {}
+      const skipped = Number(data.skipped) || 0
+      const merged = Number(data.merged) || 0
+      // 本次提交上去的 sku 全集；减去被跳过的，剩下的就是"已确认合并成功"的行。
+      const submittedSkus = new Set(payload.map((p) => String(p.sku_id)))
+      const skippedSkus = new Set(
+        (Array.isArray(data.skipped_items) ? data.skipped_items : [])
+          .map((s) => String(s?.sku_id))
+      )
+
+      if (skipped === 0) {
+        // 全部成功 ⇒ 整键清理是正确的（保留即可）。
+        localStorage.removeItem(LOCAL_STORAGE_KEY)
+      } else {
+        // 部分跳过 ⇒ 只剔除已确认合并成功的行，跳过的行留在本地等下次重试。
+        pruneMergedLocalItems(submittedSkus, skippedSkus)
+        // ⚠️ 提示绝不阻断登录：toast 是非阻塞的，且已合并成功的行照常展示。
+        //   仅 skipped > 0 时提示，全部成功时不打扰用户。
+        toast.warning(
+          `Merged ${merged} item${merged === 1 ? '' : 's'} into your cart; ` +
+            `${skipped} could not be merged and ${skipped === 1 ? 'was' : 'were'} kept for retry.`
+        )
+      }
+
       // 使这批游客行不再可达，否则登出→再登录会二次合并导致数量翻倍。
       // ⚠️ 必须立刻重新生成：getSessionKey() 只在 store 初始化时调用一次，
       //   若只删不补，本次会话内登出后匿名加购会因缺 X-Session-Key 被后端
@@ -200,6 +233,63 @@ export const useBasketStore = defineStore('basket', () => {
       // 合并失败不得阻断登录：用户已登录成功。保留本地副本，仅记录日志。
       console.error('[Basket] mergeLocalBasket failed:', err)
       return false
+    }
+  }
+
+  /**
+   * 从 localStorage 副本中剔除「已确认合并成功」的行，保留其余行。
+   *
+   * ⚠️ 逐行剔除而非整键删除：整键删除会把**没合并成功**的行一并抹掉。保留条件
+   *   是"不在本次提交集合内"或"在跳过集合内"，因此：
+   *     - 已合并的行  → 剔除（否则下次重试会二次叠加，数量翻倍）
+   *     - 被跳过的行  → 保留（数据不丢，下次仍有机会重试）
+   *     - 没提交的脏行 → 保留（本次根本没参与合并，不该由本次操作决定其生死）
+   *
+   * 行的稳定标识用 `sku_id ?? sku` —— 与 payload 的构造（:181）保持同一套键。
+   * 写回时保留原字段，仅剔除行本身，不重塑行内容。
+   *
+   * @param {Set<string>} submittedSkus - 本次提交给后端的 sku 键集合
+   * @param {Set<string>} skippedSkus - 后端回传的被跳过的 sku 键集合
+   */
+  function pruneMergedLocalItems(submittedSkus, skippedSkus) {
+    let stored
+    try {
+      stored = localStorage.getItem(LOCAL_STORAGE_KEY)
+    } catch {
+      return // localStorage 不可用（隐私模式）：无可清理，直接跳过
+    }
+    if (!stored) return
+
+    let parsed
+    try {
+      parsed = JSON.parse(stored)
+    } catch {
+      // 副本已损坏 ⇒ 无法判断哪些合并成功了。此时**不清除**：
+      // 宁可留一份待下次核对，也不要在不确定时丢数据。
+      console.warn('[Basket] local basket copy is corrupt, kept as-is')
+      return
+    }
+
+    const rows = Array.isArray(parsed?.items) ? parsed.items : null
+    if (!rows) return
+
+    const remaining = rows.filter((row) => {
+      const key = row && (row.sku_id ?? row.sku)
+      if (key === undefined || key === null) return true // 无标识的行：保留，不擅自丢
+      const k = String(key)
+      if (!submittedSkus.has(k)) return true // 本次没提交 ⇒ 与本次合并无关
+      return skippedSkus.has(k) // 被跳过 ⇒ 保留待重试
+    })
+
+    try {
+      if (remaining.length === 0) {
+        localStorage.removeItem(LOCAL_STORAGE_KEY)
+      } else {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ items: remaining }))
+      }
+    } catch (err) {
+      // 写回失败（配额/隐私模式）不应让登录失败。
+      console.error('[Basket] failed to prune local basket copy:', err)
     }
   }
 

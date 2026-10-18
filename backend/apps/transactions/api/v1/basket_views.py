@@ -220,11 +220,18 @@ class MergeBasketView(APIView):
 
         merged_count = 0
         skipped_count = 0
+        #⚠️ 光有 `skipped_count` 前端无法做到「只清已成功合并的行」——
+        #   它只知道"少了几条"，不知道"少的是哪几条"。而 localStorage 的
+        #   清理是整键 removeItem，一旦部分跳过就会把没合并的行一并抹掉
+        #   （实测后果：那些商品既没进账户、也没留在本地，彻底丢失）。
+        #   故这里额外回传**被跳过的行的标识**，让前端能精确保留它们。
+        skipped_items = []
         for item_data in serializer.validated_data['items']:
             sku_id = item_data.get('sku_id')
             quantity = item_data.get('quantity', 1)
             if not sku_id:
                 skipped_count += 1
+                skipped_items.append({'sku_id': sku_id, 'quantity': quantity})
                 continue
 
             # ⚠️ 第二道防线：`MergeBasketItemSerializer` 已把输入约束成
@@ -241,12 +248,14 @@ class MergeBasketView(APIView):
                 sku = SKU.objects.select_related('product').get(id=sku_id)
             except (SKU.DoesNotExist, TypeError, ValueError):
                 skipped_count += 1
+                skipped_items.append({'sku_id': sku_id, 'quantity': quantity})
                 continue
 
             try:
                 quantity = int(quantity)
             except (TypeError, ValueError):
                 skipped_count += 1
+                skipped_items.append({'sku_id': sku_id, 'quantity': quantity})
                 continue
 
             try:
@@ -270,6 +279,7 @@ class MergeBasketView(APIView):
                     basket_item.save(update_fields=['quantity', 'updated_at'])
             except (TypeError, ValueError, OverflowError):
                 skipped_count += 1
+                skipped_items.append({'sku_id': sku_id, 'quantity': quantity})
                 continue
             merged_count += 1
 
@@ -283,6 +293,9 @@ class MergeBasketView(APIView):
             'merged': merged_count,
             # 让前端能感知"部分合并失败"，而不是看到 merged 就以为全部成功。
             'skipped': skipped_count,
+            # ⚠️ 与 `skipped` 配对使用：只有计数时前端无法判断**哪些**行没合并，
+            #   也就无法"只清成功行、保留失败行"（见循环内 skipped_items 注释）。
+            'skipped_items': skipped_items,
             'items': serialized.data,
             'total': total,
             'count': items.count(),

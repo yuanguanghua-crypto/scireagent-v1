@@ -37,6 +37,13 @@
 另：本文件顺带补上两个**零覆盖**端点的测试 ——
 ``PATCH /basket/items/<pk>`` 与 ``DELETE /basket/items/<pk>/delete``，
 它们的归属校验分支（`basket_views.py:148-160` / `:183-196`）此前完全没被测到。
+
+后续补充（跳过明细契约）：``MergeBasketView`` 的响应体除``merged`` / ``skipped``
+计数外，还回传 ``skipped_items`` 明细（``[{'sku_id':…, 'quantity':…}]``）。
+起因是前后端契约缺口：前端 ``stores/basket.js`` 的 ``mergeLocalBasket`` 原先
+无条件 ``localStorage.removeItem(LOCAL_STORAGE_KEY)``，部分跳过时把**没合并成功**
+的行一并抹掉 ⇒ 既没进账户、也没留在本地，彻底丢失。只有计数时无法定位是哪几行，
+故必须回传明细，前端才能"只剔除已合并成功的行"。
 """
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -153,6 +160,72 @@ class MergeBasketInputHardeningTest(TestCase):
         data = resp.json()['data']
         self.assertEqual(data['merged'], 1, '合法的那条应合并成功')
         self.assertEqual(data['skipped'], 1, '跳过的条数必须回传给前端')
+
+    # ------------------------------------------------------------------
+    # skipped_items 明细 —— 前端"只清成功行"的**前置条件**
+    # ------------------------------------------------------------------
+
+    def test_merge_response_carries_skipped_items_field(self):
+        """⚠️ 字段名实测为 `skipped_items`（不是 skipped_count），且必须始终存在。
+
+        前端 `stores/basket.js` 的 mergeLocalBasket 依赖它区分「哪些行没合并」：
+        只有 `skipped` 计数时无法定位被跳过的行，只能整键清 localStorage，
+        于是跳过的那批既没进账户、也没留在本地，彻底丢失。
+        """
+        resp = self._merge({'items': [{'sku_id': self.sku.id, 'quantity': 1}]})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()['data']
+        self.assertIn('skipped_items', data, '全成功时也必须回传该字段（空列表）')
+        self.assertEqual(data['skipped_items'], [], '全成功 ⇒ 无跳过明细')
+        self.assertEqual(data['skipped'], 0)
+
+    def test_skipped_items_identifies_which_rows_failed(self):
+        """部分跳过时，明细必须精确指出**是哪几个 sku** 没合并。"""
+        resp = self._merge({'items': [
+            {'sku_id': self.sku.id, 'quantity': 2},   # 成功
+            {'sku_id': 99999999, 'quantity': 1},      # 跳过：不存在的 SKU
+            {'sku_id': 88888888, 'quantity': 5},      # 跳过：不存在的 SKU
+        ]})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()['data']
+        self.assertEqual(data['merged'], 1)
+        self.assertEqual(data['skipped'], 2)
+        self.assertEqual(len(data['skipped_items']), 2, '明细条数必须与 skipped 一致')
+
+        failed_skus = {row['sku_id'] for row in data['skipped_items']}
+        self.assertEqual(failed_skus, {99999999, 88888888})
+        self.assertNotIn(
+            self.sku.id, failed_skus,
+            '合并成功的行绝不能出现在跳过明细里——否则前端会把它从本地副本剔除，'
+            '导致下次重试时该行被二次叠加（数量翻倍）',
+        )
+        # 明细必须带 quantity，前端才能在提示里说清丢了什么
+        for row in data['skipped_items']:
+            self.assertIn('sku_id', row)
+            self.assertIn('quantity', row)
+
+    def test_skipped_items_count_always_matches_skipped_counter(self):
+        """不变量：`len(skipped_items) === skipped`。前端按明细剔除行，两者不一致会误删。"""
+        resp = self._merge({'items': [
+            {'sku_id': self.sku.id, 'quantity': 1},
+            {'sku_id': 99999999, 'quantity': 1},
+            {'sku_id': 77777777, 'quantity': 1},
+        ]})
+        data = resp.json()['data']
+        self.assertEqual(data['skipped'], len(data['skipped_items']))
+
+    def test_merged_rows_are_actually_written_to_db(self):
+        """部分跳过时，成功的那部分必须**真的落库**（不能整体回滚）。"""
+        resp = self._merge({'items': [
+            {'sku_id': self.sku.id, 'quantity': 4},
+            {'sku_id': 99999999, 'quantity': 3},
+        ]})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(Basket.objects.filter(user=self.user).count(), 1)
+        self.assertEqual(
+            Basket.objects.get(user=self.user, sku=self.sku).quantity, 4,
+            '合法行必须已合并进账户',
+        )
 
     def test_merge_accumulates_up_to_max_without_exceeding(self):
         """叠加后不得超过 max_value=999（修复前 900 + 900 = 1800 可落库）。"""
