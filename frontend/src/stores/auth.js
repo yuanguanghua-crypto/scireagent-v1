@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { login as loginApi, register as registerApi, logout as logoutApi, getMe, updateProfile as updateProfileApi, verifyEmail as verifyEmailApi, resendVerification as resendVerificationApi } from '@/api/auth'
+import { useBasketStore } from '@/stores/basket'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
@@ -45,6 +46,19 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(credentials) {
+    // ① Snapshot the guest basket BEFORE the token is written.
+    // Once localStorage.token exists the http interceptor stops sending
+    // X-Session-Key (utils/http.js:29), so the guest rows become unreachable.
+    //
+    // ⚠️ Only `_guest` rows may be merged. `logout()` clears the token, so
+    // "no token" does NOT imply "these rows belong to a guest" — after a
+    // logout the store may still hold the *account's* rows, and the backend
+    // merge is additive ⇒ replaying them would double quantities (实测 2 → 4)。
+    const basket = useBasketStore()
+    const guestItems = basket.items
+      .filter((i) => i._guest || i._local)
+      .map((i) => ({ sku: i.sku, sku_id: i.sku_id, quantity: i.quantity }))
+
     const result = await loginApi(credentials)
     token.value = result.data.token
     user.value = result.data.user
@@ -53,6 +67,19 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('token', token.value)
     localStorage.setItem('is_staff', String(cachedIsStaff.value))
     localStorage.setItem('role', cachedRole.value)
+
+    // ② Merge AFTER the token is persisted, so the merge request carries the
+    // auth header (the endpoint is IsAuthenticated —实测匿名调用返回 401)。
+    // Failure must never block login: mergeLocalBasket swallows its own errors
+    // and keeps the local copy, so the user stays logged in either way.
+    if (guestItems.length > 0) {
+      try {
+        await basket.mergeLocalBasket(guestItems)
+      } catch (err) {
+        console.error('[Auth] basket merge failed after login:', err)
+      }
+    }
+
     return result
   }
 
@@ -64,6 +91,13 @@ export const useAuthStore = defineStore('auth', () => {
   // Verify email via the link token; on success the backend mints a token and
   // we log the user in directly (the link acts as a one-click sign-in).
   async function verifyEmail(verificationToken) {
+    // Same P0-2 defect as `login`: this is a second silent sign-in path, so a
+    // guest basket must be merged here too or the items vanish just the same.
+    const basket = useBasketStore()
+    const guestItems = basket.items
+      .filter((i) => i._guest || i._local)
+      .map((i) => ({ sku: i.sku, sku_id: i.sku_id, quantity: i.quantity }))
+
     const result = await verifyEmailApi(verificationToken)
     token.value = result.token
     user.value = result.user
@@ -72,6 +106,17 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem('token', token.value)
     localStorage.setItem('is_staff', String(cachedIsStaff.value))
     localStorage.setItem('role', cachedRole.value)
+
+    // After the token is persisted so the merge call is authenticated; a failure
+    // must not prevent the user from getting into the app.
+    if (guestItems.length > 0) {
+      try {
+        await basket.mergeLocalBasket(guestItems)
+      } catch (err) {
+        console.error('[Auth] basket merge failed after email verification:', err)
+      }
+    }
+
     return result
   }
 
