@@ -14,6 +14,7 @@ Anonymous users are identified by the ``X-Session-Key`` request header.
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from rest_framework import status as http_status
 from apps.transactions.models import Basket
 from apps.commerce.models import SKU
@@ -31,7 +32,14 @@ from .basket_serializers import (
 
 def _get_session_key(request) -> str:
     """Extract X-Session-Key header; returns empty string if missing."""
-    return request.headers.get('X-Session-Key', '')
+    key = request.headers.get('X-Session-Key', '')
+    # 超长 key 在 Postgres 上会撞 varchar(100) 抛异常 → 500。
+    # 不能截断：不同超长 key 若前 N 字符相同会被截成同一个值 ⇒ 串号风险；
+    # 正常前端值是 ``guest_`` + uuid ≈ 42 字符，超长只可能是异常或攻击。
+    # 上限从模型字段读取，避免将来字段改长后不同步。
+    if len(key) > Basket._meta.get_field('session_key').max_length:
+        raise ValidationError('Invalid X-Session-Key')
+    return key
 
 
 def _get_basket_queryset(request):
