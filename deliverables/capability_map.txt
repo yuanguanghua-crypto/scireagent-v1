@@ -1,7 +1,7 @@
 ====================================================================================================
 后端存活端点 → 前端调用方 映射表（按 URL 聚合）
 ====================================================================================================
-URL 总数 140｜有测试 106｜有前端入口 91｜⚠️ 零前端入口（潜在孤儿能力） 49
+URL 总数 140｜有测试 119｜有前端入口 91｜⚠️ 零前端入口（潜在孤儿能力） 49
 
 ####################################################################################################
 # 第一部分：⚠️ 零前端入口的后端存活能力（49 条）
@@ -25,6 +25,8 @@ URL 总数 140｜有测试 106｜有前端入口 91｜⚠️ 零前端入口（�
         后端 CatalogGroupViewSet @ backend/apps/commerce/api/v1/urls.py:22  (router-list, 有测试)
   ⚠️  DELETE,GET,PATCH,PUT   /api/v1/coas/{X}/
         后端 CoaViewSet @ backend/apps/documents/api/v1/urls.py:7  (router-detail, 有测试)
+  ⚠️  GET                    /api/v1/coas/{X}/download/
+        后端 CoaViewSet @ backend/apps/documents/api/v1/views.py:128  (action, 有测试)
   ⚠️  GET,POST               /api/v1/compatibility/
         后端 CompatibilityViewSet @ backend/apps/knowledge/api/v1/urls.py:23  (router-list, 有测试)
   ⚠️  DELETE,GET,PATCH,PUT   /api/v1/compatibility/{X}/
@@ -41,6 +43,8 @@ URL 总数 140｜有测试 106｜有前端入口 91｜⚠️ 零前端入口（�
         后端 InventoryMovementListView @ backend/apps/inventory/api/v1/urls.py:10  (path, 有测试)
   ⚠️  ANY                    /api/v1/inventory/{X}/
         后端 InventoryViewSet @ backend/apps/inventory/api/v1/urls.py:12  (path, 有测试)
+  ⚠️  GET                    /api/v1/methods/{X}/json-ld/
+        后端 MethodViewSet @ backend/apps/knowledge/api/v1/views.py:101  (action, 有测试)
   ⚠️  ANY                    /api/v1/orders/{X}/allocate/
         后端 AllocateView @ backend/apps/transactions/api/v1/urls.py:44  (path, 有测试)
   ⚠️  GET,POST               /api/v1/pdf-files/
@@ -49,8 +53,16 @@ URL 总数 140｜有测试 106｜有前端入口 91｜⚠️ 零前端入口（�
         后端 ProductClassViewSet @ backend/apps/commerce/api/v1/urls.py:21  (router-detail, 有测试)
   ⚠️  ANY                    /api/v1/products/{X}/faq/
         后端 ProductFAQView @ backend/apps/commerce/api/v1/urls.py:32  (path, 有测试)
+  ⚠️  POST                   /api/v1/products/{X}/hard-delete/
+        后端 ProductViewSet @ backend/apps/commerce/api/v1/views.py:242  (action, 有测试)
+  ⚠️  GET                    /api/v1/products/{X}/json-ld/
+        后端 ProductViewSet @ backend/apps/commerce/api/v1/views.py:271  (action, 有测试)
   ⚠️  ANY                    /api/v1/products/{X}/related/
         后端 RelatedProductsView @ backend/apps/commerce/api/v1/urls.py:33  (path, 有测试)
+  ⚠️  POST                   /api/v1/products/{X}/restore/
+        后端 ProductViewSet @ backend/apps/commerce/api/v1/views.py:195  (action, 有测试)
+  ⚠️  GET                    /api/v1/protocols/{X}/json-ld/
+        后端 ProtocolViewSet @ backend/apps/knowledge/api/v1/views.py:130  (action, 有测试)
   ⚠️  ANY                    /api/v1/quote-requests/{X}/
         后端 QuoteRequestDetailView @ backend/apps/quotes/api/v1/urls.py:6  (path, 有测试)
   ⚠️  DELETE,GET,PATCH,PUT   /api/v1/quotes/{X}/
@@ -59,6 +71,8 @@ URL 总数 140｜有测试 106｜有前端入口 91｜⚠️ 零前端入口（�
         后端 robots_txt @ backend/config/urls.py:22  (path, 有测试)
   ⚠️  DELETE,GET,PATCH,PUT   /api/v1/sds-revisions/{X}/
         后端 SdsRevisionViewSet @ backend/apps/documents/api/v1/urls.py:8  (router-detail, 有测试)
+  ⚠️  GET                    /api/v1/sds-revisions/{X}/download/
+        后端 SdsRevisionViewSet @ backend/apps/documents/api/v1/views.py:213  (action, 有测试)
   ⚠️  ANY                    /api/v1/search
         后端 search @ backend/apps/knowledge/api/v1/urls.py:29  (path, 有测试)
   ⚠️  ANY                    /api/v1/search/suggest
@@ -77,32 +91,18 @@ URL 总数 140｜有测试 106｜有前端入口 91｜⚠️ 零前端入口（�
         后端 BatchViewSet @ backend/apps/documents/api/v1/urls.py:6  (router-detail, 无测试)
   ⚠️  DELETE,GET,PATCH,PUT   /api/v1/catalog-groups/{X}/
         后端 CatalogGroupViewSet @ backend/apps/commerce/api/v1/urls.py:22  (router-detail, 无测试)
-  ⚠️  GET                    /api/v1/coas/{X}/download
-        后端 CoaViewSet @ backend/apps/documents/api/v1/views.py:128  (action, 无测试)
-  ⚠️  GET                    /api/v1/methods/{X}/json-ld
-        后端 MethodViewSet @ backend/apps/knowledge/api/v1/views.py:101  (action, 无测试)
   ⚠️  ANY                    /api/v1/methods/{X}/products/
         后端 MethodProductsView @ backend/apps/bridges/api/v1/urls.py:21  (path, 无测试)
   ⚠️  DELETE,GET,PATCH,PUT   /api/v1/pdf-files/{X}/
         后端 PdfFileViewSet @ backend/apps/assets/api/v1/urls.py:6  (router-detail, 无测试)
   ⚠️  ANY                    /api/v1/products/enrich-from-pubchem/
         后端 PubChemEnrichView @ backend/apps/commerce/api/v1/urls.py:36  (path, 无测试)
-  ⚠️  POST                   /api/v1/products/{X}/documents
+  ⚠️  POST                   /api/v1/products/{X}/documents/
         后端 ProductViewSet @ backend/apps/commerce/api/v1/views.py:279  (action, 无测试)
-  ⚠️  POST                   /api/v1/products/{X}/hard-delete
-        后端 ProductViewSet @ backend/apps/commerce/api/v1/views.py:242  (action, 无测试)
-  ⚠️  GET                    /api/v1/products/{X}/json-ld
-        后端 ProductViewSet @ backend/apps/commerce/api/v1/views.py:271  (action, 无测试)
-  ⚠️  POST                   /api/v1/products/{X}/restore
-        后端 ProductViewSet @ backend/apps/commerce/api/v1/views.py:195  (action, 无测试)
-  ⚠️  GET                    /api/v1/protocols/{X}/json-ld
-        后端 ProtocolViewSet @ backend/apps/knowledge/api/v1/views.py:130  (action, 无测试)
   ⚠️  GET,POST               /api/v1/pubchem-cache/
         后端 PubChemCacheViewSet @ backend/apps/documents/api/v1/urls.py:9  (router-list, 无测试)
   ⚠️  DELETE,GET,PATCH,PUT   /api/v1/pubchem-cache/{X}/
         后端 PubChemCacheViewSet @ backend/apps/documents/api/v1/urls.py:9  (router-detail, 无测试)
-  ⚠️  GET                    /api/v1/sds-revisions/{X}/download
-        后端 SdsRevisionViewSet @ backend/apps/documents/api/v1/views.py:213  (action, 无测试)
   ⚠️  ANY                    /api/v1/verified/{X}/
         后端 VerifiedPatchView @ backend/apps/bridges/api/v1/urls.py:25  (path, 无测试)
 
@@ -135,10 +135,10 @@ URL 总数 140｜有测试 106｜有前端入口 91｜⚠️ 零前端入口（�
 [T] ANY                    /api/v1/categories  ← 1 入口
 [T] ANY                    /api/v1/checkout/  ← 1 入口
 [T] GET,POST               /api/v1/coas/  ← 2 入口
-[T] POST                   /api/v1/coas/create-coa  ← 1 入口
-[-] POST                   /api/v1/coas/{X}/approve  ← 1 入口
-[-] PUT                    /api/v1/coas/{X}/qc-results  ← 1 入口
-[-] POST                   /api/v1/coas/{X}/withdraw  ← 1 入口
+[T] POST                   /api/v1/coas/create-coa/  ← 1 入口
+[T] POST                   /api/v1/coas/{X}/approve/  ← 1 入口
+[T] PUT                    /api/v1/coas/{X}/qc-results/  ← 1 入口
+[T] POST                   /api/v1/coas/{X}/withdraw/  ← 1 入口
 [T] ANY                    /api/v1/convergence-classes/  ← 1 入口
 [T] ANY                    /api/v1/convergence-classes/{X}/  ← 1 入口
 [T] ANY                    /api/v1/graph  ← 1 入口
@@ -166,7 +166,7 @@ URL 总数 140｜有测试 106｜有前端入口 91｜⚠️ 零前端入口（�
 [T] GET,POST               /api/v1/product-classes/  ← 1 入口
 [T] GET,POST               /api/v1/products/  ← 7 入口
 [T] ANY                    /api/v1/products/batch-recommend-literature/  ← 1 入口
-[T] POST                   /api/v1/products/batch-restore  ← 1 入口
+[T] POST                   /api/v1/products/batch-restore/  ← 1 入口
 [T] ANY                    /api/v1/products/batch-validate/  ← 1 入口
 [T] ANY                    /api/v1/products/enrich/  ← 1 入口
 [T] ANY                    /api/v1/products/import-protocol/  ← 1 入口
@@ -174,9 +174,9 @@ URL 总数 140｜有测试 106｜有前端入口 91｜⚠️ 零前端入口（�
 [T] ANY                    /api/v1/products/render-structure/  ← 1 入口
 [T] DELETE,GET,PATCH,PUT   /api/v1/products/{X}/  ← 4 入口
 [T] ANY                    /api/v1/products/{X}/adopt-bioz-refs/  ← 1 入口
-[-] POST                   /api/v1/products/{X}/archive  ← 1 入口
+[T] POST                   /api/v1/products/{X}/archive/  ← 1 入口
 [T] ANY                    /api/v1/products/{X}/detail/  ← 3 入口
-[-] POST                   /api/v1/products/{X}/generate-seo  ← 1 入口
+[-] POST                   /api/v1/products/{X}/generate-seo/  ← 1 入口
 [-] ANY                    /api/v1/products/{X}/methods/  ← 2 入口
 [T] GET,POST               /api/v1/protocols/  ← 5 入口
 [T] DELETE,GET,PATCH,PUT   /api/v1/protocols/{X}/  ← 2 入口
@@ -187,9 +187,9 @@ URL 总数 140｜有测试 106｜有前端入口 91｜⚠️ 零前端入口（�
 [T] GET,POST               /api/v1/research-goals/  ← 5 入口
 [T] DELETE,GET,PATCH,PUT   /api/v1/research-goals/{X}/  ← 2 入口
 [T] GET,POST               /api/v1/sds-revisions/  ← 2 入口
-[T] POST                   /api/v1/sds-revisions/generate  ← 1 入口
-[-] POST                   /api/v1/sds-revisions/{X}/approve  ← 1 入口
-[-] POST                   /api/v1/sds-revisions/{X}/withdraw  ← 1 入口
+[T] POST                   /api/v1/sds-revisions/generate/  ← 1 入口
+[T] POST                   /api/v1/sds-revisions/{X}/approve/  ← 1 入口
+[T] POST                   /api/v1/sds-revisions/{X}/withdraw/  ← 1 入口
 [T] ANY                    /api/v1/search/grouped  ← 1 入口
 [T] ANY                    /api/v1/shipments/{X}/mark-delivered/  ← 2 入口
 [T] ANY                    /api/v1/shipments/{X}/mark-shipped/  ← 2 入口
@@ -202,4 +202,4 @@ URL 总数 140｜有测试 106｜有前端入口 91｜⚠️ 零前端入口（�
 [T] DELETE,GET,PATCH,PUT   /api/v1/wishlist/{X}/  ← 2 入口
   （--verbose 展开每个入口文件与经由符号）
 
-[耗时] 索引构建 2.62s｜总计 2.84s｜后端端点 216｜api 符号 142
+[耗时] 索引构建 2.59s｜总计 2.78s｜后端端点 216｜api 符号 142

@@ -181,6 +181,21 @@ def expand_url_constants(text: str) -> str:
     return _FSTRING_PURE_VAR.sub(_sub, text)
 
 
+def action_url(base: str, url_path: str, detail: bool) -> str:
+    """拼 `@action` 的完整 URL。
+
+    ★ 为什么必须有尾斜杠：DRF `DefaultRouter()` 默认 `trailing_slash='/'`，
+      实际注册的是 `<prefix>/{pk}/<url_path>/`。
+      实测 `/api/v1/coas/1/download` → **301 重定向**，带斜杠才是真实路由。
+      此前拼成不带斜杠 ⇒ map 里的 URL 与真实路由不一致 ⇒
+      前端写 `download/` 时既匹配不到「有入口」也匹配不到「有测试」，
+      整批 @action 端点被误标为孤儿 / 无测试。
+      （2026-10-19 修：修后「有测试」106 → 119。）
+    """
+    up = url_path.strip("/")
+    return base + ("/{X}/" if detail else "/") + up + "/"
+
+
 def render_map_text(m, be, fe, verbose: bool, t_index: float, t_total: float) -> str:
     """把映射表渲染成完整文本。
 
@@ -551,10 +566,8 @@ class BackendIndex:
                                           urls_path, line, "router-detail"))
         self._scan_viewset(viewset, None)
         for act in self.actions.actions.get(viewset, []):
-            if act["detail"]:
-                p = base + "/{X}/" + act["url_path"]
-            else:
-                p = base + "/" + act["url_path"]
+            # ★ 2026-10-19 修：见 action_url() 的说明 —— 此前漏了 DRF 的尾斜杠
+            p = action_url(base, act["url_path"], act["detail"])
             for m in act["methods"]:
                 self.endpoints.append(Endpoint(m, full_url(p), viewset,
                                               self.actions.files.get(viewset, urls_path),

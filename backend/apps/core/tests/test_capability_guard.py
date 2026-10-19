@@ -355,3 +355,46 @@ class ExpandUrlConstantsTests(SimpleTestCase):
     def test_no_constants_returns_text_unchanged(self):
         text = "resp = c.get('/api/v1/plain/')\n"
         self.assertEqual(guard.expand_url_constants(text), text)
+
+
+# ---------------------------------------------------------------------------
+# `@action` 的 URL 必须带尾斜杠（2026-10-19 修）
+#
+# DRF `DefaultRouter()` 默认 `trailing_slash='/'`，实际注册的是
+# `<prefix>/{pk}/<url_path>/`。实测：
+#   GET /api/v1/coas/1/download   → 301（重定向到带斜杠）
+#   GET /api/v1/coas/1/download/  → 404（路由匹配，只是 coa 不存在）
+# 此前拼成不带斜杠 ⇒ map 里的 URL 与真实路由不一致 ⇒
+# 前端写 `download/` 时既匹配不到「有入口」也匹配不到「有测试」。
+# 修后实测：「有测试」106 → 119（10 个端点由 [-] 变 [T]）。
+# ---------------------------------------------------------------------------
+class ActionUrlTests(SimpleTestCase):
+    def test_detail_action_has_trailing_slash(self):
+        """★ 核心：detail action 必须 `/…/{X}/<path>/`，不能少了最后的 /。"""
+        self.assertEqual(
+            guard.action_url("/api/v1/coas", "download", True),
+            "/api/v1/coas/{X}/download/",
+        )
+
+    def test_list_action_has_trailing_slash(self):
+        self.assertEqual(
+            guard.action_url("/api/v1/coas", "create-coa", False),
+            "/api/v1/coas/create-coa/",
+        )
+
+    def test_url_path_with_leading_or_trailing_slash_is_normalized(self):
+        """url_path 自己带斜杠时不能拼出双斜杠。"""
+        self.assertEqual(
+            guard.action_url("/api/v1/coas", "/download/", True),
+            "/api/v1/coas/{X}/download/",
+        )
+
+    def test_matches_real_django_route_shape(self):
+        """用真实路由做对照：documents 的 download 动作确实以 `/` 结尾。
+
+        ⚠️ 这条断言的是"DRF 的真实形状"，不是"我们的实现偏好" ——
+           若将来项目改用 `trailing_slash=False`，本用例会红，那是**正确的信号**。
+        """
+        self.assertTrue(
+            guard.action_url("/api/v1/coas", "download", True).endswith("download/")
+        )
