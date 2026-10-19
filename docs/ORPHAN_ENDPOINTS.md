@@ -77,6 +77,44 @@
 
 ---
 
+## ⚠️ 已知误判（工具看不到，必须人工修正）
+
+### 第 3 类盲区：API 层「返回 URL 字符串」的函数
+
+工具只把 `http.get(...)` / `fetch(...)` 这类调用识别为"端点入口"。
+但有两处写法是**函数返回 URL 字符串**，再由 `window.open()` 使用：
+
+```js
+// frontend/src/api/documents.js:66-72
+export function downloadSdsUrl(id) { return `/api/v1/sds-revisions/${id}/download/` }
+export function downloadCoaUrl(id) { return `/api/v1/coas/${id}/download/` }
+
+// 使用处（4 个）
+ProductDetail.vue:404   window.open(documentsApi.downloadSdsUrl(...))
+ProductDetail.vue:410   window.open(documentsApi.downloadCoaUrl(coa.id), '_blank')
+ProductEditPage.vue:1386 / :1408  同上
+```
+
+⇒ **功能完全可用，但 `capability_map` 把它们标成 `⚠️` 零入口。**
+
+**所以这两个端点的真实状态是「有入口」**：
+
+| 端点 | 工具显示 | 真实 |
+|---|---|---|
+| `GET /api/v1/coas/{X}/download/` | ⚠️ 零入口 | **有入口**（2 处 window.open） |
+| `GET /api/v1/sds-revisions/{X}/download/` | ⚠️ 零入口 | **有入口**（2 处 window.open） |
+
+⇒ ★ **零入口的真实数字是 49 − 2 = 47**（2026-10-19 实测）。
+
+**为什么不修工具**：
+全仓只有这 2 个这种写法（`grep -rn "return \`/api/v1/" frontend/src/api/` 只命中它们）。
+改符号提取逻辑（让"返回 URL 的函数"也算端点符号）会影响全部 140 个端点的判断，
+风险大于收益 ⇒ 记录在案，人工扣减。
+
+⚠️ 若将来这类写法变多（>5 处），再考虑修工具。
+
+---
+
 ## 维护方式
 
 1. **用 `capability_guard --map`，不要自算 URL 字面量**（差异见本文开头的教训）
