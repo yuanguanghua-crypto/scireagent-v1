@@ -51,8 +51,28 @@ jobs:
       - name: pytest
         working-directory: backend
         run: |
-          # ⚠️ 不用 `| tail`：管道会吃掉 pytest 的退出码（本地已踩过两次）
-          python -B -m pytest -q --tb=short -p no:cacheprovider
+          # ⚠️ 不用 `pytest | tail`：管道会吃掉 pytest 的退出码（本地已踩过两次）
+          set +e
+          python -B -m pytest -q --tb=short -p no:cacheprovider > /tmp/pytest.log 2>&1
+          RC=$?
+
+          if [ $RC -ne 0 ]; then
+            # ★ 把失败信息打成 annotation：
+            #   GitHub 的 job log 下载需要 admin 权限，但 check-run 的
+            #   annotations 接口匿名可读。所以把关键行 echo 成 ::error::，
+            #   这样"CI 为什么红"不用登录也能查到。
+            #   （限制：每 step 最多约 10 条 annotation，所以只取最关键的）
+            {
+              grep -E '^(FAILED|ERROR)' /tmp/pytest.log | head -6
+              echo '--- 输出尾部 ---'
+              grep -E 'AssertionError|ImportError|ModuleNotFoundError|Error:' /tmp/pytest.log | head -4
+            } | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+          fi
+
+          cat /tmp/pytest.log
+          exit $RC
 
   # ── 2. 变异检测：证明测试不是摆设 ────────────────────────────────────
   # 这是「让质疑成为流水线的一步」的落点：
