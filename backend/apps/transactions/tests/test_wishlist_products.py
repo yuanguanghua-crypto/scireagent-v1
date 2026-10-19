@@ -165,3 +165,111 @@ class WishlistPermissionContractTest(TestCase):
         resp = self.client.delete(f'{URL}{wl.id}/')
         self.assertIn(resp.status_code, (401, 403), resp.content[:400])
         self.assertTrue(Wishlist.objects.filter(id=wl.id).exists())
+
+
+# ---------------------------------------------------------------------------
+# detail 端点 `/api/v1/wishlist/{id}/` 的**删除成功路径**与**跨用户隔离**
+#
+# ★ 为什么这两组此前是缺的：
+#   `capability_map.txt` 把 detail 端点标成 `[-]`（无测试），但那是**工具盲区**——
+#   本文件的 URL 是 f-string 拼的（`f'{URL}{wl.id}/'`），源码里没有完整 URL 字面量，
+#   而工具的判据要求"带引号的完整 URL"。实测 GET/PATCH/DELETE 其实都已有用例。
+#
+#   ⇒ 真正缺的是下面两类（不是"没有测试"，而是"测试不全"）：
+#     1. **DELETE 的认证成功路径** —— 此前只测了匿名被拒，没测"登录用户删自己的"
+#     2. ★★ **IDOR 跨用户隔离** —— 全仓此前**零覆盖**。
+#        `WishlistViewSet.get_queryset()` 按 user 过滤 ⇒ 别人的记录查不到 ⇒ 应 404。
+#        这是"看起来有权限、实际靠 queryset 兜底"的典型，必须钉死：
+#        ⚠️ 断言不能只看状态码，必须验证**对方数据确实没被改动**
+#        （只看 404 的话，即使实现改成 403/500 也可能掩盖真实写入）
+# ---------------------------------------------------------------------------
+class WishlistDetailProtectionTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.me = UserFactory()
+        self.other = UserFactory()
+        self.client.force_authenticate(user=self.me)
+        self.p1 = ProductFactory()
+        self.p2 = ProductFactory()
+
+    # ── 删除自己的：成功路径 + 关联清理 ──
+
+    def test_delete_own_wishlist_succeeds_and_then_404(self):
+        wl = WishlistFactory(user=self.me)
+        wl.products.add(self.p1)
+
+        resp = self.client.delete(f'{URL}{wl.id}/')
+
+        self.assertIn(resp.status_code, (200, 204), f'删除应成功，实际 {resp.status_code}')
+        self.assertFalse(Wishlist.objects.filter(id=wl.id).exists(), '记录应已删除')
+        # 再取一次必须 404（不是 200 空对象）
+        self.assertEqual(self.client.get(f'{URL}{wl.id}/').status_code, 404)
+
+    def test_delete_removes_product_links(self):
+        """★ M2M 关联行不能成孤儿（否则会残留指向已删收藏夹的中间表行）。"""
+        wl = WishlistFactory(user=self.me)
+        wl.products.add(self.p1, self.p2)
+        through = Wishlist.products.through
+        wl_id = wl.id
+        self.assertEqual(through.objects.filter(wishlist_id=wl_id).count(), 2)
+
+        self.client.delete(f'{URL}{wl_id}/')
+
+        self.assertEqual(
+            through.objects.filter(wishlist_id=wl_id).count(), 0,
+            '删除收藏夹后中间表仍残留关联行',
+        )
+
+    # ── ★★ 跨用户隔离（IDOR）──
+
+    def test_cannot_retrieve_other_users_wishlist(self):
+        theirs = WishlistFactory(user=self.other, name='别人的收藏夹')
+        theirs.products.add(self.p1)
+
+        resp = self.client.get(f'{URL}{theirs.id}/')
+
+        self.assertEqual(resp.status_code, 404, '跨用户读取必须 404（queryset 已按 user 过滤）')
+        # 内容不能泄漏
+        body = resp.content.decode('utf-8', errors='ignore')
+        self.assertNotIn('别人的收藏夹', body)
+
+    def test_cannot_patch_other_users_wishlist_and_data_unchanged(self):
+        """★ 只断言 404 不够 —— 必须证明对方的 name 与 products 都没被动。"""
+        theirs = WishlistFactory(user=self.other, name='原名')
+        theirs.products.add(self.p1)
+        before_ids = _product_ids_of(theirs)
+
+        resp = self.client.patch(
+            f'{URL}{theirs.id}/', {'name': '被改名了', 'product_ids': []}, format='json'
+        )
+
+        self.assertEqual(resp.status_code, 404)
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.name, '原名', '★ 对方 name 被改动了 —— 跨用户写穿了')
+        self.assertEqual(_product_ids_of(theirs), before_ids, '★ 对方 products 被改动了')
+
+    def test_cannot_delete_other_users_wishlist_and_it_still_exists(self):
+        theirs = WishlistFactory(user=self.other)
+        theirs.products.add(self.p1)
+        theirs_id = theirs.id
+
+        resp = self.client.delete(f'{URL}{theirs_id}/')
+
+        self.assertEqual(resp.status_code, 404)
+        self.assertTrue(
+            Wishlist.objects.filter(id=theirs_id).exists(),
+            '★ 他人的收藏夹被删掉了 —— 跨用户删除穿了',
+        )
+        self.assertEqual(
+            _product_ids_of(Wishlist.objects.get(id=theirs_id)), {self.p1.id},
+            '★ 他人收藏夹的产品关联被清空了',
+        )
+
+    def test_can_still_access_own_wishlist_after_others_attempt(self):
+        """反向确认：隔离没有把"自己的"也挡掉（避免过严导致功能不可用）。"""
+        mine = WishlistFactory(user=self.me, name='我的')
+        mine.products.add(self.p1)
+
+        resp = self.client.get(f'{URL}{mine.id}/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(_unwrap(resp.json()).get('name'), '我的')
