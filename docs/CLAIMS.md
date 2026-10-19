@@ -1,0 +1,64 @@
+# 结论登记表（CLAIMS）
+
+> **用途**：记录"我们相信什么"+"凭什么"+"什么时候会失效"。
+>
+> **铁律**：**没有「失效条件」的结论，等于没有结论。**
+>
+> **为什么需要这张表**（2026-10-19 立的规矩）：
+> 本项目的翻车方式不是"文档过时"，而是**"结论记得住、它依赖什么没人记"**。
+> 实例：`basket.js` 的注释与 toast 文案都声称"被跳过的行留在 localStorage 可重试"，
+> 代码注释写得很认真、toast 也说得很清楚 —— 但**那个前提在真实链路从不成立**
+> （`saveLocalBasket()` 只在 API 失败降级时调用，成功路径从不写 localStorage）。
+> 文档和代码**同步地错**，所以"检查文档是否过时"这个方法查不出来。
+
+---
+
+## 新增结论前必答三问
+
+> 这三问是本项目的**强制闸门**。凡是涉及**资金 / 库存 / 权限 / 数据可见性**的改动，
+> 合并前必须由一个**没有参与实现**的人回答。
+
+1. **这个结论依赖的前置状态，在真实路径上「谁会生产它」？**
+   - 找不到生产者的状态，就是不存在。（A5 就是这样暴露的）
+2. **如果这个状态不产生，用户会看到什么？**
+   - 这一问能直接暴露"用户以为商品还在、实际已消失"这类问题。
+3. **有没有一个最小反例能推翻这个结论？**
+   - 找不到反例只能说"未发现反例"，**不能说"证明为真"**。
+
+---
+
+## 登记
+
+状态图例：`有效` / `已失效` / `时效性`（需每次核对）/ `风险已知未处理`
+
+| # | 结论 | 依据（可复现） | **失效条件** | 状态 |
+|---|---|---|---|---|
+| C1 | `POST /basket/merge` 的"叠加超 999"走**跳过**（200 + `skipped_items`），不发 400 | `basket_views.py:303-338`；实测 5 件中 1 件超限 → 200 / `merged:1` / `skipped:1` / 其余 4 件落库 | 若 `max_line_quantity` 语义改为"整单上限"而非"单行上限" | 有效 |
+| C2 | 被跳过的行**不会**保留在 localStorage 待重试 | `saveLocalBasket()` 仅 3 处 catch 调用（`basket.js:111/137/154`），`loadBasket():43` 成功路径不写；实测主流程 `localStorage=null` | 若 `loadBasket()` 增加写 localStorage，或新增"合并失败落本地"逻辑 | **已失效** ⚠️ 旧注释与 toast 曾如此声称（已于 `7c2a0f2` 修正文案） |
+| C3 | `pruneMergedLocalItems()` 的函数逻辑正确（只剔已合并行），但**主流程不会执行到它** | 函数实测通过；`:278 if (!stored) return` 恒真 | 同 C2 | **死代码**（逻辑对、路径不通） |
+| C4 | 库存 `available`/`allocated` 写库前有 **int4 上界**检查，且对**累加结果**判定 | `services.py:11-25` 守卫；`receipt:148` / `adjust:167` / `allocate:47` 三处；实测 `available=INT4_MAX-1000` + receipt 1001 → 400 | 若 DB 列类型从 `int4` 改 `bigint` | 有效（含 `cac4d79` 修复的"先查后加"顺序） |
+| C5 | 所有累加守卫必须**先查后加**，不可在 `+=` 之后调用 | `allocate` 曾在 `allocated += qty` 之后守卫 ⇒ 多算一次 quantity ⇒ **合法下单被误拒**（`allocated=INT4_MAX-100` + 60 应成功却 400）。已修为 `:47` guard → `:48` allocate | — | 有效（根因是顺序，不是数值） |
+| C6 | 数据库层禁止负库存（`ck_inv_available_nonneg` / `ck_inv_allocated_nonneg`） | `models.py:43-53` + `inventory/0005`；生产 `pg_constraint` 实测 `convalidated=t`；本地 2026-10-19 已 migrate 并实测 `available=-5` 被 `IntegrityError` 拦 | 若绕过 ORM 用 raw SQL 且 `SET session_replication_role=replica` | 有效 |
+| C7 | 生产代码 = GitHub = 本地 HEAD | 四值全等（2026-10-19 09:30 时为 `7c2a0f2`） | **任何一次本地提交后立即失效** | **时效性** —— 每次部署前后必须重新核对 |
+| C8 | 生产前端产物与 HEAD 源码一致 | `dist/` 143 资产 mtime 与构建时间一致；判别串 `kept for retry`=0 / `not merged`>0；经 nginx 取回 md5 == 磁盘 md5 | 同 C7；另：**前端 dist 不在 git 里，四地一致 ≠ 前端上线** | **时效性** |
+| C9 | 匿名写端点是**设计允许**（游客购物车 / 匿名 RFQ），非漏洞 | `basket_views.py:73/88/136/171` 均 `AllowAny`；`quotes` 视图 `permission_classes=[]`；`AllowAny` 次数与上一版相同（6=6） | 若产品决定关闭匿名购物车 | **风险已知未处理** ⚠️ 见 C10 |
+| C10 | 匿名写入**无实质上限**：`quote-requests` 的 `items` 无 `max_length` 且 `{}` 是合法 item | `quotes/api/v1/serializers.py:16`；实测 `items=[{}]×50000` 通过校验（0.26s）；20MB 请求正文理论可塞约 520 万条 | 若加上 `max_length` | **风险已知未处理**（建议 `max_length=50`，见 `docs/DECISIONS.md` D5） |
+| C11 | 匿名写探针必须**穿透 nginx** 才有意义 | 不带 Basic Auth 的 401 来自 nginx（`WWW-Authenticate: Basic`），根本没到 Django；只有带 Basic Auth 后仍 401（`WWW-Authenticate: Token`）才是应用层判据 | 若移除 nginx Basic Auth | 有效（方法论） |
+| C12 | 不能用 `OPTIONS` 探测"匿名可写" | DRF `SAFE_METHODS=('GET','HEAD','OPTIONS')`，`IsAdminOrReadOnly` 对 OPTIONS 放行 ⇒ 会得出**完全相反**的结论 | DRF 改 `SAFE_METHODS` | 有效（方法论） |
+
+---
+
+## 已确认失效的旧结论（保留作为教训，勿再引用）
+
+| 旧结论 | 曾出现在 | 实际问题 | 纠正 |
+|---|---|---|---|
+| 「被跳过的商品保留在 localStorage，用户可自行调小后重试」 | `basket.js` 注释、toast 文案 | localStorage 恒为 null，该路径不存在 | `7c2a0f2` 删除文案，改为"请手动重新加购" |
+| 「整条 400 会让用户陷入重试死循环、且商品全部丢失」 | 我本人 2026-10-19 的判断 | 前半句对（确实 400），后半句**错**：400 时 catch 在轮换 session key **之前** return，老 key 保留，用户登出后仍能看到全部商品 | `5463633` 改为跳过；但"可找回"这一优势也随之失去 |
+
+---
+
+## 维护
+
+- 每次部署后：核对 C7 / C8（**必做**，属时效性结论）
+- 每次改动涉及资金/库存/权限/可见性：新增一行，并回答三问
+- 发现某条失效：**不要删**，移到「已确认失效」，写明曾被谁依赖
