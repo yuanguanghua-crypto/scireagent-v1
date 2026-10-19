@@ -75,7 +75,7 @@
 ------
 确需以 unittest 发现器跑测试时（几乎不需要）::
 
-    SCIPREAGENT_ALLOW_MANAGE_TEST=1 python manage.py test ...
+    SCIREAGENT_ALLOW_MANAGE_TEST=1 python manage.py test ...
 """
 from __future__ import annotations
 
@@ -229,7 +229,7 @@ def _print_blocker(pytest_only: list[str], not_a_test: list[str]) -> None:
         "    解法是给该文件改名去掉 test_ 前缀，而不是依赖守卫。",
         "  * 守卫只拦 manage.py test；直接调 `unittest` 模块绕过 manage.py 不在覆盖范围。",
         "",
-        "确需以 unittest 发现器运行时，显式设置 SCIPREAGENT_ALLOW_MANAGE_TEST=1 放行。",
+        "确需以 unittest 发现器运行时，显式设置 SCIREAGENT_ALLOW_MANAGE_TEST=1 放行。",
         _BANNER,
     ]
     print("\n".join(lines))
