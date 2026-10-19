@@ -311,3 +311,47 @@ class VerifyMapDiffTests(SimpleTestCase):
         self.assertTrue(guard.diff_map_text(self.SAMPLE, added))
         removed = self.SAMPLE.replace("[-] ANY                    /api/v1/internal-x/\n", "")
         self.assertTrue(guard.diff_map_text(self.SAMPLE, removed))
+
+
+# ---------------------------------------------------------------------------
+# 测试覆盖率启发式的「常量展开」（2026-10-19 补第 2 类盲区）
+#
+# 背景：`has_test` 要求「带引号的完整 URL 字面量」，但测试普遍写成
+#     URL = '/api/v1/wishlist/'
+#     self.client.patch(f'{URL}{wl.id}/', ...)
+# 静态文本里只有 `{URL}{wl.id}/`，不含真实前缀 ⇒ 判定必然漏。
+# 实测：/api/v1/wishlist/{X}/ 明明有 5 个用例，却长期被标成「无测试」。
+# ---------------------------------------------------------------------------
+class ExpandUrlConstantsTests(SimpleTestCase):
+    def test_expands_uppercase_const_into_fstring(self):
+        """★ 核心：常量要被展开进 f-string，否则带前缀的 URL 永远搜不到。"""
+        text = "URL = '/api/v1/wishlist/'\nresp = c.patch(f'{URL}{wl.id}/')\n"
+        out = guard.expand_url_constants(text)
+        self.assertIn("/api/v1/wishlist/{wl.id}/", out)
+
+    def test_does_not_touch_expression_interpolation(self):
+        """`{wl.id}` 这类表达式不能被当成变量名替换。"""
+        text = "URL = '/api/v1/x/'\nresp = c.get(f'{URL}{wl.id}/')\n"
+        out = guard.expand_url_constants(text)
+        self.assertIn("{wl.id}", out, '表达式插值被误改')
+        self.assertNotIn("{URL}", out)
+
+    def test_conflicting_definitions_are_not_expanded(self):
+        """★ 同名不同值 ⇒ 保守跳过（否则可能张冠李戴到别的端点）。"""
+        text = (
+            "URL = '/api/v1/a/'\n"
+            "URL = '/api/v1/b/'\n"
+            "resp = c.get(f'{URL}1/')\n"
+        )
+        out = guard.expand_url_constants(text)
+        self.assertIn("{URL}", out, '存在歧义时不应展开')
+
+    def test_only_slash_leading_constants_are_collected(self):
+        """只收集以 `/` 开头的常量 —— 避免把任意字符串常量当 URL 展开。"""
+        text = "NAME = 'hello'\nresp = c.get(f'{NAME}')\n"
+        out = guard.expand_url_constants(text)
+        self.assertIn("{NAME}", out)
+
+    def test_no_constants_returns_text_unchanged(self):
+        text = "resp = c.get('/api/v1/plain/')\n"
+        self.assertEqual(guard.expand_url_constants(text), text)

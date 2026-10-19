@@ -140,6 +140,47 @@ def diff_map_text(actual: str, fresh: str) -> list[str]:
     ))
 
 
+# ---------------------------------------------------------------------------
+# 测试覆盖率启发式的「常量展开」（2026-10-19 补第 2 类盲区）
+#
+# 问题：测试普遍写成
+#     URL = '/api/v1/wishlist/'
+#     self.client.patch(f'{URL}{wl.id}/', ...)
+# 静态文本里只有 `{URL}{wl.id}/`，**不含真实路径前缀**，
+# 而 has_test 要求「带引号的完整 URL 字面量」⇒ 这类测试必然漏判。
+# 实测后果：/api/v1/wishlist/{X}/ 明明有 5 个用例，却被标成「无测试」。
+#
+# 解法：先从测试文本里收集 `全大写变量 = '/字面量'` 定义，再把 f-string 里的
+# `{URL}` 替换成那个字面量。只处理**纯变量名**（不碰 `{wl.id}` 这类表达式），
+# 且**同名多值时不展开**（保守，避免把两个文件的不同常量张冠李戴）。
+# ---------------------------------------------------------------------------
+_URL_CONST_DEF = re.compile(
+    r"^[ \t]*([A-Z][A-Z0-9_]*)[ \t]*(?::[ \t]*str[ \t]*)?=[ \t]*(['\"])(/[^'\"]*)\2[ \t]*$",
+    re.M,
+)
+_FSTRING_PURE_VAR = re.compile(r"\{([A-Z][A-Z0-9_]*)\}")
+
+
+def expand_url_constants(text: str) -> str:
+    """把测试里 `URL = '/api/v1/x/'` 的常量展开进 `f'{URL}...'`。"""
+    defs: dict[str, str] = {}
+    conflicts: set[str] = set()
+    for m in _URL_CONST_DEF.finditer(text):
+        name, val = m.group(1), m.group(3)
+        if name in defs and defs[name] != val:
+            conflicts.add(name)          # 同名不同值 ⇒ 无法安全展开
+        defs[name] = val
+    for name in conflicts:
+        defs.pop(name, None)
+    if not defs:
+        return text
+
+    def _sub(m: re.Match) -> str:
+        return defs.get(m.group(1), m.group(0))
+
+    return _FSTRING_PURE_VAR.sub(_sub, text)
+
+
 def render_map_text(m, be, fe, verbose: bool, t_index: float, t_total: float) -> str:
     """把映射表渲染成完整文本。
 
@@ -403,7 +444,8 @@ class BackendIndex:
                 if not fn.endswith(".py"):
                     continue
                 buf.append(read(os.path.join(dirpath, fn)))
-        return "\n".join(buf)
+        # ★ 展开 `URL = '/api/v1/x/'` 这类常量，否则 f-string 拼的测试全部漏判
+        return expand_url_constants("\n".join(buf))
 
     def has_test(self, path: str) -> tuple[bool, str]:
         """端点是否有测试覆盖（启发式 H-TEST）。
