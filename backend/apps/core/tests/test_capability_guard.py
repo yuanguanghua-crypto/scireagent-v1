@@ -257,3 +257,57 @@ class CrossPlatformKeyTests(SimpleTestCase):
 if __name__ == "__main__":
     import unittest
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# --verify-map 漂移检测（2026-10-19 新增）
+#
+# 要解决的问题：`deliverables/capability_map.txt` 是生成物，但没人会主动重生成
+# ⇒ 它会长期停留在"看起来有映射、实际与代码脱节"的状态（正是本项目反复吃的坑）。
+#
+# 设计取舍：**检测漂移（报错）而非自动改写**。
+#   自动改写会在 commit 时静默改文件、需要二次 add，且可能与手改冲突；
+#   检测则明确告诉人"跑这条命令"。
+#
+# ⚠️ 关键陷阱：生成物里含 `[耗时] 索引构建 X.XXs｜总计 Y.YYs`，
+#   每次运行都不同 ⇒ 不做归一化的话，**内容完全相同的两份也会被判不一致**。
+#   所以对比必须走 `strip_volatile()`。
+# ---------------------------------------------------------------------------
+class VerifyMapDiffTests(SimpleTestCase):
+    """纯函数层测试：不构建索引，秒级完成。"""
+
+    SAMPLE = (
+        "URL 总数 3｜有测试 2｜有前端入口 1\n"
+        "\n"
+        "[T] GET,POST               /api/v1/wishlist/  ← 2 入口\n"
+        "[-] ANY                    /api/v1/internal-x/\n"
+        "\n"
+        "[耗时] 索引构建 1.23s｜总计 4.56s｜后端端点 3｜api 符号 10\n"
+    )
+
+    def test_strip_volatile_removes_timing_line(self):
+        """耗时行必须被归一化，否则生成物永远无法对比。"""
+        out = guard.strip_volatile(self.SAMPLE)
+        self.assertNotIn("1.23s", out)
+        self.assertNotIn("4.56s", out)
+        self.assertIn("[耗时] <不参与对比>", out)
+
+    def test_diff_is_empty_when_only_timing_differs(self):
+        """★ 核心：内容相同、只有耗时不同 ⇒ 必须判为一致（无差异）。"""
+        other = self.SAMPLE.replace("1.23s", "9.99s").replace("4.56s", "0.01s")
+        self.assertEqual(guard.diff_map_text(self.SAMPLE, other), [])
+
+    def test_diff_detects_content_change(self):
+        """内容真的变了 ⇒ 必须报出差异，且差异里能看到变化的 URL。"""
+        other = self.SAMPLE.replace("/api/v1/wishlist/", "/api/v1/wishlist_TAMPERED/")
+        diff = guard.diff_map_text(self.SAMPLE, other)
+        self.assertTrue(diff, "内容变了却没有报差异 ⇒ 漂移检测失效")
+        joined = "\n".join(diff)
+        self.assertIn("wishlist_TAMPERED", joined)
+
+    def test_diff_detects_added_and_removed_lines(self):
+        """增行/删行也要能被发现（不只看替换）。"""
+        added = self.SAMPLE + "[T] GET                    /api/v1/new-endpoint/\n"
+        self.assertTrue(guard.diff_map_text(self.SAMPLE, added))
+        removed = self.SAMPLE.replace("[-] ANY                    /api/v1/internal-x/\n", "")
+        self.assertTrue(guard.diff_map_text(self.SAMPLE, removed))

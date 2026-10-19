@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import difflib
 import io
 import json
 import os
@@ -113,6 +114,48 @@ def _emit(text: str, out_path: str | None) -> None:
         print(f"[已写入] {rel(out_path)}")
     else:
         print(text, end="" if text.endswith("\n") else "\n")
+
+
+# 每次运行都会变的内容（耗时/时间戳）—— 必须在对比前抹掉，否则生成物永远"不一致"
+_VOLATILE_LINE = re.compile(r"^\[耗时\].*$", re.M)
+
+
+def strip_volatile(text: str) -> str:
+    """把生成物里每次运行都会变的行归一化，使其可用于逐行对比。"""
+    return _VOLATILE_LINE.sub("[耗时] <不参与对比>", text)
+
+
+def diff_map_text(actual: str, fresh: str) -> list[str]:
+    """对比「已提交的映射表」与「按当前代码重新生成的」，返回 unified diff。
+
+    ★ 纯函数（不依赖索引构建）⇒ 可被单元测试直接覆盖。
+    ★ 两边都先 `strip_volatile`：否则每次运行不同的 `[耗时]` 行
+      会让「内容完全相同」的两份也被判为不一致。
+    """
+    return list(difflib.unified_diff(
+        strip_volatile(actual).splitlines(),
+        strip_volatile(fresh).splitlines(),
+        fromfile="已提交", tofile="按当前代码重新生成",
+        lineterm="", n=0,
+    ))
+
+
+def render_map_text(m, be, fe, verbose: bool, t_index: float, t_total: float) -> str:
+    """把映射表渲染成完整文本。
+
+    ★ 为什么抽成函数：`--map`（落盘）与 `--verify-map`（与已提交文件对比）
+      必须用**同一段渲染逻辑**，否则对比本身就不可信。
+    """
+    buf = io.StringIO()
+    real = sys.stdout
+    sys.stdout = buf                      # print_map 内部用 print，需要重定向
+    try:
+        print_map(m, verbose)
+        print(f"\n[耗时] 索引构建 {t_index:.2f}s｜总计 {t_total:.2f}s"
+              f"｜后端端点 {len(be.routes())}｜api 符号 {len(fe.symbols)}")
+    finally:
+        sys.stdout = real
+    return buf.getvalue()
 
 
 def read(path: str) -> str:
@@ -1288,6 +1331,8 @@ def main(argv=None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__)
     ap.add_argument("--map", action="store_true", help="输出端点→调用方映射表")
+    ap.add_argument("--verify-map", action="store_true",
+                    help="校验已提交的映射表是否与当前代码一致（漂移检测）；不一致退出 1")
     ap.add_argument("--verbose", action="store_true", help="映射表输出全部明细")
     ap.add_argument("--check", nargs="*", metavar="FILE",
                     help="删除前预演：这些文件若被删会怎样")
@@ -1322,18 +1367,34 @@ def main(argv=None) -> int:
         if args.json:
             _emit(json.dumps(m, ensure_ascii=False, indent=2), args.out)
         else:
-            buf = io.StringIO()
-            real = sys.stdout
-            sys.stdout = buf                      # 让 print_map 落进缓冲区以便写文件
-            try:
-                print_map(m, args.verbose)
-                print(f"\n[耗时] 索引构建 {t_index:.2f}s｜总计 {time.time()-t0:.2f}s"
-                      f"｜后端端点 {len(be.routes())}｜api 符号 {len(fe.symbols)}")
-            finally:
-                sys.stdout = real
-            text = buf.getvalue()
+            text = render_map_text(m, be, fe, args.verbose, t_index, time.time() - t0)
             _emit(text, args.out or os.path.join(REPO, "deliverables", "capability_map.txt"))
         return 0
+
+    # ── 漂移检测：已提交的映射表是否还跟得上代码 ──
+    if args.verify_map:
+        if args.json:
+            print("[错误] --verify-map 不能与 --json 同用（json 产物格式不同）", file=sys.stderr)
+            return 2
+        target = args.out or os.path.join(REPO, "deliverables", "capability_map.txt")
+        if not os.path.isfile(target):
+            print(f"[缺失] 找不到 {rel(target)}；请先跑："
+                  f"python scripts/capability_guard.py --map", file=sys.stderr)
+            return 1
+        m = build_map(be, fe, args.verbose)
+        fresh = render_map_text(m, be, fe, args.verbose, t_index, time.time() - t0)
+        diff = diff_map_text(read(target), fresh)
+        if not diff:
+            print(f"[OK] {rel(target)} 与当前代码一致")
+            return 0
+        print(f"[漂移] {rel(target)} 已过时 —— 生成物与当前代码不一致", file=sys.stderr)
+        for line in diff[:40]:
+            print(line, file=sys.stderr)
+        if len(diff) > 40:
+            print(f"...（共 {len(diff)} 行差异，已截断）", file=sys.stderr)
+        print("\n修复：python scripts/capability_guard.py --map && "
+              "git add deliverables/capability_map.txt", file=sys.stderr)
+        return 1
 
     # ── 检查模式 ──
     targets: list[dict] = []

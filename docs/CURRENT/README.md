@@ -46,6 +46,40 @@ grep -r "DATASOURCE_RELIABILITY.md" backend/ frontend/src/ scripts/ CLAUDE.md RE
 它们仍然留在 `docs/` 根目录（未搬移，避免一次性大改），但**默认不再维护**。
 若你确认某篇其实还要用，请在被引用处引用它 —— 有了引用它就自动变成活文档。
 
+## 生成物怎么保持新鲜（②）
+
+`deliverables/capability_map.txt` 是 `capability_guard.py --map` 的**生成物**，
+记录「后端端点 → 前端入口 → 是否有测试」的真实映射。
+
+**问题**：生成物没人主动重跑 ⇒ 会长期停在"看起来有完整映射、实际与代码脱节"的状态。
+这正是本文档要防的那类问题，只是发生在生成物上。
+
+**解法：检测漂移，不自动重写。**
+
+```bash
+# 校验：已提交的映射表是否与当前代码一致
+python scripts/capability_guard.py --verify-map
+
+# 不一致时它会打印 unified diff、给出修复命令，并以退出码 1 失败
+# 修复：
+python scripts/capability_guard.py --map && git add deliverables/capability_map.txt
+```
+
+**已接入 pre-commit hook**（`scripts/hooks/pre-commit-capability-guard`）：
+在**删除文件**的提交里会自动跑 `--verify-map`，过时就拦住提交。
+
+⚠️ 为什么只在删文件时跑：`--verify-map` 要重建索引约 30s。
+而最高风险场景恰好是"删了端点/文件但映射表没更新" —— 那个 hook 本来只在删文件时触发，
+触达面正好对口。新增端点导致的过时风险较低，不值得拖慢所有提交。
+
+⚠️ 为什么"检测"而不是"自动 --map"：自动重写会在 commit 中途静默改文件、
+需要二次 add，且可能与人的手改冲突。检测则明确告诉人跑哪条命令。
+
+⚠️ **那个 `[耗时]` 行是故意归一化掉的**：生成物末尾有
+`[耗时] 索引构建 X.XXs｜总计 Y.YYs`，每次运行都不同。
+不做归一化的话，**内容完全相同的两份也会被判"不一致"** ⇒ 检测永远假红。
+（这条有 4 个单元测试钉着：`apps/core/tests/test_capability_guard.py` 的 `VerifyMapDiffTests`）
+
 ## 一句话
 
 - 想知道**现在怎么运行** → 读代码（`models.py` / `urls.py` / `vite.config.js`）

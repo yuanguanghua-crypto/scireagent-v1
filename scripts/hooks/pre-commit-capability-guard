@@ -160,4 +160,33 @@ if [ "${RC}" != "0" ]; then
 fi
 
 echo "[capability-guard] ✅ 通过：这次删除未发现能力入口丢失。" >&2
+
+# ── 映射表漂移检测（2026-10-19 新增）─────────────────────────────────────
+# 为什么在这里：`deliverables/capability_map.txt` 是**生成物**，但没人会主动重生成
+#   ⇒ 它会长期停在"看起来有完整映射、实际与代码脱节"的状态。
+#   这和本项目反复吃的「文档过时」是同一类问题，只是发生在生成物上。
+#
+# 为什么放在这个 hook 末尾（而不是每次提交都跑）：
+#   1. 闸门本身的原则是「日常提交零负担」，而 --verify-map 要重建索引约 30s
+#   2. 最高风险场景恰好就是**删文件/删端点**（能力可能丢失且映射表更可能过时），
+#      而这个 hook 只在删文件时才走到这里 ⇒ 触达面正好对口
+#   3. 新增端点导致的过时风险较低（没有能力丢失），不为此拖慢所有提交
+#
+# 为什么「检测」而不是「自动重写」：
+#   自动 --map 会在 commit 中途静默改文件，需要二次 add，且可能与人的手改冲突。
+#   检测则明确告诉人跑哪条命令。
+if [ -f "${REPO_ROOT}/deliverables/capability_map.txt" ]; then
+  echo "[capability-guard] 校验映射表是否与当前代码一致…" >&2
+  if ! "${PY}" -B "${GUARD}" --verify-map >/dev/null 2>&1; then
+    echo "[capability-guard] ⚠️ deliverables/capability_map.txt 已过时（与当前代码不一致）。差异前 20 行：" >&2
+    "${PY}" -B "${GUARD}" --verify-map 2>&1 | head -20 >&2 || true
+    echo "[capability-guard] 修复后重新提交：" >&2
+    echo "[capability-guard]   ${PY} -B scripts/capability_guard.py --map" >&2
+    echo "[capability-guard]   git add deliverables/capability_map.txt" >&2
+    echo "[capability-guard] 跳过本检查：SKIP_CAPABILITY_GUARD=1 git commit ..." >&2
+    exit 1
+  fi
+  echo "[capability-guard] ✅ 映射表与代码一致。" >&2
+fi
+
 exit 0
