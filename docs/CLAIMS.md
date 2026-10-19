@@ -35,7 +35,7 @@
 |---|---|---|---|---|
 | C1 | `POST /basket/merge` 的"叠加超 999"走**跳过**（200 + `skipped_items`），不发 400 | `basket_views.py:303-338`；实测 5 件中 1 件超限 → 200 / `merged:1` / `skipped:1` / 其余 4 件落库 | 若 `max_line_quantity` 语义改为"整单上限"而非"单行上限" | 有效 |
 | C2 | 被跳过的行**不会**保留在 localStorage 待重试 | `saveLocalBasket()` 仅 3 处 catch 调用（`basket.js:111/137/154`），`loadBasket():43` 成功路径不写；实测主流程 `localStorage=null` | 若 `loadBasket()` 增加写 localStorage，或新增"合并失败落本地"逻辑 | **已失效** ⚠️ 旧注释与 toast 曾如此声称（已于 `7c2a0f2` 修正文案） |
-| C3 | `pruneMergedLocalItems()` 的函数逻辑正确（只剔已合并行），但**主流程不会执行到它** | 函数实测通过；`:278 if (!stored) return` 恒真 | 同 C2 | **死代码**（逻辑对、路径不通） |
+| C3 | `pruneMergedLocalItems()` **只在「匿名 + 加购 API 失败」的降级路径上生效**；正常网络下 `localStorage` 为空，走不到它 | `saveLocalBasket()` 仅 3 处 catch 调用（`basket.js:111/137/154`）；`addItem` 降级条件 `if (!token)`（`:99`）⇒ 只有匿名且 API 失败才写副本；登录时 `auth.js:58` 的 `filter(_guest \|\| _local)` 能读到它 ⇒ 该路径上 prune **确实在工作** | 若正常路径也开始写 localStorage（那会把"降级专用代码"变成主流程代码，**须重新评估二次合并翻倍风险**） | **有效，但仅限降级路径** ⚠️ 本表曾误标为「死代码」，因为只验证了主流程不可达，**没验证降级路径可达** |
 | C4 | 库存 `available`/`allocated` 写库前有 **int4 上界**检查，且对**累加结果**判定 | `services.py:11-25` 守卫；`receipt:148` / `adjust:167` / `allocate:47` 三处；实测 `available=INT4_MAX-1000` + receipt 1001 → 400 | 若 DB 列类型从 `int4` 改 `bigint` | 有效（含 `cac4d79` 修复的"先查后加"顺序） |
 | C5 | 所有累加守卫必须**先查后加**，不可在 `+=` 之后调用 | `allocate` 曾在 `allocated += qty` 之后守卫 ⇒ 多算一次 quantity ⇒ **合法下单被误拒**（`allocated=INT4_MAX-100` + 60 应成功却 400）。已修为 `:47` guard → `:48` allocate | — | 有效（根因是顺序，不是数值） |
 | C6 | 数据库层禁止负库存（`ck_inv_available_nonneg` / `ck_inv_allocated_nonneg`） | `models.py:43-53` + `inventory/0005`；生产 `pg_constraint` 实测 `convalidated=t`；本地 2026-10-19 已 migrate 并实测 `available=-5` 被 `IntegrityError` 拦 | 若绕过 ORM 用 raw SQL 且 `SET session_replication_role=replica` | 有效 |
@@ -45,6 +45,7 @@
 | C10 | 匿名写入**无实质上限**：`quote-requests` 的 `items` 无 `max_length` 且 `{}` 是合法 item | `quotes/api/v1/serializers.py:16`；实测 `items=[{}]×50000` 通过校验（0.26s）；20MB 请求正文理论可塞约 520 万条 | 若加上 `max_length` | **风险已知未处理**（建议 `max_length=50`，见 `docs/DECISIONS.md` D5） |
 | C11 | 匿名写探针必须**穿透 nginx** 才有意义 | 不带 Basic Auth 的 401 来自 nginx（`WWW-Authenticate: Basic`），根本没到 Django；只有带 Basic Auth 后仍 401（`WWW-Authenticate: Token`）才是应用层判据 | 若移除 nginx Basic Auth | 有效（方法论） |
 | C12 | 不能用 `OPTIONS` 探测"匿名可写" | DRF `SAFE_METHODS=('GET','HEAD','OPTIONS')`，`IsAdminOrReadOnly` 对 OPTIONS 放行 ⇒ 会得出**完全相反**的结论 | DRF 改 `SAFE_METHODS` | 有效（方法论） |
+| C13 | ★ **「叠加后超单行上限 999」在真实数据中几乎不可能发生**：`basket` 175 行 **max=8** / p95=3；`order_item` 954 行 **max=9** / p95=2；两表 **≥100 的行数均为 0**。上限 999 与真实峰值 9 相差**两个数量级** | `select max(quantity)` / 分位数（2026-10-19 本地库实测） | 若出现批发型大单（单行 ≥ 100），需重新评估上限是否合理 | 有效 —— ★ 这条是「**不做** basket 合并超限可重试」的决定依据（见 `DECISIONS.md` D8）|
 
 ---
 
