@@ -37,11 +37,11 @@ backend/
 └── venv/
 
 frontend/src/
-├── api/              # 19 个模块，含 workspace/ 子目录
+├── api/              # 按后端端点分模块，含 workspace/ 子目录（模块数以目录为准，勿在此记数）
 ├── components/       # cards/ common/ graph/ home/ layout/ navigation/
 ├── composables/      # useApi, useGraph, useJsonLd, usePagination, useRdkit
-├── stores/           # 10 个 Pinia store
-├── views/            # 39 个页面组件
+├── stores/           # Pinia store（数量以目录为准，勿在此记数）
+├── views/            # 页面组件（数量以目录为准，勿在此记数）
 │   ├── admin/        # 旧管理后台（仍在使用）
 │   └── workspace/    # 研究员工作台（AdminLayout + 10+ 页面）
 └── router/index.js
@@ -52,6 +52,8 @@ frontend/src/
 ## 文档导航
 
 - **CLAUDE.md**（本文件）→ 唯一入口，架构铁律、技术栈、权限、测试、坑列表 — **最高优先级**
+- `docs/CLAIMS.md` → **结论登记表**：我们相信什么 + 依据 + **什么时候会失效**。改动涉及资金/库存/权限/数据可见性前**先读这里**；新增结论必须填写「失效条件」并回答三问闸门
+- `docs/DECISIONS.md` → **决策记录（轻量 ADR）**：只记「为什么」，不记「是什么」。这是唯一无法从代码反推的信息；含「已丢失的为什么」登记（勿再让此类信息消失）
 - `docs/FIVE_DATASOURCES.md` → **工作台数据源权威叙事文档（2026-07-02 重写）**——一篇读懂工作台产品的化学属性/商业单元/知识实体三类数据如何产生；含五源定义、接口契约、字段关系、传递校验、兜底、呈现、历程坑与共识 — **数据源工作的唯一权威依据**
 - `docs/DATASOURCE_RELIABILITY.md` → **数据源可靠性与健壮性**（缓存/容错/降级/三种数据放置策略：外部API缓存·BioProCorpus索引常驻·jena本地索引常驻）— `FIVE_DATASOURCES.md` §5.6 的生产可靠性深度展开
 - `docs/KNOWLEDGE_ASSETS.md` → 知识图谱体系（实体、关系、生成、校验）
@@ -59,6 +61,10 @@ frontend/src/
 - `docs/COA_SDS.md` → COA/SDS 文档自动生成（数据依赖、工作流、SDS 降级链）
 - `docs/jena_scraper_spec.md` → jena 爬虫产出物规格（字段 + 清洗规则，无需二次爬虫）
 - `docs/KNOWLEDGE_ROADMAP.md` → 优化待办（P0/P1/P2 分级）
+- `docs/po-portal/`（8 篇，**2026-10-14/15，覆盖当前最大子系统：PO 采购门户 + 库存台**）
+  → `PRD.md`（需求）、`ARCHITECTURE.md`（架构）、`INVENTORY_TOOL_DESIGN.md`（库存台设计）、`DEV_BACKLOG.md`（待办）、
+  `LAUNCH_READINESS_v4.1.md`（上线就绪度，**以 v4.1 为准**，v4 为历史）、`PROD_ACCEPTANCE_2026-10-15.md`（生产验收）、`DESIGN_REVIEW_INDUSTRY_FIT.md`（行业适配评审）
+  ⚠️ 此前这批文档**不在本文档导航里**（本文件定稿于 2026-08-04，早于它们），导致 AI/新人找不到最大子系统的上下文
 - `docs/CURRENT_INDEX.md` → 现行文档导航索引（按任务类型速查）
 - `docs/00_MASTER_INDEX.md` + `01_PRODUCT_VISION.md` ~ `12_DESIGN_SYSTEM.md` → **初始设计草案（已过时），仅作历史参考，不用于编码决策**
 
@@ -128,7 +134,7 @@ frontend/src/
 
 **核心链：** `ResearchGoal → Application → Method → Protocol → Product → SKU`
 **桥接表：** ProductMethod, MethodProtocol, ProductReference, ProductCompatibility, ProductProduct
-**关键字段：** Product.status (active/draft/discontinued), Product.display_priority (int, 越高越靠前), Product.structure_svg (必须经 sanitize_svg()), SKU.inventory_status, Protocol.ProtocolStep (FK 子步骤)
+**关键字段：** Product.status（**取值以 `core/models.py` 的 `StatusMixin` 为准，勿在此枚举**）、Product.display_priority (int, 越高越靠前), Product.structure_svg (必须经 sanitize_svg()), SKU.inventory_status, Protocol.ProtocolStep (FK 子步骤)
 
 ---
 
@@ -136,7 +142,8 @@ frontend/src/
 
 ```bash
 cd backend
-# 全量：运行 pytest 查看实时总数（截至 2026-08：commerce 444 / transactions 185 / quotes 24 passed，其余 app 另有用例；10 skipped 为 PostgreSQL 专用）
+# 全量：直接跑，pytest 会打印实时总数（本行刻意不记录具体数字 —— 记了必漂移）
+# skipped 中有一些是 PostgreSQL 专用用例（SQLite 下无法执行），属预期
 DB_ENGINE=sqlite PYTHONDONTWRITEBYTECODE=1 venv/Scripts/python.exe -B -m pytest -p no:cacheprovider
 
 # 单文件
@@ -179,7 +186,8 @@ npm run dev
 6. **SVG 输出必须走 `sanitize_svg()`。** 新 serializer 包含 `structure_svg` 时用 `SerializerMethodField` + `sanitize_svg()`。
 7. **用户作用域查询集。** Quote/Wishlist/Order ViewSet 按 `request.user` 过滤 — staff 看全部，普通用户看自己，匿名看空。测试时必须 `force_authenticate()`。
 8. **文件上传验证。** 用 `ALLOWED_UPLOAD_EXTENSIONS` 白名单 + `MAX_UPLOAD_SIZE_MB=10`，保存前调用 `_validate_uploaded_file()`。
-9. **前端代理目标。** Dev proxy 是 `localhost:8001`，不是 8000。后端跑在 8000 时检查 `vite.config.js`。
+9. **前端代理目标。** 以 `frontend/vite.config.js` 的 `server.proxy.target` 为准（当前指向 `127.0.0.1:8000`）。
+   ⚠️ 本行**曾经误写为 8001**，照做者会把本来能用的配置改坏。遇到代理问题请直接读 `vite.config.js`，不要凭本行数字推断。
 10. **永远不要在项目目录创建含密码/密钥的文件。** 创建用户用 `manage.py createsuperuser`（交互式）。
 
 ---
@@ -209,4 +217,4 @@ npm run dev
 
 ---
 
-*最后更新: 2026-08-04 | 测试: commerce 444 / transactions 185 / quotes 24 passed（截至 2026-08，运行 pytest 查看实时）；jena 策略B（本地索引，撤销批量落库）*
+*最后更新: 2026-10-19 | 测试数：**刻意不在此记录**（记了必漂移，跑 pytest 看实时）| jena 策略B（本地索引，撤销批量落库）*
