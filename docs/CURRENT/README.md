@@ -80,6 +80,34 @@ python scripts/capability_guard.py --map && git add deliverables/capability_map.
 不做归一化的话，**内容完全相同的两份也会被判"不一致"** ⇒ 检测永远假红。
 （这条有 4 个单元测试钉着：`apps/core/tests/test_capability_guard.py` 的 `VerifyMapDiffTests`）
 
+## 怎么验证「测试真的有效」（③）
+
+**测试变绿不等于测试有效。** 一个永远通过的测试和没有测试一样。
+
+```bash
+python scripts/mutation_check.py            # 跑全部变异（约 1 分钟）
+python scripts/mutation_check.py --list     # 看有哪些变异
+python scripts/mutation_check.py --changed  # 只跑本次改动涉及的（hook 用的就是这个）
+```
+
+做法：对每个关键守卫注入一个**已知会破坏行为**的变异，跑它的测试，断言必须变红。
+
+| 结果 | 含义 |
+|---|---|
+| 变红 | ✅ 测试真的在测这件事 |
+| 仍绿 | ❌ 测试是摆设（退出码 1） |
+
+当前覆盖 4 个守卫：IDOR 跨用户隔离、`--verify-map` 耗时归一化、URL 常量展开、`@action` 尾斜杠。
+
+**已接进 pre-commit hook**：改动这些文件时会自动跑（平时零成本，成功静默、失败才出声）。
+
+⚠️ 两个实现细节值得记住：
+1. **还原时恢复 mtime** —— 否则 git stat 缓存失效，`git status` 显示 M 而 `git diff` 为空，会被误认为"脚本留了残留"（实测踩到）
+2. **自检用 `git diff --quiet` 而不是 `git status`** —— 本仓库工作区是 CRLF、仓库内是 LF，`git status` 会误报
+
+⚠️ 这个脚本自己也被验证过：把 `expect_failed_min` 调到 999（不可能达到），
+它会返回 1 并报"无效测试" —— 证明它不是永远报 ✅ 的摆设。
+
 ## 一句话
 
 - 想知道**现在怎么运行** → 读代码（`models.py` / `urls.py` / `vite.config.js`）
