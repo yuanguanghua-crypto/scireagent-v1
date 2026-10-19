@@ -37,12 +37,15 @@ class InventoryService:
     def allocate(order_item, inventory_id: int, quantity: int) -> Allocation:
         """锁定指定库存并记录占用（RESERVED）。"""
         inv = InventoryService._lock(inventory_id)
-        inv.allocate(quantity)  # raises InsufficientInventoryError if over-commit
         # ★ P2：`allocated` 同为裸 IntegerField，且是**累加**语义 ——
         #   models.Inventory.allocate 的 `available >= qty` 兜底只管 available，
         #   allocated 可被反复占用同一行推过 int4 ⇒ 同样要在写库前查上界。
         #   ValueError 已被 transactions/api/v1/po_views.py:210 的 except 捕获 ⇒ 自动 400。
+        # ★★ 必须先查后加（与 receipt/adjust 一致）：`inv.allocate(qty)` 内部已执行
+        #   `allocated += qty`，若在其之后再守卫，传入的 current 已是加完后的新值，
+        #   再 +quantity 就多算一次 ⇒ 合法占用被误拒（实测：INT4_MAX-100 占 60 被拒）。
         _guard_accumulation(inv.allocated, quantity, field='allocated')
+        inv.allocate(quantity)  # raises InsufficientInventoryError if over-commit
         inv.save(update_fields=['available', 'allocated', 'updated_at'])
         allocation = Allocation.objects.create(
             order_item=order_item,
