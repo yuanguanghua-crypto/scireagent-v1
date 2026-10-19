@@ -3,6 +3,11 @@ from decimal import Decimal
 from rest_framework import serializers
 from core.business_time import business_today
 from core.serializers import BaseModelSerializer
+# ★ import 方向已核实：commerce 侧（serializers / models / services / knowledge）
+#   **不反向依赖** transactions ⇒ 模块级 import 无循环风险。
+#   复用既有 ProductListSerializer，避免为收藏夹另造一套精简产品字段。
+from apps.commerce.api.v1.serializers import ProductListSerializer
+from apps.commerce.models import Product
 from apps.transactions.models import (
     Order, OrderItem, Invoice, PaymentRecord, ShippingRecord,
     ShippingRecordItem, PoAttachment, StatusLog,
@@ -363,11 +368,30 @@ class BasketSerializer(BaseModelSerializer):
 
 
 class WishlistSerializer(BaseModelSerializer):
+    """收藏夹：读带完整产品，写用 `product_ids` **整体替换**。
+
+    ★ 2026-10：此前只有 `product_count`，`products`（M2M）完全未暴露
+      ⇒ 前端无法加/删收藏。现补：
+      - `products`（只读嵌套，复用 `ProductListSerializer`）；
+      - `product_ids`（只写，`source='products'`）⇒ DRF 的 `.set()` 语义是
+        **整体替换**（`[1,2]` ⇒ 恰好这两个；`[]` ⇒ 清空），不是追加；
+      - 省略 `product_ids` ⇒ 产品不动（`required=False`）。
+      - 只接受 `archived=False` 的产品：归档产品 id 会在**字段校验阶段**失败（400），
+        不会部分写入（校验先于 `create`/`update`）。
+    """
     product_count = serializers.SerializerMethodField()
+    products = ProductListSerializer(many=True, read_only=True)
+    product_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        write_only=True,
+        required=False,
+        source='products',
+        queryset=Product.objects.filter(archived=False),
+    )
 
     class Meta:
         model = Wishlist
-        fields = ['id', 'name', 'product_count', 'created_at']
+        fields = ['id', 'name', 'product_count', 'products', 'product_ids', 'created_at']
 
     def get_product_count(self, obj):
         return obj.products.count()
