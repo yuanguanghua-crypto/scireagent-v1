@@ -124,7 +124,24 @@ class BioProCorpusValidatorTest(TestCase):
         self.assertEqual(len(report.matched_protocols), 0)
 
     def test_bioprocorpus_lookup_returns_results_for_real_keyword(self):
-        """真实索引：已知关键词返回非空匹配（验证不再是空壳）"""
+        """真实索引：已知关键词返回非空匹配（验证不再是空壳）
+
+        ★ 2026-10-19：`backend/data/bioprocorpus/` 是外部数据集，不入库。
+          实测本机与干净环境均为 0 个 json ⇒ 本用例此前一直在失败（"5 failed 恒定项"之一）。
+          ⚠️ 区分两种情况，不要用"结果为空就 skip"糊弄过去：
+             - **语料本身不存在** ⇒ skip（缺数据，不是代码问题）
+             - **语料存在但搜索为空** ⇒ 让断言失败（那是真 bug）
+        """
+        from apps.knowledge.services.protocol_recommender import BioProCorpusIndexer
+
+        probe = BioProCorpusIndexer()
+        probe.build()
+        if len(probe._entries) == 0:
+            self.skipTest(
+                "缺 BioProCorpus 语料（backend/data/bioprocorpus/ 下 0 个 json）；"
+                "把语料放回去即可恢复执行"
+            )
+
         from apps.commerce.services.validators.product_validator import BioProCorpusLookup
         lookup = BioProCorpusLookup()
         results = lookup.search("Polyhydroxybutyrate", top_k=3)
