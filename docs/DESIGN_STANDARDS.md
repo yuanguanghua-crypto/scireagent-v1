@@ -387,4 +387,4 @@ Grid columns（header 和 rows 必须严格一致）：
 
 ---
 
-*本文档取代以下历史文件: `docs/design/DESIGN_SYSTEM.md`, `docs/13_PRODUCT_DETAIL_DESIGN.md`*
+*本文档取代以下历史文件: `docs/design/DESIGN_SYSTEM.md`；另原引用 `13_PRODUCT_DETAIL_DESIGN.md`（该文件从未入库，属历史断链，2026-10-19 核实不存在）*

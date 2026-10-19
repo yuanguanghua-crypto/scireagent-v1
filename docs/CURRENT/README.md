@@ -1,0 +1,55 @@
+# docs/CURRENT/ — 当前有效文档索引
+
+> **这里只放索引，不放文件本体。**
+>
+> 原因：下列活文档**被代码按路径引用**（形如 `docs/某个文档.md` 的路径出现在 `backend/apps/**/*.py` 的注释里），
+> 一旦移动就会断链。所以它们留在 `docs/` 根目录，本文件负责**指路**。
+
+## 判据（比"我觉得哪篇还准"可靠）
+
+```bash
+# 统计某篇文档被代码/核心文档引用多少次
+grep -r "DATASOURCE_RELIABILITY.md" backend/ frontend/src/ scripts/ CLAUDE.md README.md | wc -l
+```
+
+**被引用的才是活文档。** 零引用的，默认当作已冻结（见 `docs/legacy/`）。
+
+2026-10-19 实测（扫描 1016 个文件 / 740 万字符）：
+
+| 引用数 | 文档 | 用途 |
+|---|---|---|
+| **18** | `docs/DATASOURCE_RELIABILITY.md` | 数据源可靠性与健壮性（缓存/容错/降级/三种数据放置策略） |
+| **11** | `docs/COA_SDS_PRD.md` | COA/SDS 文档生成规格。★ **被用作测试判据**（`test_sds_download_gate.py` 引用其 `:80` 行） |
+| **9** | `docs/FIVE_DATASOURCES.md` | 五数据源权威叙事（含 §8「历程与坑」—— 全仓最有价值的一种文档形态） |
+| **4** | `docs/CLAIMS.md` | 结论登记表：相信什么 + 依据 + **失效条件** |
+| **4** | `docs/DECISIONS.md` | 决策记录（ADR）：**只记"为什么"** |
+| 2 | `docs/AI_AUTO_MATCH.md` | AUTO MATCH 接口契约（⚠️ jena/bioz 部分已被 `FIVE_DATASOURCES` 取代） |
+| 2 | `docs/KNOWLEDGE_ROADMAP.md` | 知识图谱优化待办（P0/P1/P2） |
+| 2 | `docs/jena_scraper_spec.md` | jena 爬虫产出物规格 |
+| 2 | `docs/ROADMAP.md` | 产品路线图 |
+| 1 | `docs/COA_SDS.md` | COA/SDS 工作流（`COA_SDS_PRD.md` 的简版） |
+| 1 | `docs/KNOWLEDGE_ASSETS.md` | 知识图谱体系（⚠️ 缺 4 张桥接表 + 3 个 facet 类） |
+| 1 | `docs/DESIGN_STANDARDS.md` | 设计规范 |
+
+### 子系统文档（未被代码引用，但内容是新的）
+
+| 路径 | 内容 |
+|---|---|
+| `docs/po-portal/`（8 篇） | PO 采购门户 + 库存台（2026-10-14/15）—— 覆盖当前最大子系统 |
+| `docs/e2e/`（3 篇） | E2E 计划与流程教训（`INTERACTION_INVENTORY.md` 被 42 处引用） |
+| `docs/ORPHAN_ENDPOINTS.md` | 后端端点 → 前端入口分诊表 |
+| `docs/design/DESIGN_SYSTEM.md` | 设计系统 |
+
+## 零引用的 30 篇（默认已冻结）
+
+包括 `s6_test_playbook.md`、`product-protocol-relevance-*.md`、`月度工作汇报_202606.md` 等。
+它们仍然留在 `docs/` 根目录（未搬移，避免一次性大改），但**默认不再维护**。
+若你确认某篇其实还要用，请在被引用处引用它 —— 有了引用它就自动变成活文档。
+
+## 一句话
+
+- 想知道**现在怎么运行** → 读代码（`models.py` / `urls.py` / `vite.config.js`）
+- 想知道**为什么这么做** → `docs/DECISIONS.md`
+- 想知道**某结论还能不能信** → `docs/CLAIMS.md`
+- 想知道**某个功能该不该有** → `docs/ORPHAN_ENDPOINTS.md`
+- 想知道**历史怎么想的** → `docs/legacy/`（**别照着写代码**）

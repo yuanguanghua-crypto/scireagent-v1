@@ -65,8 +65,8 @@ frontend/src/
   → `PRD.md`（需求）、`ARCHITECTURE.md`（架构）、`INVENTORY_TOOL_DESIGN.md`（库存台设计）、`DEV_BACKLOG.md`（待办）、
   `LAUNCH_READINESS_v4.1.md`（上线就绪度，**以 v4.1 为准**，v4 为历史）、`PROD_ACCEPTANCE_2026-10-15.md`（生产验收）、`DESIGN_REVIEW_INDUSTRY_FIT.md`（行业适配评审）
   ⚠️ 此前这批文档**不在本文档导航里**（本文件定稿于 2026-08-04，早于它们），导致 AI/新人找不到最大子系统的上下文
-- `docs/CURRENT_INDEX.md` → 现行文档导航索引（按任务类型速查）
-- `docs/00_MASTER_INDEX.md` + `01_PRODUCT_VISION.md` ~ `12_DESIGN_SYSTEM.md` → **初始设计草案（已过时），仅作历史参考，不用于编码决策**
+- `docs/CURRENT/README.md` → **活文档索引**（按"被代码引用次数"排序，说明哪些是活的、哪些已冻结）
+- `docs/legacy/` → **已冻结的历史文档**（`00~12` 设计草案 + `specifications/`（17 篇）+ 旧 `CURRENT_INDEX.md`）。⚠️ **别照着它写代码**；它唯一的价值是记录 2026-06 设计期的意图（git 历史始于 2026-07-10，那段没有版本记录）
 
 ---
 

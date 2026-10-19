@@ -116,8 +116,8 @@ pytest 命令见 **`CLAUDE.md` 的「测试」章节** —— 本文件不重复
 | **被代码引用的规范** | ✅ **可信** | 如 `DATASOURCE_RELIABILITY.md`、`COA_SDS_PRD.md`。它们被代码注释按 §/行号引用，甚至被用作测试判据 ⇒ 相对最准 |
 | `docs/po-portal/` | ✅ **较新** | 覆盖 PO 采购门户 + 库存台，2026-10 产出 |
 | `docs/CLAIMS.md` / `DECISIONS.md` | ✅ **维护中** | 见上方说明 |
-| `docs/00_MASTER_INDEX.md` ~ `12_*.md` | ❌ **已废弃** | 2026-06-27 的设计草案，文件内已标 DEPRECATED。**仅作历史参考**，不要照它写代码 |
-| `docs/specifications/` 等其余 | ❌ **已冻结** | 长期未更新，内容可能过期 |
+| `docs/legacy/` | ❌ **已冻结** | 已**整体搬离** `docs/` 根目录：`00~12` 设计草案（2026-06-27）+ `specifications/`（17 篇）+ 旧 `CURRENT_INDEX.md`。⚠️ 别照它写代码；它只记录设计期意图 |
+| `docs/` 根目录零引用的约 30 篇 | ❌ **默认已冻结** | 未被任何代码引用 ⇒ 不再维护。清单与判据见 `docs/CURRENT/README.md` |
 
 > **判断方法（比记忆更可靠）**：搜代码里有没有引用它 ——
 > `grep -rn "docs/<文件名>" backend/ frontend/src/`
