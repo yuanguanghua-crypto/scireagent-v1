@@ -53,3 +53,13 @@ scikit-learn==1.7.1
 django-unfold==0.96.0
 python-docx==1.2.0
 pubchempy==1.0.5
+
+# 测试专用：PDF 文本断言（apps/commerce/tests/test_ruo.py 用 PyPDF2 提取 PDF 文本）
+# ⚠️ 2026-10-19：本地 venv 装了但**从未写进本文件** ⇒ CI 首跑即
+#    ModuleNotFoundError: No module named 'PyPDF2'，而本地全绿。
+#    这正是「依赖没落到清单」的典型 —— 补上才能让 CI 与本地一致。
+PyPDF2==3.0.1
+
+# 测试专用：部分测试直接 import numpy（其余场景由 scikit-learn 传递引入）
+numpy==2.5.3
+
