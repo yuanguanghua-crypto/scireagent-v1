@@ -46,6 +46,37 @@ if [ "${SKIP_CAPABILITY_GUARD:-0}" = "1" ]; then
   exit 0
 fi
 
+# ── 变异检测（2026-10-19 新增）──────────────────────────────────────────
+# 目的：把「质疑测试是否有效」变成流水线的一步，而不是靠自觉。
+#
+# 为什么需要：我们一天内手工做了 4 次变异测试来证明新测试真的能发现问题
+#   （IDOR 隔离、--verify-map 归一化、URL 常量展开、@action 尾斜杠）。
+#   但那是"当时记得"才做 —— 换人/隔周就退化成"跑绿了就算过"，
+#   而本项目已经为"签收式验证"付过代价。
+#
+# 为什么不是每次都跑：每次要跑几轮测试（约 1 分钟）。所以用 --changed：
+#   只有本次改动**涉及被守卫的文件**（或它的测试）时才跑，平时零成本。
+#   无改动时 --changed 直接秒退 0。
+#
+# 放在 SKIP 之后：SKIP_CAPABILITY_GUARD=1 可以一并跳过（逃生口保持一致）。
+if [ "${SKIP_CAPABILITY_GUARD:-0}" != "1" ]; then
+  _MT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "${_MT_ROOT}" ] && [ -f "${_MT_ROOT}/scripts/mutation_check.py" ]; then
+    _MT_PY="${_MT_ROOT}/backend/venv/Scripts/python.exe"
+    [ -x "${_MT_PY}" ] || _MT_PY="$(command -v python3 2>/dev/null || command -v python 2>/dev/null || true)"
+    if [ -n "${_MT_PY}" ]; then
+      # 成功/跳过都静默；只有真的失败才出声（避免日常提交被刷屏）
+      if ! _MT_OUT="$(cd "${_MT_ROOT}" && "${_MT_PY}" -B scripts/mutation_check.py --changed 2>&1)"; then
+        echo "${_MT_OUT}" >&2
+        echo "[mutation] ⚠️ 变异检测未通过：改动后某个守卫的测试不再能发现问题。" >&2
+        echo "[mutation] 含义：那些测试是摆设，或你的改动破坏了守卫的行为。" >&2
+        echo "[mutation] 跳过本检查：SKIP_CAPABILITY_GUARD=1 git commit ..." >&2
+        exit 1
+      fi
+    fi
+  fi
+fi
+
 # ── 只在「有文件被删」时才触发 ─────────────────────────────────────────
 DELETED="$(git diff --cached --name-only --diff-filter=D -- 2>/dev/null || true)"
 if [ -z "${DELETED}" ]; then
