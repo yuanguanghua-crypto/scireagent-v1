@@ -118,6 +118,13 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
           </AppButton>
           <span v-if="basketStore.count > 0" class="cart-badge">{{ basketStore.count }}</span>
         </div>
+        <div class="wishlist-indicator">
+          <AppButton variant="ghost" icon to="/wishlist" title="My Wishlist">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z" />
+            </svg>
+          </AppButton>
+        </div>
         <button type="button" class="nav-btn theme-toggle" @click="toggleDarkMode" :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
           <svg v-if="isDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
             <circle cx="12" cy="12" r="5"/>
@@ -137,6 +144,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
           </button>
           <div v-if="showUserMenu" class="nav-user-dropdown">
             <router-link v-if="showWorkspaceLink" to="/workspace" class="nav-user-item" @click="closeUserMenu">Workspace</router-link>
+            <router-link to="/wishlist" class="nav-user-item" @click="closeUserMenu">My Wishlist</router-link>
             <button type="button" class="nav-user-item" @click="handleLogout">Sign Out</button>
           </div>
         </div>

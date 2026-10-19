@@ -140,6 +140,13 @@ const routes = [
     meta: { title: 'Shopping Cart', nav: 'public' },
   },
   {
+    // 匿名也可进入：后端 GET 返回 200 + 空列表，页面负责给出登录提示（不设 requiresAuth）
+    path: '/wishlist',
+    name: 'Wishlist',
+    component: () => import('@/views/WishlistPage.vue'),
+    meta: { title: 'My Wishlist', nav: 'public' },
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('@/views/SettingsPage.vue'),

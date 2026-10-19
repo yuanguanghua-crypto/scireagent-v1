@@ -9,8 +9,10 @@ import ProductLayout from '@/components/layout/ProductLayout.vue'
 import ExpandableSection from './admin/components/ExpandableSection.vue'
 import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 import { useResearchPathStore } from '@/stores/researchPath'
+import { useAuthStore } from '@/stores/auth'
 import * as documentsApi from '@/api/documents'
 import * as bridgesApi from '@/api/bridges'
+import { getWishlists, createWishlist, updateWishlist } from '@/api/wishlist'
 import { openPreview } from '@/utils/previewInject'
 import { AppButton, LoadingSpinner, toast } from '@/components/common'
 
@@ -29,6 +31,7 @@ const route = useRoute()
 const router = useRouter()
 const store = useProductsStore()
 const basketStore = useBasketStore()
+const authStore = useAuthStore()
 const researchCart = useResearchPathStore()
 
 const product = computed(() => store.currentProduct)
@@ -223,6 +226,72 @@ async function addToCart(skuId) {
   }
 }
 
+/* ── Wishlist（收藏夹，单收藏夹模式：只操作当前用户第一个收藏夹） ── */
+const wishlistId = ref(null)
+const wishlistProductIds = ref([])
+const wishlistBusy = ref(false)
+
+/** 拦截器对 {success,data,meta} 返回整个信封——统一在这里取 data */
+function unwrapWishlist(res) {
+  return res && res.data !== undefined ? res.data : res
+}
+function wishlistItems(res) {
+  const payload = unwrapWishlist(res)
+  if (Array.isArray(payload)) return payload
+  return Array.isArray(payload?.results) ? payload.results : []
+}
+
+const inWishlist = computed(() =>
+  !!product.value && wishlistProductIds.value.includes(product.value.id)
+)
+
+async function loadWishlistState() {
+  wishlistId.value = null
+  wishlistProductIds.value = []
+  if (!authStore.isAuthenticated) return
+  try {
+    const list = wishlistItems(await getWishlists())
+    let wl = list[0]
+    if (!wl) wl = unwrapWishlist(await createWishlist({ name: 'My Wishlist' }))
+    wishlistId.value = wl?.id || null
+    wishlistProductIds.value = (wl?.products || []).map((p) => p.id)
+  } catch (e) {
+    // 收藏状态拉取失败不影响详情页主数据，按钮保持「收藏」未选中态
+    console.error('Failed to load wishlist state', e)
+  }
+}
+
+async function toggleWishlist() {
+  if (!authStore.isAuthenticated) {
+    toast.warning('请先登录')
+    return
+  }
+  const pid = product.value?.id
+  if (!pid || wishlistBusy.value) return
+  if (!wishlistId.value) await loadWishlistState()
+  if (!wishlistId.value) return
+
+  wishlistBusy.value = true
+  const prev = [...wishlistProductIds.value]
+  try {
+    // 读-改-写：product_ids 是**整体替换**语义，不能只传单个 id
+    const next = prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid]
+    const updated = unwrapWishlist(await updateWishlist(wishlistId.value, { product_ids: next }))
+    if (updated?.id) {
+      wishlistId.value = updated.id
+      wishlistProductIds.value = (updated.products || []).map((p) => p.id)
+    } else {
+      wishlistProductIds.value = next
+    }
+    toast.success(next.includes(pid) ? '已收藏' : '已取消收藏')
+  } catch {
+    // 失败回滚按钮状态（http 拦截器已弹出后端真实错误，如归档产品 400）
+    wishlistProductIds.value = prev
+  } finally {
+    wishlistBusy.value = false
+  }
+}
+
 /* ── Request Quote ── */
 function requestQuote() {
   router.push({ path: '/quote-request', query: { product_id: route.params.id } })
@@ -262,6 +331,8 @@ async function loadProduct(id) {
   renderStructure()
   loadCompliance()
   loadVerifiedMethods()
+  // 收藏按钮状态（未登录时内部直接返回）
+  loadWishlistState()
   // Track in research path
   if (product.value) {
     researchCart.addStep('product', product.value.id, product.value.name, product.value.slug)
@@ -852,6 +923,25 @@ function onSearch(query) {
       <p class="pd-text">{{ product.handling_notes }}</p>
     </section>
 
+    <!-- Wishlist：紧邻加购 CTA，收藏/取消收藏（未登录点击给出提示） -->
+    <div class="pd-wishlist-row">
+      <button
+        type="button"
+        class="pd-wishlist-btn"
+        :class="{ 'is-active': inWishlist }"
+        :disabled="wishlistBusy"
+        @click="toggleWishlist"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" :fill="inWishlist ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
+          <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z" />
+        </svg>
+        {{ inWishlist ? '已收藏' : '收藏' }}
+      </button>
+      <router-link v-if="authStore.isAuthenticated" to="/wishlist" class="pd-wishlist-link">
+        查看收藏夹
+      </router-link>
+    </div>
+
     <!-- Unified CTA -->
     <UnifiedCTA
       title="Request this Product"
@@ -1402,4 +1492,45 @@ function onSearch(query) {
   .pd-tab-bar { gap: 0; }
   .pd-tab-btn { flex: 1; text-align: center; padding: 8px 10px; font-size: 12px; }
 }
+
+/* ── Wishlist button（紧邻加购 CTA） ── */
+.pd-wishlist-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+}
+.pd-wishlist-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 18px;
+  border-radius: var(--radius-md, 8px);
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-sans, system-ui);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.pd-wishlist-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.pd-wishlist-btn.is-active {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: var(--color-danger-light, #fef2f2);
+}
+.pd-wishlist-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.pd-wishlist-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+.pd-wishlist-link:hover { text-decoration: underline; }
 </style>
