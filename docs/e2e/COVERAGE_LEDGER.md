@@ -17,23 +17,15 @@
 
 ⇒ 本台账**只给骨架**：格子由人填。这比给一个假的 100% 有用。
 
-## 🚨 已发现的源表缺陷（必须知道）
+## ✅ 源表缺陷已修复（2026-10-20）
 
-生成台账时实测：`FULL_SITE_E2E_PLAN.md` §2.2 的表格**列数不齐** ——
+生成台账时曾查出 `FULL_SITE_E2E_PLAN.md` §2.2 表格**列数不齐**：
+表头声明 10 列，但 **30 行里有 29 行只有 9 列**（整列 B 维未填，末格直接是优先级）。
 
-| 列数 | 行数 |
-|---|---|
-| **10 列**（表头声明，正确） | **1** |
-| 9 列（少一列） | **29** |
+**已逐行核过**（30 行模式一致、0 异常）后补齐：给 29 行插入了 B 列并标 `☐`（待评估，非「不适用」）。
+复核结果：**30 行全部 10 列**。
 
-表头是 `路由｜页面｜I｜P｜S｜R｜V｜A｜B｜优先级`（10 列），但 29 行只给了 9 个值。
-
-⇒ **后果（对本台账）**：
-- 那 29 行的**维度取值会整体左移一位**（B 维丢失或优先级被当成 B）
-- 所以**本台账的 `☐`/`—` 分布不可信**；只有「页面清单」和「路由」是准的
-
-⇒ **正确做法**：先修 `FULL_SITE_E2E_PLAN.md` §2.2 补齐 10 列，再重跑本脚本。
-在此之前，本台账只能当**页面清单**用，维度分区请勿当真。
+⇒ 所以本台账的**维度分区现在是可信的**（此前不可信）。
 
 ## 判读规则
 
@@ -62,59 +54,59 @@
 | # | 路由 | 页面 | I | P | S | R | V | A | B | 优先级 | 相关 spec（仅检索线索，非覆盖证据） |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | `/` | HomePage | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | public-smoke.spec.cjs |
-| 2 | `/login` | Login/Register | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 3 | `/register` | Login/Register | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 4 | `/search` | SearchPage | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | applayout-navpad-check.s、homepage.spec.cjs… |
-| 5 | `/applications` | AppIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 6 | `/applications/:id` | AppIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 7 | `/methods` | MethodIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 8 | `/methods/:id` | MethodIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 9 | `/protocols` | ProtocolIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 10 | `/protocols/:id` | ProtocolIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 11 | `/products` | ProductIndex/Detail | ☐ | — | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 12 | `/products/:id` | ProductIndex/Detail | ☐ | — | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 13 | `/research-goals` | RGIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 14 | `/research-goals/:id` | RGIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 15 | `/quote-request` | QuoteRequestPage | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | api-permission-writes.sp、public-smoke.spec.cjs |
-| 16 | `/cart` | CartPage | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | basket-local-merge-prune、basket-merge-over-limit.… |
-| 17 | `/:pathMatch` | NotFound | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | — | product-new-ai-automatch、public-smoke.spec.cjs |
+| 2 | `/login` | Login/Register | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 3 | `/register` | Login/Register | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 4 | `/search` | SearchPage | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | applayout-navpad-check.s、homepage.spec.cjs… |
+| 5 | `/applications` | AppIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 6 | `/applications/:id` | AppIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 7 | `/methods` | MethodIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 8 | `/methods/:id` | MethodIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 9 | `/protocols` | ProtocolIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 10 | `/protocols/:id` | ProtocolIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 11 | `/products` | ProductIndex/Detail | ☐ | — | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 12 | `/products/:id` | ProductIndex/Detail | ☐ | — | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 13 | `/research-goals` | RGIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 14 | `/research-goals/:id` | RGIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 15 | `/quote-request` | QuoteRequestPage | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P1 | api-permission-writes.sp、public-smoke.spec.cjs |
+| 16 | `/cart` | CartPage | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P1 | basket-local-merge-prune、basket-merge-over-limit.… |
+| 17 | `/:pathMatch` | NotFound | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | product-new-ai-automatch、public-smoke.spec.cjs |
 
 ### 认证用户页（requiresAuth）
 
 | # | 路由 | 页面 | I | P | S | R | V | A | B | 优先级 | 相关 spec（仅检索线索，非覆盖证据） |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 18 | `/settings` | SettingsPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | basket-merge-over-limit.、internal-access-procurem… |
-| 19 | `/checkout` | CheckoutPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | api-permission-writes.sp、permission-matrix.spec.c… |
-| 20 | `/orders` | OrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 21 | `/orders/:id` | OrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 22 | `/po/submit` | PoSubmit | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | api-permission-writes.sp、basket-local-merge-prune… |
-| 23 | `/po/orders` | PoOrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 24 | `/po/:id` | PoOrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 25 | `/po/addresses` | PoAddressList | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | permission-matrix.spec.c、po-prod-sweep.spec.cjs… |
-| 26 | `/po/reorder` | PoReorder | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | permission-matrix.spec.c、po-prod-sweep.spec.cjs… |
-| 27 | `/po/downloads` | PoDownloadCenter | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | permission-matrix.spec.c、po-prod-sweep.spec.cjs… |
+| 18 | `/settings` | SettingsPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | basket-merge-over-limit.、internal-access-procurem… |
+| 19 | `/checkout` | CheckoutPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | api-permission-writes.sp、permission-matrix.spec.c… |
+| 20 | `/orders` | OrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 21 | `/orders/:id` | OrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 22 | `/po/submit` | PoSubmit | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | api-permission-writes.sp、basket-local-merge-prune… |
+| 23 | `/po/orders` | PoOrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 24 | `/po/:id` | PoOrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 25 | `/po/addresses` | PoAddressList | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | permission-matrix.spec.c、po-prod-sweep.spec.cjs… |
+| 26 | `/po/reorder` | PoReorder | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P2 | permission-matrix.spec.c、po-prod-sweep.spec.cjs… |
+| 27 | `/po/downloads` | PoDownloadCenter | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P2 | permission-matrix.spec.c、po-prod-sweep.spec.cjs… |
 
 ### 管理员页（requiresAdmin，is_staff）
 
 | # | 路由 | 页面 | I | P | S | R | V | A | B | 优先级 | 相关 spec（仅检索线索，非覆盖证据） |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| 28 | `/workspace` | DashboardPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、cascader-workflow.spec.c… |
-| 29 | `/workspace/products` | ProductsPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 30 | `/workspace/products/new` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 31 | `/workspace/products/:id/edit` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 32 | `/workspace/goals` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、cascader-workflow.spec.c… |
-| 33 | `/applications` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | applayout-navpad-check.s、homepage.spec.cjs… |
-| 34 | `/methods` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | api-permission-writes.sp、applayout-navpad-check.s… |
-| 35 | `/protocols` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | knowledge-intake.spec.cj、permission-matrix.spec.c… |
-| 36 | `/references` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | internal-access-procurem、permission-matrix.spec.c… |
-| 37 | `/workspace/knowledge-intake` | KnowledgeIntake | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、basket-local-merge-prune… |
-| 38 | `/admin/orders` | AdminOrders/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 39 | `/admin/:id` | AdminOrders/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 40 | `/admin/po/review` | PoReviewDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 41 | `/admin/po/shipments` | PoShipmentDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 42 | `/admin/po/invoicing` | PoInvoicingDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 43 | `/admin/po/ar` | PoArReport | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
-| 44 | `/admin/po/organizations` | PoOrgManagement | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | — | a11y.spec.cjs、api-permission-writes.sp… |
+| 28 | `/workspace` | DashboardPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、cascader-workflow.spec.c… |
+| 29 | `/workspace/products` | ProductsPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 30 | `/workspace/products/new` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 31 | `/workspace/products/:id/edit` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 32 | `/workspace/goals` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、cascader-workflow.spec.c… |
+| 33 | `/applications` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | applayout-navpad-check.s、homepage.spec.cjs… |
+| 34 | `/methods` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | api-permission-writes.sp、applayout-navpad-check.s… |
+| 35 | `/protocols` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | knowledge-intake.spec.cj、permission-matrix.spec.c… |
+| 36 | `/references` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | internal-access-procurem、permission-matrix.spec.c… |
+| 37 | `/workspace/knowledge-intake` | KnowledgeIntake | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、basket-local-merge-prune… |
+| 38 | `/admin/orders` | AdminOrders/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 39 | `/admin/:id` | AdminOrders/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 40 | `/admin/po/review` | PoReviewDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 41 | `/admin/po/shipments` | PoShipmentDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 42 | `/admin/po/invoicing` | PoInvoicingDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 43 | `/admin/po/ar` | PoArReport | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P2 | a11y.spec.cjs、api-permission-writes.sp… |
+| 44 | `/admin/po/organizations` | PoOrgManagement | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P2 | a11y.spec.cjs、api-permission-writes.sp… |
 
 ## 骨架规模
 
@@ -140,6 +132,22 @@
 | 路由 | 页面 | 待评估格数 |
 |---|---|---|
 | `/` | HomePage | 5 |
+| `/login` | Login/Register | 6 |
+| `/register` | Login/Register | 6 |
+| `/search` | SearchPage | 5 |
+| `/applications` | AppIndex/Detail | 5 |
+| `/applications/:id` | AppIndex/Detail | 5 |
+| `/methods` | MethodIndex/Detail | 5 |
+| `/methods/:id` | MethodIndex/Detail | 5 |
+| `/protocols` | ProtocolIndex/Detail | 5 |
+| `/protocols/:id` | ProtocolIndex/Detail | 5 |
+| `/products` | ProductIndex/Detail | 6 |
+| `/products/:id` | ProductIndex/Detail | 6 |
+| `/research-goals` | RGIndex/Detail | 5 |
+| `/research-goals/:id` | RGIndex/Detail | 5 |
+| `/:pathMatch` | NotFound | 5 |
+| `/workspace/products/new` | ProductEditPage | 7 |
+| `/workspace/products/:id/edit` | ProductEditPage | 7 |
 
 ## 更新方式
 

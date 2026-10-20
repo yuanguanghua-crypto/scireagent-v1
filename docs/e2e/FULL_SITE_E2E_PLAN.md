@@ -75,49 +75,53 @@
 
 ### 2.2 路由 × 七维覆盖矩阵（45 页面）
 
+> **2026-10-20 修复**：原表 30 行里有 29 行只有 9 列（**整列 B 维未填**，末格直接是优先级）。
+> 已逐行核过（模式一致、0 异常），补齐 B 列并统一标 ☐（待评估，非「不适用」）。
+> 依据：§2.0 把 B 定义为全站维度（chromium/firefox/webkit 一致），不能替人判定某页「不需要」。
+
 > 完整交互元素见 INTERACTION_INVENTORY.md。此处标注每页需覆盖的维度与优先级（P0 必做 / P1 重要 / P2 增强）。
 
 **公开页（无需登录）**
 | 路由 | 页面 | I | P | S | R | V | A | B | 优先级 |
 |------|------|---|---|---|---|---|---|---|--------|
 | `/` | HomePage | 搜索/导航/分类 pills/CTA | — | — | ✓(移动汉堡) | ✓ | ✓ | ✓ | P0 |
-| `/login` `/register` | Login/Register | 输入校验/提交/跳转/3步注册 | guest 已登录重定向 | — | ✓ | ✓ | ✓ | P0 |
-| `/search` | SearchPage | 搜索输入/结果点击/空态 | — | — | ✓ | ✓ | ✓ | P0 |
-| `/applications`+`:id` | AppIndex/Detail | 列表搜索+分页 / 详情关联跳转 | — | — | ✓ | ✓ | ✓ | P0 |
-| `/methods`+`:id` | MethodIndex/Detail | 过滤 chips+分页 / 详情关联 | — | — | ✓ | ✓ | ✓ | P0 |
-| `/protocols`+`:id` | ProtocolIndex/Detail | 过滤+分页 / 14列可排序表 | — | — | ✓ | ✓ | ✓ | P0 |
-| `/products`+`:id` | ProductIndex/Detail | 分类 pills / Tab 切换 / Add to Cart / 数量± / SKU 行 / 文档链接 | — | 产品 active·draft·discontinued | ✓ | ✓ | ✓ | P0 |
-| `/research-goals`+`:id` | RGIndex/Detail | 状态 el-select 筛选 / 详情 | — | — | ✓ | ✓ | ✓ | P0 |
-| `/quote-request` | QuoteRequestPage | 多字段表单 / 提交(匿名可) / 成功横幅 | — | — | ✓ | ✓ | ✓ | P1 |
-| `/cart` | CartPage | 数量改/删除/提交审批/结算跳转 / toast | — | — | ✓ | ✓ | ✓ | P1 |
-| `/:pathMatch` | NotFound | 返回首页跳转 | — | — | ✓ | ✓ | ✓ | P0 |
+| `/login` `/register` | Login/Register | 输入校验/提交/跳转/3步注册 | guest 已登录重定向 | — | ✓ | ✓ | ✓ | ☐ | P0 |
+| `/search` | SearchPage | 搜索输入/结果点击/空态 | — | — | ✓ | ✓ | ✓ | ☐ | P0 |
+| `/applications`+`:id` | AppIndex/Detail | 列表搜索+分页 / 详情关联跳转 | — | — | ✓ | ✓ | ✓ | ☐ | P0 |
+| `/methods`+`:id` | MethodIndex/Detail | 过滤 chips+分页 / 详情关联 | — | — | ✓ | ✓ | ✓ | ☐ | P0 |
+| `/protocols`+`:id` | ProtocolIndex/Detail | 过滤+分页 / 14列可排序表 | — | — | ✓ | ✓ | ✓ | ☐ | P0 |
+| `/products`+`:id` | ProductIndex/Detail | 分类 pills / Tab 切换 / Add to Cart / 数量± / SKU 行 / 文档链接 | — | 产品 active·draft·discontinued | ✓ | ✓ | ✓ | ☐ | P0 |
+| `/research-goals`+`:id` | RGIndex/Detail | 状态 el-select 筛选 / 详情 | — | — | ✓ | ✓ | ✓ | ☐ | P0 |
+| `/quote-request` | QuoteRequestPage | 多字段表单 / 提交(匿名可) / 成功横幅 | — | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/cart` | CartPage | 数量改/删除/提交审批/结算跳转 / toast | — | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/:pathMatch` | NotFound | 返回首页跳转 | — | — | ✓ | ✓ | ✓ | ☐ | P0 |
 
 **认证用户页（requiresAuth）**
 | 路由 | 页面 | I | P | S | R | V | A | B | 优先级 |
 |------|------|---|---|---|---|---|---|---|--------|
-| `/settings` | SettingsPage | 20 输入 / 保存 / saveMessage 横幅 | 仅认证 | — | ✓ | ✓ | ✓ | P1 |
-| `/checkout` | CheckoutPage | 12 输入 / 多步 / v-loading / 提交 | 仅认证 | — | ✓ | ✓ | ✓ | P1 |
-| `/orders`+`:id` | OrderList/Detail | 列表分页 / 详情时间线 / alert 错误 | 仅认证 | 订单旧态展示 | ✓ | ✓ | ✓ | P1 |
-| `/po/submit` | PoSubmit | 行项目动态表单 / 上传 / alert 校验 / 提交 | 仅认证(customer) | PO 8 态起点 | ✓ | ✓ | ✓ | P1 |
-| `/po/orders`+`:id` | PoOrderList/Detail | 列表分页 / 详情时间线+发票+发货+附件 | 仅认证(customer) | PO 8 态全展示 | ✓ | ✓ | ✓ | P1 |
-| `/po/addresses` | PoAddressList | CRUD / showForm 弹层 / confirm 删除 | 仅认证(customer) | — | ✓ | ✓ | ✓ | P1 |
-| `/po/reorder` | PoReorder | 复制行项目 / 重订 | 仅认证(customer) | — | ✓ | ✓ | ✓ | P2 |
-| `/po/downloads` | PoDownloadCenter | 下载链接 / 列表 | 仅认证(customer) | — | ✓ | ✓ | ✓ | P2 |
+| `/settings` | SettingsPage | 20 输入 / 保存 / saveMessage 横幅 | 仅认证 | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/checkout` | CheckoutPage | 12 输入 / 多步 / v-loading / 提交 | 仅认证 | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/orders`+`:id` | OrderList/Detail | 列表分页 / 详情时间线 / alert 错误 | 仅认证 | 订单旧态展示 | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/po/submit` | PoSubmit | 行项目动态表单 / 上传 / alert 校验 / 提交 | 仅认证(customer) | PO 8 态起点 | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/po/orders`+`:id` | PoOrderList/Detail | 列表分页 / 详情时间线+发票+发货+附件 | 仅认证(customer) | PO 8 态全展示 | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/po/addresses` | PoAddressList | CRUD / showForm 弹层 / confirm 删除 | 仅认证(customer) | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/po/reorder` | PoReorder | 复制行项目 / 重订 | 仅认证(customer) | — | ✓ | ✓ | ✓ | ☐ | P2 |
+| `/po/downloads` | PoDownloadCenter | 下载链接 / 列表 | 仅认证(customer) | — | ✓ | ✓ | ✓ | ☐ | P2 |
 
 **管理员页（requiresAdmin，is_staff）**
 | 路由 | 页面 | I | P | S | R | V | A | B | 优先级 |
 |------|------|---|---|---|---|---|---|---|--------|
-| `/workspace`(dashboard) | DashboardPage | 概览卡片 / 快捷入口 / LoadingSpinner | 仅 admin | — | ✓ | ✓ | ✓ | P1 |
-| `/workspace/products` | ProductsPage | 15 按钮 / 3 弹层 / 可排序表 / 过滤 | 仅 admin | — | ✓ | ✓ | ✓ | P1 |
-| `/workspace/products/new`+`:id/edit` | ProductEditPage | **37 按钮 / 50 输入 / 发布弹层 / 上传 / 校验** | 仅 admin | 产品发布态 | ✓ | ✓ | ✓ | P0 |
-| `/workspace/goals` `/applications` `/methods` `/protocols` `/references` | 各管理页 | 增删改 / showEditor 弹层 / toast.error | 仅 admin | — | ✓ | ✓ | ✓ | P1 |
-| `/workspace/knowledge-intake` | KnowledgeIntake | 12 输入 / 产品下拉 / ki-toast | 仅 admin | — | ✓ | ✓ | ✓ | P1 |
-| `/admin/orders`+`:id` | AdminOrders/Detail | 过滤 / 状态流转 / alert 错误 | 仅 admin | 订单旧态(legacy) | ✓ | ✓ | ✓ | P1 |
-| `/admin/po/review` | PoReviewDesk | 待审列表 / approve/reject/assign-rep | 仅 admin | PO 审核态 | ✓ | ✓ | ✓ | P1 |
-| `/admin/po/shipments` | PoShipmentDesk | 创建 ShippingRecord(多批发) / mark-shipped/delivered | 仅 admin | PO 发货态 | ✓ | ✓ | ✓ | P1 |
-| `/admin/po/invoicing` | PoInvoicingDesk | 对 DELIVERED 开票 / 开票字段 | 仅 admin | PO 开票态 | ✓ | ✓ | ✓ | P1 |
-| `/admin/po/ar` | PoArReport | AR aging 30/60/90 展示 | 仅 admin | — | ✓ | ✓ | ✓ | P2 |
-| `/admin/po/organizations` | PoOrgManagement | 机构/地址/订单查看 | 仅 admin | — | ✓ | ✓ | ✓ | P2 |
+| `/workspace`(dashboard) | DashboardPage | 概览卡片 / 快捷入口 / LoadingSpinner | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/workspace/products` | ProductsPage | 15 按钮 / 3 弹层 / 可排序表 / 过滤 | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/workspace/products/new`+`:id/edit` | ProductEditPage | **37 按钮 / 50 输入 / 发布弹层 / 上传 / 校验** | 仅 admin | 产品发布态 | ✓ | ✓ | ✓ | ☐ | P0 |
+| `/workspace/goals` `/applications` `/methods` `/protocols` `/references` | 各管理页 | 增删改 / showEditor 弹层 / toast.error | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/workspace/knowledge-intake` | KnowledgeIntake | 12 输入 / 产品下拉 / ki-toast | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/admin/orders`+`:id` | AdminOrders/Detail | 过滤 / 状态流转 / alert 错误 | 仅 admin | 订单旧态(legacy) | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/admin/po/review` | PoReviewDesk | 待审列表 / approve/reject/assign-rep | 仅 admin | PO 审核态 | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/admin/po/shipments` | PoShipmentDesk | 创建 ShippingRecord(多批发) / mark-shipped/delivered | 仅 admin | PO 发货态 | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/admin/po/invoicing` | PoInvoicingDesk | 对 DELIVERED 开票 / 开票字段 | 仅 admin | PO 开票态 | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/admin/po/ar` | PoArReport | AR aging 30/60/90 展示 | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P2 |
+| `/admin/po/organizations` | PoOrgManagement | 机构/地址/订单查看 | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P2 |
 
 > 注：`admin/AdminProductsPage`、`admin/AdminProductEdit` 已于 **2026-10-17 作为死代码删除**。
 >
@@ -130,7 +134,6 @@
 > **⚠️ 更正本节原第⑤项的一处措辞歧义**：原文写「`/products/{id}/detail/` 仍被 `products/ProductEditPage.vue` 使用」，**容易被误读成「该端点只服务于遗留版」**。实测后端 `backend/apps/commerce/api/v1/urls.py:31` **独立注册** `ProductDetailAPIView`（`name='product-detail-v2'`），是产品详情页的正式聚合数据源，有 **28 处测试断言**（commerce 4 文件22 处 + knowledge 2 文件 6 处，其中 `test_product_detail_api.py` 独占 13 处 / 18 个 test 函数）。
 >
 > 该端点在前端**另有两个现役路由消费方**（均经 `api/products.js:45 getProductDetail()`）：`/workspace/products` 相关 `stores/products.js:42`、`admin/InventoryDesk.vue:251`（`InventoryDesk` 已注册路由，`router/index.js:251`）、`po/PoSubmit.vue:92`（`PoSubmit` 已注册路由，`router/index.js:183`）。⇒ **删除遗留版前端文件不会使该端点成为孤儿，也不触碰后端**。
-
 ### 2.3 权限矩阵（4 角色 × 受限页）
 
 角色（⚠️ 见 §6「两套账号体系」区分 Basic Auth 与 Django 应用账号）：
