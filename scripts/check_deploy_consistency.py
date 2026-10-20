@@ -134,12 +134,8 @@ def main(argv=None) -> int:
                 record("生产视角 origin/master", remote_origin_head,
                        remote_origin_head == local_head)
 
-            rc, out = _run(ssh + [f"md5sum {args.remote}/frontend/dist/index.html"], timeout=45)
-            if rc == 0 and out:
-                remote_dist_md5 = out.split()[0]
-            rc, out = _run(ssh + [f"stat -c %Y {args.remote}/frontend/dist/index.html"], timeout=45)
-            if rc == 0 and out.strip().isdigit():
-                remote_dist_mtime = int(out.strip())
+            # ⚠️ 这里不再取 dist 的 md5/mtime —— C8 已改为「生产机上 rebuild 幂等性」，
+            #    比对本地/线上 md5 属于循环论证（见下方 C8 段的说明）。
 
         c7_ok = c7_ok and remote_head == local_head and remote_origin_head == local_head
 
@@ -162,45 +158,52 @@ def main(argv=None) -> int:
         if not c7_ok:
             res["ok"] = False
 
-    # ── C8：生产 dist 与本地构建产物 ──
+    # ── C8：生产产物是不是「当前 HEAD 构建出来的」 ──
+    #
+    # ★★ 2026-10-20 重写判据 —— 原判据有**循环论证**漏洞：
+    #   旧逻辑比的是「本地 dist md5 == 生产 dist md5」。
+    #   但本地 dist 完全可能是从生产下载/拷贝的，那两边必然相同，
+    #   **什么都证明不了**（就像"我抄了答案，所以我的答案和标准答案一样"）。
+    #
+    # 正确判据（rebuild 幂等性）：
+    #   在**生产机上**用当前 HEAD 源码重新构建到临时目录，
+    #   与线上 dist 逐文件比对 —— 一致才说明线上产物确实是 HEAD 构建的。
+    #   这是唯一能真正证伪的形态：如果线上 dist 是旧代码的产物，
+    #   rebuild 出来的文件 hash 会不同。
+    c8_ok = None
+    if not args.skip_remote and remote_head:
+        ssh = _ssh_base(args.host, args.key)
+        tmp = f"{args.remote}/frontend/.dist_c8_verify"
+        # 临时目录用点前缀，避免被当成常规产物
+        build_cmd = (
+            f"cd {args.remote}/frontend && rm -rf .dist_c8_verify && "
+            f"npx vite build --outDir .dist_c8_verify --emptyOutDir >/tmp/c8_build.log 2>&1 && "
+            f"diff -r --brief .dist_c8_verify dist >/tmp/c8_diff.log 2>&1; "
+            f"RC=$?; rm -rf .dist_c8_verify; exit $RC"
+        )
+        rc, out = _run(ssh + [build_cmd], timeout=300)
+        if rc == 0:
+            c8_ok = True
+            record("C8 重构建幂等性（生产机上 rebuild 后 diff）", "完全一致", True)
+        elif rc == 124:
+            record("C8 重构建幂等性", None, None, "重建超时（>300s），C8 未判定")
+            res["notes"].append("C8 重建超时：未判定，不代表不一致")
+        else:
+            c8_ok = False
+            record("C8 重构建幂等性（生产机上 rebuild 后 diff）", "有差异", False, out[:200])
+            res["notes"].append(
+                "生产 dist 与「当前 HEAD 重新构建的产物」不一致 ⇒ "
+                "线上跑的不是 HEAD 的产物（需要重新构建并部署）")
+
+    # 本地 dist 只作参考，**不参与 C8 判定**（避免上面说的循环论证）
     local_dist = os.path.join(REPO, "frontend", "dist", "index.html")
     local_dist_md5 = _md5(local_dist)
+    if local_dist_md5:
+        res["checks"]["本地 dist（仅参考，不参与判定）"] = {
+            "value": local_dist_md5[:16], "ok": None,
+            "detail": "本地产物仅用于本地预览；C8 只认「生产机上 rebuild 的幂等性」",
+        }
 
-    if not args.skip_remote and remote_dist_md5:
-        if local_dist_md5:
-            same = local_dist_md5 == remote_dist_md5
-            record("dist/index.html md5（生产 vs 本地）",
-                   f"{remote_dist_md5[:12]} vs {local_dist_md5[:12]}", same)
-            if not same:
-                res["notes"].append(
-                    "生产 dist 与本地 dist 不同 ⇒ 可能生产还没部署最新构建，"
-                    "或本地 dist 不是用当前 HEAD 构建的")
-        else:
-            record("dist/index.html md5（生产 vs 本地）", remote_dist_md5, None,
-                   "本地没有 frontend/dist/index.html，无法比对")
-            res["notes"].append("本地缺 dist ⇒ C8 未证实（先跑一次前端构建再来）")
-
-        # ★ 关键的元检查：本地 dist 比 HEAD 提交还旧 ⇒ 它不可能是 HEAD 构建出来的
-        rc, out = _run(["git", "log", "-1", "--format=%ct", "HEAD"])
-        if rc == 0 and out.strip().isdigit() and os.path.isfile(local_dist):
-            head_ct = int(out.strip())
-            dist_mtime = int(os.path.getmtime(local_dist))
-            stale = dist_mtime < head_ct
-            record("本地 dist 是否早于 HEAD 提交", not stale, not stale,
-                   "" if not stale else
-                   "dist 比 HEAD 提交旧 ⇒ 即使 md5 相同也不能证明 C8（先重新构建）")
-            if stale:
-                res["notes"].append("本地 dist 早于最近提交 ⇒ C8 结论不可信，请重新构建后再跑")
-
-        if remote_dist_mtime:
-            record("生产 dist mtime", remote_dist_mtime, None)
-
-    # C8 同理：--skip-remote 时没有任何生产数据 ⇒ 只能是 None，不能是 True
-    if args.skip_remote:
-        c8_ok = None
-    else:
-        c8_ok = (res["checks"].get("dist/index.html md5（生产 vs 本地）", {}).get("ok") is True
-                 and res["checks"].get("本地 dist 是否早于 HEAD 提交", {}).get("ok", True) is not False)
     res["checks"]["C8 生产产物一致"] = {
         "value": c8_ok,
         "ok": c8_ok,

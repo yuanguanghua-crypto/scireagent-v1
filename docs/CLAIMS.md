@@ -54,7 +54,7 @@
 | C5 | 所有累加守卫必须**先查后加**，不可在 `+=` 之后调用 | `allocate` 曾在 `allocated += qty` 之后守卫 ⇒ 多算一次 quantity ⇒ **合法下单被误拒**（`allocated=INT4_MAX-100` + 60 应成功却 400）。已修为 `:47` guard → `:48` allocate | — | 有效（根因是顺序，不是数值） | `inventory/tests/test_int4_overflow.py` |
 | C6 | 数据库层禁止负库存（`ck_inv_available_nonneg` / `ck_inv_allocated_nonneg`） | `models.py:43-53` + `inventory/0005`；生产 `pg_constraint` 实测 `convalidated=t`；本地 2026-10-19 已 migrate 并实测 `available=-5` 被 `IntegrityError` 拦 | 若绕过 ORM 用 raw SQL 且 `SET session_replication_role=replica` | 有效 | `inventory/tests/test_int4_overflow.py` + 迁移 0005 |
 | C7 | 生产代码 = GitHub = 本地 HEAD | 四值全等（2026-10-19 09:30 时为 `7c2a0f2`） | **任何一次本地提交后立即失效** | **时效性** —— 每次部署前后必须重新核对 | `scripts/check_deploy_consistency.py`（四地 HEAD 自动比对；C7 不成立时 exit 1） |
-| C8 | 生产前端产物与 HEAD 源码一致 | `dist/` 143 资产 mtime 与构建时间一致；判别串 `kept for retry`=0 / `not merged`>0；经 nginx 取回 md5 == 磁盘 md5 | 同 C7；另：**前端 dist 不在 git 里，四地一致 ≠ 前端上线** | **时效性** | 同 C7 脚本的 dist md5 比对 + ★「本地 dist 是否早于 HEAD 提交」元检查（**必须先构建**，否则本地 dist 不可信） |
+| C8 | 生产前端产物与 HEAD 源码一致 | `dist/` 143 资产 mtime 与构建时间一致；判别串 `kept for retry`=0 / `not merged`>0；经 nginx 取回 md5 == 磁盘 md5 | 同 C7；另：**前端 dist 不在 git 里，四地一致 ≠ 前端上线** | **时效性** | 同 C7 脚本的 ★**rebuild 幂等性**：在**生产机上**用 HEAD 源码重建到临时目录，与线上 `dist` 做 `diff -r` 完全一致才算成立。⚠️ **不比本地 md5** —— 本地 dist 可能是从生产拷的，那是循环论证 |
 | C9 | 匿名写端点是**设计允许**（游客购物车 / 匿名 RFQ），非漏洞 | `basket_views.py:73/88/136/171` 均 `AllowAny`；`quotes` 视图 `permission_classes=[]`；`AllowAny` 次数与上一版相同（6=6） | 若产品决定关闭匿名购物车 | **风险已知未处理** ⚠️ 见 C10 | `transactions/tests/test_api_permission_hardening.py` |
 | C10 | 匿名写入**无实质上限**：`quote-requests` 的 `items` 无 `max_length` 且 `{}` 是合法 item | `quotes/api/v1/serializers.py:16`；实测 `items=[{}]×50000` 通过校验（0.26s）；20MB 请求正文理论可塞约 520 万条 | 若加上 `max_length` | **风险已知未处理**（建议 `max_length=50`，见 `docs/DECISIONS.md` D5） | **未设判据** ⚠️ 这是「缺失上限」的断言，没有测试能证明"永远没有" |
 | C11 | 匿名写探针必须**穿透 nginx** 才有意义 | 不带 Basic Auth 的 401 来自 nginx（`WWW-Authenticate: Basic`），根本没到 Django；只有带 Basic Auth 后仍 401（`WWW-Authenticate: Token`）才是应用层判据 | 若移除 nginx Basic Auth | 有效（方法论） | 非可测断言（方法论）—— 无判据 |
@@ -75,8 +75,11 @@
 ## 维护
 
 - 每次部署后：跑 `python scripts/check_deploy_consistency.py`（C7/C8 的判据，**必做**）
-  - ⚠️ 判 C8 前必须**先用当前 HEAD 构建前端**；脚本会自己检测「本地 dist 是否早于 HEAD 提交」，
-    早于就直接判 C8 不成立 —— 因为那时"md5 相同"也不代表生产跑的是 HEAD 的产物
+  - C7：四地 HEAD 自动比对
+  - C8：★ **在生产机上用 HEAD 源码重建到临时目录，与线上 `dist` 做 `diff -r`** ——
+    一致才说明线上产物确实是 HEAD 构建出来的（约 15 秒）
+  - ⚠️ **不要用「本地 dist md5 == 生产 dist md5」** 判 C8：本地 dist 完全可能是从生产拷回来的，
+    两边必然相同 —— 那是循环论证，什么都没证明。本地 dist 只用于本地预览。
   - 连不上生产时它是 exit 1（不是 0），不会在没验证的情况下给绿灯
 - 每次改动涉及资金/库存/权限/可见性：新增一行，并回答**四问**
 - ★ **新增行必须填「证伪判据」列**（2026-10-20 起）。填「无」可以，但要写清原因。
