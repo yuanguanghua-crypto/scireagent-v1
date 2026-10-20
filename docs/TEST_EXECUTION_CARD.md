@@ -74,6 +74,13 @@ python scripts/mutation_check.py
 | 5 | 匿名写探针 401/403 | 带 Basic Auth **穿透 nginx** |
 | 6 | 关键路径 E2E | `npm run test:e2e:prod` |
 
+> ⚠️ **上面是"每次发布必做"的 6 项。另有 3 项「条件门禁」（改了才需要）在 STRATEGY §6.1**：
+> - 改了迁移 → `migration_drill.py --app <app>` 四步演练
+> - 改了列表/搜索 → p95 对比基线
+> - 新增页面 → `a11y.spec.cjs`
+>
+> **不要因为这张卡只有 6 项，就以为那 3 项不用做。**
+
 ### 部署时绝对不要做（今天踩过）
 
 ```
