@@ -120,42 +120,45 @@ grep -n "project=" ../package.json
 
 ---
 
-## ✅ R 维已扩容：5 页 → 9 页（2026-10-20 实测）
+## ✅ R 维已扩容：5 页 → 11 页（2026-10-20 实测）
 
-**改动**：`responsive.spec.cjs` 的 `PUBLIC` 3→7 页、`STAFF` 2→4 页：
+**改动**：`responsive.spec.cjs` 的 `PUBLIC` 3→7 页、`STAFF` 2→4 页（合计 **11 页**）：
 
 ```js
 PUBLIC 新增：Search(/search) Login(/login) Register(/register) QuoteRequest(/quote-request)
 STAFF  新增：WorkspaceProducts(/workspace/products) ProductNew(/workspace/products/new)
 ```
 
-| 指标 | 扩容前 | 扩容后 |
-|---|---|---|
-| 覆盖页面 | 5 | **9** |
-| test 数 | 22 | **46**（+24） |
-| 运行时长 | 3.0 分钟 | **7.6 分钟** |
-| 失败 | 0 | **0** |
+> ⚠️ 更正：我先前说「5 → 9 页」是算错了，实际是 **11 页**（PUBLIC 7 + STAFF 4）。
+> 核对：`11 × 4 视口 + 2 导航 = 46 test`，与实测 46 吻合。
 
-⇒ **实测通过（46 passed, 0 failed）**，不是"改了没跑"。
+### 分档机制（已实现并实测）
 
-### ⚠️ 由此得到的成本结论（重要）
+用环境变量 `E2E_TIER` 控制视口数：
 
-**页面数与运行时间大致线性**：
+```bash
+# 快档（默认）：2 视口（desktop + mobile）
+npx playwright test e2e/responsive.spec.cjs --project=chromium
 
-```
-5 页  → 3.0 分钟
-9 页  → 7.6 分钟
-⇒ 44 页 ≈ 35~40 分钟（单 chromium × 4 视口）
+# 全档：4 视口
+E2E_TIER=full npx playwright test e2e/responsive.spec.cjs --project=chromium
 ```
 
-⇒ **全量扩到 44 页不可行**（本地一轮 40 分钟，进 CI 更不可接受）。
+| 档位 | 页面 | 视口 | test 数 | **实测时长** |
+|---|---|---|---|---|
+| **fast**（默认） | 11 | 2（desktop+mobile） | **23** | **4.2 分钟** |
+| **full** | 11 | 4 | **46** | **7.6 分钟** |
+| full（扩到 44 页后，**推断**） | 44 | 4 | ~178 | **~30 分钟** |
 
-**建议分档**（未实施，待决策）：
+**建议用法**
 
-| 档 | 范围 | 触发时机 |
-|---|---|---|
-| **快档** | P0 固定路径页（约 9~12 页） | 每次 PR |
-| **全档** | 全部 44 页 | nightly / 发版前 |
+| 场景 | 用哪档 |
+|---|---|
+| 每次 PR / 提交前 | `fast`（4 分钟，可接受） |
+| nightly / 发版前 | `full` |
+| 改动了响应式/CSS | 必跑 `full` |
+
+⚠️ **「44 页 ≈ 30 分钟」是推断**（按线性外推），未实测 —— 因为 44 页里含 `:id` 动态路由，需要先建 fixture 才能加。
 
 ### 仍待做
 - `a11y.spec.cjs` / `visual-tokens.spec.cjs` 仍是 5 页（未扩）

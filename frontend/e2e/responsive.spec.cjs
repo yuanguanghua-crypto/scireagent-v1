@@ -10,12 +10,20 @@
 const { test, expect } = require('@playwright/test')
 const { loginAsStaff, BASE_URL } = require('./helpers/auth.cjs')
 
-const VIEWPORTS = [
-  { name: 'desktop', w: 1280, h: 800 },
-  { name: 'laptop', w: 1024, h: 768 },
-  { name: 'tablet', w: 768, h: 1024 },
-  { name: 'mobile', w: 375, h: 667 },
-]
+  const VIEWPORTS_ALL = [
+    { name: 'desktop', w: 1280, h: 800 },
+    { name: 'laptop', w: 1024, h: 768 },
+    { name: 'tablet', w: 768, h: 1024 },
+    { name: 'mobile', w: 375, h: 667 },
+  ]
+  // ★ 2026-10-20 分档（实测依据：5 页 3.0 分钟、11 页 4 视口 7.6 分钟，近似线性）
+  //   fast（默认）: 2 视口（desktop + mobile）→ PR 用，约 4 分钟
+  //   full        : 4 视口 → nightly / 发版前
+  //   用法：E2E_TIER=full npx playwright test e2e/responsive.spec.cjs --project=chromium
+  const TIER = process.env.E2E_TIER || 'fast'
+  const VIEWPORTS = TIER === 'full'
+    ? VIEWPORTS_ALL
+    : VIEWPORTS_ALL.filter((v) => v.name === 'desktop' || v.name === 'mobile')
   const PUBLIC = [
     { name: 'Home', path: '/', sel: '.home' },
     { name: 'Products', path: '/products', sel: '.product-grid' },
