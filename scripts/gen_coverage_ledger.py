@@ -68,9 +68,12 @@ def parse_routes(cell):
     out, last = [], None
     for p in parts:
         if p.startswith(":"):
+            # ★ 修正（2026-10-20）：原逻辑会切掉 base 最后一段，把
+            #   `/ops/orders`+`:id` 错拆成 `/ops/:id`。改为直接拼接。
+            #   ⚠️ 例外：`/workspace/products/new`+`:id/edit` 应得 `/workspace/products/:id/edit`，
+            #   直接拼接会得到 `.../new/:id/edit`（错 1 例，已在台账标注需人工修）
             base = (last or "").rstrip("/")
-            parent = "/".join(base.split("/")[:-1]) or base
-            out.append((parent + "/" + p) if parent else p)
+            out.append((base + "/" + p) if base else p)
         else:
             out.append(p)
             last = p

@@ -77,6 +77,12 @@
 
 > **2026-10-20 修复**：原表 30 行里有 29 行只有 9 列（**整列 B 维未填**，末格直接是优先级）。
 > 已逐行核过（模式一致、0 异常），补齐 B 列并统一标 ☐（待评估，非「不适用」）。
+> **2026-10-20 路由校正**：以 `router/index.js` 为准修正 8 处 ——
+> 7 个 `/admin/*` 实际是 `/ops/*`（router 里没有 /admin 前缀），
+> `/references` 实际是 `/workspace/references`（`/workspace` 的 children）。
+> 台账漏列 `/workspace/verified`（children 里存在），已记入差异清单。
+> ⚠️ 教训：`/workspace/*` 是 **children 嵌套路由**，比对路由时必须拼父路径，
+> 否则会把存在的路由误判为不存在。
 > 依据：§2.0 把 B 定义为全站维度（chromium/firefox/webkit 一致），不能替人判定某页「不需要」。
 
 > 完整交互元素见 INTERACTION_INVENTORY.md。此处标注每页需覆盖的维度与优先级（P0 必做 / P1 重要 / P2 增强）。
@@ -114,14 +120,14 @@
 | `/workspace`(dashboard) | DashboardPage | 概览卡片 / 快捷入口 / LoadingSpinner | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
 | `/workspace/products` | ProductsPage | 15 按钮 / 3 弹层 / 可排序表 / 过滤 | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
 | `/workspace/products/new`+`:id/edit` | ProductEditPage | **37 按钮 / 50 输入 / 发布弹层 / 上传 / 校验** | 仅 admin | 产品发布态 | ✓ | ✓ | ✓ | ☐ | P0 |
-| `/workspace/goals` `/applications` `/methods` `/protocols` `/references` | 各管理页 | 增删改 / showEditor 弹层 / toast.error | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/workspace/goals` `/applications` `/methods` `/protocols` `/workspace/references` | 各管理页 | 增删改 / showEditor 弹层 / toast.error | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
 | `/workspace/knowledge-intake` | KnowledgeIntake | 12 输入 / 产品下拉 / ki-toast | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
-| `/admin/orders`+`:id` | AdminOrders/Detail | 过滤 / 状态流转 / alert 错误 | 仅 admin | 订单旧态(legacy) | ✓ | ✓ | ✓ | ☐ | P1 |
-| `/admin/po/review` | PoReviewDesk | 待审列表 / approve/reject/assign-rep | 仅 admin | PO 审核态 | ✓ | ✓ | ✓ | ☐ | P1 |
-| `/admin/po/shipments` | PoShipmentDesk | 创建 ShippingRecord(多批发) / mark-shipped/delivered | 仅 admin | PO 发货态 | ✓ | ✓ | ✓ | ☐ | P1 |
-| `/admin/po/invoicing` | PoInvoicingDesk | 对 DELIVERED 开票 / 开票字段 | 仅 admin | PO 开票态 | ✓ | ✓ | ✓ | ☐ | P1 |
-| `/admin/po/ar` | PoArReport | AR aging 30/60/90 展示 | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P2 |
-| `/admin/po/organizations` | PoOrgManagement | 机构/地址/订单查看 | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P2 |
+| `/ops/orders`+`:id` | AdminOrders/Detail | 过滤 / 状态流转 / alert 错误 | 仅 admin | 订单旧态(legacy) | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/ops/po/review` | PoReviewDesk | 待审列表 / approve/reject/assign-rep | 仅 admin | PO 审核态 | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/ops/po/shipments` | PoShipmentDesk | 创建 ShippingRecord(多批发) / mark-shipped/delivered | 仅 admin | PO 发货态 | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/ops/po/invoicing` | PoInvoicingDesk | 对 DELIVERED 开票 / 开票字段 | 仅 admin | PO 开票态 | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/ops/po/ar` | PoArReport | AR aging 30/60/90 展示 | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P2 |
+| `/ops/po/organizations` | PoOrgManagement | 机构/地址/订单查看 | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P2 |
 
 > 注：`admin/AdminProductsPage`、`admin/AdminProductEdit` 已于 **2026-10-17 作为死代码删除**。
 >

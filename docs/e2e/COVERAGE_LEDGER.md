@@ -68,7 +68,7 @@
 | 12 | `/products/:id` | ProductIndex/Detail | ☐ | — | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
 | 13 | `/research-goals` | RGIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
 | 14 | `/research-goals/:id` | RGIndex/Detail | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
-| 15 | `/quote-request` | QuoteRequestPage | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P1 | api-permission-writes.sp、public-smoke.spec.cjs |
+| 15 | `/quote-request` | QuoteRequestPage | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P1 | api-permission-writes.sp、public-smoke.spec.cjs… |
 | 16 | `/cart` | CartPage | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P1 | basket-local-merge-prune、basket-merge-over-limit.… |
 | 17 | `/:pathMatch` | NotFound | ☐ | — | — | ☐ | ☐ | ☐ | ☐ | P0 | product-new-ai-automatch、public-smoke.spec.cjs |
 
@@ -82,7 +82,7 @@
 | 21 | `/orders/:id` | OrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
 | 22 | `/po/submit` | PoSubmit | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | api-permission-writes.sp、basket-local-merge-prune… |
 | 23 | `/po/orders` | PoOrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
-| 24 | `/po/:id` | PoOrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 24 | `/po/orders/:id` | PoOrderList/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
 | 25 | `/po/addresses` | PoAddressList | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | permission-matrix.spec.c、po-prod-sweep.spec.cjs… |
 | 26 | `/po/reorder` | PoReorder | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P2 | permission-matrix.spec.c、po-prod-sweep.spec.cjs… |
 | 27 | `/po/downloads` | PoDownloadCenter | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P2 | permission-matrix.spec.c、po-prod-sweep.spec.cjs… |
@@ -94,20 +94,20 @@
 | 28 | `/workspace` | DashboardPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、cascader-workflow.spec.c… |
 | 29 | `/workspace/products` | ProductsPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
 | 30 | `/workspace/products/new` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
-| 31 | `/workspace/products/:id/edit` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 31 | `/workspace/products/new/:id/edit` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
 | 32 | `/workspace/goals` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、cascader-workflow.spec.c… |
 | 33 | `/applications` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | applayout-navpad-check.s、homepage.spec.cjs… |
 | 34 | `/methods` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | api-permission-writes.sp、applayout-navpad-check.s… |
 | 35 | `/protocols` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | knowledge-intake.spec.cj、permission-matrix.spec.c… |
-| 36 | `/references` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | internal-access-procurem、permission-matrix.spec.c… |
+| 36 | `/workspace/references` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、cascader-workflow.spec.c… |
 | 37 | `/workspace/knowledge-intake` | KnowledgeIntake | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、basket-local-merge-prune… |
-| 38 | `/admin/orders` | AdminOrders/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
-| 39 | `/admin/:id` | AdminOrders/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
-| 40 | `/admin/po/review` | PoReviewDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
-| 41 | `/admin/po/shipments` | PoShipmentDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
-| 42 | `/admin/po/invoicing` | PoInvoicingDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
-| 43 | `/admin/po/ar` | PoArReport | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P2 | a11y.spec.cjs、api-permission-writes.sp… |
-| 44 | `/admin/po/organizations` | PoOrgManagement | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P2 | a11y.spec.cjs、api-permission-writes.sp… |
+| 38 | `/ops/orders` | AdminOrders/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 39 | `/ops/orders/:id` | AdminOrders/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 40 | `/ops/po/review` | PoReviewDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | permission-matrix.spec.c、po-lifecycle.fullflow.sp… |
+| 41 | `/ops/po/shipments` | PoShipmentDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | permission-matrix.spec.c、po-lifecycle.api.spec.cj… |
+| 42 | `/ops/po/invoicing` | PoInvoicingDesk | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | permission-matrix.spec.c、po-lifecycle.fullflow.sp… |
+| 43 | `/ops/po/ar` | PoArReport | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P2 | public-smoke.spec.cjs |
+| 44 | `/ops/po/organizations` | PoOrgManagement | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P2 | permission-matrix.spec.c、po-prod-sweep.spec.cjs… |
 
 ## 骨架规模
 
@@ -148,7 +148,7 @@
 | `/research-goals/:id` | RGIndex/Detail | 5 |
 | `/:pathMatch` | NotFound | 5 |
 | `/workspace/products/new` | ProductEditPage | 7 |
-| `/workspace/products/:id/edit` | ProductEditPage | 7 |
+| `/workspace/products/new/:id/edit` | ProductEditPage | 7 |
 
 ## 更新方式
 
