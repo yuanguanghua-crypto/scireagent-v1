@@ -37,12 +37,21 @@ async function scan(page, label) {
   const serious = results.violations.filter((v) => v.impact === 'serious')
   const total = results.violations.length
   console.log(`A11Y[${label}] total=${total} critical=${critical.length} serious=${serious.length}`)
-  if (critical.length || serious.length) {
-    const detail = [...critical, ...serious]
-      .map((v) => `  - [${v.impact}] ${v.id}: ${v.help} (${v.nodes.length} 处)`)
-      .join('\n')
-    console.log(`A11Y[${label}] 违规:\n${detail}`)
-  }
+    if (critical.length || serious.length) {
+      const detail = [...critical, ...serious]
+        .map((v) => {
+          // ★ 2026-10-20：原来只打处数，看不出是哪个元素。补上 axe 给的 target/failureSummary。
+          const nodes = (v.nodes || []).slice(0, 5).map((n) => {
+            const tgt = Array.isArray(n.target) ? n.target.join(' ') : String(n.target)
+            const msg = (n.failureSummary || '').split('\n').filter(Boolean).slice(-1)[0] || ''
+            return `      · ${tgt}${msg ? '  ← ' + msg.slice(0, 90) : ''}`
+          }).join('\n')
+          const more = (v.nodes || []).length > 5 ? `\n      · …还有 ${v.nodes.length - 5} 处` : ''
+          return `  - [${v.impact}] ${v.id}: ${v.help} (${(v.nodes || []).length} 处)\n${nodes}${more}`
+        })
+        .join('\n')
+      console.log(`A11Y[${label}] 违规:\n${detail}`)
+    }
   // a11y 整改 pass（2026-07-11）后清零已知债，回归不得回退。
   expect(critical, `A11Y[${label}] 不应存在 critical 级可访问性违规`).toHaveLength(0)
   expect(serious, `A11Y[${label}] 不应存在 serious 级可访问性违规`).toHaveLength(0)

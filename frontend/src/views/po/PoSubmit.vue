@@ -204,12 +204,12 @@ async function handleSubmit() {
       <h2 class="po-section-title">PO Information</h2>
       <div class="po-form-grid">
         <div class="po-field">
-          <label class="po-label">PO Number（可选）</label>
-          <input v-model="form.po_number" class="po-input" placeholder="无 PO 号可留空" />
+          <label class="po-label" for="po-f1">PO Number（可选）</label>
+          <input id="po-f1" v-model="form.po_number" class="po-input" placeholder="无 PO 号可留空" />
         </div>
         <div class="po-field">
-          <label class="po-label">Quote / Reference #（可选）</label>
-          <select v-model="form.quote_id" class="po-select">
+          <label class="po-label" for="po-f2">Quote / Reference #（可选）</label>
+          <select id="po-f2" v-model="form.quote_id" class="po-select">
             <option value="">— 不关联报价 —</option>
             <option v-for="q in quoteOptions" :key="q.id" :value="q.id">
               {{ q.quote_no }} · {{ q.grand_total }}
@@ -217,51 +217,51 @@ async function handleSubmit() {
           </select>
         </div>
         <div class="po-field">
-          <label class="po-label">Grant / Sponsor Code</label>
-          <input v-model="form.grant_code" class="po-input" />
+          <label class="po-label" for="po-f3">Grant / Sponsor Code</label>
+          <input id="po-f3" v-model="form.grant_code" class="po-input" />
         </div>
         <div class="po-field">
-          <label class="po-label">Shipping Method</label>
-          <select v-model="form.shipping_method" class="po-select">
+          <label class="po-label" for="po-f4">Shipping Method</label>
+          <select id="po-f4" v-model="form.shipping_method" class="po-select">
             <option value="">— Select —</option>
             <option v-for="m in SHIPPING_METHODS" :key="m.value" :value="m.value">{{ m.label }}</option>
           </select>
         </div>
         <div class="po-field">
-          <label class="po-label">Requested Delivery Date</label>
-          <input v-model="form.requested_delivery_date" type="date" class="po-input" :min="minDeliveryDate" />
+          <label class="po-label" for="po-f5">Requested Delivery Date</label>
+          <input id="po-f5" v-model="form.requested_delivery_date" type="date" class="po-input" :min="minDeliveryDate" />
         </div>
       </div>
 
       <h2 class="po-section-title" style="margin-top:24px">Ship-to</h2>
       <div class="po-form-grid">
         <div class="po-field">
-          <label class="po-label">Recipient Name</label>
-          <input v-model="form.shipping_name" class="po-input" />
+          <label class="po-label" for="po-f6">Recipient Name</label>
+          <input id="po-f6" v-model="form.shipping_name" class="po-input" />
         </div>
         <div class="po-field">
-          <label class="po-label">Phone</label>
-          <input v-model="form.shipping_phone" class="po-input" />
+          <label class="po-label" for="po-f7">Phone</label>
+          <input id="po-f7" v-model="form.shipping_phone" class="po-input" />
         </div>
         <div class="po-field full">
-          <label class="po-label">Address</label>
-          <textarea v-model="form.shipping_address" class="po-textarea" />
+          <label class="po-label" for="po-f8">Address</label>
+          <textarea id="po-f8" v-model="form.shipping_address" class="po-textarea" />
         </div>
         <div class="po-field">
-          <label class="po-label">Email</label>
-          <input v-model="form.shipping_email" type="email" class="po-input" />
+          <label class="po-label" for="po-f9">Email</label>
+          <input id="po-f9" v-model="form.shipping_email" type="email" class="po-input" />
         </div>
       </div>
 
       <h2 class="po-section-title" style="margin-top:24px">Bill-to</h2>
       <div class="po-form-grid">
         <div class="po-field">
-          <label class="po-label">Billing Name</label>
-          <input v-model="form.billing_name" class="po-input" />
+          <label class="po-label" for="po-f10">Billing Name</label>
+          <input id="po-f10" v-model="form.billing_name" class="po-input" />
         </div>
         <div class="po-field full">
-          <label class="po-label">Billing Address</label>
-          <textarea v-model="form.billing_address" class="po-textarea" />
+          <label class="po-label" for="po-f11">Billing Address</label>
+          <textarea id="po-f11" v-model="form.billing_address" class="po-textarea" />
         </div>
       </div>
 
