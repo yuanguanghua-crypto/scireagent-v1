@@ -182,11 +182,17 @@ def main(argv=None) -> int:
     c8_ok = None
     if not args.skip_remote and remote_head:
         ssh = _ssh_base(args.host, args.key)
-        html = f"{args.remote}/frontend/dist/index.html"
-        # 用 sed 而不是 grep -P（部分环境没有 -P）
+        # ★★★ 必须读**容器内**的文件，不能读宿主机路径：
+        #   Docker bind mount 在容器启动时锁定 **inode**。
+        #   实测 2026-10-20：容器挂载源写着 `frontend/dist`，但实际 inode=524269
+        #   属于 `dist_prev_20261020` —— 因为部署时用了 `mv dist -> dist_prev && mv new -> dist`，
+        #   `dist` 这个**路径名**指向了新 inode，而容器还挂在旧 inode 上。
+        #   ⇒ 只查宿主机 `dist/index.html` 会**假绿**（读到新产物，但服务的是旧产物）。
+        html = "/usr/share/nginx/html/index.html"
         rc, out = _run(
-            ssh + [f"sed -n 's/.*build-commit\" content=\"\\([^\"]*\\)\".*/\\1/p' {html}"],
-            timeout=45,
+            ssh + [f"docker exec scireagent-nginx-1 sed -n "
+                   f"'s/.*build-commit\" content=\"\\([^\"]*\\)\".*/\\1/p' {html}"],
+            timeout=60,
         )
         deployed = out.strip().splitlines()[0].strip() if rc == 0 and out.strip() else None
 
