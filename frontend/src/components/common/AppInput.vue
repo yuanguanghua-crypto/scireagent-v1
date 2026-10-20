@@ -1,7 +1,12 @@
 <template>
   <div class="app-input" :class="{ 'app-input--error': error }">
-    <label v-if="label" class="form-label">{{ label }}</label>
+    <!-- ★ 2026-10-20 a11y + 可测性：label 原来没有 for、el-input 没有 id ⇒
+         ① 屏幕阅读器关联不上（靠 placeholder 勉强过 axe，但 placeholder 按 WCAG 不能替代 label）
+         ② `getByLabel()` 定位不到 ⇒ E2E 只能用脆弱的 placeholder/CSS 选择器
+         修一处，全站 39 个 AppInput 实例同时受益。 -->
+    <label v-if="label" class="form-label" :for="inputId">{{ label }}</label>
     <el-input
+      :id="inputId"
       :model-value="modelValue"
       :placeholder="placeholder"
       :type="type === 'textarea' ? 'textarea' : type"
@@ -21,6 +26,10 @@
 </template>
 
 <script setup>
+import { useId } from 'vue'
+
+// ★ 每个实例一个稳定唯一 id，用于 label[for] ↔ input[id] 关联（Vue 3.5+ useId）
+const inputId = useId()
 defineProps({
   modelValue: { type: [String, Number], default: '' },
   label: { type: String, default: '' },
