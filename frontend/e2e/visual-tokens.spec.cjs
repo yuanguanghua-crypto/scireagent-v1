@@ -31,10 +31,29 @@ const PUBLIC = [
   { name: 'Home', path: '/', sel: '.home' },
   { name: 'Products', path: '/products', sel: '.product-grid' },
   { name: 'ProductDetail', path: '/products/66', sel: 'main' },
+  // ★ 2026-10-20 扩容：V 维此前只覆盖 3 个公开页
+  { name: 'LoginPage', path: '/login', sel: '.auth-page' },
+  { name: 'RegisterPage', path: '/register', sel: '.auth-page' },
+  { name: 'SearchPage', path: '/search', sel: '.search-page' },
+  { name: 'ApplicationIndex', path: '/applications', sel: '.application-index' },
+  { name: 'MethodIndex', path: '/methods', sel: '.method-index' },
+  { name: 'ProtocolIndex', path: '/protocols', sel: '.protocol-index' },
+  { name: 'ResearchGoalIndex', path: '/research-goals', sel: '.research-goal-index' },
+  { name: 'QuoteRequestPage', path: '/quote-request', sel: '.rfq-page' },
+  { name: 'CartPage', path: '/cart', sel: '.cart-page' },
 ]
 const STAFF = [
   { name: 'AdminOrders', path: '/ops/orders', sel: '.order-table' },
   { name: 'Workspace', path: '/workspace', sel: '.workspace-layout' },
+  // ★ 2026-10-20 扩容
+  { name: 'SettingsPage', path: '/settings', sel: '.settings-page' },
+  { name: 'CheckoutPage', path: '/checkout', sel: '.checkout-page' },
+  { name: 'OrderListPage', path: '/orders', sel: '.order-list-page' },
+  { name: 'PoSubmit', path: '/po/submit', sel: '.po-page' },
+  { name: 'PoOrderList', path: '/po/orders', sel: '.po-page' },
+  { name: 'PoAddressList', path: '/po/addresses', sel: '.po-page' },
+  { name: 'PoReorder', path: '/po/reorder', sel: '.po-page' },
+  { name: 'PoDownloadCenter', path: '/po/downloads', sel: '.po-page' },
 ]
 
 test('全站设计令牌一致且品牌色正确', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
@@ -64,6 +83,11 @@ test('全站设计令牌一致且品牌色正确', { tag: ['@readonly', '@local-
     expect(isHexOrRgb(t.text), `${p.name} --color-text 应已定义`).toBeTruthy()
     collected.push({ name: p.name, ...t })
   }
+  // ★ 2026-10-20：先断言「真的访问了每一页」。
+  //   否则页面数组被误清空时，collected=[] 也会让整个 test 绿（假绿）。
+  expect(collected.length, `应收集到 ${PUBLIC.length + STAFF.length} 页的令牌，实际 ${collected.length}`
+  ).toBe(PUBLIC.length + STAFF.length)
+
   // 跨页一致性
   const base = collected[0]
   for (const t of collected) {

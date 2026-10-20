@@ -11,7 +11,7 @@
 | P 权限 | `permission-matrix.spec.cjs`（3 数组） | **28** |
 | S 状态 | `state-matrix.spec.cjs` | 0 |
 | R 响应式 | `responsive.spec.cjs` | **11** |
-| V 视觉 | `visual-tokens.spec.cjs` | 5 |
+| V 视觉 | `visual-tokens.spec.cjs` | 22 |
 | A 可访问 | `a11y.spec.cjs` | 22 |
 | B 浏览器 | `package.json` npm script | **只 chromium** |
 | I 交互 | — | **不可自动判** |
@@ -21,32 +21,32 @@
 | # | 路由 | 页面 | 优先级 | I | P | S | R | V | A | B | 已覆盖 |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | 1 | `/` | HomePage | P0 | ☐ | — | — | ✓ | ✓ | ✓ | ✗ | **3/7** |
-| 2 | `/login` | Login/Register | P0 | ☐ | ✓ | — | ✓ | ✗ | ✓ | ✗ | **3/7** |
-| 3 | `/register` | Login/Register | P0 | ☐ | ✗ | — | ✓ | ✗ | ✓ | ✗ | **2/7** |
-| 4 | `/search` | SearchPage | P0 | ☐ | — | — | ✓ | ✗ | ✓ | ✗ | **2/7** |
-| 5 | `/applications` | AppIndex/Detail | P0 | ☐ | — | — | ✗ | ✗ | ✓ | ✗ | **1/7** |
-| 6 | `/applications/:id` | AppIndex/Detail | P0 | ☐ | — | — | ✗ | ✗ | ✓ | ✗ | **1/7** |
-| 7 | `/methods` | MethodIndex/Detail | P0 | ☐ | — | — | ✗ | ✗ | ✓ | ✗ | **1/7** |
-| 8 | `/methods/:id` | MethodIndex/Detail | P0 | ☐ | — | — | ✗ | ✗ | ✓ | ✗ | **1/7** |
-| 9 | `/protocols` | ProtocolIndex/Detail | P0 | ☐ | — | — | ✗ | ✗ | ✓ | ✗ | **1/7** |
-| 10 | `/protocols/:id` | ProtocolIndex/Detail | P0 | ☐ | — | — | ✗ | ✗ | ✓ | ✗ | **1/7** |
+| 2 | `/login` | Login/Register | P0 | ☐ | ✓ | — | ✓ | ✓ | ✓ | ✗ | **4/7** |
+| 3 | `/register` | Login/Register | P0 | ☐ | ✗ | — | ✓ | ✓ | ✓ | ✗ | **3/7** |
+| 4 | `/search` | SearchPage | P0 | ☐ | — | — | ✓ | ✓ | ✓ | ✗ | **3/7** |
+| 5 | `/applications` | AppIndex/Detail | P0 | ☐ | — | — | ✗ | ✓ | ✓ | ✗ | **2/7** |
+| 6 | `/applications/:id` | AppIndex/Detail | P0 | ☐ | — | — | ✗ | ✓ | ✓ | ✗ | **2/7** |
+| 7 | `/methods` | MethodIndex/Detail | P0 | ☐ | — | — | ✗ | ✓ | ✓ | ✗ | **2/7** |
+| 8 | `/methods/:id` | MethodIndex/Detail | P0 | ☐ | — | — | ✗ | ✓ | ✓ | ✗ | **2/7** |
+| 9 | `/protocols` | ProtocolIndex/Detail | P0 | ☐ | — | — | ✗ | ✓ | ✓ | ✗ | **2/7** |
+| 10 | `/protocols/:id` | ProtocolIndex/Detail | P0 | ☐ | — | — | ✗ | ✓ | ✓ | ✗ | **2/7** |
 | 11 | `/products` | ProductIndex/Detail | P0 | ☐ | — | ✗ | ✓ | ✓ | ✓ | ✗ | **3/7** |
 | 12 | `/products/:id` | ProductIndex/Detail | P0 | ☐ | — | ✗ | ✓ | ✓ | ✓ | ✗ | **3/7** |
-| 13 | `/research-goals` | RGIndex/Detail | P0 | ☐ | — | — | ✗ | ✗ | ✓ | ✗ | **1/7** |
-| 14 | `/research-goals/:id` | RGIndex/Detail | P0 | ☐ | — | — | ✗ | ✗ | ✓ | ✗ | **1/7** |
-| 15 | `/quote-request` | QuoteRequestPage | P1 | ☐ | — | — | ✓ | ✗ | ✓ | ✗ | **2/7** |
-| 16 | `/cart` | CartPage | P1 | ☐ | — | — | ✗ | ✗ | ✓ | ✗ | **1/7** |
+| 13 | `/research-goals` | RGIndex/Detail | P0 | ☐ | — | — | ✗ | ✓ | ✓ | ✗ | **2/7** |
+| 14 | `/research-goals/:id` | RGIndex/Detail | P0 | ☐ | — | — | ✗ | ✓ | ✓ | ✗ | **2/7** |
+| 15 | `/quote-request` | QuoteRequestPage | P1 | ☐ | — | — | ✓ | ✓ | ✓ | ✗ | **3/7** |
+| 16 | `/cart` | CartPage | P1 | ☐ | — | — | ✗ | ✓ | ✓ | ✗ | **2/7** |
 | 17 | `/:pathMatch` | NotFound | P0 | ☐ | — | — | ✓ | ✓ | ✓ | ✗ | **3/7** |
-| 18 | `/settings` | SettingsPage | P1 | ☐ | ✓ | — | ✗ | ✗ | ✓ | ✗ | **2/7** |
-| 19 | `/checkout` | CheckoutPage | P1 | ☐ | ✓ | — | ✗ | ✗ | ✓ | ✗ | **2/7** |
-| 20 | `/orders` | OrderList/Detail | P1 | ☐ | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | **2/7** |
-| 21 | `/orders/:id` | OrderList/Detail | P1 | ☐ | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | **2/7** |
-| 22 | `/po/submit` | PoSubmit | P1 | ☐ | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | **2/7** |
-| 23 | `/po/orders` | PoOrderList/Detail | P1 | ☐ | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | **2/7** |
-| 24 | `/po/orders/:id` | PoOrderList/Detail | P1 | ☐ | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ | **2/7** |
-| 25 | `/po/addresses` | PoAddressList | P1 | ☐ | ✓ | — | ✗ | ✗ | ✓ | ✗ | **2/7** |
-| 26 | `/po/reorder` | PoReorder | P2 | ☐ | ✓ | — | ✗ | ✗ | ✓ | ✗ | **2/7** |
-| 27 | `/po/downloads` | PoDownloadCenter | P2 | ☐ | ✓ | — | ✗ | ✗ | ✓ | ✗ | **2/7** |
+| 18 | `/settings` | SettingsPage | P1 | ☐ | ✓ | — | ✗ | ✓ | ✓ | ✗ | **3/7** |
+| 19 | `/checkout` | CheckoutPage | P1 | ☐ | ✓ | — | ✗ | ✓ | ✓ | ✗ | **3/7** |
+| 20 | `/orders` | OrderList/Detail | P1 | ☐ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | **3/7** |
+| 21 | `/orders/:id` | OrderList/Detail | P1 | ☐ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | **3/7** |
+| 22 | `/po/submit` | PoSubmit | P1 | ☐ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | **3/7** |
+| 23 | `/po/orders` | PoOrderList/Detail | P1 | ☐ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | **3/7** |
+| 24 | `/po/orders/:id` | PoOrderList/Detail | P1 | ☐ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | **3/7** |
+| 25 | `/po/addresses` | PoAddressList | P1 | ☐ | ✓ | — | ✗ | ✓ | ✓ | ✗ | **3/7** |
+| 26 | `/po/reorder` | PoReorder | P2 | ☐ | ✓ | — | ✗ | ✓ | ✓ | ✗ | **3/7** |
+| 27 | `/po/downloads` | PoDownloadCenter | P2 | ☐ | ✓ | — | ✗ | ✓ | ✓ | ✗ | **3/7** |
 | 28 | `/workspace` | DashboardPage | P1 | ☐ | ✓ | — | ✓ | ✓ | ✓ | ✗ | **4/7** |
 | 29 | `/workspace/products` | ProductsPage | P1 | ☐ | ✓ | — | ✓ | ✗ | ✗ | ✗ | **2/7** |
 | 30 | `/workspace/products/new` | ProductEditPage | P0 | ☐ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | **2/7** |
@@ -73,11 +73,11 @@
 | P | 28 | 1 | 0 | **97%** |
 | S | 0 | 14 | 0 | **0%** |
 | R | 14 | 30 | 0 | **32%** |
-| V | 7 | 37 | 0 | **16%** |
+| V | 30 | 14 | 0 | **68%** |
 | A | 30 | 14 | 0 | **68%** |
 | B | 0 | 44 | 0 | **0%** |
 
-**总计**：✓ 79 格 / ✗ 140 格 / 待人工 44 格（共 263 格）
+**总计**：✓ 102 格 / ✗ 117 格 / 待人工 44 格（共 263 格）
 
 ## 怎么读这份审计
 
