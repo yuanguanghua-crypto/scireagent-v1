@@ -167,7 +167,79 @@ jobs:
           cat /tmp/map.log
           exit $RC
 
-  # ── 4. 前端构建 ──────────────────────────────────────────────────────
+  # ── 5. 删除闸门（绕过本地 hook 的兜底）──────────────────────────────
+  # ★ 2026-10-20 补：之前 CI 的 4 个 job 都**不检查"这次提交删了什么"**。
+  #   实测证据：在一个没有 hook 的新 clone 里删掉
+  #   frontend/src/views/workspace/ProductEditPage.vue 并 commit（本地无闸门、放行），
+  #   然后在同样的代码上跑 CI 里的 `--verify-map` —— 结果仍是 [OK]，EXIT=0。
+  #   ⇒ 也就是说：绕过 hook（--no-verify，或干脆在新 clone 里工作）的删除，
+  #     原来的 CI 会**全绿放行**。这是真缺口，不是理论问题。
+  deletion-guard:
+    name: 删除闸门（绕过 hook 的兜底）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0      # 需要 base commit 才能 diff 出删除项
+
+      - name: 闸门自检（必须先证明它能拦住已知危险删除）
+        # ★ 这里验证的不是业务代码，而是**闸门本身有没有效**。
+        #   如果哪天 --audit 变成恒放行，这一步会红，而不是静默失效。
+        run: |
+          set +e
+          python3 -B scripts/capability_guard.py --audit --git-rev HEAD \
+            --paths frontend/src/views/workspace/ProductEditPage.vue \
+            > /tmp/selfcheck.log 2>&1
+          RC=$?
+          if [ $RC -eq 0 ]; then
+            echo "::error::闸门自检失败：对「已知会失去唯一入口」的删除竟然放行（exit 0）"
+            head -20 /tmp/selfcheck.log
+            exit 1
+          fi
+          echo "::notice::闸门自检通过：对 ProductEditPage.vue 的删除正确 BLOCK（exit $RC）"
+          grep -E 'BLOCK' /tmp/selfcheck.log | head -2 | while IFS= read -r line; do
+            echo "::notice::$line"
+          done
+
+      - name: 审查本次提交实际删除的文件
+        env:
+          BASE_PUSH: ${{ github.event.before }}
+          BASE_PR: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set +e
+          BASE="${BASE_PUSH:-$BASE_PR}"
+          ZERO="0000000000000000000000000000000000000000"
+          if [ -z "$BASE" ] || [ "$BASE" = "$ZERO" ]; then
+            echo "::notice::无 base commit（首次推送/手动触发），本次跳过删除审查"
+            exit 0
+          fi
+          if ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "::notice::base commit $BASE 不在本地（浅克隆），本次跳过；如需完整审查请用 fetch-depth: 0"
+            exit 0
+          fi
+
+          DELETED="$(git diff --name-only --diff-filter=D "$BASE" HEAD || true)"
+          if [ -z "$DELETED" ]; then
+            echo "::notice::本次提交未删除任何文件"
+            exit 0
+          fi
+
+          N="$(printf '%s\n' "$DELETED" | grep -c . || true)"
+          echo "::notice::本次删除 $N 个文件，启动删除闸门"
+          # shellcheck disable=SC2086
+          python3 -B scripts/capability_guard.py --audit --git-rev "$BASE" --paths $DELETED > /tmp/del.log 2>&1
+          RC=$?
+          if [ $RC -ne 0 ]; then
+            grep -E 'BLOCK|WARN' /tmp/del.log | head -6 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            cat /tmp/del.log
+            exit 1
+          fi
+          echo "::notice::删除审查通过：未发现能力入口丢失"
+          exit 0
+
+
   frontend-build:
     name: 前端构建（vite）
     runs-on: ubuntu-latest
