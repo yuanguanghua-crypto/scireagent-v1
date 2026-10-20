@@ -38,7 +38,7 @@ grep -r "DATASOURCE_RELIABILITY.md" backend/ frontend/src/ scripts/ CLAUDE.md RE
 | **`docs/TEST_EXECUTION_CARD.md`** | ★★ **测试执行卡（1 页）** —— **日常执行只看这张**：提交前 5 条命令 / 发布 6 项门禁 / E2E 七条铁律 / 现在还做不到的事 |
 | `docs/po-portal/`（8 篇） | PO 采购门户 + 库存台（2026-10-14/15）—— 覆盖当前最大子系统 |
 | **`docs/TEST_STRATEGY.md`** | ★ **测试分层方法论 + 流程编排**（2026-10-20，V1.3）—— L1–L7 分层 / §8 时间轴（五阶段流水线·先计划后用例·三档标注）/ §9 差距路线图。**⚠️ 它不管页面覆盖**（那在 `docs/e2e/FULL_SITE_E2E_PLAN.md`），也不是执行清单（那在执行卡） |
-| `docs/e2e/`（4 篇） | E2E 计划与流程教训（`INTERACTION_INVENTORY.md` 被 42 处引用）+ **`COVERAGE_LEDGER.md` 全站覆盖台账骨架（44 页 × 7 维 = 263 待评估格，⚠️ 源表 §2.2 列数不齐，维度分区暂不可信）** |
+| `docs/e2e/`（4 篇） | E2E 计划与流程教训（`INTERACTION_INVENTORY.md` 被 42 处引用）+ **`COVERAGE_LEDGER.md` 骨架 + `COVERAGE_FINDINGS.md` 人工判定（含证据） 全站覆盖台账骨架（44 页 × 7 维 = 263 待评估格，⚠️ 源表 §2.2 列数不齐，维度分区暂不可信）** |
 | `docs/ORPHAN_ENDPOINTS.md` | 后端端点 → 前端入口分诊表 |
 | `docs/design/DESIGN_SYSTEM.md` | 设计系统 |
 

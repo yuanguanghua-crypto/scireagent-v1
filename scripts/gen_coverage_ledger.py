@@ -112,6 +112,7 @@ L = []
 L.append("# 全站测试覆盖台账（骨架 V1）")
 L.append("")
 L.append("> **本文件由 `scripts/gen_coverage_ledger.py` 生成 —— 重跑会覆盖人工填写内容。**")
+L.append("> **人工判定结果请写进 `docs/e2e/COVERAGE_FINDINGS.md`**（带证据，不会被覆盖）。")
 L.append("> 来源：`docs/e2e/FULL_SITE_E2E_PLAN.md` §2.2（程序化提取 %d 页，不手抄）" % len(pages))
 L.append("")
 L.append("## ⚠️ 先说清楚：为什么这里没有「覆盖率」")
