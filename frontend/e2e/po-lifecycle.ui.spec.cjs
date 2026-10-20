@@ -70,7 +70,9 @@ test.describe('@po-ui 内部审核台（staff）', () => {
     await loginAsProcurement(page);
     await page.goto(`${BASE_URL}/ops/po/review`, { waitUntil: 'domcontentloaded' });
     // ★ 修复前：被守卫（!isStaff）重定向到 /；修复后：停留在内部台
-    await expect(page).toHaveURL(/\/admin\/po\/review/);
+    // 2026-10-20 修正：断言原写 /admin/po/review，但实际路由是 /ops/po/review（router 无 /admin 前缀）
+    //   本测试一直在失败（访问 /ops 却断言 /admin），此前因缺 fixture 被整体 skip 而未暴露。
+    await expect(page).toHaveURL(/\/ops\/po\/review/);
     await expect(page.locator('h1.po-page-title', { hasText: 'Order Review Desk' })).toBeVisible();
   });
 
