@@ -173,10 +173,11 @@ async function handleSubmit() {
                   <label v-if="idx === 0" class="rfq-label">Product</label>
                   <input v-model="item.product_name" type="text" class="rfq-input" placeholder="Product name or catalog number" />
                 </div>
-                <div class="rfq-field rfq-field-qty">
-                  <label v-if="idx === 0" class="rfq-label">Qty</label>
-                  <input v-model.number="item.quantity" type="number" min="1" class="rfq-input" />
-                </div>
+                  <div class="rfq-field rfq-field-qty">
+                    <label v-if="idx === 0" class="rfq-label">Qty</label>
+                    <!-- ★ 2026-10-20 a11y：label 只在 idx===0 显示，第 2+ 行输入框无标签 -->
+                    <input v-model.number="item.quantity" type="number" min="1" class="rfq-input" aria-label="Quantity" />
+                  </div>
                 <div class="rfq-field rfq-field-note">
                   <label v-if="idx === 0" class="rfq-label">Note</label>
                   <input v-model="item.note" type="text" class="rfq-input" placeholder="Pack size, grade, etc." />

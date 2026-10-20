@@ -35,7 +35,7 @@ function reorder(id) {
         <p class="po-page-subtitle">{{ total }} order(s)</p>
       </div>
       <div class="po-row">
-        <select v-model="statusFilter" class="po-select" style="width:180px">
+        <select v-model="statusFilter" class="po-select" style="width:180px" aria-label="Filter orders by status">
           <option v-for="f in ORDER_STATUS_FILTERS" :key="f.value" :value="f.value">{{ f.label }}</option>
         </select>
         <router-link :to="{ name: 'PoSubmit' }" class="po-btn po-btn-accent">+ New PO</router-link>
