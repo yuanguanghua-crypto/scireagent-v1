@@ -20,7 +20,7 @@ grep -r "DATASOURCE_RELIABILITY.md" backend/ frontend/src/ scripts/ CLAUDE.md RE
 |---|---|---|
 | **18** | `docs/DATASOURCE_RELIABILITY.md` | 数据源可靠性与健壮性（缓存/容错/降级/三种数据放置策略） |
 | **11** | `docs/COA_SDS_PRD.md` | COA/SDS 文档生成规格。★ **被用作测试判据**（`test_sds_download_gate.py` 引用其 `:80` 行） |
-| **9** | `docs/FIVE_DATASOURCES.md` | 五数据源权威叙事（含 §8「历程与坑」—— 全仓最有价值的一种文档形态） |
+| **9** | `docs/FIVE_DATASOURCES.md` | 六数据源权威叙事（含 §8「历程与坑」—— 全仓最有价值的一种文档形态） |
 | **4** | `docs/CLAIMS.md` | 结论登记表：相信什么 + 依据 + **失效条件** |
 | **4** | `docs/DECISIONS.md` | 决策记录（ADR）：**只记"为什么"** |
 | 2 | `docs/AI_AUTO_MATCH.md` | AUTO MATCH 接口契约（⚠️ jena/bioz 部分已被 `FIVE_DATASOURCES` 取代） |

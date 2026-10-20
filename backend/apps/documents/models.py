@@ -7,7 +7,7 @@ class DataSourceCache(models.Model):
 
     跨路径共享 PubChem/ChEMBL/PubMed/Bioz 的原始 API 响应，避免反复查外部 API。
     与现有 PubChemCache 并存：PubChemCache 仅 SDS 路径用，本表供 AI AUTO MATCH 等路径复用。
-    缓存键对齐五数据源 systematic_name 锚点（source + query_namespace + query_key）。
+    缓存键对齐六数据源 systematic_name 锚点（source + query_namespace + query_key）。
     TTL 按 §5.2 分级（PubChem/ChEMBL 30 天，PubMed 14 天）；过期仍可作 stale 兜底。
     详见 docs/DATASOURCE_RELIABILITY.md §6。
     """
