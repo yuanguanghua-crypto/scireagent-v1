@@ -3,6 +3,8 @@
 > **1 页。执行只看这张。**
 > 为什么这么做的依据 → `docs/TEST_STRATEGY.md`（参考手册，遇到具体问题再查）
 > 更新：2026-10-20 ｜ 与 STRATEGY V1.2 配套
+>
+> ⚠️ **本卡命令里的路径是本机专用**（`/e/Users/yuankaifeng/...`）。他人使用请把这段替换成自己的 `<repo>` 路径。
 
 ---
 
@@ -16,10 +18,13 @@
 
 ## 1. 这周做这两件（S1 / S2，当天可见效）
 
+> ⚠️ **这两件是待办，不是"照这张卡就能做完"** —— 卡里只给验收标准；
+> 具体操作要单独动手（S1 改 `ci.yml`、S2 写两份文档），完成后回来对验收。
+
 | # | 做什么 | 怎么验做完 |
 |---|---|---|
-| **S1** | 把 `test:e2e:readonly` 接进 CI | CI 多一个 job，push 后能看到它跑 |
-| **S2** | `CLAUDE.md` 加「可运行检查命令」段 + 新建 `REVIEW.md` | AI 接手任务时知道该跑什么；review 时有"什么叫失败"的定义 |
+| **S1** | 把 `test:e2e:readonly` 接进 CI（**操作**：`ci.yml` 加一个 job → 装依赖 → `npx playwright install chromium` → `npm run test:e2e:readonly`） | CI 多一个 job，push 后能看到它跑 |
+| **S2** | `CLAUDE.md` 加「可运行检查命令」段 + 新建 `REVIEW.md`（**怎么写**见 STRATEGY §8.8） | AI 接手任务时知道该跑什么；review 时有"什么叫失败"的定义 |
 
 > 依据：STRATEGY §9.2 路线图。这两条零重构、零风险，且立刻提升"每次改动都有人看"的密度。
 
@@ -38,9 +43,12 @@ python scripts/test_result_summary.py <输出文件>
 
 # 3) 前端构建（★ 必须 E: 物理路径，C: 会报 vite:build-html 错）
 cd /e/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/frontend
-npx vite build --outDir .build_check
+npx vite build --outDir .build_check && rm -rf .build_check
+#   ↑ 只验证「能构建成功」，产物不留（真正的产物由部署脚本在生产构建）
 
 # 4) E2E（只在你改了页面时）
+#    ⚠️ 前置：test:e2e:local 需要「后端 localhost:8000 + 前端 Vite localhost:5173」都在跑
+#        （否则连不上，见 e2e/GATE.md）。test:e2e:readonly 若跑生产则需口令（见 §3 说明）
 npm run test:e2e:local        # 或 test:e2e:readonly
 
 # 5) 判测试是否变摆设（只在你改了核心逻辑时）
@@ -59,7 +67,7 @@ python scripts/mutation_check.py
 
 | # | 检查 | 命令 |
 |---|---|---|
-| 1 | 后端全量绿 | `pytest -q`（基线 2734 passed） |
+| 1 | 后端全量绿 | `pytest -q`，判读标准 **0 failed**（通过数会随用例增减，不写死） |
 | 2 | CI 全绿 | GitHub Actions |
 | 3 | 前端构建成功 | 从 **E: 物理路径** 构建 |
 | 4 | **四地一致 + 产物 commit 正确** | `python scripts/check_deploy_consistency.py` |
