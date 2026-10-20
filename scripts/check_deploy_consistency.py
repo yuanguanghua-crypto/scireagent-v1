@@ -72,6 +72,89 @@ def _md5(path: str) -> str | None:
     return h.hexdigest()
 
 
+# 前端「构建输入」—— 只有这些变了，产物才必须重建
+BUILD_INPUTS = (
+    "frontend/src/", "frontend/public/", "frontend/index.html",
+    "frontend/vite.config.js", "frontend/package.json",
+    "frontend/package-lock.json",
+)
+
+
+def _c8_verdict(deployed: str | None, local_head: str | None) -> tuple[bool | None, str]:
+    """C8 判定核心：产物里标注的 commit 与 HEAD 是否"对得上"。
+
+    返回 (结果, 说明)：
+      True  —— 产物确实是当前 HEAD 的前端源码构建的
+      False —— 不是（或无法确认）
+      None  —— 没法判（旧产物没有 build-commit 标记）
+
+    ★ 抽成独立函数是为了让 `--self-check` 能测**真实逻辑**，
+      而不是复制一份判定规则来测副本（那样测的是副本，不是这条代码）。
+    """
+    if not deployed:
+        return None, "产物里没有 build-commit meta（这是加注入之前的旧产物）"
+    if deployed == "unknown":
+        return False, "构建时取不到 git 信息（可能在没有 .git 的环境里打包）"
+
+    expect = (local_head or "")[:7]
+    if deployed.startswith(expect) or expect.startswith(deployed):
+        return True, ""
+
+    # meta ≠ HEAD 时不能直接判红：可能只改了文档/脚本，前端源码没动。
+    rc, out = _run(["git", "diff", "--name-only", f"{deployed}..HEAD"])
+    if rc != 0:
+        return False, f"期望 HEAD 前缀 {expect}；且本地没有 {deployed} 这个提交，无法判断差异范围"
+
+    touched = [ln.strip() for ln in out.splitlines()
+               if ln.strip().startswith(BUILD_INPUTS)]
+    if touched:
+        return False, (f"期望 HEAD 前缀 {expect}；且之后改过 {len(touched)} 个前端构建输入"
+                       f"（如 {touched[0]}）⇒ 线上产物落后于源码")
+    return True, f"产物 {deployed}，HEAD 是 {expect}，但两者之间未改动任何前端构建输入"
+
+
+def _self_check(local_head: str | None) -> int:
+    """**验判据本身**：故意喂错误输入，断言它必须判红。
+
+    这是 mutation_check.py 对测试做的事，用在部署校验上：
+    一个"永远绿"的判据比没有判据更危险 —— 它给人安全感。
+    今天的 C8 假绿（读宿主机而非容器）就是"判据错了但没人知道"。
+
+    返回 0 = 自检通过；1 = 判据失效
+    """
+    head7 = (local_head or "")[:7]
+    cases = [
+        # (输入 deployed, 期望结果, 说明)
+        ("0000000", False, "明显错误的 commit（本地不存在）"),
+        ("deadbee", False, "另一个不存在的 commit"),
+        (None, None, "产物缺 meta（旧产物）"),
+        ("unknown", False, "构建时取不到 git"),
+        (head7, True, "等于 HEAD —— 正确时必须放行，不能误报"),
+    ]
+
+    print("=" * 72)
+    print("判据自检（验 C8 判据本身，不查生产）")
+    print("=" * 72)
+    bad = 0
+    for deployed, want, desc in cases:
+        got, detail = _c8_verdict(deployed, local_head)
+        ok = (got == want)
+        mark = "✓" if ok else "✗"
+        shown = "(None)" if deployed is None else deployed
+        print(f"  {mark} {desc:<34} 输入={shown:<10} 期望={want} 实得={got}")
+        if not ok:
+            bad += 1
+            print(f"      说明: {detail}")
+    print("=" * 72)
+    if bad:
+        print(f"❌ 自检失败：{bad} 个用例不符合预期 ⇒ C8 判据已失效，"
+              f"它给出的绿不可信")
+        return 1
+    print(f"✅ 自检通过：{len(cases)} 个用例全部符合预期"
+          f"（错必红 / 对必绿）")
+    return 0
+
+
 def _ssh_base(host: str, key: str) -> list[str]:
     cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=15"]
     if key:
@@ -89,8 +172,16 @@ def main(argv=None) -> int:
     ap.add_argument("--key", default=DEFAULT_KEY, help="ssh 私钥路径（默认用 ssh 自身配置）")
     ap.add_argument("--remote", default=DEFAULT_REMOTE, help="生产仓库目录")
     ap.add_argument("--skip-remote", action="store_true", help="只查本地/GitHub，不连生产（离线自检）")
+    ap.add_argument("--self-check", action="store_true",
+                    help="★ 验判据本身：喂错误输入，断言 C8 必须判红（不查生产）")
     ap.add_argument("--json", action="store_true", help="机器可读输出")
     args = ap.parse_args(argv)
+
+    # ★ 先验判据，再验生产 —— 判据坏了的话，后面查什么都不可信
+    if args.self_check:
+        rc0, out0 = _run(["git", "rev-parse", "HEAD"])
+        head = out0.strip() if rc0 == 0 else None
+        return _self_check(head)
 
     res: dict = {"checks": {}, "ok": True, "notes": []}
 
@@ -196,56 +287,41 @@ def main(argv=None) -> int:
         )
         deployed = out.strip().splitlines()[0].strip() if rc == 0 and out.strip() else None
 
-        if deployed and deployed != "unknown":
-            expect = (local_head or "")[:7]
-            same = deployed.startswith(expect) or expect.startswith(deployed)
-
-            # ★ 边界修正（2026-10-20，实测踩到）：meta 不等于 HEAD 时不能直接判红。
-            #   场景：`742cb8d` 只改了 docs/CLAIMS.md，前端源码一个字没动 ——
-            #   产物 48c42fb 仍然有效，但只比 HEAD 会误报。
-            #   正确做法：看 deployed..HEAD 之间**有没有触碰前端构建输入**。
-            BUILD_INPUTS = (
-                "frontend/src/", "frontend/public/", "frontend/index.html",
-                "frontend/vite.config.js", "frontend/package.json",
-                "frontend/package-lock.json",
-            )
-            if same:
-                c8_ok = True
-                record("产物标注的 commit（生产 dist）", deployed, True)
-            else:
-                rc, out = _run(["git", "diff", "--name-only", f"{deployed}..HEAD"])
-                if rc != 0:
-                    c8_ok = False
-                    record("产物标注的 commit（生产 dist）", deployed, False,
-                           f"期望 {expect}；且本地没有 {deployed} 这个提交，无法判断差异范围")
-                    res["notes"].append(
-                        f"产物标注 {deployed}，本地无此提交 ⇒ 无法确认它是从哪份源码构建的")
-                else:
-                    touched = [ln.strip() for ln in out.splitlines()
-                               if ln.strip().startswith(BUILD_INPUTS)]
-                    if touched:
-                        c8_ok = False
-                        record("产物标注的 commit（生产 dist）", deployed, False,
-                               f"期望 {expect}；且之后改过 {len(touched)} 个前端输入文件")
-                        res["notes"].append(
-                            f"产物 {deployed} 之后前端源码有 {len(touched)} 处改动"
-                            f"（如 {touched[0]}）⇒ 线上产物落后于源码，需重新构建部署")
-                    else:
-                        c8_ok = True
-                        record("产物标注的 commit（生产 dist）", f"{deployed}（HEAD={expect}）", True)
-                        res["notes"].append(
-                            f"产物标注 {deployed}，HEAD 是 {expect}，但两者之间"
-                            "**未改动任何前端构建输入**（只改了文档/脚本）⇒ 产物仍对应 HEAD 的前端源码")
-        elif deployed == "unknown":
-            record("产物标注的 commit", "unknown", False,
-                   "构建时取不到 git 信息")
-            res["notes"].append("产物标注 unknown ⇒ C8 无法证实")
-        else:
-            record("产物标注的 commit", None, None,
-                   "dist/index.html 里没有 build-commit meta（这是加注入之前的旧产物）")
+        # ★ 新增（2026-10-20）：宿主机 vs 容器 —— inode 断开的直接检测器。
+        #   今天的事故就是这两个值不同：宿主机 `dist` 有新产物，容器服务旧的。
+        #   这条检查能当场发现"部署到 dist 但容器看不到"。
+        rc_h, out_h = _run(
+            ssh + [f"sed -n 's/.*build-commit\" content=\"\\([^\"]*\\)\".*/\\1/p' "
+                   f"{args.remote}/frontend/dist/index.html"],
+            timeout=45,
+        )
+        host_meta = (out_h.strip().splitlines()[0].strip()
+                     if rc_h == 0 and out_h.strip() else None)
+        if host_meta and deployed and host_meta != deployed:
+            record("宿主机 vs 容器（inode 是否断开）",
+                   f"宿主机 {host_meta} ≠ 容器 {deployed}", False,
+                   "两者不一致 ⇒ dist 的 inode 与容器挂载点不同，部署不会生效")
             res["notes"].append(
-                "旧产物缺 build-commit 标记 ⇒ C8 未判定（不是不一致，是没法判）；"
-                "重新构建部署一次即可支持")
+                "★ 宿主机 dist 与容器内文件不一致 —— 改用 rsync 写入（不要 mv 换目录），"
+                "或用 scripts/deploy_frontend.sh")
+        elif host_meta:
+            record("宿主机 vs 容器（inode 是否断开）", "一致", True)
+
+        # 判定：真实逻辑在模块级 _c8_verdict 里，--self-check 测的也是它
+        verdict, why = _c8_verdict(deployed, local_head)
+        c8_ok = verdict
+        if verdict is True:
+            record("产物标注的 commit（容器内）",
+                   (f"{deployed}（HEAD={(local_head or '')[:7]}）" if why else deployed),
+                   True)
+            if why:
+                res["notes"].append(why + " ⇒ 产物仍对应 HEAD 的前端源码")
+        elif verdict is False:
+            record("产物标注的 commit（容器内）", deployed, False, why)
+            res["notes"].append(why)
+        else:
+            record("产物标注的 commit（容器内）", deployed, None, why)
+            res["notes"].append(why + "；重新构建部署一次即可支持")
 
     # 本地 dist 只作参考，**不参与 C8 判定**（避免上面说的循环论证）
     local_dist = os.path.join(REPO, "frontend", "dist", "index.html")
