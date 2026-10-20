@@ -170,30 +170,46 @@ def main(argv=None) -> int:
     #   与线上 dist 逐文件比对 —— 一致才说明线上产物确实是 HEAD 构建的。
     #   这是唯一能真正证伪的形态：如果线上 dist 是旧代码的产物，
     #   rebuild 出来的文件 hash 会不同。
+    # ★★★ 第三版（本版，2026-10-20 12:00）：构建时把 commit 写进产物
+    #   前面两版都错了：
+    #     第一版「本地 dist md5 == 生产 md5」→ 本地可能是从生产拷的，循环论证
+    #     第二版「生产机 rebuild 后逐文件 diff」→ **假设构建可复现，实测不成立**
+    #       （同源码连两次构建：Tailwind v4 的 CSS 差 685 字节 421115 vs 420430，
+    #         CSS hash 变 → 入口 JS hash 变 → 167 个文件全改名）
+    #   本版：frontend/vite.config.js 的 injectBuildCommit() 把 commit 写进
+    #     dist/index.html 的 <meta name="build-commit">，判据 = 取出来与 HEAD 比对。
+    #   ⇒ 直接回答「这份产物是哪个 commit 构建的」，不受构建不确定性影响。
     c8_ok = None
     if not args.skip_remote and remote_head:
         ssh = _ssh_base(args.host, args.key)
-        tmp = f"{args.remote}/frontend/.dist_c8_verify"
-        # 临时目录用点前缀，避免被当成常规产物
-        build_cmd = (
-            f"cd {args.remote}/frontend && rm -rf .dist_c8_verify && "
-            f"npx vite build --outDir .dist_c8_verify --emptyOutDir >/tmp/c8_build.log 2>&1 && "
-            f"diff -r --brief .dist_c8_verify dist >/tmp/c8_diff.log 2>&1; "
-            f"RC=$?; rm -rf .dist_c8_verify; exit $RC"
+        html = f"{args.remote}/frontend/dist/index.html"
+        # 用 sed 而不是 grep -P（部分环境没有 -P）
+        rc, out = _run(
+            ssh + [f"sed -n 's/.*build-commit\" content=\"\\([^\"]*\\)\".*/\\1/p' {html}"],
+            timeout=45,
         )
-        rc, out = _run(ssh + [build_cmd], timeout=300)
-        if rc == 0:
-            c8_ok = True
-            record("C8 重构建幂等性（生产机上 rebuild 后 diff）", "完全一致", True)
-        elif rc == 124:
-            record("C8 重构建幂等性", None, None, "重建超时（>300s），C8 未判定")
-            res["notes"].append("C8 重建超时：未判定，不代表不一致")
+        deployed = out.strip().splitlines()[0].strip() if rc == 0 and out.strip() else None
+
+        if deployed and deployed != "unknown":
+            expect = (local_head or "")[:7]
+            same = deployed.startswith(expect) or expect.startswith(deployed)
+            c8_ok = same
+            record("产物标注的 commit（生产 dist）", deployed, same,
+                   "" if same else f"期望 HEAD 前缀 {expect}")
+            if not same:
+                res["notes"].append(
+                    f"生产产物标注 {deployed}，HEAD 是 {expect} ⇒ "
+                    "线上跑的不是当前源码的产物（需重新构建并部署）")
+        elif deployed == "unknown":
+            record("产物标注的 commit", "unknown", False,
+                   "构建时取不到 git 信息")
+            res["notes"].append("产物标注 unknown ⇒ C8 无法证实")
         else:
-            c8_ok = False
-            record("C8 重构建幂等性（生产机上 rebuild 后 diff）", "有差异", False, out[:200])
+            record("产物标注的 commit", None, None,
+                   "dist/index.html 里没有 build-commit meta（这是加注入之前的旧产物）")
             res["notes"].append(
-                "生产 dist 与「当前 HEAD 重新构建的产物」不一致 ⇒ "
-                "线上跑的不是 HEAD 的产物（需要重新构建并部署）")
+                "旧产物缺 build-commit 标记 ⇒ C8 未判定（不是不一致，是没法判）；"
+                "重新构建部署一次即可支持")
 
     # 本地 dist 只作参考，**不参与 C8 判定**（避免上面说的循环论证）
     local_dist = os.path.join(REPO, "frontend", "dist", "index.html")
@@ -201,7 +217,7 @@ def main(argv=None) -> int:
     if local_dist_md5:
         res["checks"]["本地 dist（仅参考，不参与判定）"] = {
             "value": local_dist_md5[:16], "ok": None,
-            "detail": "本地产物仅用于本地预览；C8 只认「生产机上 rebuild 的幂等性」",
+            "detail": "本地产物仅用于本地预览；C8 只认产物里标注的 build-commit",
         }
 
     res["checks"]["C8 生产产物一致"] = {
