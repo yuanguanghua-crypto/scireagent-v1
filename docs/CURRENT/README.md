@@ -36,6 +36,7 @@ grep -r "DATASOURCE_RELIABILITY.md" backend/ frontend/src/ scripts/ CLAUDE.md RE
 | 路径 | 内容 |
 |---|---|
 | `docs/po-portal/`（8 篇） | PO 采购门户 + 库存台（2026-10-14/15）—— 覆盖当前最大子系统 |
+| **`docs/TEST_STRATEGY.md`** | ★ **全站测试方案 V1**（2026-10-20 新建）—— 七层体系 L1–L7 / 拟人化七条铁律 / 发布门禁清单 / 现状差距与路线图。基于 2432 用例 · 57 模型 · 56 e2e 实测 |
 | `docs/e2e/`（3 篇） | E2E 计划与流程教训（`INTERACTION_INVENTORY.md` 被 42 处引用） |
 | `docs/ORPHAN_ENDPOINTS.md` | 后端端点 → 前端入口分诊表 |
 | `docs/design/DESIGN_SYSTEM.md` | 设计系统 |
