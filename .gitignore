@@ -105,6 +105,11 @@ deploy/.htpasswd.*
 deploy/CREDENTIALS.txt
 deploy/certbot/
 frontend/dist.bak*/
+# ★ 2026-10-20：构建产物备份的通用规则。
+#   此前 dist_prod_20261019 / dist_prod_20261019_r2 / dist_qa_backup_* 都**没被忽略**，
+#   3.4MB×2 的产物一直挂在 git status 的 untracked 里 —— 一次 `git add -A` 就会进库。
+#   只匹配 `dist-` / `dist_` 前缀，不会误伤 `frontend/src/...` 之类的源码目录。
+frontend/dist[-_]*/
 
 # 本地/探索垃圾与构建产物（不入库）
 ._*                                  # macOS / 工具产生的 ._ 垃圾文件
