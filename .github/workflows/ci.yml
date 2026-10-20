@@ -69,6 +69,13 @@ jobs:
             } | while IFS= read -r line; do
               echo "::error::$line"
             done
+          else
+            # ★ 成功时也要自证「真的跑了」：只报 success 无法区分
+            #   "跑了 2734 个用例" 与 "一个都没收集到"。
+            grep -E 'passed|skipped|failed' /tmp/pytest.log | tail -1 \
+              | while IFS= read -r line; do
+                  echo "::notice::pytest 结果：$line"
+                done
           fi
 
           cat /tmp/pytest.log
@@ -98,7 +105,23 @@ jobs:
 
       - name: 注入变异，测试必须变红
         # ⚠️ 脚本用 CI 的 python（没有 backend/venv/Scripts/python.exe 时会回退到 sys.executable）
-        run: python -B scripts/mutation_check.py
+        # ★ 关键：不能只看这个 step 是不是绿的 ——
+        #   "success" 也可能来自"脚本早退/没跑任何变异"。
+        #   所以把每个变异的判定结果打成 annotation，
+        #   让"真的注入了、真的变红了"这件事**可被外部核验**。
+        run: |
+          set +e
+          python -B scripts/mutation_check.py > /tmp/mut.log 2>&1
+          RC=$?
+
+          grep -E '注入变异|✅ 变红|❌ 仍绿|结果：有效|未留残留' /tmp/mut.log \
+            | head -9 \
+            | while IFS= read -r line; do
+                echo "::notice::$line"
+              done
+
+          cat /tmp/mut.log
+          exit $RC
 
       - name: 确认没有把变异残留下来
         run: |
@@ -130,7 +153,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: 校验 deliverables/capability_map.txt
-        run: python -B scripts/capability_guard.py --verify-map
+        # ★ 同样自证：success 可能是"真的比对了"，也可能是"文件不存在提前退出"
+        run: |
+          set +e
+          python -B scripts/capability_guard.py --verify-map > /tmp/map.log 2>&1
+          RC=$?
+          tail -4 /tmp/map.log | while IFS= read -r line; do
+            echo "::notice::$line"
+          done
+          cat /tmp/map.log
+          exit $RC
 
   # ── 4. 前端构建 ──────────────────────────────────────────────────────
   frontend-build:
