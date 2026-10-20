@@ -81,6 +81,14 @@ pkg = json.load(io.open("frontend/package.json", encoding="utf-8"))
 scripts = pkg.get("scripts", {})
 b_multi = any("--project=" not in v and "test" in k for k, v in scripts.items() if k.startswith("test:e2e"))
 
+# I 维：读 judge_interaction.py 的判定（不再返回 ☐）
+VERDICT = "docs/e2e/INTERACTION_VERDICT.md"
+I_MARKS = {}
+if os.path.isfile(VERDICT):
+    vt = io.open(VERDICT, encoding="utf-8").read()
+    for m in re.finditer(r"^## `([^`]+)` .*?\*\*(✓|✗)\*\*", vt, re.M):
+        I_MARKS[m.group(1)] = m.group(2)
+
 def has(route_set, route):
     """宽松匹配：台账写 /products/:id，spec 里写 /products/66 也算覆盖"""
     if route in route_set:
@@ -95,6 +103,9 @@ def verdict(route, dim, planned):
     if planned.strip() in ("—", "-", ""):
         return "—", "不适用"
     if dim == "I":
+        v = I_MARKS.get(route)
+        if v in ("✓", "✗"):
+            return v, "I 维判定（见 INTERACTION_VERDICT）"
         return "☐", "需人工"
     if dim == "P":
         return ("✓", "在 permission-matrix") if has(P_PAGES, route) else ("✗", "不在矩阵")

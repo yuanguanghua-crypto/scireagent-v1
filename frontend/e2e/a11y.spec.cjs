@@ -84,6 +84,21 @@ async function scan(page, label) {
     { name: 'PoAddressList', path: '/po/addresses', sel: '.po-page' },
     { name: 'PoReorder', path: '/po/reorder', sel: '.po-page' },
     { name: 'PoDownloadCenter', path: '/po/downloads', sel: '.po-page' },
+    // ★ 2026-10-21 P3：补 5 个 PO 内部审核台（A 维缺口按 audit 逐页算出来的）
+    { name: 'PoReviewDesk', path: '/ops/po/review', sel: '.po-page' },
+    { name: 'PoShipmentDesk', path: '/ops/po/shipments', sel: '.po-page' },
+    { name: 'PoInvoicingDesk', path: '/ops/po/invoicing', sel: '.po-page' },
+    { name: 'PoArReport', path: '/ops/po/ar', sel: '.po-page' },
+    { name: 'PoOrgManagement', path: '/ops/po/organizations', sel: '.po-page' },
+    // ★ 2026-10-21 P4：补 /workspace 子页 + products 两页（A 维缺口集中在这里）
+    { name: 'WorkspaceProducts', path: '/workspace/products', sel: '.products-page' },
+    { name: 'ProductNew', path: '/workspace/products/new', sel: '.product-edit' },
+    { name: 'WsGoals', path: '/workspace/goals', sel: '.entity-page' },
+    { name: 'WsApplications', path: '/workspace/applications', sel: '.entity-page' },
+    { name: 'WsMethods', path: '/workspace/methods', sel: '.entity-page' },
+    { name: 'WsProtocols', path: '/workspace/protocols', sel: '.entity-page' },
+    { name: 'WsReferences', path: '/workspace/references', sel: '.entity-page' },
+    { name: 'WsKnowledgeIntake', path: '/workspace/knowledge-intake', sel: '.ki-page' },
   ]
 
 test.describe('a11y 公开页扫描（硬断言 0 critical/0 serious）', { tag: ['@readonly', '@local-only'] }, () => {

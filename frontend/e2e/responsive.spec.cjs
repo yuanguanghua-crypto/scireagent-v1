@@ -28,11 +28,17 @@ const { loginAsStaff, BASE_URL } = require('./helpers/auth.cjs')
     { name: 'Home', path: '/', sel: '.home' },
     { name: 'Products', path: '/products', sel: '.product-grid' },
     { name: 'ProductDetail', path: '/products/66', sel: 'main' },
-    // ★ 2026-10-20 补：此前 R 维只覆盖 3 个公开页（全站 44 页里的 11%），此处扩到 P0 固定路径页
+    // ★ 2026-10-20 补：此前 R 维只覆盖 3 个公开页（全站 44 页里的 11%）
     { name: 'Search', path: '/search', sel: '.search-page' },
     { name: 'Login', path: '/login', sel: '.auth-page' },
     { name: 'Register', path: '/register', sel: '.auth-page' },
     { name: 'QuoteRequest', path: '/quote-request', sel: '.rfq-page' },
+    // ★ 2026-10-21 P1：再补 5 个固定路径公开页（R 维缺口按 audit 逐页算出来的）
+    { name: 'AppIndex', path: '/applications', sel: '.application-index' },
+    { name: 'MethodIndex', path: '/methods', sel: '.method-index' },
+    { name: 'ProtocolIndex', path: '/protocols', sel: '.protocol-index' },
+    { name: 'RGIndex', path: '/research-goals', sel: '.research-goal-index' },
+    { name: 'CartPage', path: '/cart', sel: '.cart-page' },
   ]
   const STAFF = [
     { name: 'AdminOrders', path: '/ops/orders', sel: '.order-table' },
@@ -40,6 +46,27 @@ const { loginAsStaff, BASE_URL } = require('./helpers/auth.cjs')
     // ★ 2026-10-20 补：workspace 下两个 P0 固定路径页
     { name: 'WorkspaceProducts', path: '/workspace/products', sel: '.products-page' },
     { name: 'ProductNew', path: '/workspace/products/new', sel: '.product-edit' },
+    // ★ 2026-10-21 P1：再补 13 个（auth 页 + PO 客户页 + PO 内部审核台，admin 登录均可访问）
+    { name: 'SettingsPage', path: '/settings', sel: '.settings-page' },
+    { name: 'CheckoutPage', path: '/checkout', sel: '.checkout-page' },
+    { name: 'OrderList', path: '/orders', sel: '.order-list-page' },
+    { name: 'PoSubmit', path: '/po/submit', sel: '.po-page' },
+    { name: 'PoOrderList', path: '/po/orders', sel: '.po-page' },
+    { name: 'PoAddressList', path: '/po/addresses', sel: '.po-page' },
+    { name: 'PoReorder', path: '/po/reorder', sel: '.po-page' },
+    { name: 'PoDownloadCenter', path: '/po/downloads', sel: '.po-page' },
+    { name: 'PoReviewDesk', path: '/ops/po/review', sel: '.po-page' },
+    { name: 'PoShipmentDesk', path: '/ops/po/shipments', sel: '.po-page' },
+    { name: 'PoInvoicingDesk', path: '/ops/po/invoicing', sel: '.po-page' },
+    { name: 'PoArReport', path: '/ops/po/ar', sel: '.po-page' },
+    { name: 'PoOrgManagement', path: '/ops/po/organizations', sel: '.po-page' },
+    // ★ 2026-10-21 P4：补 /workspace 子页（R 维缺口集中在这里；5 个共用 entity-page 类）
+    { name: 'WsGoals', path: '/workspace/goals', sel: '.entity-page' },
+    { name: 'WsApplications', path: '/workspace/applications', sel: '.entity-page' },
+    { name: 'WsMethods', path: '/workspace/methods', sel: '.entity-page' },
+    { name: 'WsProtocols', path: '/workspace/protocols', sel: '.entity-page' },
+    { name: 'WsReferences', path: '/workspace/references', sel: '.entity-page' },
+    { name: 'WsKnowledgeIntake', path: '/workspace/knowledge-intake', sel: '.ki-page' },
   ]
 
 for (const v of VIEWPORTS) {
