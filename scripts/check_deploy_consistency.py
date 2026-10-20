@@ -193,13 +193,43 @@ def main(argv=None) -> int:
         if deployed and deployed != "unknown":
             expect = (local_head or "")[:7]
             same = deployed.startswith(expect) or expect.startswith(deployed)
-            c8_ok = same
-            record("产物标注的 commit（生产 dist）", deployed, same,
-                   "" if same else f"期望 HEAD 前缀 {expect}")
-            if not same:
-                res["notes"].append(
-                    f"生产产物标注 {deployed}，HEAD 是 {expect} ⇒ "
-                    "线上跑的不是当前源码的产物（需重新构建并部署）")
+
+            # ★ 边界修正（2026-10-20，实测踩到）：meta 不等于 HEAD 时不能直接判红。
+            #   场景：`742cb8d` 只改了 docs/CLAIMS.md，前端源码一个字没动 ——
+            #   产物 48c42fb 仍然有效，但只比 HEAD 会误报。
+            #   正确做法：看 deployed..HEAD 之间**有没有触碰前端构建输入**。
+            BUILD_INPUTS = (
+                "frontend/src/", "frontend/public/", "frontend/index.html",
+                "frontend/vite.config.js", "frontend/package.json",
+                "frontend/package-lock.json",
+            )
+            if same:
+                c8_ok = True
+                record("产物标注的 commit（生产 dist）", deployed, True)
+            else:
+                rc, out = _run(["git", "diff", "--name-only", f"{deployed}..HEAD"])
+                if rc != 0:
+                    c8_ok = False
+                    record("产物标注的 commit（生产 dist）", deployed, False,
+                           f"期望 {expect}；且本地没有 {deployed} 这个提交，无法判断差异范围")
+                    res["notes"].append(
+                        f"产物标注 {deployed}，本地无此提交 ⇒ 无法确认它是从哪份源码构建的")
+                else:
+                    touched = [ln.strip() for ln in out.splitlines()
+                               if ln.strip().startswith(BUILD_INPUTS)]
+                    if touched:
+                        c8_ok = False
+                        record("产物标注的 commit（生产 dist）", deployed, False,
+                               f"期望 {expect}；且之后改过 {len(touched)} 个前端输入文件")
+                        res["notes"].append(
+                            f"产物 {deployed} 之后前端源码有 {len(touched)} 处改动"
+                            f"（如 {touched[0]}）⇒ 线上产物落后于源码，需重新构建部署")
+                    else:
+                        c8_ok = True
+                        record("产物标注的 commit（生产 dist）", f"{deployed}（HEAD={expect}）", True)
+                        res["notes"].append(
+                            f"产物标注 {deployed}，HEAD 是 {expect}，但两者之间"
+                            "**未改动任何前端构建输入**（只改了文档/脚本）⇒ 产物仍对应 HEAD 的前端源码")
         elif deployed == "unknown":
             record("产物标注的 commit", "unknown", False,
                    "构建时取不到 git 信息")
