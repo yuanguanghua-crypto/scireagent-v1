@@ -120,6 +120,49 @@ grep -n "project=" ../package.json
 
 ---
 
+## ✅ R 维已扩容：5 页 → 9 页（2026-10-20 实测）
+
+**改动**：`responsive.spec.cjs` 的 `PUBLIC` 3→7 页、`STAFF` 2→4 页：
+
+```js
+PUBLIC 新增：Search(/search) Login(/login) Register(/register) QuoteRequest(/quote-request)
+STAFF  新增：WorkspaceProducts(/workspace/products) ProductNew(/workspace/products/new)
+```
+
+| 指标 | 扩容前 | 扩容后 |
+|---|---|---|
+| 覆盖页面 | 5 | **9** |
+| test 数 | 22 | **46**（+24） |
+| 运行时长 | 3.0 分钟 | **7.6 分钟** |
+| 失败 | 0 | **0** |
+
+⇒ **实测通过（46 passed, 0 failed）**，不是"改了没跑"。
+
+### ⚠️ 由此得到的成本结论（重要）
+
+**页面数与运行时间大致线性**：
+
+```
+5 页  → 3.0 分钟
+9 页  → 7.6 分钟
+⇒ 44 页 ≈ 35~40 分钟（单 chromium × 4 视口）
+```
+
+⇒ **全量扩到 44 页不可行**（本地一轮 40 分钟，进 CI 更不可接受）。
+
+**建议分档**（未实施，待决策）：
+
+| 档 | 范围 | 触发时机 |
+|---|---|---|
+| **快档** | P0 固定路径页（约 9~12 页） | 每次 PR |
+| **全档** | 全部 44 页 | nightly / 发版前 |
+
+### 仍待做
+- `a11y.spec.cjs` / `visual-tokens.spec.cjs` 仍是 5 页（未扩）
+- `:id` 类页面（如 `/applications/:id`）需要真实 ID，**不能直接加**，要先建 fixture
+
+---
+
 ## 已判定清单
 
 | # | 页面 | I | P | S | R | V | A | B | 判定日 |

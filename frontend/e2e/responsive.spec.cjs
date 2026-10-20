@@ -16,15 +16,23 @@ const VIEWPORTS = [
   { name: 'tablet', w: 768, h: 1024 },
   { name: 'mobile', w: 375, h: 667 },
 ]
-const PUBLIC = [
-  { name: 'Home', path: '/', sel: '.home' },
-  { name: 'Products', path: '/products', sel: '.product-grid' },
-  { name: 'ProductDetail', path: '/products/66', sel: 'main' },
-]
-const STAFF = [
-  { name: 'AdminOrders', path: '/ops/orders', sel: '.order-table' },
-  { name: 'Workspace', path: '/workspace', sel: '.workspace-layout' },
-]
+  const PUBLIC = [
+    { name: 'Home', path: '/', sel: '.home' },
+    { name: 'Products', path: '/products', sel: '.product-grid' },
+    { name: 'ProductDetail', path: '/products/66', sel: 'main' },
+    // ★ 2026-10-20 补：此前 R 维只覆盖 3 个公开页（全站 44 页里的 11%），此处扩到 P0 固定路径页
+    { name: 'Search', path: '/search', sel: '.search-page' },
+    { name: 'Login', path: '/login', sel: '.auth-page' },
+    { name: 'Register', path: '/register', sel: '.auth-page' },
+    { name: 'QuoteRequest', path: '/quote-request', sel: '.rfq-page' },
+  ]
+  const STAFF = [
+    { name: 'AdminOrders', path: '/ops/orders', sel: '.order-table' },
+    { name: 'Workspace', path: '/workspace', sel: '.workspace-layout' },
+    // ★ 2026-10-20 补：workspace 下两个 P0 固定路径页
+    { name: 'WorkspaceProducts', path: '/workspace/products', sel: '.products-page' },
+    { name: 'ProductNew', path: '/workspace/products/new', sel: '.product-edit' },
+  ]
 
 for (const v of VIEWPORTS) {
   test.describe(`视口 ${v.name} (${v.w}x${v.h})`, { tag: ['@readonly', '@local-only'] }, () => {
