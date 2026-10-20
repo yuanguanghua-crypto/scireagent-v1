@@ -72,9 +72,12 @@ jobs:
           else
             # ★ 成功时也要自证「真的跑了」：只报 success 无法区分
             #   "跑了 2734 个用例" 与 "一个都没收集到"。
-            grep -E 'passed|skipped|failed' /tmp/pytest.log | tail -1 \
+            # ⚠️ 不能用 `grep 'passed'` 取汇总行 —— 实测本仓库在有 warnings 时
+            #    pytest -q 会把 "N passed" 整行吞掉（grep 结果为空，踩过）。
+            #    改用 scripts/test_result_summary.py（纯标准库，专门处理这个坑）。
+            python ../scripts/test_result_summary.py /tmp/pytest.log 2>/dev/null | tail -2 \
               | while IFS= read -r line; do
-                  echo "::notice::pytest 结果：$line"
+                  echo "::notice::$line"
                 done
           fi
 
