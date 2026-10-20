@@ -96,9 +96,9 @@
 | 30 | `/workspace/products/new` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
 | 31 | `/workspace/products/new/:id/edit` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
 | 32 | `/workspace/goals` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、cascader-workflow.spec.c… |
-| 33 | `/applications` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | applayout-navpad-check.s、homepage.spec.cjs… |
-| 34 | `/methods` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | api-permission-writes.sp、applayout-navpad-check.s… |
-| 35 | `/protocols` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | knowledge-intake.spec.cj、permission-matrix.spec.c… |
+| 33 | `/workspace/applications` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、applayout-navpad-check.s… |
+| 34 | `/workspace/methods` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
+| 35 | `/workspace/protocols` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、cascader-workflow.spec.c… |
 | 36 | `/workspace/references` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、cascader-workflow.spec.c… |
 | 37 | `/workspace/knowledge-intake` | KnowledgeIntake | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、basket-local-merge-prune… |
 | 38 | `/ops/orders` | AdminOrders/Detail | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |

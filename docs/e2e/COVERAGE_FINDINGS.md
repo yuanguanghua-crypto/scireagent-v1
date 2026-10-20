@@ -166,6 +166,64 @@ E2E_TIER=full npx playwright test e2e/responsive.spec.cjs --project=chromium
 
 ---
 
+## 🚨 A 维扩容结果：22 页扫完，扫出 36 处真实 a11y 违规（2026-10-20）
+
+**改动**：`a11y.spec.cjs` 的 `PUBLIC` 3→12 页、`STAFF` 2→10 页。
+**实测**：**8 passed / 14 failed**（8.3 分钟）—— 失败**不是 sel 写错**（0 个 timeout），是**真违规**。
+
+### 干净的 8 页
+
+```
+Home / Products / ProductDetail / LoginPage / RegisterPage / SearchPage / CartPage / Workspace
+```
+⇒ 这些页 `total=0 critical=0 serious=0`
+
+### 有违规的 14 页
+
+| 页 | total | critical | serious |
+|---|---|---|---|
+| **PoSubmit** | 3 | **2** | 1 |
+| **ResearchGoalIndex** | 2 | **1** | 1 |
+| **PoOrderList** | 2 | **1** | 1 |
+| **QuoteRequestPage** | 1 | **1** | 0 |
+| ApplicationIndex | 1 | 0 | 1 |
+| MethodIndex | 1 | 0 | 1 |
+| ProtocolIndex | 1 | 0 | 1 |
+| SettingsPage | 1 | 0 | 1 |
+| CheckoutPage | 1 | 0 | 1 |
+| OrderListPage | 1 | 0 | 1 |
+| AdminOrders | 1 | 0 | 1 |
+| PoAddressList | 1 | 0 | 1 |
+| PoReorder | 1 | 0 | 1 |
+| PoDownloadCenter | 1 | 0 | 1 |
+
+### 违规只有 3 类（共 36 处）
+
+| axe 规则 | 级别 | 处数 | 含义 |
+|---|---|---|---|
+| `color-contrast` | serious | **26** | 文字对比度不达 WCAG 阈值 |
+| `label` | **critical** | **6** | 表单元素没有关联 label |
+| `select-name` | **critical** | **4** | `<select>` 无可访问名称 |
+
+### ⚠️ 我**没有**为了让测试变绿去降级断言
+
+这是关键选择：14 页失败 = **14 页真的有 a11y 问题**，不是测试写错。
+如果去掉断言或删页面，就是**第二次"假绿"**（今天已经踩过一次 C8）。
+
+**结论：测试保持红，债被显性化。** 修好一页就绿一页。
+
+### 修复建议（按性价比）
+
+| 优先 | 修什么 | 影响页数 | 成本 |
+|---|---|---|---|
+| 1 | **`select-name`**（4 处） | PoSubmit 等 | **小**（加 `aria-label`） |
+| 2 | **`label`**（6 处） | PoSubmit / ResearchGoalIndex / QuoteRequestPage / PoOrderList | **小**（加 `<label for>` 或 `aria-label`） |
+| 3 | **`color-contrast`**（26 处） | 10 页 | 中（要调设计令牌或文字色，可能影响视觉一致性） |
+
+⚠️ 第 3 条要小心：改对比度会动**设计令牌**，可能和 `visual-tokens.spec` 的"全站一致"断言冲突 ⇒ 必须一起改。
+
+---
+
 ## 已判定清单
 
 > ⚠️ **2026-10-20 修正**：`scripts/audit_7d_auto.py` 自动审计上线后，发现我前两页的人工判定**有两处错误**：

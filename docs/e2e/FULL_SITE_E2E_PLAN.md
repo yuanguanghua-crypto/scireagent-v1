@@ -120,7 +120,7 @@
 | `/workspace`(dashboard) | DashboardPage | 概览卡片 / 快捷入口 / LoadingSpinner | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
 | `/workspace/products` | ProductsPage | 15 按钮 / 3 弹层 / 可排序表 / 过滤 | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
 | `/workspace/products/new`+`:id/edit` | ProductEditPage | **37 按钮 / 50 输入 / 发布弹层 / 上传 / 校验** | 仅 admin | 产品发布态 | ✓ | ✓ | ✓ | ☐ | P0 |
-| `/workspace/goals` `/applications` `/methods` `/protocols` `/workspace/references` | 各管理页 | 增删改 / showEditor 弹层 / toast.error | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/workspace/goals` `/workspace/applications` `/workspace/methods` `/workspace/protocols` `/workspace/references` | 各管理页 | 增删改 / showEditor 弹层 / toast.error | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
 | `/workspace/knowledge-intake` | KnowledgeIntake | 12 输入 / 产品下拉 / ki-toast | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
 | `/ops/orders`+`:id` | AdminOrders/Detail | 过滤 / 状态流转 / alert 错误 | 仅 admin | 订单旧态(legacy) | ✓ | ✓ | ✓ | ☐ | P1 |
 | `/ops/po/review` | PoReviewDesk | 待审列表 / approve/reject/assign-rep | 仅 admin | PO 审核态 | ✓ | ✓ | ✓ | ☐ | P1 |

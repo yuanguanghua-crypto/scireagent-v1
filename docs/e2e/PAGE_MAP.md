@@ -34,9 +34,9 @@
 | 30 | `/workspace/products/new` | ? | ? | ADMIN | P0 | ⚠️ 无根class |
 | 31 | `/workspace/products/new/:id/edit` | ? | ? | AUTH | P0 | ❌ 需 fixture |
 | 32 | `/workspace/goals` | ? | ? | ADMIN | P1 | ⚠️ 无根class |
-| 33 | `/applications` | ApplicationIndex.vue | application-index | PUBLIC | P1 | ✅ |
-| 34 | `/methods` | MethodIndex.vue | method-index | PUBLIC | P1 | ✅ |
-| 35 | `/protocols` | ProtocolIndex.vue | protocol-index | PUBLIC | P1 | ✅ |
+| 33 | `/workspace/applications` | ? | ? | ADMIN | P1 | ⚠️ 无根class |
+| 34 | `/workspace/methods` | ? | ? | ADMIN | P1 | ⚠️ 无根class |
+| 35 | `/workspace/protocols` | ? | ? | ADMIN | P1 | ⚠️ 无根class |
 | 36 | `/workspace/references` | ? | ? | ADMIN | P1 | ⚠️ 无根class |
 | 37 | `/workspace/knowledge-intake` | ? | ? | ADMIN | P1 | ⚠️ 无根class |
 | 38 | `/ops/orders` | admin/AdminOrdersPage.vue | admin-orders-page | ADMIN | P1 | ✅ |
@@ -51,12 +51,12 @@
 
 | 项 | 数 |
 |---|---|
-| 可直接加 ✅ | **29** |
+| 可直接加 ✅ | **26** |
 | 需 fixture（:id）❌ | 10 |
-| 无根 class ⚠️ | 5 |
+| 无根 class ⚠️ | 8 |
 
 ## 分组分布
 
-- **PUBLIC**：14 页可加
+- **PUBLIC**：11 页可加
 - **AUTH**：8 页可加
-- **ADMIN**：12 页可加
+- **ADMIN**：15 页可加

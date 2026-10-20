@@ -48,15 +48,34 @@ async function scan(page, label) {
   expect(serious, `A11Y[${label}] 不应存在 serious 级可访问性违规`).toHaveLength(0)
 }
 
-const PUBLIC = [
-  { name: 'Home', path: '/', sel: '.home' },
-  { name: 'Products', path: '/products', sel: '.product-grid' },
-  { name: 'ProductDetail', path: '/products/66', sel: 'main' },
-]
-const STAFF = [
-  { name: 'AdminOrders', path: '/ops/orders', sel: '.order-table' },
-  { name: 'Workspace', path: '/workspace', sel: '.workspace-layout' },
-]
+  const PUBLIC = [
+    { name: 'Home', path: '/', sel: '.home' },
+    { name: 'Products', path: '/products', sel: '.product-grid' },
+    { name: 'ProductDetail', path: '/products/66', sel: 'main' },
+    // ★ 2026-10-20 扩容：A 维此前只覆盖 3 个公开页（全站 44 页里 11%）
+    { name: 'LoginPage', path: '/login', sel: '.auth-page' },
+    { name: 'RegisterPage', path: '/register', sel: '.auth-page' },
+    { name: 'SearchPage', path: '/search', sel: '.search-page' },
+    { name: 'ApplicationIndex', path: '/applications', sel: '.application-index' },
+    { name: 'MethodIndex', path: '/methods', sel: '.method-index' },
+    { name: 'ProtocolIndex', path: '/protocols', sel: '.protocol-index' },
+    { name: 'ResearchGoalIndex', path: '/research-goals', sel: '.research-goal-index' },
+    { name: 'QuoteRequestPage', path: '/quote-request', sel: '.rfq-page' },
+    { name: 'CartPage', path: '/cart', sel: '.cart-page' },
+  ]
+  const STAFF = [
+    { name: 'AdminOrders', path: '/ops/orders', sel: '.order-table' },
+    { name: 'Workspace', path: '/workspace', sel: '.workspace-layout' },
+    // ★ 2026-10-20 扩容
+    { name: 'SettingsPage', path: '/settings', sel: '.settings-page' },
+    { name: 'CheckoutPage', path: '/checkout', sel: '.checkout-page' },
+    { name: 'OrderListPage', path: '/orders', sel: '.order-list-page' },
+    { name: 'PoSubmit', path: '/po/submit', sel: '.po-page' },
+    { name: 'PoOrderList', path: '/po/orders', sel: '.po-page' },
+    { name: 'PoAddressList', path: '/po/addresses', sel: '.po-page' },
+    { name: 'PoReorder', path: '/po/reorder', sel: '.po-page' },
+    { name: 'PoDownloadCenter', path: '/po/downloads', sel: '.po-page' },
+  ]
 
 test.describe('a11y 公开页扫描（硬断言 0 critical/0 serious）', { tag: ['@readonly', '@local-only'] }, () => {
   for (const p of PUBLIC) {
