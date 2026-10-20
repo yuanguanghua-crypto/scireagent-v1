@@ -224,6 +224,36 @@ Home / Products / ProductDetail / LoginPage / RegisterPage / SearchPage / CartPa
 
 ---
 
+### 修复进度（2026-10-20）
+
+| 页 | 修复前 critical | 修复后 | 修法 | 状态 |
+|---|---|---|---|---|
+| **PoSubmit** | 2 | **0** | 11 对 `for`/`id` | ✅ 已修（`dab3710`） |
+| **QuoteRequestPage** | 1 | **0** | `aria-label="Quantity"` | ✅ 已修（`8a9153e`） |
+| **PoOrderList** | 1 | **0** | `aria-label="Filter orders by status"` | ✅ 已修（`8a9153e`） |
+| ResearchGoalIndex | 1 | **1** | — | ⚠️ **未修，疑似库问题** |
+
+**已修 3 页 / 4 处 critical，剩 1 处。**
+
+#### 两处修复的根因都值得记
+
+1. **PoSubmit**：`<label>` 有，但**没有 `for`、input 没有 `id`** ⇒ 视觉有标签、屏幕阅读器关联不上
+2. **QuoteRequestPage**：`<label v-if="idx === 0">` —— **label 只在第一行显示**，第 2+ 行的数量输入框**完全没标签**
+   ⇒ 这个缺陷很隐蔽：人看着第一行有 "Qty" 标签，会以为下面几行也有
+
+#### ResearchGoalIndex 为什么没修
+
+axe 报 `label` 规则命中 `.el-table__header th`，但：
+- `th` **不是 form element**
+- 该表格**没有 selection 列**（无 checkbox）
+- 命中节点是 `#el-id-3804-15` —— **Element Plus 自动生成的 id**
+- message 是 "Element default semantics were not overridden with role=none/presentation"（不是标准的 label 报错文案）
+
+⇒ **疑似 Element Plus `th` 的 axe 判定问题，不是我们的代码缺陷**。
+⇒ **不豁免、不掩盖**，标记为「待确认」；需用 DOM 检查确认 `th` 里到底有什么。
+
+---
+
 ## 已判定清单
 
 > ⚠️ **2026-10-20 修正**：`scripts/audit_7d_auto.py` 自动审计上线后，发现我前两页的人工判定**有两处错误**：
