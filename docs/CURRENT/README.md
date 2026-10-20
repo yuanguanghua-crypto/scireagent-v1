@@ -35,6 +35,7 @@ grep -r "DATASOURCE_RELIABILITY.md" backend/ frontend/src/ scripts/ CLAUDE.md RE
 
 | 路径 | 内容 |
 |---|---|
+| **`docs/TEST_EXECUTION_CARD.md`** | ★★ **测试执行卡（1 页）** —— **日常执行只看这张**：提交前 5 条命令 / 发布 6 项门禁 / E2E 七条铁律 / 现在还做不到的事 |
 | `docs/po-portal/`（8 篇） | PO 采购门户 + 库存台（2026-10-14/15）—— 覆盖当前最大子系统 |
 | **`docs/TEST_STRATEGY.md`** | ★ **全站测试方案 V1**（2026-10-20 新建）—— 七层体系 L1–L7 / 拟人化七条铁律 / 发布门禁清单 / 现状差距与路线图。基于 2432 用例 · 57 模型 · 56 e2e 实测 |
 | `docs/e2e/`（3 篇） | E2E 计划与流程教训（`INTERACTION_INVENTORY.md` 被 42 处引用） |
