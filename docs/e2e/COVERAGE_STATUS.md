@@ -130,8 +130,8 @@
 | D1 | **P0** | ~~`/ops/po/organizations` 订单查看忽略机构筛选~~ **✅ 已修 10-21**（后端 filterset 补 org；后端 5 例 + E2E 2 例） |
 | D2 | **P0** | ~~`/orders` 无分页 ⇒ 第 21 单起看不到~~ **✅ 已修 10-21**（store 读信封 meta.count + 接 DataPagination；E2E 2 例） |
 | D3 | P1 | ~~`/ops/po/invoicing` 一开票订单就消失~~ **✅ 已修 10-21**（队列改按状态过滤；E2E 正+反 2 例，含变异验证） |
-| D4 | P1 | `/ops/orders` 状态筛选缺 PO 流程态 ⇒ 筛不出待审单 |
-| D5 | P1 | `/po/orders` 筛选缺 `quote_pending` / `quoted`（库内实有 40+33 单） |
+| D4 | P1 | ~~`/ops/orders` 状态筛选缺 PO 流程态 + 无分页~~ **✅ 已修 10-21**（词表统一到 poConstants；补分页；E2E 3 例） |
+| D5 | P1 | ~~`/po/orders` 筛选缺 quote_pending/quoted~~ **✅ 已修 10-21**（补 legacy 组 + 修 total + 补分页；E2E 3 例） |
 | D6 | P1 | `/po/orders/:id` 的 "For Research Use Only" **恒显示**（合规声明误用） |
 | D7 | P2 | a11y：25 页 50 处 color-contrast + 1 处 critical 未清 |
 | D8 | P3 | `PoSubmit.vue:156-159` 第三条 alert 是**死代码** |
@@ -146,8 +146,8 @@
 |---|---|---|---|
 | ~~1~~ | ~~修 D1 / D2~~ | ~~最高~~ | **✅ 已完成（2026-10-21）**，见 `DEFECTS_FOUND.md` |
 | ~~1~~ | ~~修 D3~~ | ~~最高~~ | **✅ 已完成（2026-10-21）**：改前端队列过滤即可，无需动 serializer |
-| 1 | 修 **D4 / D5**（状态筛选缺项；D4 还缺分页） | **最高** | 中（对齐状态词表 + 抄 `/orders` 的 DataPagination；D4 顺带解掉开票台 200 单截断） |
-| 2 | 修 **D6**（RUO 恒显示） | 中（合规） | 小（serializer 补 `is_ruo`） |
+| ~~1~~ | ~~修 D4 / D5~~ | ~~最高~~ | **✅ 已完成（2026-10-21）**：`order-status-filters.spec.cjs` 6 例 |
+| 1 | 修 **D6**（RUO 恒显示） | **最高（合规声明误用）** | 小（serializer 补 `is_ruo`） |
 | 3 | 修 **D7** color-contrast 50 处 | 中 | **大**（动设计令牌，连带 visual-tokens） |
 | 4 | WebKit 跨浏览器（需无代理环境/CI） | 中 | 大（环境依赖） |
 
