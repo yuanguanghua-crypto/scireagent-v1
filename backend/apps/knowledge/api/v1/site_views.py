@@ -53,9 +53,26 @@ def get_suggested_searches():
 def site_home(request):
     """Home page composite data."""
     # Featured applications (by display_priority)
-    featured_apps = (
+    #
+    # ★ 2026-10-21 性能（L7）：`annotate(...)` + `order_by + [:6]` 生成的是
+    #   `GROUP BY application.*, research_goal.*  ORDER BY display_priority DESC, sort_order LIMIT 6`。
+    #   **`GROUP BY` 让 `LIMIT` 无法下推** ⇒ PG 必须先对**全部** active application
+    #   （该库 28566 行）做完 `LEFT JOIN method → product_method → product` 的聚合，
+    #   再排序取 6 行。实测这条 SQL **195ms**，是 `/api/v1/site/home` 剩下的唯一瓶颈
+    #   （查询数已从 51 降到 23，但耗时没降 —— 因为瓶颈在这条的单次开销，不在次数）。
+    #
+    #   排序键 `display_priority` / `sort_order` 都是 Application **自身字段**、
+    #   与两个聚合值无关 ⇒ 先按它们取前 6 个 id，再只对这 6 个聚合，**结果等价**。
+    #   已用「优化前后响应逐字节比对」验证。
+    _top_app_ids = list(
         Application.objects
         .filter(status='active')
+        .order_by('-display_priority', 'sort_order')
+        .values_list('id', flat=True)[:6]
+    )
+    featured_apps = (
+        Application.objects
+        .filter(id__in=_top_app_ids)
         .select_related('research_goal')
         .annotate(
             products_count=Count(
@@ -69,7 +86,7 @@ def site_home(request):
                 distinct=True
             ),
         )
-        .order_by('-display_priority', 'sort_order')[:6]
+        .order_by('-display_priority', 'sort_order')
     )
 
     # Featured methods (by display_priority if available, else default)
@@ -96,9 +113,27 @@ def site_home(request):
     )
 
     # Featured solutions (Application-level aggregation)
-    featured_solutions = (
+    #
+    # ★ 2026-10-21 性能（L7）：原写法是「对**全部** `status=active AND display_priority>0`
+    #   的 Application 做 3 组 `COUNT(DISTINCT)`（其中两次跨到
+    #   `methods__method_protocols__protocol` / `methods__product_methods__product`
+    #   三层），再 `ORDER BY display_priority DESC LIMIT 6`。
+    #   **`GROUP BY` 会让 `LIMIT` 无法下推** ⇒ PG 必须先把几千行（实测该库 28566 个
+    #   active application）全部聚合出来再排序，实测这条 SQL **192ms**，
+    #   占了 `/api/v1/site/home` 的一半以上耗时。
+    #
+    #   排序键 `display_priority` 是 Application **自身字段**、与三个聚合值无关
+    #   ⇒ 可以先按它取前 6 个 id，再只对这 6 个聚合。**结果完全等价**
+    #   （已用「优化前后响应逐字节比对」验证，见 COVERAGE_STATUS §3.17）。
+    _top_solution_ids = list(
         Application.objects
         .filter(status='active', display_priority__gt=0)
+        .order_by('-display_priority', 'id')      # 加 id 作次序键：原写法次序未定义，这里更确定
+        .values_list('id', flat=True)[:6]
+    )
+    featured_solutions = (
+        Application.objects
+        .filter(id__in=_top_solution_ids)
         .annotate(
             methods_count=Count(
                 'methods',
@@ -116,7 +151,7 @@ def site_home(request):
                 distinct=True
             ),
         )
-        .order_by('-display_priority')[:6]
+        .order_by('-display_priority', 'id')
     )
 
     # Research goals
@@ -162,21 +197,38 @@ def site_home(request):
     }
 
     # Categories — L1 breakdown with product counts (DB-driven via ProductClass)
-    from apps.commerce.models import ProductClass as PC
-    from apps.commerce.selectors import get_descendant_product_class_ids
+    #
+    # ★ 2026-10-21 性能（L7）：这里原本是 **N+1**。每个 L1 分类调一次
+    #   `get_descendant_product_class_ids`（内部 1 次查 l1 + 1 次查 children +
+    #   每个 child 再 1 次查 grandchildren），再各自 `COUNT` 一次产品
+    #   ⇒ 实测 `/api/v1/site/home` 共 **51 次查询 / p95 322ms**，其中
+    #   **21 次**是 `SELECT id FROM product_class WHERE parent_id = N`。
+    #   改为「一次读全树（内存建索引）+ 一次 group by 聚合产品数」⇒ 2 次查询。
+    #
+    #   语义严格对齐原来的 `get_descendant_product_class_ids(slug)`：
+    #   只认 `parent_id IS NULL` 的 slug（见 selector 的 docstring）。
+    from apps.commerce.selectors import build_product_class_tree
     CATEGORY_META = {
         'nucleotides_nucleosides': {'name': 'Nucleotides', 'slug': 'nucleotides', 'color': '#7C3AED', 'bg': '#EDE9FE'},
         'click_chemistry': {'name': 'Click Chemistry', 'slug': 'click-chemistry', 'color': '#0F766E', 'bg': '#F0FDFA'},
         'molecular_biology': {'name': 'Molecular Biology', 'slug': 'molecular-biology', 'color': '#64748B', 'bg': '#F1F5F9'},
     }
+    desc_map, l1_slug_to_id = build_product_class_tree()
+    # 一次聚合：每个 product_class 的产品数（同一次查询覆盖全部分类）
+    per_class_counts = {
+        cid: n for cid, n in (
+            Product.objects
+            .filter(status__in=['active', 'published'], archived=False)
+            .values('product_class_id')
+            .annotate(n=Count('id'))
+            .values_list('product_class_id', 'n')
+        )
+    }
     categories_payload = []
     for l1_slug, meta in CATEGORY_META.items():
-        descendant_ids = get_descendant_product_class_ids(l1_slug)
-        count = Product.objects.filter(
-            product_class_id__in=descendant_ids,
-            status__in=['active', 'published'],
-            archived=False,
-        ).count() if descendant_ids else 0
+        root_id = l1_slug_to_id.get(l1_slug)
+        descendant_ids = desc_map.get(root_id, []) if root_id else []
+        count = sum(per_class_counts.get(i, 0) for i in descendant_ids)
         categories_payload.append({**meta, 'count': count})
 
     # Knowledge section data — aligned with frontend KnowledgeSection

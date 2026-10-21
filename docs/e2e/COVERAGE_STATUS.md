@@ -689,6 +689,60 @@ cd backend && venv/Scripts/python.exe ../scripts/run_pg_tests.py
 
 ---
 
+## 3.17 `site/home` 性能：p95 322ms → 93ms（2026-10-21）
+
+### 3.17.1 两个独立的病灶，只有一个是"次数"
+最初 profile 看到 **51 次查询**，很自然会以为全是 N+1。但分开看是两件事：
+
+| 病灶 | 证据 | 改法 |
+|---|---|---|
+| **真 N+1**：分类树 | `SELECT id FROM product_class WHERE parent_id = N` 出现 **21 次** —— `get_descendant_product_class_ids` 每次调用要 1+1+len(children) 次查询，却在 3 个 L1 分类的循环里调用 | 一次读全树进内存建索引（`build_product_class_tree`，**防环**）+ 一次 `GROUP BY` 聚合产品数 ⇒ 2 次查询 |
+| **单条巨慢**（真瓶颈） | `featured_apps` / `featured_solutions` 各 **195ms / 192ms** | 见下 |
+
+**关键教训**：查询数从 51 降到 23 后，**p95 只从 322ms 降到 298ms**。如果只看"查询数减半"就收工，会误以为优化完成。
+⇒ **优化必须看耗时，不能只看次数**。
+
+### 3.17.2 真正的病灶：`GROUP BY` 阻止 `LIMIT` 下推
+```python
+Application.objects.filter(status='active')
+    .annotate(products_count=Count(...), methods_count=Count(...))   # 跨三层 LEFT JOIN
+    .order_by('-display_priority', 'sort_order')[:6]
+```
+生成的是 `GROUP BY application.*, research_goal.* ORDER BY ... LIMIT 6`。
+**`GROUP BY` 让 `LIMIT` 无法下推** ⇒ PG 必须先对**全部 28,566 行**做完聚合，再排序取 6 行。
+
+**为什么可以安全地拆开**：排序键 `display_priority` / `sort_order` 都是 `Application`
+**自身字段**，与聚合值无关 ⇒ 「先按它取前 6 个 id，再只对这 6 个聚合」结果完全等价。
+
+这是一个**可复用的判据**：
+> `annotate(...)` + `order_by(...)` + `[:N]` 三者同时出现时，先确认
+> order_by 的键是不是**聚合值**。不是 ⇒ 可以拆成"先筛 id 再聚合"；是 ⇒ 拆了就会错。
+
+### 3.17.3 顺带修掉一个真问题：并列优先级的顺序不确定
+原查询只有 `order_by('-display_priority')`，`display_priority` 相同的行**返回顺序未定义**
+（PG 不保证稳定）⇒ 首页轮播/推荐位的顺序可能每次刷新都变。
+改写时补了 `id` 作为次序键。当前数据无并列，所以响应逐字节不变；但**有并列时行为变确定**。
+
+### 3.17.4 验证方式：逐字节比对，而不是"看起来对"
+优化前后各 dump 一次响应 body 做 `==` 比较：**`True`（43,360 字节完全一致）**。
+这比"断言几个字段相等"强得多——它能抓住任何一处细微差异。
+> 注意顺序：**先 dump 优化前响应**，再改代码。改完再 dump 就没有基线了。
+
+### 3.17.5 结果
+| 指标 | 优化前 | 优化后 |
+|---|---|---|
+| 查询数 | 51 | **24** |
+| 最慢单条 SQL | 195ms | **15ms** |
+| p95 | 322ms | **93ms**（3.5×） |
+| 响应体 | 43,360B | 43,360B（**逐字节一致**） |
+
+**性能基线已同步下调到 92.8ms** —— 这一步不能省：基线若仍停在 322ms，
+那么以后退化回 300ms 也不会报警，等于把刚拿到的收益又还回去。
+
+回归：`apps/knowledge + apps/commerce` **1428 passed / 0 failed**。
+
+---
+
 ## 4. 下一轮该做什么（按价值排序）
 
 | # | 任务 | 价值 | 成本 |

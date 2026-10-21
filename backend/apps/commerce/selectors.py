@@ -35,6 +35,44 @@ def get_descendant_product_class_ids(root) -> list:
     return ids
 
 
+def build_product_class_tree():
+    """一次查询把整棵 ProductClass 读进内存，返回 `(descendant_map, l1_slug_to_id)`。
+
+    ## 为什么需要
+    `get_descendant_product_class_ids` 每次调用要 **1 + 1 + len(children)** 次查询，
+    放在循环里就退化成 N+1。实测 `/api/v1/site/home` 有 **21 次**
+    `SELECT id FROM product_class WHERE parent_id = N`，占该端点 51 次查询的 4 成。
+
+    ## 语义与 `get_descendant_product_class_ids` 严格对齐
+    - `descendant_map[节点 id]` = 「自身 + 全部后代」的 id 列表（与原函数同序不影响求和）
+    - `l1_slug_to_id` **只收 `parent_id IS NULL` 的节点** —— 原函数对
+      `slug=..., parent__isnull=True` 找不到时直接返回 `[]`，这里保持一致，
+      避免"slug 命中了 L2 节点"时算出一批本不该算的后代。
+
+    ## 防环
+    数据里万一出现 `parent_id` 环（历史脏数据），朴素递归会**死循环**。
+    这里用 visited 集合兜住，环上节点只收一次。
+    """
+    rows = list(ProductClass.objects.values_list('id', 'parent_id', 'slug'))
+    children = {}
+    for pk, parent, _slug in rows:
+        children.setdefault(parent, []).append(pk)
+
+    desc_map = {}
+    for pk, _parent, _slug in rows:
+        stack, seen = [pk], set()
+        while stack:
+            cur = stack.pop()
+            if cur in seen:          # 防环
+                continue
+            seen.add(cur)
+            stack.extend(children.get(cur, ()))
+        desc_map[pk] = list(seen)
+
+    l1_slug_to_id = {slug: pk for pk, parent, slug in rows if parent is None}
+    return desc_map, l1_slug_to_id
+
+
 def filter_products(query: str = '', filters: dict = None, base_qs: QuerySet = None) -> QuerySet:
     """筛选/搜索产品
 
