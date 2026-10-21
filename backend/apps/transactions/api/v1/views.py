@@ -10,6 +10,17 @@ from apps.transactions.api.v1.serializers import (
 
 
 class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
+    # ★ 2026-10-21 只读化（F4，P2 孤儿写口）：此前是完整 ModelViewSet，且**无
+    #   `perform_create`** ⇒ 登录用户 `POST /orders/` 可造出 `user=NULL` 的**孤儿订单**
+    #   （谁都不拥有、审核台永远查不到）；`order_no` 又没标 read_only 且 `unique=True`
+    #   无默认值 ⇒ 不传就 IntegrityError → 500；还能顺手写 payment_method / po_number。
+    #   前端对 `/orders/` **只有 GET**（api/orders.js、api/poPortal.js、api/adminPo.js
+    #   全是 http.get，全仓无 `post('/orders/'`）⇒ 写口是**孤儿**，只读化零功能损失。
+    #   真实下单入口：`CheckoutView`（结账）与 `POSubmitView`（/orders/po/），均自带
+    #   服务层校验（收件人、SKU、价格覆盖、订单号生成）。
+    #   ⇒ 写方法一律 405。注意 DRF 语义：dispatch() 先 check_permissions() 再查方法
+    #      ⇒ 匿名写仍是 401（非 405），见同文件 QuoteViewSet:50-54 的同一做法。
+    http_method_names = ['get', 'head', 'options']
     serializer_class = OrderListSerializer
     # ★ 2026-10-21 修 D1（P0，全站测试发现）：此前只有 `['status']`，而
     #   `/ops/po/organizations` 的「订单查看」传的是 `organization_id`（`api/adminPo.js:94`）
@@ -21,11 +32,16 @@ class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     #   回归测试：`apps/transactions/tests/test_cross_org_visibility.py::OrderOrganizationFilterTest`
     filterset_fields = ['status', 'organization', 'organization_id']
     # ★ 2026-09-24 收紧：此前未声明权限 ⇒ 匿名可写 `POST /orders/`（实测可造 `user=null` 的订单）。
-    #   真实下单路径**本就要求登录**（`CheckoutView`/`POSubmitView` 均 `IsAuthenticated`）
-    #   ⇒ 本 CRUD 的写口要求登录，与之一致；读维持原契约（匿名 GET → 200 空列表，`get_queryset` 已 `.none()`）。
+    #   2026-10-21 F4 起写口**整体关闭**（`http_method_names` 只读），此条仅描述读契约。
+    #   读维持原契约（匿名 GET → 200 空列表，`get_queryset` 已 `.none()`）。
     permission_classes = [AllowAny]
 
     def get_permissions(self):
+        # 读（list/retrieve）维持匿名空列表契约（`get_queryset` 已 `.none()`）。
+        # ★ 2026-10-21 F4：写方法已被 `http_method_names` 拦成 405，下面这个
+        #   `IsAuthenticated()` 分支对 create/update/destroy **已不可达**；
+        #   保留它是纵深防御 —— DRF 的 `dispatch()` 先 `check_permissions()` 再查方法，
+        #   所以匿名 POST 仍是 401（不暴露写口），而非 405。
         if self.action in ('list', 'retrieve'):
             return [AllowAny()]
         return [IsAuthenticated()]

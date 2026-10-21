@@ -55,10 +55,15 @@ class OrderAPITest(TestCase):
         self.assertEqual(resp.status_code, 200)
 
     def test_create_order(self):
+        """2026-10-21 F4：OrderViewSet 已只读化（孤儿写口），POST 必须 405。
+
+        原断言为 201；该写口无 `perform_create`、`user` 可空 ⇒ 能造 user=NULL 孤儿单，
+        且 `order_no` 缺失直接 IntegrityError→500。前端对 /orders/ 只有 GET。
+        """
         resp = self.client.post('/api/v1/orders/', {
             'order_no': 'ORD-NEW', 'status': 'draft'
         }, format='json')
-        self.assertEqual(resp.status_code, 201)
+        self.assertEqual(resp.status_code, 405, resp.content[:300])
 
 
 class QuoteAPITest(TestCase):

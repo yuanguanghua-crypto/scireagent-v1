@@ -65,8 +65,15 @@ class PoNumberUniquenessTest(TestCase):
 
 
 class PoNumberUniquenessApiTest(TestCase):
-    """API 层：OrderViewSet.create 写权限是 IsAuthenticated ⇒
-    任意登录用户连建两个订单，第二个会 500。修复后应 201。"""
+    """API 层：`OrderViewSet` 的孤儿写口已于 2026-10-21（F4）只读化。
+
+    历史：本用例原本钉住「OrderViewSet.create 连建两单，第二单不因 po_number
+    空串唯一约束而 500」。此后 F4 判定该 CRUD 写口是**孤儿写口**（前端只 GET，
+    真实下单走 CheckoutView / POSubmitView），已整体 405 ⇒ 原断言不再适用。
+    条件唯一约束本身的正确性由本文件上方 `PoNumberUniquenessTest` 的**模型层**
+    用例（P0A-201..304）继续覆盖，未丢失。
+    现在改为钉住「写口不会再被打开」。
+    """
 
     def setUp(self):
         from rest_framework.test import APIClient
@@ -81,16 +88,12 @@ class PoNumberUniquenessApiTest(TestCase):
         self.sku = SKU.objects.create(
             product=product, sku_code='SKU-P0A-001', price='10.00')
 
-    def test_two_orders_via_viewset_both_created(self):
+    def test_viewset_write_is_closed(self):
         payload = {
             'order_no': 'P0A-API-001',
             'payment_method': 'purchase_order',
             'items': [{'sku_id': self.sku.id, 'quantity': 1, 'unit_price': '10.00'}],
         }
         r1 = self.client.post('/api/v1/orders/', payload, format='json')
-        self.assertEqual(r1.status_code, 201, r1.content[:400])
-
-        payload2 = dict(payload, order_no='P0A-API-002')
-        r2 = self.client.post('/api/v1/orders/', payload2, format='json')
-        self.assertEqual(r2.status_code, 201, r2.content[:400])
-        self.assertEqual(Order.objects.filter(order_no__startswith='P0A-API').count(), 2)
+        self.assertEqual(r1.status_code, 405, r1.content[:400])
+        self.assertEqual(Order.objects.filter(order_no__startswith='P0A-API').count(), 0)

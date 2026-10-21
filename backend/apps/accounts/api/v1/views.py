@@ -10,6 +10,7 @@ from core.permissions import LoginRateThrottle, IsProcurementOrAdmin
 from apps.accounts.api.v1.serializers import (
     LoginSerializer,
     OrganizationSerializer,
+    OrganizationSummarySerializer,
     ProfileUpdateSerializer,
     RegisterSerializer,
     UserSerializer,
@@ -219,17 +220,33 @@ class ProfileView(APIView):
 
 
 class OrganizationSearchView(APIView):
-    """GET /api/v1/organizations — Search organizations by name."""
+    """GET /api/v1/organizations — Search organizations by name.
+
+    ★ 2026-10-21 F2（P1 匿名泄露 PII）：本端点是 `AllowAny` +
+      `authentication_classes = []`（公开注册页的机构选择器），此前用
+      `OrganizationSerializer` 直出 ⇒ 匿名者可拿到 contact_email / contact_phone /
+      完整地址 / member_count（客户名录 + 联系人 + 规模），且这些字段由任意登录用户
+      经 `OrganizationCreateView` 写入。
+      改为 `OrganizationSummarySerializer`（仅 id/name/short_name/org_type/country）。
+    ★ 同时给 `q` 加长度下限：此前不传 q 时 `q=''` ⇒ `name__icontains=''`
+      命中全部 active 机构，一次吐 10 条全表。现要求去空白后 ≥ 2 字符，
+      否则返回空列表（不是全表）。
+    """
 
     permission_classes = [AllowAny]
     authentication_classes = []
 
+    MIN_QUERY_LEN = 2
+
     def get(self, request):
-        q = request.query_params.get('q', '')
+        q = (request.query_params.get('q', '') or '').strip()
+        if len(q) < self.MIN_QUERY_LEN:
+            # 空/过短查询一律空列表：既防全表泄露，也避免 1 字符把客户名录捞出来
+            return Response([], status=status.HTTP_200_OK)
         orgs = Organization.objects.filter(
             name__icontains=q, status='active'
         )[:10]
-        serializer = OrganizationSerializer(orgs, many=True)
+        serializer = OrganizationSummarySerializer(orgs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 

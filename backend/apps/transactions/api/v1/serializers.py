@@ -278,7 +278,15 @@ class PoSubmitItemSerializer(serializers.Serializer):
     product_id = serializers.IntegerField(required=False, allow_null=True)
     sku_id = serializers.IntegerField()
     quantity = serializers.IntegerField(min_value=1, max_value=10000)
-    unit_price = serializers.DecimalField(max_digits=12, decimal_places=2, min_value=Decimal('0'))
+    # ★ 2026-10-21 F5（纵深防御）：单价改为 read_only —— **客户端不可提交**。
+    #   此前安全性只靠 `PoSubmissionService` 用 `sku.price` 强制覆盖（services.py:132-141），
+    #   是**单点防御**：任何人新增复用本序列化器的写端点、或改动服务层，价格篡改立刻敞开。
+    #   DRF 语义：read_only 字段**直接忽略入参**，不会因为前端继续发 unit_price 而报 400
+    #   ⇒ **前端零改动**（`validated_data` 里不再出现该键）。
+    #   ⚠️ 服务层那道 `unit_price = sku.price or 0` 覆盖**必须保留**（第二道防线）。
+    #   回归：apps/transactions/tests/test_po_unit_price_readonly.py
+    unit_price = serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=Decimal('0'), read_only=True)
 
     def validate_sku_id(self, value):
         """★ v4.1 对抗性自测 Fix：sku_id 必须指向真实存在的 SKU（此前 500）。"""

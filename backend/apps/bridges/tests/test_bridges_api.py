@@ -5,7 +5,7 @@ bridges API 单元测试（Phase 3 verified 通道 + 双 edge，T3.2）。
 - GET  products/{id}/methods  → 双 edge 分离（related_methods / verified_methods）
 - GET  methods/{id}/products  → 反向
 - POST verified               → 登录用户可建 REVIEW 草稿
-- PATCH verified/{id}          → 登录用户可补 evidence
+- PATCH verified/{id}          → 仅 IsStaffUser + 仅 REVIEW 草稿（2026-10-21 F1）
 - POST verified/{id}/approve   → 仅 IsStaffUser
 - POST verified/{id}/reject    → 仅 IsStaffUser
 
@@ -125,14 +125,30 @@ class BridgesApiTestCase(APITestCase):
             relation_type='verified_applicability', status='review',
         ).exists()
 
-    # ── PATCH 补 evidence：登录用户可 ──
+    # ── PATCH 补 evidence：2026-10-21 F1 收紧为仅 staff（此前登录用户即可 → 任意 id 可改）──
     def test_patch_verified_as_authenticated_user(self):
+        """旧契约（登录用户可 PATCH）已被 F1 判定为越权写，改为 staff-only。"""
         pmr = ProductMethodRelationFactory(
             product=self.product, method=self.method,
             evidence_type='pubmed', evidence_reference=None,
             evidence_strength='', evidence_note='',
         )
         self.client.force_authenticate(self.user)
+        resp = self.client.patch(f'{self.base}/verified/{pmr.id}/', {
+            'evidence_reference': [{'type': 'PMID', 'value': '2'}],
+            'evidence_strength': 'medium',
+        }, format='json')
+        assert resp.status_code == 403
+        pmr.refresh_from_db()
+        assert pmr.evidence_reference is None, '越权写不得落地'
+
+    def test_patch_verified_as_staff(self):
+        pmr = ProductMethodRelationFactory(
+            product=self.product, method=self.method,
+            evidence_type='pubmed', evidence_reference=None,
+            evidence_strength='', evidence_note='',
+        )
+        self.client.force_authenticate(self.staff)
         resp = self.client.patch(f'{self.base}/verified/{pmr.id}/', {
             'evidence_reference': [{'type': 'PMID', 'value': '2'}],
             'evidence_strength': 'medium',

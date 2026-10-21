@@ -117,8 +117,19 @@ class VerifiedCreateView(EnvelopeMixin, APIView):
 
 
 class VerifiedPatchView(EnvelopeMixin, APIView):
-    """PATCH verified/{id} → 补全 evidence（登录用户即可；不改状态）。"""
-    permission_classes = [IsAuthenticated]
+    """PATCH verified/{id} → 补全 evidence（不改状态）。
+
+    权限（2026-10-21 F1）：由 `IsAuthenticated` 收紧为 `IsStaffUser`。
+    原因：此前任意注册用户可改**任意 id** 的 verified 证据，而 PMR id 可从
+    公开匿名端点 `GET /api/v1/products/<pk>/methods/` 枚举；`patch_verified`
+    也不改 `curator` ⇒ 篡改会记在原审核人名下，审计链被伪造。
+    前端 `api/bridges.js` 没有 PATCH `/verified/<id>/` 调用（孤儿端点），
+    ⇒ 收紧权限零功能损失。
+
+    状态门（2026-10-21 F1）：仅 `status=REVIEW` 的草稿可改，否则 400
+    `invalid_status`（落实 `patch_verified` docstring 既有设计意图）。
+    """
+    permission_classes = [IsStaffUser]
 
     def patch(self, request, pk):
         serializer = VerifiedPatchSerializer(data=request.data)
@@ -127,6 +138,10 @@ class VerifiedPatchView(EnvelopeMixin, APIView):
             pmr = VerifiedService.patch_verified(pk, **serializer.validated_data)
         except ProductMethodRelation.DoesNotExist:
             return self.error_response("verified 关系不存在", status_code=status.HTTP_404_NOT_FOUND)
+        except DjangoValidationError as exc:
+            return self.error_response(
+                str(exc), code="invalid_status",
+                status_code=status.HTTP_400_BAD_REQUEST)
         return self.success_response(ProductMethodRelationSerializer(pmr).data)
 
 

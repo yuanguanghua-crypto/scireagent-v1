@@ -82,7 +82,12 @@ class AnonymousReadContractUnchangedTest(TestCase):
 
 
 class OrderServerControlledFieldsTest(TestCase):
-    """`status` / `grand_total` 属服务端字段：客户端传值必须被**忽略**（不是报错）。"""
+    """`status` / `grand_total` 属服务端字段：客户端传值必须被**忽略**（不是报错）。
+
+    2026-10-21 F4 后升级为**更强保证**：`OrderViewSet` 只读化，`POST /orders/`
+    一律 405 ⇒ 这些字段根本没有入口可伪造（原「已登录 POST → 201 但字段被忽略」
+    的前提已不成立，因为该写口是无 `perform_create` 的孤儿写口）。
+    """
 
     def setUp(self):
         self.client = APIClient()
@@ -95,10 +100,8 @@ class OrderServerControlledFieldsTest(TestCase):
             'status': 'completed',
             'grand_total': '0.01',
         }, format='json')
-        self.assertEqual(resp.status_code, 201, resp.content[:300])
-        order = Order.objects.get(order_no='ORD-FORGE-1')
-        self.assertEqual(order.status, 'draft')          # 回落到模型默认 DRAFT
-        self.assertEqual(order.grand_total, Decimal('0'))
+        self.assertEqual(resp.status_code, 405, resp.content[:300])
+        self.assertFalse(Order.objects.filter(order_no='ORD-FORGE-1').exists())
 
     def test_retrieve_still_exposes_both_fields(self):
         """改 `read_only` 不得把字段从输出里删掉（前端列表要显示）。"""

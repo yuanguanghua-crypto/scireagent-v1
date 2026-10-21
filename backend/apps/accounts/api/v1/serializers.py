@@ -210,6 +210,24 @@ class ProfileUpdateSerializer(serializers.ModelSerializer):
         ]
 
 
+class OrganizationSummarySerializer(serializers.ModelSerializer):
+    """机构摘要 —— **仅用于匿名搜索选择器**（`GET /api/v1/organizations?q=`）。
+
+    铁律（2026-10-21 F2）：只输出 5 个公开可辨识字段。
+    **禁止**在此处加 `contact_*` / `address_*` / `city` / `state` / `postal_code`
+    / `member_count` —— 该端点是 `AllowAny` + `authentication_classes=[]`，
+    任何新增字段都会**直接匿名泄露**（contact_* 由任意登录用户经
+    `OrganizationCreateView` 写入，等于客户名录+联系人裸奔）。
+    回归：`apps/accounts/tests/test_org_search_privacy.py` 用
+    `set(item.keys()) == {...}` 钉死键集合，加字段立刻红。
+    """
+
+    class Meta:
+        model = Organization
+        fields = ['id', 'name', 'short_name', 'org_type', 'country']
+        read_only_fields = fields
+
+
 class OrganizationSerializer(serializers.ModelSerializer):
     """Serializer for organization listing and detail."""
 

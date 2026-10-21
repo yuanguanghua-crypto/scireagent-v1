@@ -66,11 +66,19 @@ class VerifiedService:
                        evidence_note=_NOT_PROVIDED):
         """PATCH 补全 evidence（不改状态；REVIEW 草稿可部分更新）。
         仅更新调用方实际提供的字段（含显式置空）。
+
+        ★ 2026-10-21 F1 状态门：仅 REVIEW 草稿可改。ACTIVE 是已审核结论，
+          REJECTED 是已否决结论 —— 两者再改等于**绕过审核流程篡改结论**，
+          且本方法不改 `curator`，篡改会挂到原审核人名下（审计链伪造）。
+          非 REVIEW → ValidationError（API 层转 400 `invalid_status`）。
         """
         pmr = ProductMethodRelation.objects.get(
             pk=pmr_id,
             relation_type=ProductMethodRelation.RelationType.VERIFIED_APPLICABILITY,
         )
+        if pmr.status != ProductMethodRelation.Status.REVIEW:
+            raise ValidationError(
+                f'只有 REVIEW 草稿可修改证据（当前 {pmr.status}）')
         changed = []
         if evidence_type is not _NOT_PROVIDED:
             pmr.evidence_type = evidence_type
