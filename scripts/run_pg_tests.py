@@ -52,8 +52,10 @@ PG_USER = os.getenv('SCIREAGENT_PG_USER', 'scireagent')
 TARGETS = {
     'inventory': 'apps/inventory/tests/test_pg_concurrency.py',
     'order_no': 'apps/transactions/tests/test_order_sequence.py::TestPostgresOnlyConcurrency',
+    'invoice_no': ('apps/transactions/tests/test_order_sequence.py'
+                   '::TestInvoiceSequenceConcurrencyOnPostgres'),
 }
-DEFAULT_ORDER = ['inventory', 'order_no']
+DEFAULT_ORDER = ['inventory', 'order_no', 'invoice_no']
 
 
 def _port_open(host: str, port: str, timeout: float = 2.0) -> bool:

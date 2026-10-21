@@ -35,14 +35,14 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 import pytest
-from django.db import connection
+from django.db import connection, connections
 from django.utils import timezone as dj_tz
 from rest_framework.test import APIClient
 
 from apps.accounts.tests.factories import UserFactory
 from apps.commerce.tests.factories import ProductFactory, SKUFactory
 from apps.transactions.models import Order
-from apps.transactions.services import PoSubmissionService
+from apps.transactions.services import InvoiceService, PoSubmissionService
 from apps.transactions.tests.factories import BasketFactory
 
 BIZ = ZoneInfo('Asia/Shanghai')
@@ -419,3 +419,82 @@ class TestPostgresOnlyConcurrency:
         assert len(set(results)) == len(results), f'出现重复单号：{sorted(results)}'
         seqs = sorted(int(r.rsplit('-', 1)[1]) for r in results)
         assert seqs == list(range(1, len(products) + 1)), f'序号非稠密 1..N：{seqs}'
+
+@pytest.mark.django_db(transaction=True)
+class TestInvoiceSequenceConcurrencyOnPostgres:
+    """发票号取号并发（`InvoiceService._next_invoice_no`，PG 专属）。
+
+    与订单号同构（`select_for_update` + 计数器表），但**风险不同**：
+    订单号撞号客户立刻能发现；**发票号撞号是对账/税务问题**，往往事后才暴露。
+
+    sqlite 下 `select_for_update` 是 no-op ⇒ 只在 PG 上验
+    （跑法见 `scripts/run_pg_tests.py`）。
+
+    ★ 本类**不预建** `InvoiceSequence` 行：并发首建走 `get_or_create`
+      （内部对 IntegrityError 有"再 get 一次"的兜底），这是最容易出事的路径。
+    """
+
+    YEAR = 2026
+
+    @staticmethod
+    def _run(n, target):
+        results, errors = [], []
+        lock = threading.Lock()
+        barrier = threading.Barrier(n)
+
+        def worker(i):
+            try:
+                barrier.wait(timeout=30)
+                with lock:
+                    pass
+                no = target()
+                with lock:
+                    results.append(no)
+            except Exception as exc:                       # noqa: BLE001
+                with lock:
+                    errors.append(repr(exc))
+            finally:
+                connections.close_all()
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(timeout=60)
+        return results, errors
+
+    def test_concurrent_first_issue_is_unique_and_dense(self):
+        """8 线程并发**首建**取号 ⇒ 编号唯一且稠密 1..8。"""
+        if connection.vendor != 'postgresql':
+            pytest.skip('需 Postgres：sqlite 下 select_for_update 为 no-op')
+
+        n = 8
+        results, errors = self._run(
+            n, lambda: InvoiceService._next_invoice_no(self.YEAR))
+
+        assert not errors, f'并发取发票号出现异常：{errors}'
+        assert len(results) == n, f'成功数不符：{results}'
+        assert len(set(results)) == n, f'出现重复发票号：{sorted(results)}'
+        seqs = sorted(int(r.rsplit('-', 1)[1]) for r in results)
+        assert seqs == list(range(1, n + 1)), f'序号非稠密 1..N：{seqs}'
+
+    def test_existing_row_continues_from_last_number(self):
+        """已有序号行时必须接着往上走，**不能从 1 重来**。
+
+        这是"作废/删掉几张发票后再开"最容易出事的地方：如果取号读的是
+        "当今年份已有几条"而不是计数器，就会重号。
+        """
+        if connection.vendor != 'postgresql':
+            pytest.skip('需 Postgres：sqlite 下 select_for_update 为 no-op')
+
+        from apps.transactions.models import InvoiceSequence
+        InvoiceSequence.objects.create(year=self.YEAR, last_number=100)
+
+        n = 10   # 并发度提高：n=5 时竞态窗口太窄，实测变异后仍可能不红
+        results, errors = self._run(
+            n, lambda: InvoiceService._next_invoice_no(self.YEAR))
+
+        assert not errors, f'并发取发票号出现异常：{errors}'
+        seqs = sorted(int(r.rsplit('-', 1)[1]) for r in results)
+        assert seqs == list(range(101, 101 + n)), (
+            f'应从 101 继续，实际 {seqs}')
