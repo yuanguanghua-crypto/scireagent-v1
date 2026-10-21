@@ -21,7 +21,7 @@
 | 输入校验 | ✓ | api-permission-writes.spec、applayout-navpad-check.spe… |
 | 提交 | ✓ | a11y.spec.cjs、api-permission-writes.spec… |
 | 跳转 | ✓ | cart-button-regression.spe、cart-page-interactions.spe… |
-| 步注册 | **✗** | 无 |
+| 3步注册 | **✗** | 无 |
 
 ## `/register` — Login/Register ⇒ **✗**
 
@@ -30,7 +30,7 @@
 | 输入校验 | ✓ | api-permission-writes.spec、applayout-navpad-check.spe… |
 | 提交 | ✓ | a11y.spec.cjs、api-permission-writes.spec… |
 | 跳转 | ✓ | cart-button-regression.spe、cart-page-interactions.spe… |
-| 步注册 | **✗** | 无 |
+| 3步注册 | **✗** | 无 |
 
 ## `/search` — SearchPage ⇒ **✗**
 
@@ -150,7 +150,6 @@
 
 | 交互项 | 命中 | spec |
 |---|---|---|
-| 输入 | ✓ | knowledge-intake.spec.cjs、product-seo-publish.spec.c |
 | 保存 | ✓ | cascader-workflow.spec.cjs、knowledge-intake.spec.cjs… |
 | saveMessage 横幅 | **✗** | 无 |
 
@@ -158,7 +157,6 @@
 
 | 交互项 | 命中 | spec |
 |---|---|---|
-| 输入 | ✓ | knowledge-intake.spec.cjs、product-seo-publish.spec.c |
 | 多步 | **✗** | 无 |
 | v-loading | ✓ | product-detail-fields.spec、verify-improvements.spec.c |
 | 提交 | ✓ | a11y.spec.cjs、api-permission-writes.spec… |
@@ -241,30 +239,25 @@
 
 | 交互项 | 命中 | spec |
 |---|---|---|
-| 按钮 | ✓ | cart-button-regression.spe、ops-inventory.spec.cjs… |
 | 3 弹层 | ✓ | cascader-workflow.spec.cjs、knowledge-intake.spec.cjs… |
 | 可排序表 | ✓ | a11y.spec.cjs、api-permission-writes.spec… |
 | 过滤 | ✓ | knowledge-intake.spec.cjs |
 
-## `/workspace/products/new` — ProductEditPage ⇒ **✗**
+## `/workspace/products/new` — ProductEditPage ⇒ **✓**
 
 | 交互项 | 命中 | spec |
 |---|---|---|
-| **37 按钮 | **✗** | 无 |
-| 50 输入 | **✗** | 无 |
 | 发布弹层 | ✓ | cascader-workflow.spec.cjs、knowledge-intake.spec.cjs… |
 | 上传 | ✓ | product-edit-enrich-candid、product-new-ai-automatch.s… |
-| 校验** | **✗** | 无 |
+| 校验 | ✓ | basket-local-merge-prune.s、basket-merge-over-limit.sp… |
 
-## `/workspace/products/new/:id/edit` — ProductEditPage ⇒ **✗**
+## `/workspace/products/new/:id/edit` — ProductEditPage ⇒ **✓**
 
 | 交互项 | 命中 | spec |
 |---|---|---|
-| **37 按钮 | **✗** | 无 |
-| 50 输入 | **✗** | 无 |
 | 发布弹层 | ✓ | cascader-workflow.spec.cjs、knowledge-intake.spec.cjs… |
 | 上传 | ✓ | product-edit-enrich-candid、product-new-ai-automatch.s… |
-| 校验** | **✗** | 无 |
+| 校验 | ✓ | basket-local-merge-prune.s、basket-merge-over-limit.sp… |
 
 ## `/workspace/goals` — 各管理页 ⇒ **✓**
 
@@ -310,7 +303,6 @@
 
 | 交互项 | 命中 | spec |
 |---|---|---|
-| 输入 | ✓ | knowledge-intake.spec.cjs、product-seo-publish.spec.c |
 | 产品下拉 | **✗** | 无 |
 | ki-toast | ✓ | knowledge-intake.spec.cjs、product-compliance-lifecyc… |
 
@@ -359,7 +351,7 @@
 | 交互项 | 命中 | spec |
 |---|---|---|
 | AR aging 30 | ✓ | product-edit-usage.spec.cj |
-| 展示 | ✓ | product-edit-pending-candi |
+| 60 | ✓ | applayout-navpad-check.spe |
 
 ## `/ops/po/organizations` — PoOrgManagement ⇒ **✗**
 
@@ -375,8 +367,8 @@
 
 | 判定 | 页数 |
 |---|---|
-| **✓ 全项命中** | **23** |
-| **✗ 有未命中项** | **21** |
+| **✓ 全项命中** | **25** |
+| **✗ 有未命中项** | **19** |
 | — 无交互描述 | 0 |
 
 ⚠️ 这是 I 维的**首次判定**。`✗` 页里的未命中项 = 明确的测试空白，应优先补。
