@@ -11,8 +11,9 @@
     "test:e2e:readonly": "node node_modules/@playwright/test/cli.js test -g \"@readonly\" --project=chromium --reporter=line",
     "test:e2e:write": "node node_modules/@playwright/test/cli.js test -g \"@write\" --project=chromium --reporter=line",
     "test:e2e:prod": "node node_modules/@playwright/test/cli.js test -g \"@prod-ok\" --project=chromium --reporter=line",
-    "test:e2e:local": "node e2e/gate-audit.cjs && node node_modules/@playwright/test/cli.js test -g \"@local-only\" --grep-invert \"@obsolete\" --project=chromium --reporter=line",
-    "test:e2e:xtb": "node node_modules/@playwright/test/cli.js test e2e/cross-browser-smoke.spec.cjs --project=chromium --project=firefox --reporter=line"
+    "test:e2e:local": "node e2e/preflight.cjs && node e2e/gate-audit.cjs && node node_modules/@playwright/test/cli.js test -g \"@local-only\" --grep-invert \"@obsolete\" --project=chromium --reporter=line",
+    "test:e2e:xtb": "node node_modules/@playwright/test/cli.js test e2e/cross-browser-smoke.spec.cjs --project=chromium --project=firefox --reporter=line",
+    "test:e2e:preflight": "node e2e/preflight.cjs"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.12.1",

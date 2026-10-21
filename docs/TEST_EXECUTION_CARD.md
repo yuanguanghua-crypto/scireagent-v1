@@ -49,7 +49,12 @@ npx vite build --outDir .build_check && rm -rf .build_check
 # 4) E2E（只在你改了页面时）
 #    ⚠️ 前置：test:e2e:local 需要「后端 localhost:8000 + 前端 Vite localhost:5173」都在跑
 #        （否则连不上，见 e2e/GATE.md）。test:e2e:readonly 若跑生产则需口令（见 §3 说明）
+npm run test:e2e:preflight    # ★ 先自检环境（下面 test:e2e:local 已内置这一步）
 npm run test:e2e:local        # 或 test:e2e:readonly
+
+#    preflight 查 5 件事：后端可达 / 前端是 vite（非被顶端口）/ 有无外网字体依赖 /
+#    本机代理端口（影响 WebKit）/ backend/test_db.sqlite3 残留。
+#    FAIL ⇒ 先修环境再跑测试，别把环境问题读成代码问题。WARN 不阻塞，正式发版可加 --strict。
 
 # 5) 判测试是否变摆设（只在你改了核心逻辑时）
 python scripts/mutation_check.py

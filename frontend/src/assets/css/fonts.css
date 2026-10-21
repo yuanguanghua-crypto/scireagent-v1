@@ -1,0 +1,42 @@
+/* 本地自托管字体（2026-10-21）—— 消除对外网的字体依赖
+ *
+ * 背景：index.html 原来直接引 Google Fonts 外链 ⇒ 每次开页都发外网请求，
+ *       代理 / 网络一抖就拖慢加载（E2E 偶发超时；生产在大陆访问同样慢）。
+ * 现在改为**同源静态资源**：本地测试与生产都不再依赖外部字体服务。
+ *
+ * 说明：Inter / JetBrains Mono 取的是 Google 返回的**可变字体**单文件
+ *       （实测四个字重 woff2 的 md5 完全相同）⇒ 用 font-weight 区间声明，只存一份。
+ * 只含 latin 子集（英文 UI 够用；中文仍走系统字体栈）。
+ */
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;      /* 可变字体：一份文件覆盖 Regular→Bold */
+  font-display: swap;
+  src: url('../fonts/Inter-var.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('../fonts/JetBrainsMono-var.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DM Serif Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/DMSerifDisplay-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DM Serif Display';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/DMSerifDisplay-400i.woff2') format('woff2');
+}

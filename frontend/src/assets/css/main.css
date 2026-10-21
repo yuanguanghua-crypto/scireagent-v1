@@ -1,6 +1,7 @@
-/* Font loading — Google Fonts 已通过 index.html 的 <link> 加载
-   Inter, JetBrains Mono, DM Serif Display */
+/* Font loading — 自托管（2026-10-21）：不再依赖 Google Fonts 外链。
+   @font-face 定义见 ./fonts.css，字体文件在 ../fonts/*.woff2 */
 @import "tailwindcss";
+@import "./fonts.css";
 
 /* ============================================
    SciReagent Design System v2.1

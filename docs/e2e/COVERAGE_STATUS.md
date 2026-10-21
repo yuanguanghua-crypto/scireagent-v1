@@ -140,6 +140,36 @@ a11y 也已从"25 页 180 处对比度 + 1 处 critical"降到 **35 页全部 0 
 
 ---
 
+## 3.6 测试可信度基础设施（2026-10-21 补）
+
+> 起因：多次把**环境问题**读成**应用问题**（后端没起 → 一堆 element not found；
+> 代理接管 127.0.0.1 → WebKit 404 而 curl 200；外网字体抖动 → 随机超时）。
+
+### ① 字体自托管（消除唯一的外网依赖）
+- `index.html` 原本直接引 Google Fonts（`fonts.googleapis.com` + `fonts.gstatic.com`）
+  ⇒ **每次开页都发外网请求**，代理/节点一抖就拖慢加载，造成 E2E 偶发超时；生产（大陆）同样慢。
+- 现改为同源静态资源：`src/assets/fonts/*.woff2`（4 个文件，**126 KB**）+ `src/assets/css/fonts.css`。
+  Inter / JetBrains Mono 取的是**可变字体单文件**（实测四档字重 woff2 的 md5 完全相同 ⇒ 用
+  `font-weight: 400 700` 区间声明，只存一份）；只取 latin 子集（中文仍走系统字体栈）。
+- 实测：页面外网字体请求 **0**；`document.fonts.check()` 三种字体均 true。
+- **副作用（好的）**：`a11y + visual-tokens` 从 **5.9 分钟 → 31 秒**（不再等外网字体）。
+- ⚠️ `dist/index.html` 仍是旧外链 ⇒ **下次发布必须重建前端产物**，否则生产仍依赖外网字体。
+
+### ② 环境前置自检 `frontend/e2e/preflight.cjs`
+跑批前先过一遍，把"环境不行"和"代码不行"分开：
+
+| 检查 | FAIL 条件 | WARN 条件 |
+|---|---|---|
+| 后端 `:8000` | 不可达 / 返回非 JSON | 响应 > 3s |
+| 前端 `:5173` | 不可达 / 200 但无 `#app`（被别的服务顶掉） | 无 `@vite/client`（不是 dev server）/ 响应 > 3s |
+| 外网字体依赖 | **源码** `index.html` 仍引 Google Fonts | 仅 `dist/index.html` 仍是外链（产物未重建） |
+| 本机代理端口 | — | 7890/7891/1080/10809 在监听 ⇒ 跑 WebKit 前建议关系统代理 |
+| `backend/test_db.sqlite3` 残留 | — | 存在 ⇒ pytest 可能 `database is locked`；且会撞 pre-commit 变异演练 |
+
+用法：`npm run test:e2e:preflight`（`test:e2e:local` 已内置为第一步）；`--strict` 让 WARN 也失败。
+
+---
+
 ## 4. 下一轮该做什么（按价值排序）
 
 | # | 任务 | 价值 | 成本 |

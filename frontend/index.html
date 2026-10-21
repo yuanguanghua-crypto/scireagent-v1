@@ -18,10 +18,9 @@
   <meta name="twitter:title" content="SciReagent — AI-Native Scientific Reagent Platform" />
   <meta name="twitter:description" content="Search reagents by CAS number, explore research applications, methods and protocols." />
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-  <!-- Google Fonts: Inter + JetBrains Mono + DM Serif Display -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <!-- 字体已自托管（2026-10-21）：原来是 Google Fonts 外链，每次开页都发外网请求，
+       代理/网络一抖就拖慢加载（E2E 偶发超时、生产大陆访问慢）。
+       现在由 src/assets/css/fonts.css + src/assets/fonts/*.woff2 同源提供。 -->
 </head>
 <body>
   <div id="app"></div>
