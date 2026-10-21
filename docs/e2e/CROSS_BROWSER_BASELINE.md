@@ -8,8 +8,12 @@
 | 引擎 | 状态 | 依据 |
 |---|---|---|
 | **Chromium**（实际走系统 Edge，`channel: 'msedge'`） | ✅ 可跑 | 全站冒烟 45 passed |
-| **Firefox** | ✅ **可跑（本轮打通）** | 全站冒烟 45 passed |
-| **WebKit** | ⛔ **本机不可用** | Windows 版 Playwright WebKit 无法绕开系统代理 |
+| **Firefox** | ✅ 可跑 | 全站冒烟 45 passed（`network.proxy.type=0`） |
+| **WebKit** | ✅ **2026-10-21 打通** | 全站冒烟 45 passed（**经本地直连代理**，见 §4） |
+
+> ★ 2026-10-21 二次更正：本文件 §4 原写「WebKit 本机不可用、只能换环境」——**已推翻**。
+> 真因不是"代理不可绕"，而是 **WebKit 页面网络栈不读系统 bypass**；给它指一个本地直连转发代理即可。
+> **用户无需关闭系统代理**。
 
 ## 2. 实测基线（2026-10-21）
 
@@ -22,8 +26,9 @@ npx playwright test e2e/cross-browser-smoke.spec.cjs --project=chromium --report
 
 | 引擎 | passed | failed | skipped | 耗时 |
 |---|---|---|---|---|
-| **firefox** | **45** | 0 | 0 | 59.1s |
 | **chromium** | **45** | 0 | 0 | 1.7m |
+| **firefox** | **45** | 0 | 0 | 59.1s |
+| **webkit** | **45** | 0 | 0 | 52.9s |
 
 45 = 全站 **44 个路由**各 1 例 + 1 例「页面清单完整性」自检（`ALL.length === 44`，防循环漏项假绿）。
 
@@ -64,21 +69,47 @@ use: {
 ⚠️ **必须放 `launchOptions`**：写成 `use: { firefoxUserPrefs: {...} }` 会被**静默忽略**
 （实测：改完仍 `#app` 长度 0、`.hero-title` element not found，与没改一样）。
 
-## 4. WebKit 为什么仍然不行（不是没试）
+## 4. WebKit 怎么打通的（含失败的尝试，保留作教训）
+
+### 4.1 失败的尝试（都不是解）
 
 | 尝试 | 结果 |
 |---|---|
-| `webkit.launch({ proxy: { server: 'direct://' } })` | ❌ `page.goto: Could not resolve proxy name` —— WebKit 不认 `direct://` 这个 scheme |
-| `webkit.newContext({ proxy: { server: 'direct://' } })` | ❌ 同上 |
-| 把 `BASE_URL` 换成 `http://127.0.0.1:5173` | ❌ 仍 404（代理连 127.0.0.1 也接） |
+| `proxy: { server: 'direct://' }` | ❌ `Could not resolve proxy name` —— WebKit 不认 `direct://` 这个 scheme |
+| `newContext({ proxy: { server: 'direct://' } })` | ❌ 同上 |
+| `BASE_URL` 换成 `http://127.0.0.1:5173` | ❌ 仍 404（代理连 127.0.0.1 也接） |
 | `NO_PROXY` 环境变量 | ❌ 无效（WebKit 不读） |
+| **关掉系统代理开关**（改注册表 `ProxyEnable=0`） | ✅ 有效但**要动用户系统设置**，不理想 |
+| `firefoxUserPrefs` 等价开关 | ❌ WebKit 没有对应项 |
 
-WebKit 也没有 Firefox 那种 `network.proxy.type` 等价开关。
-⇒ **结论：Windows 上 Playwright WebKit 无法绕开系统代理**。要跑 WK，只能
-① 在**关掉系统代理**的机器上跑，或 ② 在 CI/容器里跑（无系统代理），或 ③ 把本机代理临时关掉（需人工确认）。
+关键诊断（2026-10-21 实测，同一时刻同一台机）：
+
+| 观测 | 结果 | 说明 |
+|---|---|---|
+| 系统代理 | `127.0.0.1:7890`，**bypass 已含 `localhost;127.*`** | 不是"没配 bypass" |
+| 网卡 | 只有以太网，**无 TUN** | 是系统代理模式，不是 TUN 拦截 |
+| `curl` / `page.request` 抓 `127.0.0.1:5173/@vite/client` | **200** | 网络路径本身通 |
+| WebKit **页面**加载同一 URL | **404**（13 个请求全挂，`#app`=0） | ⇒ **WebKit 页面网络栈不读系统 bypass** |
+| WebKit 显式配 Playwright `proxy` | **认** | 这是突破口 |
+
+### 4.2 解法：本地「直连转发代理」
+
+`frontend/e2e/direct-proxy.cjs` —— 一个 30 行的最小转发代理（支持绝对 URI 与 CONNECT，**原样转发不拦截**），
+只监听 `127.0.0.1:8130`。让 WebKit 显式走它 ⇒ 流量不进 FlClash。
+
+- `playwright.config.cjs` 里：**本次跑批含 webkit 时**（`--project=webkit` 或不指定 project）
+  自动把它作为 `webServer` 拉起，并给 webkit project 注入 `use.proxy`。
+- 覆盖开关：`E2E_DIRECT_PROXY=1` 强制开 / `=0` 强制关；端口用 `E2E_DIRECT_PROXY_PORT`。
+- ✅ **用户无需关闭系统代理，也无需改任何系统设置**；Chromium/Firefox 的既有绿不受影响。
+
+实测：默认 `#app`=0 / 13 个 404 ⇒ 走直连代理后 `#app`=**30329 字符、0 失败请求**，
+44 页冒烟 **45 passed / 52.9s**。
+
+> ⚠️ 若某天 WebKit 又全红，先看 `#app` 是否为 0 + 是否有 `404 http://127.0.0.1:5173/@vite/client`：
+> 若是，说明直连代理没起来（端口占用/command 失败），而不是应用坏了。
 
 ## 5. 复现要求（改判据时先看这段）
 
 - 改了 `cross-browser-smoke.spec.cjs` 的页面清单 ⇒ **必须重跑两个引擎并更新本文件第 2 节表格**。
-- 本文件里的 `| firefox | <N> |` 那行是审计脚本的判据输入，**格式不要改**（正则读它）。
+- 本文件里的 `| firefox | <N> |` 与 `| webkit | <N> |` 两行是审计脚本的判据输入，**格式不要改**（正则读它）。
 - 若某天 Firefox 又挂：先按第 3 节实验 1–4 重跑一遍，**别直接断定"浏览器坏了"**。

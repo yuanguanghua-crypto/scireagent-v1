@@ -434,8 +434,11 @@ node node_modules/@playwright/test/cli.js test -g "@local-only" --grep-invert "@
 >
 > **现成基线**：`docs/e2e/CROSS_BROWSER_BASELINE.md` —— 全站 44 页冒烟 **firefox 45 passed / chromium 45 passed**，
 > spec 为 `frontend/e2e/cross-browser-smoke.spec.cjs`。
-> **WebKit 仍不可用**：`direct://` 报 `Could not resolve proxy name`、`127.0.0.1` 一样 404、`NO_PROXY` 无效
-> ⇒ 只能在无系统代理的机器/CI 上跑（详见该基线文档 §4）。
+> **WebKit 也已打通（2026-10-21 同日二次更正）**：原先「WK 不可用、只能换环境」的结论过重。
+> 真因是 **WK 页面网络栈不读系统 bypass**（但认 Playwright 显式传入的 `proxy`）
+> ⇒ 给它指一个本地「直连转发代理」(`frontend/e2e/direct-proxy.cjs`，config 在跑 webkit 时自动拉起) 即可，
+> **用户无需关闭系统代理、无需改任何系统设置**。实测 44 页冒烟 webkit **45 passed / 52.9s**，
+> 三引擎合计 **135 passed（45×3）/ 2.3 分钟**。详见该基线文档 §4。
 >
 > ⇒ 下面 8.1 的原文**保留但已作废**，`vite preview + dist` 那条绕路**不需要做了**。
 

@@ -10,7 +10,7 @@
 | R 响应式 | ✅ | `responsive.spec.cjs` 的 path 数组 | 只证明"加载不崩"，不证明布局真的对 |
 | V 视觉 | ✅ | `visual-tokens.spec.cjs` 的 path 数组 | 只证明"断言过令牌"，不证明全站一致 |
 | A 可访问 | ✅ | `a11y.spec.cjs` 的 path 数组 | 只证明"扫过 axe"，不证明零 violation |
-| B 浏览器 | ✅ | `cross-browser-smoke.spec.cjs` 页面清单 **且** 有 firefox 实测基线 | 2 引擎（Chromium+Firefox）；WebKit 见基线文档 |
+| B 浏览器 | ✅ | `cross-browser-smoke.spec.cjs` 页面清单 **且** firefox+webkit 都有实测基线 | 3 引擎（Chromium+Firefox+WebKit） |
 | **I 交互** | ❌ | 需逐页比对 FULL_SITE 要求的交互 vs spec 断言 | **必须人工** |
 
 ⇒ 本脚本填 P/S/R/V/A/B 六维，**I 维留空 `☐` 交人工**。
@@ -104,14 +104,16 @@ if os.path.isfile(xb):
     B_PAGES.update(re.findall(r"path:\s*'([^']+)'", s))
 
 B_BASELINE_DOC = "docs/e2e/CROSS_BROWSER_BASELINE.md"
-b_firefox_passed = 0
+b_engine_passed = {}          # {'firefox': 45, 'webkit': 45, ...}
 if os.path.isfile(B_BASELINE_DOC):
     _bt = io.open(B_BASELINE_DOC, encoding="utf-8").read()
-    # 基线表里固定写一行：| firefox | <passed> | <failed> | ... |
-    _m = re.search(r"\|\s*\**firefox\**\s*\|\s*\**(\d+)\**\s*\|", _bt, re.I)
-    if _m:
-        b_firefox_passed = int(_m.group(1))
-b_ok = bool(B_PAGES) and b_firefox_passed > 0
+    # 基线表里固定写一行：| firefox | <passed> | ... |（webkit 同理）
+    for _eng in ("firefox", "webkit"):
+        _m = re.search(r"\|\s*\**" + _eng + r"\**\s*\|\s*\**(\d+)\**\s*\|", _bt, re.I)
+        if _m:
+            b_engine_passed[_eng] = int(_m.group(1))
+# ★ 2026-10-21：WebKit 打通后，B 维要求**两个非 Chromium 引擎都实测通过**
+b_ok = bool(B_PAGES) and all(b_engine_passed.get(e, 0) > 0 for e in ("firefox", "webkit"))
 
 
 # I 维：读 judge_interaction.py 的判定（不再返回 ☐）
@@ -152,7 +154,7 @@ def verdict(route, dim, planned):
         return ("✓", "在 a11y") if has(A_PAGES, route) else ("✗", "不在 a11y")
     if dim == "B":
         if has(B_PAGES, route) and b_ok:
-            return "✓", "跨浏览器冒烟（chromium+firefox 实测）"
+            return "✓", "跨浏览器冒烟（chromium+firefox+webkit 实测）"
         if has(B_PAGES, route):
             return "✗", "有 spec 但无实测基线"
         return "✗", "不在 cross-browser-smoke"
@@ -176,7 +178,7 @@ L.append("| S 状态 | `state-matrix` + `state-branches-*` | %d |" % len(S_PAGES
 L.append("| R 响应式 | `responsive.spec.cjs` | **%d** |" % len(R_PAGES))
 L.append("| V 视觉 | `visual-tokens.spec.cjs` | %d |" % len(V_PAGES))
 L.append("| A 可访问 | `a11y.spec.cjs` | %d |" % len(A_PAGES))
-L.append("| B 浏览器 | `cross-browser-smoke.spec.cjs`（firefox 实测 %d passed） | %d |" % (b_firefox_passed, len(B_PAGES)))
+L.append("| B 浏览器 | `cross-browser-smoke.spec.cjs`（firefox %d / webkit %d passed） | %d |" % (b_engine_passed.get("firefox", 0), b_engine_passed.get("webkit", 0), len(B_PAGES)))
 L.append("| I 交互 | — | **不可自动判** |")
 L.append("")
 

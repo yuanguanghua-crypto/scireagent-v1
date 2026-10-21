@@ -27,7 +27,28 @@ const httpCredentials =
  * ⇒ 生产服务器上得到 `ECONNREFUSED ::1:8000`（实测，见 README「生产只读回归」）。
  * 这个回落对本地是**刻意**的，所以不能删；正确做法是「目标看起来是生产 却没配 API 地址」时**拒绝启动**。
  */
-const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173'
+
+/**
+ * ★ 2026-10-21：WebKit 绕开本机系统代理的办法 —— 本地「直连转发代理」。
+ *
+ * 背景（实测）：本机系统代理 127.0.0.1:7890（FlClash），Windows bypass 列表**已含** localhost/127.*，
+ * 但 **Playwright 的 Windows WebKit 页面网络栈不遵循该 bypass** ⇒ 把 127.0.0.1:5173 的 ESM 请求
+ * 交给 FlClash，拿回 404，SPA 从不挂载（#app 长度 0）。
+ * 对照：同一时刻 curl / page.request → 200；WebKit 页面 → 404；**WebKit + 本代理 → #app 30329 字符、0 失败请求**。
+ * ⇒ 起一个最小转发代理（`e2e/direct-proxy.cjs`，只听 127.0.0.1），让 WebKit 显式走它，不进 FlClash。
+ * 好处：**用户不需要去关系统代理开关**，也不影响 Chromium/Firefox 的既有绿。
+ *
+ * 启用条件：本次跑批的目标里含 webkit（`--project=webkit`，或不指定 project 跑全部）。
+ * 显式覆盖：E2E_DIRECT_PROXY=1 强制开 / =0 强制关。
+ */
+const DIRECT_PROXY_URL = process.env.E2E_DIRECT_PROXY_URL || 'http://127.0.0.1:8130'
+const _projectArgs = process.argv.filter((a) => a.startsWith('--project'))
+const _targetsWebkit = _projectArgs.length === 0 || _projectArgs.some((a) => a.includes('webkit'))
+const USE_DIRECT_PROXY =
+  process.env.E2E_DIRECT_PROXY === '0'
+    ? false
+    : process.env.E2E_DIRECT_PROXY === '1' || _targetsWebkit;
 const API_BASE = process.env.E2E_API_BASE || '';
 const isProdTarget = /scireagent\.com|^https?:\/\/(?!localhost|127\.0\.0\.1)/.test(BASE_URL);
 
@@ -65,6 +86,21 @@ if (isProdTarget) {
  */
 module.exports = defineConfig({
   testDir: './e2e',
+  // 跑 webkit 时自动拉起本地直连代理（Playwright 会等端口可连；已存在则复用）
+  ...(USE_DIRECT_PROXY
+    ? {
+        webServer: [
+          {
+            command: 'node e2e/direct-proxy.cjs',
+            port: Number(DIRECT_PROXY_URL.split(':').pop()) || 8130,
+            reuseExistingServer: true,
+            timeout: 20000,
+            stdout: 'ignore',
+            stderr: 'pipe',
+          },
+        ],
+      }
+    : {}),
   testMatch: '**/*.spec.cjs',
   timeout: 45000,
   expect: { timeout: 10000 },
@@ -118,10 +154,13 @@ module.exports = defineConfig({
     //     └ ⇒ 请求是被**系统代理**接走后返回 404，dev server 本身完全正常。
     //   ⇒ 所以 **Firefox 只要关掉代理就能用**，无需改走 preview/dist。
     //
-    // ⚠️ WebKit 另说：Windows 版 Playwright WebKit **无法**绕开系统代理 ——
-    //   `proxy: { server: 'direct://' }` 报 `Could not resolve proxy name`（不支持该 scheme），
-    //   改用 `127.0.0.1` 也照样被代理拦成 404；WebKit 又没有 firefoxUserPrefs 等价开关。
-    //   ⇒ **WK 仍不可用**，只能在「关掉系统代理的机器 / CI」上跑。见 docs/e2e/CROSS_BROWSER_BASELINE.md。
+    // ⚠️ WebKit 另说（★ 2026-10-21 **已解决**，推翻本条原结论）：
+    //   原写「WK 无法绕开系统代理、只能换环境」—— 实测过重：
+    //     · `proxy: { server: 'direct://' }` 确实报 `Could not resolve proxy name`（不认该 scheme）
+    //     · 但 WK 页面网络栈**不读**系统 bypass（这才是 404 的真因），
+    //       而它**认** Playwright 显式传入的 `proxy`
+    //   ⇒ 给它指一个本地「直连转发代理」（下方 `UseDirectProxy` 条件）即可，**无需用户关系统代理**。
+    //   实测：默认 #app=0 / 13 个 404；走直连代理 #app=30329、0 失败请求。
     {
       name: 'firefox',
       use: {
@@ -135,6 +174,13 @@ module.exports = defineConfig({
         },
       },
     },
-    { name: 'webkit', use: { browserName: 'webkit' } },
+    {
+      name: 'webkit',
+      use: {
+        browserName: 'webkit',
+        // 仅当本次跑批含 webkit 时才注入（见文件头 USE_DIRECT_PROXY 说明）
+        ...(USE_DIRECT_PROXY ? { proxy: { server: DIRECT_PROXY_URL } } : {}),
+      },
+    },
   ],
 });

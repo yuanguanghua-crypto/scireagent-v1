@@ -13,7 +13,7 @@
 | R 响应式 | `responsive.spec.cjs` | **35** |
 | V 视觉 | `visual-tokens.spec.cjs` | 35 |
 | A 可访问 | `a11y.spec.cjs` | 35 |
-| B 浏览器 | `cross-browser-smoke.spec.cjs`（firefox 实测 45 passed） | 35 |
+| B 浏览器 | `cross-browser-smoke.spec.cjs`（firefox 45 / webkit 45 passed） | 35 |
 | I 交互 | — | **不可自动判** |
 
 ## 逐页审计
