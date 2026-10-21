@@ -371,10 +371,11 @@ test.describe('@ops-orders 订单管理列表页的状态分支', { tag: ['@loca
 
   test('状态筛选：我的 confirmed 单在 Confirmed 下出现、在 Quote Pending 下消失（反向），徽章文案随状态', { tag: ['@write'] }, async ({ page }) => {
     // ★ 为什么用 confirmed 而不是 po_received：
-    //   `AdminOrdersPage.vue:54-64` 的状态下拉**只有** legacy 那 9 个值
-    //   （draft/confirmed/invoiced/paid/processing/shipped/completed/quote_pending/quoted），
-    //   **没有 po_received / delivered / cancelled / in_production** ⇒ 本页无法按 PO 流程态筛选
-    //   （已作为缺陷记录在文件末尾「发现 #1」）。所以这里用下拉里真实存在的 confirmed 做状态分支。
+    //   本用例写于 **D4 修复之前**：当时 `AdminOrdersPage.vue` 的状态下拉只有 legacy 那 9 个值，
+    //   没有 po_received / delivered / cancelled / in_production ⇒ 无法按 PO 流程态筛选。
+    //   D4 已于 2026-10-21 修好（下拉改由 `poConstants` 统一提供，已含全部 PO 流程态，
+    //   正向/反向筛选的验证见 `order-status-filters.spec.cjs`）。
+    //   这里仍用 confirmed 做**状态分支**（confirmed 是 PO 流程里的一环），断言不变。
     const po = await h.seedApproved(custToken, adminToken) // 夹具前置：po_received → confirmed
     createdOrderIds.push(po.id)
     const order = await h.getOrder(adminToken, po.id)
@@ -619,7 +620,10 @@ test.describe('@po-invoicing 开票台的状态分支', { tag: ['@local-only'] }
 /* ────────────────────────────────────────────────────────────────────────────
  * 发现（走状态分支时发现的**真缺陷**） —— 均带 文件:行号 + 实测证据
  *
- * #1【缺陷·高价值】`/ops/orders` 的状态筛选**缺 PO 流程态**，运营筛不出「待审 / 已签收 / 已取消」
+ * #1【✅ 已修 2026-10-21 · 原缺陷】`/ops/orders` 的状态筛选**缺 PO 流程态**，运营筛不出「待审 / 已签收 / 已取消」
+ *    · 修法：状态词表统一到 `config/poConstants.js`（All + 9 个 PO 流程态 + 6 个 legacy 态），
+ *      `AdminOrdersPage.vue` 改为引用该常量（含 optgroup 分组），并补 `statusColors` 缺失的 3 态；
+ *      同时补上分页（此前 991 单只能看到最新 20 单）。回归：`order-status-filters.spec.cjs`。
  *    · `AdminOrdersPage.vue:54-64` 的下拉只有 legacy 那 9 个值：
  *      draft / confirmed / invoiced / paid / processing / shipped / completed / quote_pending / quoted
  *      —— **没有** po_received / delivered / cancelled / in_production。
@@ -630,7 +634,9 @@ test.describe('@po-invoicing 开票台的状态分支', { tag: ['@local-only'] }
  *    · ⇒ 运营在"订单管理"列表里按「待审」批量查看订单的路径**不存在**（只能靠审核台）。
  *      本文件的筛选用例因此改用下拉里真实存在的 `confirmed`（并在用例里写明了原因）。
  *
- * #2【缺陷】`/ops/po/invoicing` 一旦开票，订单就**从列表消失**，再也进不去「记录收款」
+ * #2【✅ 已修 2026-10-21 · 原缺陷】`/ops/po/invoicing` 一旦开票，订单就**从列表消失**，再也进不去「记录收款」
+ *    · 修法：队列过滤改为只看状态 `['delivered','invoiced']`（不再依赖列表 payload 里的 `invoice`）。
+ *      回归：`po-invoicing-queue.spec.cjs`。
  *    · `PoInvoicingDesk.vue:21`：`orders.value = all.filter(o => o.status === 'delivered' || o.invoice)`
  *    · 但列表接口用的 `OrderListSerializer`（`apps/transactions/api/v1/serializers.py:56-61`）
  *      字段只有 `id/order_no/status/payment_method/po_number/grand_total/currency/items_count/created_at`
@@ -645,7 +651,10 @@ test.describe('@po-invoicing 开票台的状态分支', { tag: ['@local-only'] }
  *      —— **不含 `is_ruo`**（实测明细 items 键无该字段）。
  *    · ⇒ `undefined !== false` 恒真 ⇒ 每个订单都显示该声明（即使产品未标 RUO）。
  *
- * #4【缺陷·次要】`/po/orders` 的状态筛选缺 `quote_pending` / `quoted`
+ * #4【✅ 已修 2026-10-21 · 原缺陷·次要】`/po/orders` 的状态筛选缺 `quote_pending` / `quoted`
+ *    · 修法：`poConstants.js` 补 `LEGACY_STATUS_FILTERS`（6 个 legacy 态）并在两页用 optgroup 渲染；
+ *      顺带修 `stores/poPortal.js` 的 total 读取（此前恒显示 20 单）并补分页。
+ *      回归：`order-status-filters.spec.cjs`。
  *    · `config/poConstants.js:38-49` 的 `ORDER_STATUS_FILTERS` 只有 9 项（All + 8 个 PO 态），
  *      而库中真实存在 `quote_pending`(40 单) 与 `quoted`(33 单)（实测 DB 计数）。
  *    · ⇒ 客户无法在"我的采购订单"里筛选「待报价 / 已报价」的订单。

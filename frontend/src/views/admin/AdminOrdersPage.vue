@@ -3,38 +3,59 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAdminOrders } from '@/api/orders'
 import { formatCurrency } from '@/utils/helpers'
-import { LoadingSpinner, EmptyState } from '@/components/common'
+import { LoadingSpinner, EmptyState, DataPagination } from '@/components/common'
+import { ORDER_STATUS_FILTERS, LEGACY_STATUS_FILTERS, ORDER_STATUS_COLORS } from '@/config/poConstants'
 
 const router = useRouter()
 const orders = ref([])
 const loading = ref(false)
 const statusFilter = ref('')
 const searchQuery = ref('')
+// ★ 2026-10-21 修 D4：此前**没有任何分页状态** ⇒ 后端 PAGE_SIZE=20，
+//   991 单里只能看到最新 20 单，更早的单永久不可达。
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
 
-const statusColors = {
-  draft: 'var(--color-gray-600)', confirmed: 'var(--color-primary)', invoiced: 'var(--color-blue-700)', paid: 'var(--color-primary)',
-  processing: 'var(--color-blue-700)', shipped: 'var(--color-accent-active)', completed: 'var(--color-primary)', cancelled: 'var(--color-red-700)',
-  quote_pending: 'var(--color-accent-active)', quoted: 'var(--color-accent-active)', quote_accepted: 'var(--color-primary)', quote_rejected: 'var(--color-red-700)',
-}
+// ★ 2026-10-21 修 D4：状态色表改为引用统一常量（原先内联且缺 3 个状态 ⇒ 徽章 undefined15 无底色）
+const statusColors = ORDER_STATUS_COLORS
 
 function getStatusLabel(status) {
+  const hit = [...ORDER_STATUS_FILTERS, ...LEGACY_STATUS_FILTERS].find((f) => f.value === status)
+  if (hit) return hit.label
   return status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || status
 }
 
-async function fetchOrders() {
+async function fetchOrders(opts = {}) {
   loading.value = true
   try {
-    const params = {}
+    // 换筛选/换搜索时回到第 1 页；翻页时保持
+    const nextPage = Number(opts.page ?? page.value) || 1
+    const params = { page: nextPage, page_size: pageSize.value }
     if (statusFilter.value) params.status = statusFilter.value
     if (searchQuery.value) params.search = searchQuery.value
     const res = await getAdminOrders(params)
-    const data = res.data || res
-    orders.value = data.results || data.data || data || []
+    // 信封形状：{ success, data: [本页条目], meta: { pagination: { count, next, previous } } }
+    // （后端 `core/renderers.py:31-37`）—— 旧代码读 `res.data.meta`，而 `data` 已是数组 ⇒ 取不到
+    const payload = res && res.data !== undefined ? res.data : res
+    orders.value = Array.isArray(payload) ? payload : (payload?.results || payload?.data || [])
+    total.value = Number(res?.meta?.pagination?.count ?? payload?.count ?? orders.value.length)
+    page.value = nextPage
   } catch (err) {
     console.error('Failed to fetch orders:', err)
   } finally {
     loading.value = false
   }
+}
+
+function onFilterChange() {
+  page.value = 1
+  fetchOrders({ page: 1 })
+}
+
+function onPageChange({ page: p, pageSize: s }) {
+  pageSize.value = s
+  fetchOrders({ page: p })
 }
 
 onMounted(fetchOrders)
@@ -50,21 +71,16 @@ function goToDetail(order) {
 
     <!-- Filters -->
     <div class="filters">
-      <select v-model="statusFilter" class="filter-select" @change="fetchOrders" aria-label="Filter orders by status">
-        <option value="">All Statuses</option>
-        <option value="draft">Draft</option>
-        <option value="confirmed">Confirmed</option>
-        <option value="invoiced">Invoiced</option>
-        <option value="paid">Paid</option>
-        <option value="processing">Processing</option>
-        <option value="shipped">Shipped</option>
-        <option value="completed">Completed</option>
-        <option value="quote_pending">Quote Pending</option>
-        <option value="quoted">Quoted</option>
+      <select v-model="statusFilter" class="filter-select" @change="onFilterChange" aria-label="Filter orders by status">
+        <!-- ★ 2026-10-21 修 D4：选项改由 `poConstants` 统一提供（此前内联 9 项、缺整套 PO 流程态） -->
+        <option v-for="f in ORDER_STATUS_FILTERS" :key="f.value" :value="f.value">{{ f.label }}</option>
+        <optgroup label="Historical / Quote states">
+          <option v-for="f in LEGACY_STATUS_FILTERS" :key="f.value" :value="f.value">{{ f.label }}</option>
+        </optgroup>
       </select>
       <div class="search-wrap">
-        <input v-model="searchQuery" class="search-input" placeholder="Search order #, PO #..." @keyup.enter="fetchOrders" />
-        <button class="search-btn" @click="fetchOrders">Search</button>
+        <input v-model="searchQuery" class="search-input" placeholder="Search order #, PO #..." @keyup.enter="onFilterChange" />
+        <button class="search-btn" @click="onFilterChange">Search</button>
       </div>
     </div>
 
@@ -104,6 +120,18 @@ function goToDetail(order) {
         </tbody>
       </table>
       <EmptyState v-if="orders.length === 0" title="No orders found" icon="List" />
+
+      <!-- ★ 2026-10-21 修 D4：加分页。⚠️ 不用 `sizes` 布局：
+           Element Plus 的每页条数选择器会渲染一个无可访问名的 combobox，
+           实测会让本页 a11y critical 0→1（同 D2 的处理方式）。 -->
+      <DataPagination
+        v-if="total > pageSize"
+        :current-page="page"
+        :page-size="pageSize"
+        :total="total"
+        layout="total, prev, pager, next"
+        @change="onPageChange"
+      />
     </div>
   </div>
 </template>

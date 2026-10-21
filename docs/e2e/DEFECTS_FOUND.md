@@ -21,8 +21,8 @@
 | D1 | P0 | `/ops/po/organizations` 订单查看~~忽略机构筛选~~ | ✅ **已修 2026-10-21** |
 | D2 | P0 | `/orders` ~~无分页 ⇒ 第 21 单起看不到、total 错~~ | ✅ **已修 2026-10-21** |
 | D3 | P1 | `/ops/po/invoicing` ~~一开票订单就消失~~ | ✅ **已修 2026-10-21** |
-| D4 | P1 | `/ops/orders` 状态筛选缺 PO 流程态（且无分页） | ⬜ 待修 |
-| D5 | P1 | `/po/orders` 筛选缺 `quote_pending` / `quoted` | ⬜ 待修 |
+| D4 | P1 | `/ops/orders` ~~状态筛选缺 PO 流程态（且无分页）~~ | ✅ **已修 2026-10-21** |
+| D5 | P1 | `/po/orders` ~~筛选缺 `quote_pending` / `quoted`~~ | ✅ **已修 2026-10-21** |
 | D6 | P1 | `/po/orders/:id` RUO 声明恒显示 | ⬜ 待修 |
 | D7 | P2 | a11y：25 页 50 处 color-contrast + 1 critical | ⬜ 待修 |
 | D8 | P3 | `PoSubmit.vue:156-159` 死代码 alert | ⬜ 待修 |
@@ -75,24 +75,27 @@
 | **测试数据纪律** | 本 spec 首次用了公共前缀 `PO-E2E-PR-*`，跑完无法与别的 spec 区分 ⇒ **改为唯一标记 `PO-E2E-D3-<ts>-<rand>`** 并 DELETE 清理（级联删发票）；实测标记残留 **0** |
 | ⚠️ 同类未修 | 本页 `getOrders({page_size: 200})` ⇒ **队列只看最新 200 单**，更早的 delivered 单会被静默截断。要修需后端支持 `status__in` + 分页（与 D4 一并做） |
 
-## D4 · P1 · `/ops/orders` 状态筛选缺 PO 流程态
+## D4 · P1 · ✅ **已修（2026-10-21）** · `/ops/orders` 状态筛选缺 PO 流程态（且无分页）
 
 | 项 | 内容 |
 |---|---|
-| 现象 | 状态下拉只有 legacy 9 态，**没有** `po_received` / `delivered` / `cancelled` / `in_production` |
-| 根因 | `AdminOrdersPage.vue:54-64` 的下拉选项写死了一套旧状态 |
-| 实测 | `selectOption('po_received')` 45s 内报 `did not find some options` |
-| 影响 | 运营在订单管理里**筛不出待审单**，而详情页与三个内部台全用 PO 状态机 ⇒ 列表与详情状态词汇不一致 |
-| 用例 | `state-branches-po.spec.cjs` 用「Confirmed 筛选」+「Quote Pending 下我的行消失」做反向断言，绕开缺失项 |
+| 现象 | ① 状态下拉只有 legacy 9 态，**没有** `po_received`/`in_production`/`delivered`/`cancelled`；② **完全没有分页** |
+| 根因 | ① `AdminOrdersPage.vue` 模板内联写死了一套旧 option（既不完整、又与 `poConstants` 重复）；② `fetchOrders` 从不传 `page` ⇒ 后端 `PAGE_SIZE=20`，**991 单只看得到最新 20 单**；③ 同文件 `statusColors` 缺 3 态 ⇒ 徽章拼出 `undefined15` 非法 CSS |
+| 实测（修前） | `selectOption('po_received')` 45s 内报 `did not find some options`；分页控件不存在 |
+| 影响 | 运营筛不出待审单；且更早的订单**永久不可达**（比筛选缺失更严重） |
+| **修法** | ① 状态词表**统一到 `config/poConstants.js`**（`ORDER_STATUS_FILTERS` = All + 9 个 PO 流程态；`LEGACY_STATUS_FILTERS` = 6 个历史/报价态），两页都用 `<optgroup>` 分组渲染 —— 从此只有**一个真相来源**；② 加 `page/pageSize/total` 与 `DataPagination`（`layout` 不含 `sizes`，避免 Element Plus 无可访问名的每页条数 combobox）；③ `statusColors` 改用 `ORDER_STATUS_COLORS`（覆盖全 15 态） |
+| **验证** | `frontend/e2e/order-status-filters.spec.cjs` 3 例：①下拉含 4 个 PO 流程态 ②选 `po_received` 后每行都是 PO Received ③分页总数 > 20 且第 2 页内容不同 |
 
-## D5 · P1 · `/po/orders` 筛选缺 `quote_pending` / `quoted`
+## D5 · P1 · ✅ **已修（2026-10-21）** · `/po/orders` 筛选缺 `quote_pending` / `quoted`
 
 | 项 | 内容 |
 |---|---|
-| 现象 | 客户 PO 列表的筛选下拉里没有「待报价 / 已报价」 |
-| 根因 | `config/poConstants.js:38-49` 的选项表缺这两项 |
-| 实测 | 库内真实存在 `quote_pending` 40 单、`quoted` 33 单 |
-| 影响 | 客户无法按报价状态筛自己的单 |
+| 现象 | 客户 PO 列表的筛选下拉里没有「待报价 / 已报价」；且副标题的总单数**恒显示 20** |
+| 根因 | ① `poConstants.ORDER_STATUS_FILTERS` 只有 PO 流程态、缺 legacy 6 态；② `stores/poPortal.js` 的 `total` 读了 `res.data.meta`，而分页信息在**信封** `res.meta`（`data` 已是数组）⇒ 恒等于当前页条数（D2 同款）；③ 无分页控件 |
+| 实测（修前） | 库内真实存在 `quote_pending` 40 单、`quoted` 33 单；下拉 option 实测为 `["", po_received, confirmed, in_production, shipped, delivered, invoiced, paid, completed, cancelled]` |
+| 影响 | 客户无法按报价状态筛自己的单；`quoted` 33 单里最多只能看到 20 单，且看不出来被截断 |
+| **修法** | ① 补 `LEGACY_STATUS_FILTERS` 并用 `<optgroup>` 渲染；② `poPortal.fetchOrders` 改读**信封** `meta.pagination.count` 并显式传 `page/page_size`；③ 加 `DataPagination`（layout 不含 `sizes`）；④ 切换筛选时**回到第 1 页**（否则停在越界页会显示空表） |
+| **验证** | `order-status-filters.spec.cjs` 3 例：①下拉含 `quote_pending`/`quoted` ②选 `quoted` 后每行都是 Quoted、副标题总单数 > 20 ③能翻到第 2 页看到不同的单 |
 
 ## D6 · P1 · `/po/orders/:id` 的 "For Research Use Only" 声明恒显示
 
