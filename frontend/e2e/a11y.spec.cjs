@@ -44,7 +44,10 @@ async function scan(page, label) {
           const nodes = (v.nodes || []).slice(0, 5).map((n) => {
             const tgt = Array.isArray(n.target) ? n.target.join(' ') : String(n.target)
             const msg = (n.failureSummary || '').split('\n').filter(Boolean).slice(-1)[0] || ''
-            return `      · ${tgt}${msg ? '  ← ' + msg.slice(0, 90) : ''}`
+            // ★ 2026-10-21：加元素 HTML 片段 —— 只有 selector（如 #el-id-1-82）时无法定位到组件源码，
+            //   axe 的 n.html 能看出是什么控件（Element Plus 的自动 id 尤其需要这个）。
+            const html = (n.html || '').replace(/\s+/g, ' ').slice(0, 110)
+            return `      · ${tgt}\n        HTML: ${html}${msg ? '\n        ← ' + msg.slice(0, 80) : ''}`
           }).join('\n')
           const more = (v.nodes || []).length > 5 ? `\n      · …还有 ${v.nodes.length - 5} 处` : ''
           return `  - [${v.impact}] ${v.id}: ${v.help} (${(v.nodes || []).length} 处)\n${nodes}${more}`

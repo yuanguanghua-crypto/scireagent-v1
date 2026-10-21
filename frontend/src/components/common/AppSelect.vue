@@ -5,6 +5,7 @@
     <label v-if="label" class="form-label" :for="selectId">{{ label }}</label>
     <el-select
       :id="selectId"
+      :aria-label="label || placeholder || 'Select an option'"
       :model-value="modelValue"
       :placeholder="placeholder"
       :size="size"
