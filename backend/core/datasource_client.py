@@ -22,6 +22,8 @@ from tenacity import (
     stop_after_attempt,
 )
 
+from core import http_cassette
+
 logger = logging.getLogger(__name__)
 
 # 测试可 patch 的 sleep（tenacity 等待用），生产为 time.sleep
@@ -166,9 +168,41 @@ def _wait_strategy(retry_state) -> float:
 
 
 def _do_request(method: str, url: str, source: str, timeout: float, **kwargs):
-    """单次 HTTP 调用：限速 → 请求 → 状态码判定。供 tenacity 重试包装。"""
+    """单次 HTTP 调用：限速 → 请求 → 状态码判定。供 tenacity 重试包装。
+
+    ★ 2026-10-21 L7：外部数据源录制/回放（cassette）插在这里 ——
+      本模块是**全仓唯一**直接调 `requests` 的地方（已核实：除本文件外
+      `apps/` 与 `core/` 无任何 `requests.*` / `httpx.*` 调用，PubMed /
+      Europe PMC / Bioz / ChEMBL / PubChem 的 client 全部走
+      `request_with_resilience`），所以录制只需插这一处。
+
+      - `off`（默认）：行为与本改动前**完全一致**，不多一次 IO
+      - `record`：真发请求，成功后追加进 cassette；请求行为不变
+      - `replay`：**不发请求**，只从 cassette 取；未命中抛 `CassetteMiss`
+        （故意不静默回源 —— 否则 CI 又依赖外网，且测试表面绿、实际走网络）
+    """
+    mode = http_cassette.http_mode()
+
+    if mode == http_cassette.MODE_REPLAY:
+        # 回放不取令牌（没发请求就不该占限速额度，也不该真 sleep）
+        key = http_cassette.cassette_key(method, url, **kwargs)
+        record = http_cassette.lookup(source, key)
+        if record is None:
+            raise http_cassette.CassetteMiss(source, key, url)
+        resp = http_cassette.build_response(record)
+        if resp.status_code in RETRYABLE_STATUS:
+            raise RetryableHttpError(resp.status_code, _parse_retry_after(resp), url)
+        return resp
+
     get_bucket(source).acquire(timeout=timeout)
     resp = requests.request(method, url, timeout=timeout, **kwargs)
+
+    if mode == http_cassette.MODE_RECORD:
+        key = http_cassette.cassette_key(method, url, **kwargs)
+        record = http_cassette.build_record(method, url, key, resp)
+        if record is not None:
+            http_cassette.save(source, record)
+
     if resp.status_code in RETRYABLE_STATUS:
         raise RetryableHttpError(resp.status_code, _parse_retry_after(resp), url)
     return resp

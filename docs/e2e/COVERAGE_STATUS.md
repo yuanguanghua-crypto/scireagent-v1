@@ -462,6 +462,88 @@ CI 里加了 `permission-check` job（第 8 个，现共 **10 个**）。
 
 ---
 
+## 3.14 外部数据源录制回放（cassette，2026-10-21 新增）
+
+### 3.14.1 为什么必须做（以及为什么之前一直没做）
+平台有 5 类外部依赖：PubChem、PubMed、ChEMBL、Europe PMC、Bioz，还有 LLM API。
+它们此前的测试待遇只有两种：
+- **完全不测**（外网不通就跳过）⇒ 容错逻辑、解析逻辑、降级链从来没被验证过
+- **手写 mock 响应** ⇒ 手写的 JSON 与真实响应必然有差异，"测试全绿、真机 500"
+
+外网本身也不可靠：同一台机器实测 PubChem **有时 1.8s 返回、有时 20s 超时**，
+走代理还会 SSL 失败 ⇒ 同一个测试今天绿明天红，没人分得清是代码坏了还是网坏了。
+
+cassette 把**真实响应**录下来再回放：离线可跑、且保真。
+
+> 顺带一个事实变化：本轮开工时 PubChem 是超时的，**现在实测 `http=200 / 1.8s`**。
+> 这正好说明"依赖外网的测试结果"有多不可靠 —— 所以录制回放不依赖网络好坏。
+
+### 3.14.2 设计取舍（三处关键决定）
+
+| 决定 | 为什么 |
+|---|---|
+| **默认 `off`**，必须显式 `SCIREAGENT_HTTP_MODE` 才启用 | 生产/开发/E2E 都依赖真实外部数据。任何"默认开"的设计都会在某天悄悄返回旧数据（3 个月前录的分子式），而且**没人看得出来** |
+| **回放未命中抛 `CassetteMiss`，绝不静默回源** | 静默回源会让 CI 重新依赖外网，且测试表面绿、实际走网络 —— 那正是要消灭的假绿。报错里直接给出重录命令 |
+| **key 只由请求语义决定**（method + scheme+host + path + **排序后**的 query + body），剔除 headers/cookies/超时 | 把 UA、时间戳、令牌算进 key 会让它永远不稳定；而 query 不排序会因调用方拼参顺序不同而 miss。`params` dict 与 URL 里已有 query **合并后**再排序（requests 就是这样发的） |
+
+安全：cassette 会进仓库 ⇒ 响应头走**白名单**（只留 `content-type` / `retry-after`），
+`Authorization` / `Cookie` / `X-Api-Key` 一律不落盘；body 超过 2MB **整条跳过录制**
+（存半截数据会让回放"成功"但内容残缺，比 miss 更危险）。
+
+### 3.14.3 落在哪一行（这是最关键的技术判断）
+全仓**唯一**直接调 `requests` 的地方是 `core/datasource_client.py:171`（`_do_request`）。
+PubMed / Europe PMC / Bioz / ChEMBL / PubChem enhancer 全部经
+`request_with_resilience` ⇒ **录制只插这一处**，业务代码零改动。
+
+### 3.14.4 ⚠️ 已知缺口：3 处 `urllib` 直连绕过统一客户端
+第一版侦察**只搜了 `requests` / `httpx`，漏了 `urllib`** ⇒ 一度误判"已全部收口"。
+换关键词复查后确认这 3 个文件绕过了统一客户端（也因此绕过了 cassette、限速、重试）：
+
+| 文件 | 用途 | 后果 |
+|---|---|---|
+| `apps/documents/services/pubchem_fetcher.py:67-68` | PubChem SDS/COA 补全 | **PubChem 有两条路径**：`pubchem_enhancer`/`product_validator` 走统一客户端（可录），`pubchem_fetcher` 走 urllib（**不可录**） |
+| `apps/bridges/services/evidence_miner.py:48,58` | 外部证据抓取 | 不可录 + 无统一限速重试 |
+| `apps/knowledge/services/llm_extractor.py:146,209` | **LLM API 调用**（DeepSeek） | 不可录。而 T2 全量重跑曾因余额耗尽（HTTP 402）阻塞 ⇒ 录制回放**在这里价值最高** |
+
+**没有擅自迁移**：迁移 LLM 调用涉及计费、超时、错误码语义，
+不是一个"顺手改"的改动。已列为后续项，不混进本次。
+
+### 3.14.5 落地内容与验证
+- `backend/core/http_cassette.py`（新）—— 录制/回放核心，独立可测
+- `backend/core/datasource_client.py` —— `_do_request` 里加 3 个分支（off/record/replay）
+- `scripts/record_datasources.py`（新）—— **调真实业务函数**录制（手拼 URL 会与生产构造不一致 ⇒ 回放必 miss）
+- `backend/cassettes/pubchem.jsonl`（2 条）、`pubmed.jsonl`（1 条）—— 真实录制，入库
+
+| 验证 | 结果 |
+|---|---|
+| `core/tests/test_http_cassette.py` | **21 passed**（模式解析 / key 稳定性 9 条 / 端到端 record-replay / 最终 URL 记录 / 头脱敏 / 大 body 跳过 / 回放 503 仍可重试） |
+| `core/tests/test_datasource_replay.py` | **5 passed / 0 skipped**（0 skip 说明 cassette 真被用上了） |
+| **变异验证 A**：replay 未命中改成静默放过 | ⇒ `test_replay_miss_raises_instead_of_going_online` **红** |
+| **变异验证 B**：响应头白名单失效 | ⇒ `test_authorization_and_cookie_never_persisted` **红** |
+| **变异验证 C**：删掉「CID→SMILES」那条录制 | ⇒ `test_compare_smiles_offline_full_chain` **红**，而只依赖第一条的 `test_lookup_by_cas_offline` 仍绿 |
+| 离线自证 | 3 条回放用例都把 `requests.request` 打成"一碰就炸"，并断言 `call_count == 0` |
+
+**录制时发现并修掉的一个隐蔽缺陷**：第一版 `build_record` 存的 URL 是**调用方传入的**
+`url`，而不是 requests **拼好的最终地址**。实测 PubMed 调的是
+`request_with_resilience('GET', '.../efetch.fcgi', params={'db':..., 'id':...})`
+—— 传入的 url 只有 `efetch.fcgi`，参数在另一个形参里。于是 cassette 里存成了
+`efetch.fcgi`（**丢了检索条件**），回放出来的 `resp.url` 也是残的。
+改存 `resp.url`，并补用例 `test_record_stores_final_url_with_params` 钉住
+（重录后 PubMed 那条已是 `efetch.fcgi?db=pubmed&id=24151172&rettype=abstract&retmode=xml`）。
+> 注意职责区分：**key 仍由「传入 url + params」算出**，与"存什么 url"无关 ——
+> 前者决定命中，后者是可读性与下游正确性。
+
+真实录制结果（线上 API 原始响应）：
+`PubChemClient.compare_smiles('CC(=O)OC1=CC=CC=C1C(=O)O', '50-78-2')`
+→ `{"match": true, "cid": 2244, "pubchem_smiles": "CC(=O)OC1=CC=CC=C1C(=O)O", "mismatch_fields": []}`
+（回放拿到的是同一份真实数据，不是手写假值）
+
+> ⚠️ 变异测试两次踩 CRLF 坑：`read_text()` + `\n` 锚点匹配不上 ⇒ 第一次"注入成功"其实没改到文件，
+> 跑出来 20 passed 是**假绿**。改成 `splitlines()` 按行号替换才真正生效。
+> **变异测试自己也要验证"变异真的注入了"**，否则等于没测。
+
+---
+
 ## 4. 下一轮该做什么（按价值排序）
 
 | # | 任务 | 价值 | 成本 |
