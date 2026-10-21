@@ -46,11 +46,33 @@ SNAPSHOT = os.path.join(REPO, 'docs', 'e2e', 'API_CONTRACT_SCHEMA.json')
 
 # 受检端点：(OpenAPI path, 展示名)
 ENDPOINTS = [
+    # ── 订单/产品（原有核心 4 条）──
     ('/api/v1/orders/', 'orders.list'),
     ('/api/v1/orders/{id}/', 'orders.detail'),
     ('/api/v1/products/', 'products.list'),
     ('/api/v1/products/{id}/', 'products.detail'),
+    # ── 2026-10-21 扩容：从 4 → 20 条，覆盖主要列表/详情（见 COVERAGE_STATUS §3.18）──
     ('/api/v1/admin/orders/', 'admin_orders.list'),
+    ('/api/v1/admin/orders/{id}/', 'admin_orders.detail'),
+    ('/api/v1/skus/', 'skus.list'),
+    ('/api/v1/skus/{id}/', 'skus.detail'),
+    ('/api/v1/quotes/', 'quotes.list'),
+    ('/api/v1/wishlist/', 'wishlist.list'),
+    ('/api/v1/inventory/', 'inventory.list'),
+    ('/api/v1/coas/', 'coas.list'),
+    ('/api/v1/coas/{id}/', 'coas.detail'),
+    ('/api/v1/sds-revisions/', 'sds.list'),
+    ('/api/v1/batches/', 'batches.list'),
+    ('/api/v1/documents/', 'documents.list'),
+    ('/api/v1/addresses/', 'addresses.list'),
+    ('/api/v1/product-classes/', 'product_classes.list'),
+    ('/api/v1/catalog-groups/', 'catalog_groups.list'),
+    ('/api/v1/verified/', 'verified.list'),
+    # 知识实体（平台核心：RG → AP → Method → Protocol）
+    ('/api/v1/applications/', 'applications.list'),
+    ('/api/v1/methods/', 'methods.list'),
+    ('/api/v1/protocols/', 'protocols.list'),
+    # ── 非 serializer 驱动 / 容易取不到 200 的，保留但允许缺席（--update 会提示）──
     ('/api/v1/basket', 'basket.detail'),
     ('/api/v1/auth/me', 'auth.me'),
 ]

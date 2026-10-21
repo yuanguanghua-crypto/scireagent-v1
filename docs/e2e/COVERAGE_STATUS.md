@@ -743,6 +743,25 @@ Application.objects.filter(status='active')
 
 ---
 
+## 3.18 契约检查扩容：4 → 20 个端点（2026-10-21）
+
+原来只覆盖 `orders` / `products` 的列表+详情。D3（读 `o.invoice`）和 D6（读 `it.is_ruo`）
+正是这类"前端读后端不返回的字段"的缺陷 —— 4 个端点的拦截面太窄。
+
+现在覆盖 20 个（含订单、产品、SKU、报价、购物车、库存、COA、SDS、批次、文档、
+地址、分类、CatalogGroup、verified、以及知识实体 AP/Method/Protocol）。
+
+**5 条被 SKIP，原因是能力限制而非疏漏**：
+`admin_orders.list` / `admin_orders.detail` / `verified.list` / `basket.detail` / `auth.me`
+—— 这些是 `APIView` 或函数视图，**drf-spectacular 推断不出响应 schema**
+（没用 serializer 声明 `responses=`）。要覆盖它们得先给视图补 `@extend_schema`，
+属于另一件事，本轮不做。
+
+> ⚠️ 扩容时**只加端点、不改判据**。判据逻辑（剥分页/信封、展开 `$ref`、少字段=FAIL/多字段=WARN）
+> 未动，所以不需要重新验证机制；只需确认新端点真的进了快照（`--update` 输出 20 个端点）。
+
+---
+
 ## 4. 下一轮该做什么（按价值排序）
 
 | # | 任务 | 价值 | 成本 |
