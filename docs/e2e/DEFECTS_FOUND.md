@@ -20,7 +20,7 @@
 |---|---|---|---|
 | D1 | P0 | `/ops/po/organizations` 订单查看~~忽略机构筛选~~ | ✅ **已修 2026-10-21** |
 | D2 | P0 | `/orders` ~~无分页 ⇒ 第 21 单起看不到、total 错~~ | ✅ **已修 2026-10-21** |
-| D3 | P1 | `/ops/po/invoicing` 一开票订单就消失 | ⬜ 待修 |
+| D3 | P1 | `/ops/po/invoicing` ~~一开票订单就消失~~ | ✅ **已修 2026-10-21** |
 | D4 | P1 | `/ops/orders` 状态筛选缺 PO 流程态（且无分页） | ⬜ 待修 |
 | D5 | P1 | `/po/orders` 筛选缺 `quote_pending` / `quoted` | ⬜ 待修 |
 | D6 | P1 | `/po/orders/:id` RUO 声明恒显示 | ⬜ 待修 |
@@ -59,15 +59,21 @@
 | **验证** | E2E `orders-pagination.spec.cjs` **2 例**：①总数必须 > 20（缺陷时恒 20）；②翻第 2 页内容不同、能回第 1 页。实测 **2 passed / 10.0s** |
 | ⚠️ 同类未修 | `/ops/orders`（`AdminOrdersPage.vue`）**同样没有分页**，且状态筛选缺 PO 流程态（见 D4）。不在本次 D1/D2 范围内，单独排期 |
 
-## D3 · P1 · `/ops/po/invoicing` 一开票，订单就从列表消失，再也进不去「记录收款」
+## D3 · P1 · ✅ **已修（2026-10-21）** · `/ops/po/invoicing` 一开票，订单就从列表消失，再也进不去「记录收款」
 
 | 项 | 内容 |
 |---|---|
-| 现象 | 对 DELIVERED 订单开票后，刷新列表该订单**消失**，无法再进入「Record Payment」 |
-| 根因 | 列表过滤 `status === 'delivered' \|\| o.invoice`（`PoInvoicingDesk.vue:21`），但列表用的 `OrderListSerializer.fields`（`serializers.py:56-61`）**不含 `invoice` 字段** ⇒ `\|\| o.invoice` 恒假；开票又把订单推进成 `invoiced` ⇒ 两个条件同时不成立 |
-| 实测 | 50 行列表数据里含 `invoice` 键的 = **0 行** |
+| 现象 | 对 DELIVERED 订单开票后，点「Refresh」刷新队列，该订单**消失**，无法再进入「Record Payment」 |
+| 根因 | 队列过滤 `all.filter(o => o.status === 'delivered' \|\| o.invoice)`（`PoInvoicingDesk.vue` 的 `load()`），但列表用的 `OrderListSerializer.fields`（`serializers.py:56-61`）**不含 `invoice`** ⇒ `o.invoice` 恒 `undefined`；开票又把订单推进成 `invoiced` ⇒ 两个条件同时不成立 |
+| 为什么难发现 | **详情接口**用的是 `OrderDetailSerializer`（含 `invoice`）⇒ 详情能正常显示发票，**只有队列坏掉**；开票后不刷新页面也看不出来（`issue()` 只调 `openOrder`，不调 `load()`） |
 | 影响 | 开票后**收不回款也记不上收款**（资金链闭环断了） |
-| 用例 | `ops-po-desk-gaps.spec.cjs` 的开票用例改为"切走再切回验服务端真值"，避开该缺陷；缺陷本身在注释里写明 |
+| **修法** | 队列改为**只看状态**：`['delivered','invoiced'].includes(o.status)`。不再依赖"列表 payload 里恰好带了 invoice"这种脆弱前提；语义与状态机一致（`delivered` 待开票 / `invoiced` 待收款 / `paid·completed·cancelled` 离开） |
+| **为什么 `invoiced` 必须留在队列** | 部分付款时 `PaymentArService.pay` **不**改订单状态（只有付清才 `Order.Status.PAID`，`services.py:520-530`）⇒ 停在 `invoiced` 的单还欠款，必须留在收款队列 |
+| **前置核实（防漏收）** | 查过全库 `Invoice.status × Order.status`：`issued` 发票全部挂在 **cancelled** 订单上，**不存在"已开票但订单已 paid/completed"** ⇒ 按状态过滤不会漏掉应收款订单 |
+| **验证** | `frontend/e2e/po-invoicing-queue.spec.cjs` **2 例**：①开票→Refresh→订单仍在队列且状态 invoiced、点进去仍能记录收款 ②反向断言：`paid` 订单**必须离开**队列（防修成"什么都留着"）。实测 **2 passed / 9.1s** |
+| **变异验证（证明测试有效）** | 把过滤临时改回 `o.status === 'delivered'` 重跑 ⇒ 用例精确红在「开票后订单从队列消失（D3）」，随后按 sha 还原（`a6ee9ed4ed77` 一致） |
+| **测试数据纪律** | 本 spec 首次用了公共前缀 `PO-E2E-PR-*`，跑完无法与别的 spec 区分 ⇒ **改为唯一标记 `PO-E2E-D3-<ts>-<rand>`** 并 DELETE 清理（级联删发票）；实测标记残留 **0** |
+| ⚠️ 同类未修 | 本页 `getOrders({page_size: 200})` ⇒ **队列只看最新 200 单**，更早的 delivered 单会被静默截断。要修需后端支持 `status__in` + 分页（与 D4 一并做） |
 
 ## D4 · P1 · `/ops/orders` 状态筛选缺 PO 流程态
 

@@ -18,7 +18,18 @@ async function load() {
     const res = await getOrders({ page_size: 200 })
     const payload = res.data || res
     const all = payload.results || payload.data || payload || []
-    orders.value = all.filter((o) => o.status === 'delivered' || o.invoice)
+    // ★ 2026-10-21 修 D3（P1）：此前是 `o.status === 'delivered' || o.invoice`，
+    //   但列表用的是 `OrderListSerializer`，其 `fields` **不含 `invoice`**
+    //   （`apps/transactions/api/v1/serializers.py:56-61`）⇒ `o.invoice` 恒 undefined（恒假）。
+    //   开票又会把订单推进成 `invoiced`（`services.py` 的 issue_invoice）
+    //   ⇒ 开票后两个条件同时不成立 ⇒ 订单从队列消失，再也进不去「Record Payment」。
+    //   现在改为**只看状态**（队列语义本就由状态机决定）：
+    //     delivered ⇒ 待开票；invoiced ⇒ 已开票待收款（部分付款仍停在 invoiced，见
+    //     `services.py:520-530`，因此必须留在队列）；paid/completed/cancelled ⇒ 已结清/已终结，离开。
+    //   不再依赖"列表 payload 里恰好带了 invoice"这种脆弱前提。
+    //   回归：`frontend/e2e/po-invoicing-queue.spec.cjs`（正+反两条断言）。
+    const QUEUE_STATUSES = ['delivered', 'invoiced']
+    orders.value = all.filter((o) => QUEUE_STATUSES.includes(o.status))
   } finally {
     loading.value = false
   }
