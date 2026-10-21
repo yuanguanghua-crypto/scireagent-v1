@@ -14,27 +14,50 @@
 
 ---
 
-## D1 · P0 · `/ops/po/organizations` 的「订单查看」忽略机构筛选，显示全库订单
+## 状态总览
+
+| # | 级别 | 一句话 | 状态 |
+|---|---|---|---|
+| D1 | P0 | `/ops/po/organizations` 订单查看~~忽略机构筛选~~ | ✅ **已修 2026-10-21** |
+| D2 | P0 | `/orders` ~~无分页 ⇒ 第 21 单起看不到、total 错~~ | ✅ **已修 2026-10-21** |
+| D3 | P1 | `/ops/po/invoicing` 一开票订单就消失 | ⬜ 待修 |
+| D4 | P1 | `/ops/orders` 状态筛选缺 PO 流程态（且无分页） | ⬜ 待修 |
+| D5 | P1 | `/po/orders` 筛选缺 `quote_pending` / `quoted` | ⬜ 待修 |
+| D6 | P1 | `/po/orders/:id` RUO 声明恒显示 | ⬜ 待修 |
+| D7 | P2 | a11y：25 页 50 处 color-contrast + 1 critical | ⬜ 待修 |
+| D8 | P3 | `PoSubmit.vue:156-159` 死代码 alert | ⬜ 待修 |
+| D9 | P3 | `/po/addresses` 过期 callout 文案 | ⬜ 待修 |
+| D10 | P2 | `/orders` `/ops/orders` 错误只有 4 秒 toast（静默失败） | ⬜ 待修 |
+
+---
+
+## D1 · P0 · ✅ **已修（2026-10-21）** · `/ops/po/organizations` 的「订单查看」忽略机构筛选，显示全库订单
 
 | 项 | 内容 |
 |---|---|
 | 现象 | 在机构管理页选中任一机构，右侧「\<机构名\> — Orders」表格显示的是**全库 937 单**，与所选机构无关 |
 | 复现 | staff 登录 → `/ops/po/organizations` → 点任一机构行 → 对比不同机构右侧表格 |
-| 实测 | admin token 下 `organization_id=6` 与 `organization_id=4` 返回**完全同一批**订单（库内 937 单全属 org4，org6 一单也没有） |
-| 根因 | 前端 `adminPo.js:93-95` 传 `organization_id=`，但后端 `OrderViewSet.filterset_fields = ['status']`（`transactions/api/v1/views.py:14`）**只认 status**，其余查询参数被静默丢弃 |
-| 影响 | **跨机构订单可见**（内部台的租户隔离形同虚设）；运营按机构查单一律拿到错的 |
-| 用例 | `frontend/e2e/ops-po-desk-gaps.spec.cjs` 里有一条 `test.fixme` 固化了"正确预期"（选 0 单机构时右表应为空）——修好后把 fixme 去掉即成为回归闸门 |
+| 实测（修前） | admin token 下 `organization_id=6` 与 `organization_id=4` 返回**完全同一批**订单 |
+| 根因 | 前端 `adminPo.js:94` 传 `organization_id=`，但后端 `OrderViewSet.filterset_fields = ['status']`（`transactions/api/v1/views.py:14`）**只认 status**，其余查询参数被 DjangoFilterBackend **静默丢弃** |
+| 影响 | **跨机构订单可见**（内部台租户隔离形同虚设）；运营按机构查单一律拿到错的 |
+| **修法** | `filterset_fields = ['status', 'organization', 'organization_id']` —— 两种写法都收（`_id` 是本仓库既有惯例，见 `commerce/api/v1/views.py:59` 的 `product_class_id`；`organization` 是 FK 规范名）。**前端零改动** |
+| **为什么不会提权** | `get_queryset()` **先**按用户收窄（客户只看自己的），过滤只在其**之上**再收窄 ⇒ 客户传别人的机构 id 依然什么都看不到（已写反向断言钉住） |
+| **验证** | 后端 `test_cross_org_visibility.py::OrderOrganizationFilterTest` **5 例**（无过滤对照 / 按 id 收窄 / 别名生效 / 非法 id 被 400 拒绝而非静默回落 / 客户不得提权）；E2E `ops-po-desk-gaps.spec.cjs` 两条（有单机构渲染表格、0 单机构空态）**2 passed** |
+| **线上确认** | 重启后端后实测：`organization_id=4 → 983`、`organization_id=6 → 0`（修前两者都是 984） |
+| ⚠️ 附带发现 | 修复后原「点机构行 → 有订单行」用例**变红**：它点的是 0 单机构，却断言有行 —— 因为修前它借缺陷（显示全库）才绿。已改为点有订单的机构，属"测试在钉住缺陷"的典型，已一并纠正 |
 
-## D2 · P0 · `/orders` 客户订单历史永久不可达（第 21 单起看不到），且 total 显示成 20
+## D2 · P0 · ✅ **已修（2026-10-21）** · `/orders` 客户订单历史永久不可达（第 21 单起看不到），且 total 显示成 20
 
 | 项 | 内容 |
 |---|---|
-| 现象 | 客户订单历史页只显示 20 条，**没有分页也没有筛选**；页面上的总数显示 20，而真值是 976 |
-| 复现 | customer 登录 → `/orders` |
-| 实测响应 | `data` 是**纯数组 20 条**；`meta.pagination = {count: 976, next: ...page=2}` |
-| 根因 | ① `OrderListPage.vue` 全文无分页/筛选控件；② `stores/orders.js:14-22` 从不传 page；③ 后端 `PAGE_SIZE=20`（`config/settings/base.py:174`）；④ `stores/orders.js:19-20` 的 `data.results \|\| data.data \|\| data` 命中**数组分支**，而 `data.count` / `data.meta` 都不存在 ⇒ `total` 落到 `length = 20` |
+| 现象 | 客户订单历史页只显示 20 条，**没有分页也没有筛选**；页面上的总数显示 20，而真值是 976+ |
+| 复现 | customer/staff 登录 → `/orders` |
+| 实测响应 | 信封 `{success, data: [20 条], meta: {pagination: {count: 984, next, previous}}}` |
+| 根因（三层） | ① `OrderListPage.vue` 全文无分页控件；② `stores/orders.js` 的 `fetchOrders` 从不传 `page` ⇒ 恒第 1 页；③ 同文件 `total.value = data.count \|\| data.meta?.pagination?.count \|\| orders.value.length` —— 此处 `data` 已是 `res.data`，而 `core/renderers.py:31-37` 把分页信息放在**信封的 `meta.pagination`**、并把 `data` 直接替换成结果数组 ⇒ 前两个分支永远 undefined ⇒ `total` 恒为当前页条数 20 |
 | 影响 | **客户永远查不到自己 21 单以前的订单**（售后、对账、复购全靠它） |
-| 用例 | `state-branches-commerce.spec.cjs`「`/orders` 空态」+ 徽章断言；分页/筛选**故意没写用例**（页面根本没有），在报告里记为缺陷而不是假绿 |
+| **修法** | ① `stores/orders.js` 改为读**信封的** `meta.pagination.count`，并显式带 `page` / `page_size`；② `OrderListPage.vue` 引入通用组件 `DataPagination`（`total > pageSize` 才显示），翻页**重新向后端取数**（不在前端切片，否则仍拿不到第 21 单） |
+| **验证** | E2E `orders-pagination.spec.cjs` **2 例**：①总数必须 > 20（缺陷时恒 20）；②翻第 2 页内容不同、能回第 1 页。实测 **2 passed / 10.0s** |
+| ⚠️ 同类未修 | `/ops/orders`（`AdminOrdersPage.vue`）**同样没有分页**，且状态筛选缺 PO 流程态（见 D4）。不在本次 D1/D2 范围内，单独排期 |
 
 ## D3 · P1 · `/ops/po/invoicing` 一开票，订单就从列表消失，再也进不去「记录收款」
 

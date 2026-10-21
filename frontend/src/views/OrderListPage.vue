@@ -1,14 +1,21 @@
 <script setup>
-import { onMounted, computed } from 'vue'
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
 import { formatCurrency } from '@/utils/helpers'
-import { LoadingSpinner, EmptyState } from '@/components/common'
+import { LoadingSpinner, EmptyState, DataPagination } from '@/components/common'
 
 const router = useRouter()
 const store = useOrdersStore()
 
 onMounted(() => store.fetchOrders())
+
+// ★ 2026-10-21 修 D2（P0）：此前本页**没有任何分页控件**，store 也从不传 page
+//   ⇒ 客户只能看到最近 20 单，第 21 单起永久不可达（后端 `PAGE_SIZE=20`）。
+//   点页码/改每页条数都重新向后端取数（不在前端切片，否则仍拿不到第 21 单）。
+function onPageChange({ page, pageSize }) {
+  store.fetchOrders({ page, page_size: pageSize })
+}
 
 const statusColors = {
   draft: 'var(--color-text-tertiary)',
@@ -81,6 +88,21 @@ function goToDetail(order) {
           </tr>
         </tbody>
       </table>
+
+      <!-- D2：分页。total 来自后端真实 count（store 已修正读取位置）
+           ⚠️ 刻意**不用** `sizes` 布局：Element Plus 的每页条数选择器会渲染一个
+           `<input class="el-select__input" role="combobox">` 但**不带可访问名字**，
+           实测让本页 a11y 从 critical=0 变成 **critical=1**（`label: Form elements must have labels`）。
+           本页只要「能翻到第 21 单以后」，不需要改每页条数 ⇒ 用最小的 layout 避免引入新违规。
+           （等 DataPagination 支持给内部 select 传 aria-label 后，可再放开 sizes。） -->
+      <DataPagination
+        v-if="store.total > store.pageSize"
+        :current-page="store.page"
+        :page-size="store.pageSize"
+        :total="store.total"
+        layout="total, prev, pager, next"
+        @change="onPageChange"
+      />
     </div>
   </div>
 </template>

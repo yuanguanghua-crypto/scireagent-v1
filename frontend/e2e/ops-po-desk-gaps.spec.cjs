@@ -279,6 +279,15 @@ test.describe('@local-only /ops/po/organizations · 订单查看', { tag: ['@loc
    *   - 订单表：Order / Status / Total / Created 四列         :68-76
    *   - 取数 getOrgOrders(org.id) ⇒ GET /orders/?organization_id=  （adminPo.js:93-95）
    */
+  /**
+   * ⚠️ 前置数据（dev 库固定事实，2026-10-21 实测）：
+   *   只有「E2E Customer Org」(id=4) 名下有订单（983 单）；其余机构 0 单。
+   *   ⇒ 「有订单的机构」用 id=4 那个，「0 单机构」用「E2E Supplier Ops」(id=6)。
+   *   两者成对使用，正好构成 D1 的正/反两个方向。
+   */
+  const ORG_WITH_ORDERS = 'E2E Customer Org'
+  const ORG_WITHOUT_ORDERS = 'E2E Supplier Ops'
+
   test('点机构行 → 右侧出现「<机构名> — Orders」表格，订单号/状态/金额/日期均渲染', async ({ page }) => {
     test.setTimeout(90000);
     await loginAsStaff(page);
@@ -286,13 +295,14 @@ test.describe('@local-only /ops/po/organizations · 订单查看', { tag: ['@loc
 
     await expect(page.locator('h1.po-page-title', { hasText: 'Organization Management' })).toBeVisible();
 
-    // 选中一个确定存在的机构（dev 库 id=6，名称见 accounts_organization 表）
-    const orgRow = page.locator('tr', { hasText: 'E2E Supplier Ops' }).first();
-    await expect(orgRow).toBeVisible({ timeout: 20000 });
+    // ★ 必须点**有订单**的机构：修复 D1 之前随便点哪个都能看到行（因为漏了过滤、显示全库），
+    //   修复后 0 单机构会是空态 ⇒ 旧写法（点 E2E Supplier Ops 却断言有行）等于在钉住缺陷。
+    const orgRow = page.locator('tr', { hasText: ORG_WITH_ORDERS }).first();
+    await expect(orgRow, `dev 库应有机构「${ORG_WITH_ORDERS}」且名下有订单`).toBeVisible({ timeout: 20000 });
     await orgRow.click();
 
     // 断言 1：右侧卡片标题随选中机构变化
-    const ordersCard = page.locator('.po-card').filter({ hasText: 'E2E Supplier Ops — Orders' });
+    const ordersCard = page.locator('.po-card').filter({ hasText: `${ORG_WITH_ORDERS} — Orders` });
     await expect(ordersCard).toBeVisible({ timeout: 20000 });
 
     // 断言 2：表头四列齐全
@@ -307,22 +317,36 @@ test.describe('@local-only /ops/po/organizations · 订单查看', { tag: ['@loc
   });
 
   /**
-   * ⚠️ 已知缺陷（诚实用例，不用它冒充通过）：
-   * 后端 OrderViewSet 的 `filterset_fields` 只有 ['status']（transactions/api/v1/views.py:14），
-   * **不认 organization_id** ⇒ `GET /orders/?organization_id=6` 返回的是全量订单。
-   * 实测（admin token）：organization_id=6 与 organization_id=4 返回同一批（均为 org4 的 937 单），
-   * 而 org6「E2E Supplier Ops」一单都没有 ⇒ 本页「订单查看」当前展示的是**全库订单**，不是该机构的。
-   * 该用例编码**正确预期**，现状失败 ⇒ 标 fixme（skipped），不写假绿。
-   * 待后端补 organization_id 过滤后，把 fixme 去掉即成为回归用例。
+   * D1 回归（2026-10-21 **已修**，此例从 `test.fixme` 转正）：
+   *
+   * 缺陷现场：后端 `OrderViewSet.filterset_fields` 原先只有 `['status']`，
+   * **不认 `organization_id`** ⇒ `GET /orders/?organization_id=6` 返回全量订单。
+   * 实测（admin token）：organization_id=6 与 4 返回同一批（org4 的 937 单），
+   * 而 org6「E2E Supplier Ops」一单都没有 ⇒ 本页「订单查看」展示的是**全库订单**。
+   *
+   * 修法：`transactions/api/v1/views.py` 的 filterset 补 `organization` + `organization_id`
+   * （后端单测 `test_cross_org_visibility.py::OrderOrganizationFilterTest` 5 例钉住，
+   *  含「客户传别的机构 id 不得提权」的反向断言）。
+   *
+   * 本用例断言：选中 0 单机构时右表**必须为空**，而不是显示其他机构的订单。
    */
-  test.fixme('选择「E2E Supplier Ops」（0 单机构）时右表应为空，而不是显示其他机构的订单', async ({ page }) => {
+  test('选择「E2E Supplier Ops」（0 单机构）时右表应为空，而不是显示其他机构的订单', async ({ page }) => {
     test.setTimeout(90000);
     await loginAsStaff(page);
     await page.goto(`${BASE_URL}/ops/po/organizations`, { waitUntil: 'domcontentloaded' });
-    await page.locator('tr', { hasText: 'E2E Supplier Ops' }).first().click();
+    await page.locator('tr', { hasText: ORG_WITHOUT_ORDERS }).first().click();
 
-    const ordersCard = page.locator('.po-card').filter({ hasText: 'E2E Supplier Ops — Orders' });
+    const ordersCard = page.locator('.po-card').filter({ hasText: `${ORG_WITHOUT_ORDERS} — Orders` });
     await expect(ordersCard).toBeVisible({ timeout: 20000 });
-    await expect(ordersCard.locator('tbody tr')).toHaveCount(0);
+
+    // 该机构名下有 0 单 ⇒ 组件走 `v-else-if="orgLoading"` 之后的空态分支
+    // （`PoOrgManagement.vue:80`：`<div v-else class="po-empty">No orders for this organization.</div>`）
+    // 所以表格**根本不渲染**，不能断言 `th` 存在。
+    await expect(
+      ordersCard.locator('.po-empty'),
+      '0 单机构必须显示空态文案，而不是别的机构的订单',
+    ).toHaveText(/No orders for this organization/i, { timeout: 20000 });
+    await expect(ordersCard.locator('table')).toHaveCount(0);
+    await expect(ordersCard.locator('tbody tr'), '必须一行订单都没有').toHaveCount(0);
   });
 });

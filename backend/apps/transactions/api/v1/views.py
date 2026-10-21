@@ -11,7 +11,15 @@ from apps.transactions.api.v1.serializers import (
 
 class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     serializer_class = OrderListSerializer
-    filterset_fields = ['status']
+    # ★ 2026-10-21 修 D1（P0，全站测试发现）：此前只有 `['status']`，而
+    #   `/ops/po/organizations` 的「订单查看」传的是 `organization_id`（`api/adminPo.js:94`）
+    #   ⇒ 该参数被 **DjangoFilterBackend 静默丢弃**，右侧表格显示**全库订单**（实测 937/983 单），
+    #   与所选机构无关 ⇒ 跨机构订单可见。
+    #   两种写法都收：`organization_id`（前端现用、也是本仓库既有惯例，同
+    #   `commerce/api/v1/views.py:59` 的 `product_class_id`）+ `organization`（FK 字段规范名）。
+    #   ⚠️ 不会造成提权：`get_queryset()` 先按用户收窄（客户只看自己的），过滤只在其**之上**再收窄。
+    #   回归测试：`apps/transactions/tests/test_cross_org_visibility.py::OrderOrganizationFilterTest`
+    filterset_fields = ['status', 'organization', 'organization_id']
     # ★ 2026-09-24 收紧：此前未声明权限 ⇒ 匿名可写 `POST /orders/`（实测可造 `user=null` 的订单）。
     #   真实下单路径**本就要求登录**（`CheckoutView`/`POSubmitView` 均 `IsAuthenticated`）
     #   ⇒ 本 CRUD 的写口要求登录，与之一致；读维持原契约（匿名 GET → 200 空列表，`get_queryset` 已 `.none()`）。
