@@ -117,6 +117,26 @@
 
 ---
 
+## 3.5 a11y critical 修复记录（2026-10-21）
+
+**全站 critical：10 处 / 4 页 → 1 处 / 1 页**
+
+| 页 | critical | 修法 |
+|---|---|---|
+| PoSubmit | 2 → 0 | 11 对 for/id |
+| QuoteRequestPage | 1 → 0 | aria-label |
+| PoOrderList | 1 → 0 | aria-label |
+| WorkspaceProducts | 2 → 0 | 4 处模板（含 v-for 77 个 checkbox） |
+| ProductNew | 1 → 0 | AppSelect 的 aria-label 透传 |
+| ResearchGoalIndex | 1 → **1** | **未修**（axe 判 .el-table th，疑库问题） |
+
+**通用组件修复**：（39 实例）、（14 实例）。
+★ 关键教训：**Element Plus 组件的 id 不透传到内部可聚焦元素，但 aria-label 会**。
+
+剩余 26 failed 全是 serious（color-contrast，50 处 / 25 页）。
+
+---
+
 ## 4. 已知不可做（标 ✗ + 原因，不硬啃）
 
 | 项 | 为什么不做 | 需要什么才能做 |
