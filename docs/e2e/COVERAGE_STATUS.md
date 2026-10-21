@@ -239,6 +239,37 @@ a11y 也已从"25 页 180 处对比度 + 1 处 critical"降到 **35 页全部 0 
 
 ---
 
+## 3.9 notifications 补到 P0 量化线（2026-10-21 新增）
+
+`apps/notifications` 是风险评分里的 **P1（静默失败）**，但此前**只有 5 条测试**且全在"发送侧"，
+"入队侧"（模板渲染 / 多收件人 / 缺变量 / 附件）**一条没测**。按方案 §2.5 的量化线补齐：
+
+| 文件 | 用例 | 覆盖 |
+|---|---|---|
+| `tests/test_enqueue_render.py`（新） | **24** | `render_template` 边界 6 · `EmailService.enqueue` 10 · 模型 3 · 序列化器契约 4 · key 唯一 1 |
+| `tests/test_send_command_branches.py`（新） | **13** | `--force` / `--limit` / 非 PENDING 不处理 / `next_retry_at=null` 也投递 / cc 逗号解析 / 附件缺失跳过 / 成功清 last_error / 单封失败不中断 / 退避阶梯 / FAILED 不重试 / 输出文案 |
+| `tests/test_send_outbox.py`（原有） | 5 | 主干：正常发送 / 未到点跳过 / HTML 替代体 / 失败重试 / 超限 FAILED |
+
+合计 **42 条**（原 5 → 42）。
+
+### 固化下来的三个"静默失败"语义（这是本次的主要价值）
+1. **缺模板变量渲染成空串**（不抛错、不保留 `{name}` 原文）
+   ⇒ 会发出"Hi , your order  is ready"这种缺词邮件。把现状钉住，将来改行为必须显式改测试。
+2. **模板未配置时直接用调用方的 subject/body**（可能是空）
+   ⇒ 会发出空主题邮件，而**不报错**。断言"如实使用传入值"，让"漏配模板"变成可见事实。
+3. **附件路径不存在时跳过**，整封仍发出（不因附件丢了就发不出去）。
+
+### 变异验证（守卫必须有测试）
+| 变异 | 结果 |
+|---|---|
+| 删掉 `render_template` 的 `except: return text` 兜底 | ✅ `test_malformed_placeholder_returns_original` 变红 |
+| `enqueue` 的 `next_retry_at=timezone.now()` 改成 `None` | ✅ `test_pending_is_immediately_deliverable` 变红（这条正是"cron 永远捞不到"的防线） |
+
+> 写测试时我自己也错了一次：退避阶梯把 `retry_count 1→2` 也写成 60s，实测是 300s。
+> 读码 `idx = min(retry_count, len(...)) - 1` 才对得上，已按代码修正（并写进测试注释）。
+
+---
+
 ## 4. 下一轮该做什么（按价值排序）
 
 | # | 任务 | 价值 | 成本 |
