@@ -133,6 +133,24 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
     permission_classes = [IsAdminUser]
 
     def post(self, request):
+        """外层兜底：外部数据源不可用时返回 **503**，而不是未捕获异常（=生产 500）。
+
+        ★ 2026-10-22 修（FAILURE_MODES 7.1）：实测 patch `resolve_to_properties` 抛
+        `requests.ConnectionError` 时，本视图**没有任何 try/except** ⇒ 生产直接 500。
+        产品编辑页的"自动补全"会整个失败，用户也不知道可以手动填。
+        ⇒ 返回 503 + 可读消息（前端可提示"手动填写或稍后重试"）。
+        """
+        try:
+            return self._post(request)
+        except Exception as exc:                       # noqa: BLE001
+            logger.warning('pubchem enrich failed, returning 503: %r', exc)
+            return self.error_response(
+                'External datasource is temporarily unavailable. '
+                'Please fill in the chemical properties manually, or retry later.',
+                code='DATASOURCE_UNAVAILABLE', status_code=503,
+            )
+
+    def _post(self, request):
         from apps.commerce.services.validators.pubchem_enhancer import PubChemEnhancer
 
         enhancer = PubChemEnhancer()
@@ -149,7 +167,17 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
             for product in products:
                 name = product.name
                 product_cas = product.cas or ""
-                enriched = enhancer.resolve_to_properties(name, expected_cas=product_cas or None)
+                try:
+                    enriched = enhancer.resolve_to_properties(name, expected_cas=product_cas or None)
+                except Exception as exc:               # noqa: BLE001
+                    # 单条失败**不拖垮整批**：标记该条并继续
+                    logger.warning('enrich failed for product %s: %r', product.id, exc)
+                    results.append({
+                        "product_id": product.id,
+                        "product_name": name,
+                        "enriched": {"found": False, "error": "source_unavailable"},
+                    })
+                    continue
                 resolved_cas = enriched.get('cas_resolved') or product_cas
                 props = enriched.get('properties') or {}
                 results.append({
