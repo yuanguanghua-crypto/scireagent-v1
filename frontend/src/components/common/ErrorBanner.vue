@@ -26,7 +26,11 @@ defineProps({
 </script>
 
 <template>
-  <div v-if="message || title" class="error-banner" :data-kind="kind" role="alert">
+  <!-- ★ 判据只能是 `message`（有错误文案才显示）。
+       ⚠️ 曾经写成 `v-if="message || title"`，而调用方传的是**固定 title**（如 "Couldn't load orders."）
+       ⇒ 横幅在**一切正常**的页面上也常显（视觉抽检时抓到，E2E 只断言"出现"所以没拦住）。
+       ⇒ 已加反向断言：正常加载时 `.error-banner` 必须为 0。 -->
+  <div v-if="message" class="error-banner" :data-kind="kind" role="alert">
     <strong v-if="title" class="error-banner-title">{{ title }}</strong>
     <span v-if="message" class="error-banner-msg">{{ message }}</span>
     <slot />

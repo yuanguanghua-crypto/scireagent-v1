@@ -149,7 +149,9 @@ const resultCount = computed(() => store.total || store.methods.length)
 .result-badge {
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-secondary);
+  /* ★ 2026-10-21 修 D7：--color-secondary 是 emerald-400，作**字色**只有 1.82:1
+     （`--color-secondary` 保留给边框/装饰等不需要文字对比度的地方） */
+  color: var(--color-primary);
   background: var(--color-secondary-soft);
   padding: 4px 10px;
   border-radius: var(--radius-full);
@@ -192,7 +194,8 @@ const resultCount = computed(() => store.total || store.methods.length)
 }
 
 .filter-chip.active {
-  background: var(--color-secondary);
+  /* ★ 2026-10-21 修 D7：白字压 emerald-400 只有 1.92:1 ⇒ 激活底用 primary(emerald-700)=5.48:1 */
+  background: var(--color-primary);
   border-color: var(--color-secondary);
   color: white;
 }

@@ -198,7 +198,10 @@ async function copyToSimilar() {
           class="ki-search"
           placeholder="Filter products..."
         />
-        <div class="ki-product-list">
+        <!-- ★ 2026-10-21 修 D7（serious）：`.ki-product-list` 是 max-height + overflow-y:auto 的
+             可滚动区，键盘用户无法进入 ⇒ axe `scrollable-region-focusable`。
+             加 tabindex=0 + role/aria-label 让它可聚焦并可被读屏识别。 -->
+        <div class="ki-product-list" tabindex="0" role="group" aria-label="Product list (scrollable)">
           <div
             v-for="p in filteredProducts"
             :key="p.id"

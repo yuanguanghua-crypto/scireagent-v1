@@ -24,7 +24,7 @@
 | D4 | P1 | `/ops/orders` ~~状态筛选缺 PO 流程态（且无分页）~~ | ✅ **已修 2026-10-21** |
 | D5 | P1 | `/po/orders` ~~筛选缺 `quote_pending` / `quoted`~~ | ✅ **已修 2026-10-21** |
 | D6 | P1 | ~~`/po/orders/:id` RUO 声明恒显示~~ | ✅ **已修 2026-10-21** |
-| D7 | P2 | a11y：25 页 50 处 color-contrast + 1 critical | ⬜ 待修 |
+| D7 | P2 | ~~a11y 对比度（25 页、180 处节点）~~ | ✅ **已修 2026-10-21**（**180 → 0**） |
 | D8 | P3 | ~~`PoSubmit.vue` 死代码 alert~~ | ✅ **已删 2026-10-21** |
 | D9 | P3 | ~~`/po/addresses` 过期 callout~~ | ✅ **已删 2026-10-21**（附守卫用例） |
 | D10 | P2 | ~~错误只有 4 秒 toast（静默失败）~~ | ✅ **已修 2026-10-21**（4 页统一持久横幅） |
@@ -111,14 +111,23 @@
 | **变异验证** | 把前端判定改成 `=== true` 重跑 ⇒ 第 4 例精确红（无法判定时不显示了）⇒ 证明该断言钉住了"保守显示"语义；随后按 sha 还原 |
 | ⚠️ 覆盖边界 | dev 库 **127 个产品全是 `research_use_only=True`**，所以"非 RUO 不显示"这条无法用真实数据端到端覆盖 ⇒ 用 `page.route` 注入 `is_ruo=false` 走 UI 判定；后端真实取值由单测覆盖。**零写入** |
 
-## D7 · P2 · a11y：25 个页面 50 处 `color-contrast` + 1 处 critical 未清
+## D7 · P2 · ✅ **已修（2026-10-21）** · a11y 对比度：25 页、**180 处**节点全部清零
+
+> ⚠️ **口径更正**：此前台账写"50 处"，那是按**违规组**粗数的。本次用一次性探针把 axe 的
+> 每个 `color-contrast` **节点**连 `fgColor/bgColor/ratio` 全量 dump 出来，实测是 **180 处 / 25 页**。
+> 覆盖率（A 维 44/44）从来不代表合格，这一条才是真账。
 
 | 项 | 内容 |
 |---|---|
-| 实测 | 35 页扫描：**10 页通过**、25 页有 `serious`（color-contrast，共 50 处） |
-| critical | 仅剩 `ResearchGoalIndex` 1 处（axe 报 `.el-table th`，疑 Element Plus 库判定问题，未修） |
-| 已修 | 本轮之前已把全站 critical 从 **10 处 / 4 页**降到 **1 处 / 1 页**（AppInput 39 实例、AppSelect 14 实例的 for/id 与 aria-label 透传） |
-| 为什么没继续修 | 改对比度要动设计令牌（`frontend/src/assets/css/main.css`），会连带 `visual-tokens.spec.cjs` 的"全站一致"断言 ⇒ 需单独一轮 |
+| 实测（修前） | 180 处节点、**仅 15 种色值组合**（前 6 种占 88%） |
+| 关键洞察 | 180 处**不是 180 个问题**，而是 **6 个令牌 + 2 处局部样式** —— 这也是"改令牌"终于可行的原因 |
+| 修法（6 个令牌，`frontend/src/assets/css/main.css`） | ① `--color-accent` amber-600→**amber-700**（白字 3.19→5.02，23 处 `.po-btn-accent`）② `--color-warning` amber-600→**amber-800**（压 amber-100 上 2.86→6.37，15 处 `.truncation-hint`/`.status-tag`）③ `--color-danger` `#E53E3E`→**red-700** `#B91C1C`（白底 4.13→6.47，50 处）④ `--color-info` `#3B82F6`→**blue-700** `#1D4ED8`（白底 3.68→6.70，21 处）⑤ EP `--el-color-success` 默认 `#67c23a`→**emerald-700**（压浅绿底 2.08→5.08，**60 处，占 33%**）⑥ EP 表头 `--el-table-header-text-color`→gray-600（3.08→7.58，2 处） |
+| 修法（2 处局部，`MethodIndex.vue`） | `.result-badge` 字色与 `.filter-chip.active` 激活底从 `--color-secondary`(emerald-400，1.82/1.92) 改用 `--color-primary`(5.9/5.48)。**没有**动 `--color-secondary` 令牌本身——它还被边框/装饰用，那些不需要文字对比度 |
+| **踩到的坑（重要）** | EP 把 `--el-table-header-text-color` 定义在 **`.el-table` 作用域**，写进 `:root` 会被组件级声明压掉（实测改了没效果，还剩 2 处）。改成 `.el-table { --el-table-header-text-color: … }` 才生效 |
+| 选色原则 | 一律取**调色板里已有的 700/800 级**（不新增野色值）；amber-700 在白字方向 5.02 已达标，但作**字色**压在 amber-100 上只有 4.51（临界）⇒ 该场景改用 amber-800，**accent 与 warning 分工**：accent 当底色、warning 当字色 |
+| **验证** | 一次性探针复测：**180 → 0**；`a11y.spec.cjs` 35 页全绿（0 critical / 0 serious）；`visual-tokens.spec.cjs` 1 passed（accent 断言已从 `#D97706` 更新为 `#B45309`，否则会撞） |
+| **顺带修掉的 2 处非对比度 a11y** | ① `ResearchGoalIndex` **critical=1**：`el-select` 的内部 `<input role="combobox">` 无可访问名（EP 的 `id` 不透传，只认 `aria-label`）⇒ 补 `aria-label`；② `WsKnowledgeIntake` **serious=1**：`.ki-product-list` 是 `max-height + overflow-y:auto` 的可滚动区却不可键盘聚焦（`scrollable-region-focusable`）⇒ 补 `tabindex="0" role="group" aria-label` |
+| **最终口径** | 35 页扫描 **36 passed**（35 页 0 critical / 0 serious + 令牌一致 1 条）。A 维从此是**真通过**，不再是"有覆盖但 25 页不合格" |
 
 ## D8 · P3 · ✅ **已删（2026-10-21）** · `PoSubmit.vue` 第三条 alert 是死代码
 
@@ -150,6 +159,7 @@
 | **修法** | 抽公共组件 `components/common/ErrorBanner.vue`（`role="alert"` + `data-kind` 区分 `load`/`action`），**4 个页面统一使用**：`/orders`、`/orders/:id`、`/ops/orders`、`/ops/orders/:id`。错误文案用 `extractErrorMessage(err.response.data, fallback)`（从 `utils/http.js` 导出）⇒ 与全局 toast **同一句后端文案**，不会各说一套。顺带删掉 `AdminOrderDetail` 内联的重复 `.error-banner` 样式 |
 | **两个实现要点（都踩过）** | ① 横幅必须放在 `v-if="order"` **外面**，否则加载失败时 `order=null`，整块含横幅都不渲染；② `/orders/:id` 原来失败时**整页空白**，现在给横幅 + "Back to orders" 出口 |
 | **验证** | `order-error-paths.spec.cjs` **7 passed**：4 条错误路径全部新增「持久横幅可见且文案 = 后端 detail」断言（修前实测红：`element(s) not found`）；`/ops/orders/:id` 那条还区分 `data-kind="load"` vs `"action"`，防止把"动作失败横幅"误当加载错误 |
+| **⚠️ 本改动第一版有 bug（已修，2026-10-21 同日）** | `ErrorBanner` 第一版写 `v-if="message \|\| title"`，而调用方传的是**固定 title**（"Couldn't load orders."）⇒ 横幅在**一切正常**的页面也常显。当时 E2E 全绿——因为它只断言"出错时出现"，没断言"正常时不出现"（典型假绿）。**是视觉抽检截图看出来的**（正常列表页顶上挂着一条红横幅）。<br>修法：判据改为只看 `message`；并补**反向断言**「正常加载时 `.error-banner` 必须为 0」（变异验证：改回旧判据立刻红）。<br>教训：**"出现"类断言必须配"不该出现"的反向断言**，否则等于没测。 |
 
 ---
 

@@ -2,7 +2,9 @@
  * 阶段 9（视觉令牌部分）— 全站设计令牌 computed style 一致性（维度 V）
  * 单测试遍历所有关键页，验证 :root 设计令牌已定义、品牌色正确且跨页一致：
  *   --color-primary  emerald (rgb(5,150,105) / #059669)
- *   --color-accent   amber   (rgb(217,119,6) / #D97706)
+ *   --color-accent   amber   (rgb(180,83,9) / #B45309) —— ★ 2026-10-21 修 D7 后由
+ *                            #D97706(amber-600) 下调到 amber-700：旧值上白字只有 3.19:1，
+ *                            全站 23 处 `.po-btn-accent` 因此 a11y 不达标（现 5.02:1）
  *   --color-bg / --color-surface / --color-text 在各关键页须一致（令牌全局定义）。
  * 中性色不硬编 hex（避免主题差异脆断），改断言跨页一致 + 非空。
  */
@@ -24,7 +26,7 @@ async function rootTokens(page) {
 }
 
 function emerald(v) { return /^#059669$/i.test(v) || /^rgb\(5,\s*150,\s*105\)$/i.test(v) || /^#047857$/i.test(v) || /^rgb\(4,\s*120,\s*87\)$/i.test(v) }
-function amber(v) { return /^#D97706$/i.test(v) || /^rgb\(217,\s*119,\s*6\)$/i.test(v) }
+function amber(v) { return /^#B45309$/i.test(v) || /^rgb\(180,\s*83,\s*9\)$/i.test(v) }
 function isHexOrRgb(v) { return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v) || /^rgb\(/.test(v) }
 
 const PUBLIC = [

@@ -77,11 +77,14 @@ watch(
         </template>
       </el-input>
 
+      <!-- ★ 2026-10-21 修 D7（critical）：EP 的 `el-select` 不把 id 透传到内部
+           `<input role="combobox">`，只认 `aria-label` ⇒ 此前 axe 报 `label` 级 critical -->
       <el-select
         v-model="store.filters.status"
         placeholder="Status"
         clearable
         class="status-select"
+        aria-label="Filter research goals by status"
         @change="handleStatusChange"
       >
         <el-option

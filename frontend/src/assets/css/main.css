@@ -130,9 +130,11 @@
   --color-secondary-fg: #FFFFFF;
 
   /* ── Accent (amber — CTAs, highlights) ── */
-  --color-accent: var(--color-amber-600);
-  --color-accent-hover: var(--color-amber-700);
-  --color-accent-active: var(--color-amber-800);
+  /* ★ 2026-10-21 修 D7：amber-600(#D97706) 上的白字只有 3.19:1（`.po-btn-accent` 实测 23 处）
+     ⇒ 下调到 amber-700(#B45309)，白字 5.02:1 达标；hover/active 顺延一级保持层次。 */
+  --color-accent: var(--color-amber-700);
+  --color-accent-hover: var(--color-amber-800);
+  --color-accent-active: var(--color-amber-900);
   --color-accent-light: var(--color-amber-100);
   --color-accent-soft: var(--color-amber-50);
   --color-accent-fg: #FFFFFF;
@@ -166,13 +168,19 @@
   --color-success: var(--color-emerald-700);
   --color-success-light: var(--color-emerald-100);
   --color-success-bg: var(--color-emerald-50);
-  --color-warning: var(--color-amber-600);
+  /* ★ 2026-10-21 修 D7：`--color-warning` 作**文字色**压在 `--color-warning-light`(amber-100) 上
+     仅 2.86:1（`.truncation-hint`、`.status-tag.status-draft` 实测 15 处）
+     ⇒ 降到 amber-800(#92400E)，6.37:1。注意与 `--color-accent` 分开：accent 是**底色**，warning 是**字色**。 */
+  --color-warning: var(--color-amber-800);
   --color-warning-light: var(--color-amber-100);
   --color-warning-bg: var(--color-amber-50);
-  --color-danger: #E53E3E;
+  /* ★ 2026-10-21 修 D7：#E53E3E 实测全不达标（白底 4.13 / gray-50 3.94 / red-50 3.77，
+     连"白字压在它上面"也只有 4.13）⇒ 用调色板里的 red-700(#B91C1C)：白底 6.47 / red-50 5.91。 */
+  --color-danger: var(--color-red-700);
   --color-danger-light: var(--color-red-100);
   --color-danger-bg: var(--color-red-50);
-  --color-info: #3B82F6;
+  /* ★ 2026-10-21 修 D7：#3B82F6 白底 3.68、压 blue-100 上 3.01 ⇒ blue-700(#1D4ED8)：6.70 / 5.49。 */
+  --color-info: var(--color-blue-700);
   --color-info-light: var(--color-blue-100);
   --color-info-bg: var(--color-blue-50);
 
@@ -346,6 +354,21 @@
   --el-color-primary-light-8: #D1FAE5;
   --el-color-primary-light-9: #ECFDF5;
   --el-color-primary-dark-2: #047857;
+
+  /* ★ 2026-10-21 修 D7：EP 默认 success(#67c23a) 压自家浅绿底(#f0f9eb) 只有 2.08:1
+     —— 全站 60 处（33%）都是这一个 `<el-tag type="success">`（如 active 徽章）。
+     改成 emerald-700 后 5.08:1。 */
+  --el-color-success: var(--color-emerald-700);
+  /* EP 默认 info 灰 #909399 在白底只有 3.08:1 */
+  --el-color-info: var(--color-gray-600);
+}
+
+/* ★ 2026-10-21 修 D7：表头文字色必须在 **`.el-table` 作用域**覆盖 ——
+   Element Plus 把 `--el-table-header-text-color` 定义在 `.el-table` 自身（默认 #909399），
+   写在 `:root` 会被组件级声明覆盖（实测无效，ResearchGoalIndex 表头 2 处仍违例）。
+   现改为 gray-600(#475569)，白底 7.58:1。 */
+.el-table {
+  --el-table-header-text-color: var(--color-gray-600);
 }
 
 /* ──────────────────────────────────────────────

@@ -142,6 +142,26 @@ async function fetchMyOrders() {
  * 客户侧
  * ══════════════════════════════════════════════════════════════════════════ */
 test.describe('客户侧订单错误路径', () => {
+  /**
+   * ★★ D10 反向断言（**这条是被视觉抽检逼出来的**）：
+   * 第一版 `ErrorBanner.vue` 写成 `v-if="message || title"`，而调用方传的是**固定 title**
+   * ⇒ 「Couldn't load orders.」在**一切正常**的列表页上也常显（截图里看得一清二楚）。
+   * 当时 E2E 只断言"出错时横幅出现"，所以全绿通过 —— 典型假绿。
+   * 现在补上：**正常加载时横幅必须为 0**。
+   */
+  test('正常加载（无故障注入）时不得出现任何错误横幅', async () => {
+    for (const path of ['/orders', '/ops/orders']) {
+      await sharedPage.goto(`${BASE_URL}${path}`, { waitUntil: 'domcontentloaded' })
+      await sharedPage.waitForSelector('h1', { timeout: 20000 })
+      // 等真实数据渲染出来，确保不是"还没加载完所以没有横幅"
+      await sharedPage.waitForTimeout(1500)
+      await expect(
+        sharedPage.locator('.error-banner'),
+        `${path} 正常加载时不应出现错误横幅（否则横幅等于常显）`,
+      ).toHaveCount(0)
+    }
+  })
+
   test('/orders 列表接口 500 ⇒ 全局 toast 出现，列表不渲染（降级为空态）', async () => {
     await inject500(RX.myOrdersList);
 
