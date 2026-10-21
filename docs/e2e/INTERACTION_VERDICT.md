@@ -5,14 +5,14 @@
 > ⚠️ `✓` 只表示「关键词全覆盖」，**不表示断言充分**；要确认强度须打开 spec 看 `expect`。
 > **已做中英同义词扩展**（修正初版的假空白，如「分页」→ pagination）。
 
-## `/` — HomePage ⇒ **✗**
+## `/` — HomePage ⇒ **✓**
 
 | 交互项 | 命中 | spec |
 |---|---|---|
 | 搜索 | ✓ | a11y.spec.cjs、applayout-navpad-check.spe… |
 | 导航 | ✓ | cart-button-regression.spe、homepage.spec.cjs… |
-| 分类 pills | **✗** | 无 |
-| CTA | **✗** | 无 |
+| 分类 pills | ✓ | home-pills-cta.spec.cjs |
+| CTA | ✓ | home-pills-cta.spec.cjs |
 
 ## `/login` — Login/Register ⇒ **✗**
 
@@ -92,7 +92,7 @@
 
 | 交互项 | 命中 | spec |
 |---|---|---|
-| 分类 pills | **✗** | 无 |
+| 分类 pills | ✓ | home-pills-cta.spec.cjs |
 | Tab 切换 | ✓ | product-detail-verified-me、workspace-verified-review. |
 | Add to Cart | ✓ | a11y.spec.cjs、basket-local-merge-prune.s… |
 | 数量± | ✓ | basket-local-merge-prune.s、basket-merge-over-limit.sp… |
@@ -103,7 +103,7 @@
 
 | 交互项 | 命中 | spec |
 |---|---|---|
-| 分类 pills | **✗** | 无 |
+| 分类 pills | ✓ | home-pills-cta.spec.cjs |
 | Tab 切换 | ✓ | product-detail-verified-me、workspace-verified-review. |
 | Add to Cart | ✓ | a11y.spec.cjs、basket-local-merge-prune.s… |
 | 数量± | ✓ | basket-local-merge-prune.s、basket-merge-over-limit.sp… |
@@ -233,7 +233,6 @@
 |---|---|---|
 | 概览卡片 | ✓ | browsers.spec.cjs、homepage.spec.cjs… |
 | 快捷入口 | **✗** | 无 |
-| LoadingSpinner | **✗** | 无 |
 
 ## `/workspace/products` — ProductsPage ⇒ **✓**
 
@@ -367,8 +366,8 @@
 
 | 判定 | 页数 |
 |---|---|
-| **✓ 全项命中** | **25** |
-| **✗ 有未命中项** | **19** |
+| **✓ 全项命中** | **26** |
+| **✗ 有未命中项** | **18** |
 | — 无交互描述 | 0 |
 
 ⚠️ 这是 I 维的**首次判定**。`✗` 页里的未命中项 = 明确的测试空白，应优先补。

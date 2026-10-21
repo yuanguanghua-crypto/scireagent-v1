@@ -117,7 +117,7 @@
 **管理员页（requiresAdmin，is_staff）**
 | 路由 | 页面 | I | P | S | R | V | A | B | 优先级 |
 |------|------|---|---|---|---|---|---|---|--------|
-| `/workspace`(dashboard) | DashboardPage | 概览卡片 / 快捷入口 / LoadingSpinner | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
+| `/workspace`(dashboard) | DashboardPage | 概览卡片 / 快捷入口 | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
 | `/workspace/products` | ProductsPage | 15 按钮 / 3 弹层 / 可排序表 / 过滤 | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
 | `/workspace/products/new`+`:id/edit` | ProductEditPage | **37 按钮 / 50 输入 / 发布弹层 / 上传 / 校验** | 仅 admin | 产品发布态 | ✓ | ✓ | ✓ | ☐ | P0 |
 | `/workspace/goals` `/workspace/applications` `/workspace/methods` `/workspace/protocols` `/workspace/references` | 各管理页 | 增删改 / showEditor 弹层 / toast.error | 仅 admin | — | ✓ | ✓ | ✓ | ☐ | P1 |
