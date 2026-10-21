@@ -12,6 +12,7 @@ from core.business_time import business_today
 from apps.transactions.models import Order, OrderItem, Basket, Invoice
 from apps.transactions.services import OrderNoService
 from apps.transactions.api.v1.serializers import CheckoutSerializer, OrderDetailSerializer
+from core.db_retry import retry_on_deadlock
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ class CheckoutView(APIView):
     """POST /api/v1/checkout — create order from basket."""
     permission_classes = [IsAuthenticated]
 
+    @retry_on_deadlock()
     def post(self, request):
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

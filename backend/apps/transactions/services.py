@@ -7,6 +7,8 @@ from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db import transaction
+
+from core.db_retry import retry_on_deadlock
 from django.db.models import Sum
 from django.utils import timezone
 
@@ -94,6 +96,7 @@ class PoSubmissionService:
     PO_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
 
     @classmethod
+    @retry_on_deadlock()          # 必须在 atomic **外面**：死锁时事务已被回滚
     @transaction.atomic
     def submit(cls, user, data: dict, files: list = None, actor=None) -> Order:
         # ★ PO 号不强制（口径 2026-10-14）：空/未填 → 存 None（unique 允许多个 NULL，不冲突）。
@@ -242,6 +245,7 @@ class InvoiceService:
         return f'INV-{year}-{seq.last_number:04d}'
 
     @classmethod
+    @retry_on_deadlock()          # 必须在 atomic **外面**：死锁时事务已被回滚
     @transaction.atomic
     def issue(cls, order: Order, payment_terms: str = None, actor=None) -> Invoice:
         if order.status != Order.Status.DELIVERED:
@@ -513,6 +517,7 @@ class PaymentArService:
     """收款与 AR Aging 聚合。"""
 
     @classmethod
+    @retry_on_deadlock()          # 必须在 atomic **外面**：死锁时事务已被回滚
     @transaction.atomic
     def pay(cls, invoice: Invoice, amount, method: str, paid_at=None,
             actor=None, reference: str = '', notes: str = '') -> Invoice:
