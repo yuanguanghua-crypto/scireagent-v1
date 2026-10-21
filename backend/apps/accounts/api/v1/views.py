@@ -314,16 +314,34 @@ class OrganizationCreateView(APIView):
 
 class AddressPermission(BasePermission):
     """机构地址权限：
+
     - 读（list/retrieve）= 任意已登录用户，但仅可见本机构地址（见 queryset 过滤）。
-    - 写（增/改/删）= 采购或管理员（机构地址由内部人员维护，PRD 节点4）。
+    - 写（增/改/删）= **任意已登录用户**（2026-10-21 从「采购或管理员」放开）。
+
+    ★ 为什么要放开：`/po/addresses`（`router/index.js:205`）是**客户侧**页面，
+      只要求登录。而注册已不再允许自选 `procurement`（见 serializers.py 的
+      `role = User.Role.RESEARCHER`）⇒ 若写权限仍绑 `procurement/admin`，
+      客户的采购经理就**能看不能改**自己的地址簿，直接 403，打断真实业务。
+
+    ★ 为什么放开是安全的：本 ViewSet 的行级隔离在**三处**，权限只是最外层：
+        ① `get_queryset()` 按 `request.user.organization_id` 收窄，无机构返回 `.none()`
+        ② `create()` 强制 `serializer.save(organization=request.user.organization)`
+           —— 客户端传什么 organization 都不算（`organization_id` 在序列化器里 read_only）
+        ③ `update`/`destroy` 走 `self.get_object()` ⇒ 必然经过 ①
+      所以"已登录可写"的实际语义是「**只能改自己机构那一小撮行**」。
+      读权限本来就是"任意已登录用户 + 本机构过滤"，写权限与读权限对齐，
+      增量风险仅是"同机构成员可改彼此的地址"——本来就是机构内协作。
+
+    ★ 依赖：这条放开的**前提**是「不能自助加入任意机构」已堵住
+      （`RegisterSerializer._check_join_domain`）。否则攻击者先 join 别人的机构、
+      再改该机构的收货地址，等于把洞放大。两个改动必须同批上线。
+
+    无机构用户不在这里拦：让 `create()` 返回结构化的 400 `NO_ORGANIZATION`
+    （比 403 更能说明原因）；`update`/`destroy` 自然因 `get_queryset().none()` 而 404。
     """
     def has_permission(self, request, view):
         user = request.user
-        if not (user and user.is_authenticated):
-            return False
-        if request.method in SAFE_METHODS:
-            return True
-        return IsProcurementOrAdmin().has_permission(request, view)
+        return bool(user and user.is_authenticated)
 
 
 class AddressViewSet(EnvelopeMixin, viewsets.ModelViewSet):

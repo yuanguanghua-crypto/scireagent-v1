@@ -9,6 +9,36 @@ from apps.accounts.models import Organization, Address
 User = get_user_model()
 
 
+# ── 机构归属凭据：机构邮箱域名 ─────────────────────────────────────────────
+#
+# ★ 2026-10-21 L7：`organization_choice='join'` 此前是「有 org id 就进」，
+#   而 org id 从匿名端点 `GET /api/v1/organizations` 就能拿到 ⇒ 任何人可把自己
+#   挂进任意机构，成为"同机构成员"后 `_is_order_viewer`（po_views.py:319-320）
+#   就放行该机构**全部**发票 PDF / PO 附件 / 代客户接受报价。
+#
+#   机构身份必须有个**不可自助伪造**的凭据。最轻的一个是机构邮箱域名：
+#   域名由机构自己控制 DNS，攻击者伪造不了。零运营介入、零审批人工。
+#
+#   ⚠️ 公共邮箱域名必须排除：`mylab@gmail.com` 的域名 gmail.com 谁都能注册，
+#     拿它当"机构归属凭据"等于没有凭据。
+PUBLIC_MAILBOX_DOMAINS = frozenset({
+    'gmail.com', 'googlemail.com',
+    'qq.com', 'foxmail.com', '163.com', '126.com', 'yeah.net', '188.com',
+    'sina.com', 'sina.cn', 'sohu.com', '139.com', '189.cn', '21cn.com',
+    'outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'windowslive.com',
+    'yahoo.com', 'yahoo.com.cn', 'yahoo.co.jp',
+    'icloud.com', 'me.com', 'mac.com', 'aol.com',
+    'proton.me', 'protonmail.com', 'gmx.com', 'gmx.de', 'mail.com',
+    'yandex.com', 'yandex.ru', 'aliyun.com', 'tom.com', 'vip.163.com', 'vip.qq.com',
+})
+
+
+def _email_domain(email: str) -> str:
+    """取邮箱域名（小写）。非法输入返回空串，由调用方按"没有凭据"处理。"""
+    _, _, domain = (email or '').strip().rpartition('@')
+    return domain.strip().lower()
+
+
 class RegisterSerializer(serializers.Serializer):
     """Serializer for user registration with organization support."""
 
@@ -88,12 +118,13 @@ class RegisterSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"organization_id": "organization_id is required when joining"}
                 )
-            try:
-                Organization.objects.get(pk=org_id, status='active')
-            except Organization.DoesNotExist:
+            org = Organization.objects.filter(pk=org_id, status='active').first()
+            if org is None:
                 raise serializers.ValidationError(
                     {"organization_id": "Organization not found or not active"}
                 )
+            # ★ 2026-10-21 L7：机构身份凭据校验（详见模块顶部 PUBLIC_MAILBOX_DOMAINS 注释）
+            self._check_join_domain(org, data.get('email', ''))
 
         if org_choice == 'create':
             org_name = data.get('organization_name', '').strip()
@@ -103,6 +134,43 @@ class RegisterSerializer(serializers.Serializer):
                 )
 
         return data
+
+    # ── join 的机构归属凭据 ──────────────────────────────────────────────
+    @staticmethod
+    def _check_join_domain(org, email):
+        """校验"注册邮箱域名 == 机构登记的 contact_email 域名"。
+
+        ★ 三种拒绝，都是**宁 miss 不错配**：
+          ① 机构没登记 contact_email ⇒ 没有可比对的凭据（不能因为"没填"就放行）
+          ② 机构登记的是公共邮箱域名 ⇒ 域名没有排他性，谁都能注册
+          ③ 域名不一致 ⇒ 不是这个机构的人
+
+        ⚠️ 错误文案**刻意不透露目标域名**：该端点是 `AllowAny`，透露就等于
+          给匿名者一个"某机构对应哪个域名"的探测接口。注册者通常知道自己
+          机构的域名；不知道的走"新建机构"或联系运营。
+        """
+        org_domain = _email_domain(org.contact_email)
+        if not org_domain:
+            raise serializers.ValidationError({
+                "organization_id": (
+                    "该机构尚未登记机构邮箱，无法自助加入。"
+                    "请改用「新建机构」，或联系平台运营人工加入。"
+                )
+            })
+        if org_domain in PUBLIC_MAILBOX_DOMAINS:
+            raise serializers.ValidationError({
+                "organization_id": (
+                    "该机构登记的邮箱是公共邮箱，不能作为机构归属凭据。"
+                    "请联系平台运营人工加入。"
+                )
+            })
+        if _email_domain(email) != org_domain:
+            raise serializers.ValidationError({
+                "organization_id": (
+                    "注册邮箱与所选机构的登记域名不一致。"
+                    "请使用该机构的邮箱注册，或改用「新建机构」。"
+                )
+            })
 
     @transaction.atomic
     def create(self, validated_data):
@@ -115,7 +183,18 @@ class RegisterSerializer(serializers.Serializer):
 
         username = validated_data['username']
         email = validated_data['email']
-        role = validated_data['role']
+        # ★ 2026-10-21 L7（P0 提权）：role **不再取客户端入参**。
+        #   `procurement` 在本仓库是【供应商内部运营】身份 —— `IsProcurementOrAdmin`
+        #   （core/permissions.py:44-51）保护 13 个内部端点，逐条看全是内部动作：
+        #   审批/拒绝/取消订单、指派销售、备货锁库存、新建发货、标记发货/送达、
+        #   开票、收款（services.py:519 写死 status=VERIFIED）、AR 账龄、改库存、机构管理。
+        #   客户的采购经理**一项都用不上**；客户侧真正需要的四件事权限口径都不是
+        #   procurement（下 PO / 看自己订单 / 确认报价走 PO 门户；维护地址见 AddressPermission）
+        #   ⇒ 注册一律落 researcher，procurement 只能由管理员在后台授予。
+        #
+        #   为什么保留 `role` 字段（而非直接从字段表删掉）：前端注册页仍会发这个键，
+        #   删掉会让整条注册 400。这里"接受但不采信"，与"忽略未知键"语义一致。
+        role = User.Role.RESEARCHER
 
         # Create user — explicitly unverified; the user must click the
         # verification link emailed by RegisterView before they can log in.
@@ -150,6 +229,10 @@ class RegisterSerializer(serializers.Serializer):
                 raise serializers.ValidationError(
                     {"organization_id": "Organization not found or not active"}
                 )
+            # ★ 2026-10-21 L7：**再校验一次域名**，不是冗余。
+            #   validate() 与 create() 之间机构可能被改过 contact_email
+            #   （管理员操作），只信 validate() 会留下 TOCTOU 窗口。
+            self._check_join_domain(org, email)
             user.organization = org
             user.is_org_admin = False
             user.save()

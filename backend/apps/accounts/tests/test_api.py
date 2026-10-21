@@ -126,10 +126,14 @@ class RegisterAPITest(TestCase):
         self.assertEqual(resp.status_code, 400)
 
     def test_register_join_existing_org(self):
+        # ★ 2026-10-21 L7：join 改为「注册邮箱域名必须等于机构登记的 contact_email 域名」，
+        #   故桩数据必须给机构登记一个**非公共域名**的邮箱（example.com 保留给测试，
+        #   不在 PUBLIC_MAILBOX_DOMAINS 黑名单里）。注册邮箱 join@example.com 与之同域。
         org = Organization.objects.create(
             name='Test Org',
             org_type=Organization.OrgType.ACADEMIC,
             created_by=UserFactory(),
+            contact_email='pi@example.com',
         )
         resp = self.client.post(self.url, {
             'username': 'joiner',
@@ -230,11 +234,14 @@ class RegisterJoinOrgRaceTest(TestCase):
         return payload
 
     def _org(self, name='Join Race Org', status=Organization.Status.ACTIVE):
+        # ★ 2026-10-21 L7：join 需机构登记邮箱，且域名 == 注册邮箱域名
+        #   （本类注册邮箱固定 race@example.com）。
         return Organization.objects.create(
             name=name,
             org_type=Organization.OrgType.ACADEMIC,
             created_by=UserFactory(),
             status=status,
+            contact_email='pi@example.com',
         )
 
     def _error_details(self, resp):

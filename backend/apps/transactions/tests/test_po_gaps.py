@@ -61,14 +61,29 @@ class AddressGapTest(TestCase):
         # 信封结构
         self.assertTrue(r.json()['success'])
 
-    def test_create_requires_procurement(self):
-        # 普通研究员（读可，写不可）
+    def test_create_allowed_for_org_member(self):
+        """★ 2026-10-21 L7：写权限从「采购/管理员」放开到「本机构成员」。
+
+        为什么（原断言是 researcher → 403）：注册已不允许自选 `procurement`
+        （见 `accounts/tests/test_membership_guard.py`），若写权限仍绑内部角色，
+        客户侧 `/po/addresses`（`router/index.js:205`）就**能看不能改**，直接 403。
+
+        放开的安全性靠 `AddressViewSet` 的三处行级隔离，不是靠这个权限：
+          ① `get_queryset()` 按 organization 收窄 → 见 `test_list_filtered_by_org`
+          ② `create()` 强制注入 `organization=request.user.organization` → 下面断言
+          ③ `update/destroy` 走 `get_object()` → 必然过 ①（跨机构用例见
+             `accounts/tests/test_address_write_permission.py`）
+        """
+        # 普通研究员（本机构成员）现在可写
         self.client.force_authenticate(self.researcher)
         r = self.client.post(
             '/api/v1/addresses/', {'type': 'shipping', 'line1': 'X'}, format='json'
         )
-        self.assertEqual(r.status_code, 403)
-        # 采购可创建；organization 由后端按 user.organization 推入
+        self.assertEqual(r.status_code, 201, r.content)
+        # ★ 关键：organization **由后端按 user.organization 推入**，客户端不能指定
+        self.assertEqual(Address.objects.get(line1='X').organization_id, self.org_a.id)
+
+        # 采购仍可创建（回归：不能因为放开权限就把内部角色弄坏）
         self.client.force_authenticate(self.proc)
         r = self.client.post('/api/v1/addresses/', {
             'type': 'billing', 'line1': 'Line1', 'city': 'C', 'country': 'US',

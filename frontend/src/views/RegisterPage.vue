@@ -78,9 +78,17 @@ const roleCards = [
     id: 'procurement',
     icon: '📋',
     title: 'Procurement Manager',
-    description: 'I manage procurement and approve orders for my organization',
+    description: 'I handle purchasing and shipping details for my organization',
     footnote: '→ Join / create org',
-    role: 'procurement',
+    // ★ 2026-10-21：这里原先是 role: 'procurement' + 文案 "…and approve orders
+    //   for my organization"。两处都改掉了：
+    //   ① 后端 `procurement` 是**供应商内部运营**身份（能审批/开票/收款/改库存），
+    //      客户注册时自选它 = 提权。后端已强制注册一律落 researcher，这里不再发送该值
+    //      （后端仍会"接受但忽略"，防有人直接调 API）。
+    //   ② 原文案承诺 "approve orders"，但客户侧的订单审批根本不是这条权限口径
+    //      （客户能做的：下 PO / 看自己订单 / 确认报价 / 维护机构地址簿）。
+    //      留着就是承诺一件做不到的事。
+    role: 'researcher',
     orgChoice: 'join',
   },
 ]
@@ -305,6 +313,15 @@ async function handleSubmit() {
       const fieldErrors = [errData.username, errData.email, errData.password].filter(Boolean)
       if (fieldErrors.length > 0) {
         serverError.value = 'Please fix the errors below and try again.'
+      } else if (errData.organization_id) {
+        // ★ 2026-10-21：join 的机构归属凭据校验失败落在 organization_id 上
+        //   （机构未登记邮箱 / 登记的是公共邮箱 / 注册邮箱域名不符）。
+        //   信封里的 message 形如 "organization_id: <说明>"，直接展示会带字段名，
+        //   这里剥掉前缀，让用户读到一句自然的话。
+        const raw = Array.isArray(errData.organization_id)
+          ? errData.organization_id[0]
+          : errData.organization_id
+        serverError.value = String(raw).replace(/^organization_id:\s*/, '')
       } else {
         serverError.value =
           err?.data?.meta?.error?.message ||

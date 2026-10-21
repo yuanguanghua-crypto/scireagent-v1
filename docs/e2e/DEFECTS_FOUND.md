@@ -237,6 +237,26 @@
 
 ---
 
+## D16 — 注册可自选 `procurement`（客户拿到供应商内部运营权限）+ 可自助加入任意机构（P0 提权）
+
+| 项 | 内容 |
+|---|---|
+| 现象 | ① 注册时 `role` 由客户端选，`procurement` 是合法取值 ⇒ **任何人勾一下即获内部运营身份**；② `organization_choice='join'` 是"有 org id 就进"，而 org id 从匿名端点就能拿到 |
+| 证据 | ① `accounts/api/v1/serializers.py` 旧 `ROLE_CHOICES` 含 `('procurement','Procurement')`，`validate()` **只挡了 `editor`/`admin`**，`create()` 直接 `role=validated_data['role']` 落库；② 旧 join 分支只校验 `Organization` 存在且 active |
+| 为什么 ① 是提权而不是"多一个身份" | `IsProcurementOrAdmin`（`core/permissions.py:44-51`）保护 **13 个端点，逐条都是供应商内部动作**：审批 / 拒绝 / 取消订单、指派销售、备货锁库存、新建发货、标记发货/送达、开票、收款（`services.py:519` **写死 `status=VERIFIED`**）、AR 账龄、改库存、机构管理。**攻击成本只是一个自己的邮箱** |
+| 为什么 ② 同样致命 | 成为"同机构成员"后 `_is_order_viewer`（`po_views.py:319-320`）的机构分支放行该机构**全部**发票 PDF、PO 附件，并能代客户接受/拒绝报价。而 `Organization.approval_required`（`accounts/models.py:43`）**全仓无任何读取点** —— 审批开关是死的 |
+| 关键判断 | **客户侧根本不需要 `procurement`**。客户真正要的四件事权限口径都不是它：下 PO = `IsAuthenticated`；看自己订单 = `get_queryset` 按 `user` 收窄；确认报价 = `_is_order_viewer`；维护机构地址簿 = `AddressPermission`（**唯一卡点**） |
+| **修法（三步）** | **①** `create()` 里 `role = User.Role.RESEARCHER` 固定（字段保留但**不采信** —— 删字段会让前端整条注册 400）；**②** join 增加**机构归属凭据**：注册邮箱域名必须等于机构登记的 `contact_email` 域名，且该域名不能是公共邮箱域名，机构未登记邮箱也拒绝（`_check_join_domain`）；**③** `AddressPermission` 写权限从 `procurement/管理员` 放开到**本机构成员** |
+| 为什么第 ③ 步必须同批做 | 否则注册不再允许自选 procurement 之后，客户侧 `/po/addresses`（`router/index.js:205`）**能看不能改**，直接 403，打断真实业务 |
+| 为什么第 ③ 步放开是安全的 | 行级隔离在**三处**、权限只是最外层：`get_queryset()` 按 `organization_id` 收窄（无机构 `.none()`）；`create()` 强制 `save(organization=request.user.organization)`（`organization_id` 在序列化器里 `read_only`）；`update/destroy` 走 `get_object()` 必然过第一处。⇒ 实际语义是"只能改自己机构那一小撮行" |
+| ⚠️ 两步的**依赖方向** | 第 ③ 步的放开**依赖**第 ② 步的 join 收紧。否则攻击者先 join 别人机构、再改该机构收货地址，等于把洞放大。**两者必须同批上线** |
+| 为什么用"邮箱域名"而不是人工审批 | 运营人手少，人工审批是新增负担。域名由机构自己控制 DNS，攻击者伪造不了 ⇒ **零运营介入、零审批人工**，同时挡住了自助伪造。公共邮箱域名必须排除（`gmail.com` 谁都能注册，没有排他性） |
+| 前端也改了 | `RegisterPage.vue` 采购经理卡片的 `role: 'procurement'` → `'researcher'`；文案从 **"I manage procurement and approve orders for my organization"** → "I handle purchasing and shipping details…"。原文案**承诺了一个客户拿不到的能力**，留着就是误导 |
+| **验证** | `accounts/tests/test_membership_guard.py` 11 例 + `test_address_write_permission.py` 8 例。修前红 **13 条**，关键实测：`test_procurement_choice_downgraded_to_researcher`（role 真的变成 procurement）、`test_procurement_cannot_reach_inventory_endpoint`（真能调 `/inventory/receipt/`）、`test_different_domain_rejected` 实测 `201 != 400`（`attacker@evil.com` 成功加入 `pi@bcm.edu` 的机构）、`test_rejected_join_does_not_touch_org` 实测机构成员数 `1 != 0`。修后全绿 |
+| 既有用例的同步 | 3 条旧 join 测试的桩数据补上 `contact_email`（它们钉的是旧契约，不是"改到绿"）；`test_po_gaps.py::test_create_requires_procurement` 改名为 `test_create_allowed_for_org_member`，**保留"organization 由后端按 user.organization 推入"这条关键断言** |
+
+---
+
 ## 附：这些缺陷是怎么被"测"出来的（方法论）
 
 1. **状态分支穷举**（S 维）：每页先读源码列出全部状态分支，再**逐分支走一遍**，且优先写**反向断言**（"在 A 状态可见、在 B 状态必须不可见"）。D3/D6 都是反向断言抓出来的。

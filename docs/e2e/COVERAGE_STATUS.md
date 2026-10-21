@@ -420,14 +420,45 @@ CI 里加了 `permission-check` job（第 8 个，现共 **10 个**）。
 - `graph` / `search` / `site/navigation` 输出面只有公开知识实体，无 PII
 - 全局异常处理器不拼 traceback/SQL/路径；生产 `DEBUG=False`（`production.py:5` 硬写）
 
-### 3.13.4 ⚠️ 已发现但**未修**（需要决策 / 需要环境）
+### 3.13.4 ⚠️ 首次成文时的「已发现但未修」清单（第 1、2 条**已在当日修掉**）
+
+> 保留这张表是为了留下"当初为什么不擅自修"的判断依据 —— 那两条属**产品决策**，
+> 不是技术判断。决策已由用户拍板（同意修），结果见 §3.13.5。
+
+| # | 问题 | 当初为何不擅自修 | 现状 |
+|---|---|---|---|
+| 1 | **注册时可自选 `role='procurement'`**（`serializers.py:15-18,29`，`validate` 只挡了 `editor`/`admin`）⇒ 等价于内部采购员：可改库存、批订单、开票、**把任意发票标记为已收款**（`services.py:519` 写死 `status=VERIFIED`）、拉全库订单（`transactions/api/v1/views.py:39-40`） | 前端 `RegisterPage.vue:78-85` **确有** "Procurement Manager" 注册卡片 ⇒ 是**产品设计**，不是笔误。堵它就会改变产品行为 | ✅ **已修（D16）**，见 §3.13.5 |
+| 2 | 注册可**自助加入任意机构**（`organization_choice='join'` + 任意 `organization_id`），而 `Organization.approval_required`（`accounts/models.py:43`）**全仓无任何读取点** ⇒ 一旦"同机构"，`_is_order_viewer` 的机构分支（`po_views.py:319-320`）就放行该机构**所有**发票 PDF / PO 附件 / 代客户接受报价 | 同上，属产品/审批流决策 | ✅ **已修（D16）**，见 §3.13.5 |
+| 3 | `DEBUG` 默认 `True`（`base.py:18` `getenv('DEBUG','True')`）+ `wsgi.py:3`/`asgi.py:3` 默认 `development` ⇒ 误部署时一个匿名请求可拿到约 71 KB 的 Django 技术页（traceback + settings + 绝对路径） | 改默认值影响本机开发体验，且生产链路已有 `production.py` 硬写 `DEBUG=False` + Dockerfile 切 settings ⇒ 属部署加固项，应先确认部署方式 | ⬜ 未修，见 §3.13.6 |
+| 4 | `/api/schema/`、`/api/docs/` 匿名可拉（实测 408,643 字节，含 `/api/v1/admin/orders/`） | 是否公开 API 文档是产品选择（很多项目**故意**公开） | ⬜ 未修，见 §3.13.6 |
+
+### 3.13.5 第 1、2 条 → **已修（D16，2026-10-21 当日）**
+
+§3.13 首次成文时把「注册可自选 `procurement`」与「可自助加入任意机构」列为待决策项。
+决策结果：**两条都修，且必须同批**。详细证据见 `DEFECTS_FOUND.md` D16，此处只记结论与依赖关系。
+
+| 步骤 | 改动 | 为什么必须有 |
+|---|---|---|
+| ① | 注册 `role` 固定为 `researcher`（字段保留但不采信） | `procurement` = 供应商内部运营，保护 13 个内部端点（审批/开票/收款/改库存/机构管理）。**客户侧一件都用不上** |
+| ② | join 增加**机构归属凭据**：注册邮箱域名 == 机构 `contact_email` 域名，且非公共邮箱域名 | 否则"有 org id 就进"，org id 还能匿名拿到 ⇒ 成为同机构后可读该机构全部发票/PO 附件 |
+| ③ | `AddressPermission` 写权限 → **本机构成员** | 否则 ① 一上线，客户侧 `/po/addresses` 就 403，打断真实业务 |
+
+**依赖方向必须记住**：③ 的放开**依赖** ② 的收紧。顺序反过来就是"先拆门再修锁"。
+
+**为什么选域名匹配而不是人工审批**：运营人手少，人工审批是新增负担；域名由机构控制 DNS、伪造不了 ⇒ 零运营介入、零审批人工，同时挡住自助伪造。公共邮箱域名（gmail/qq/163/outlook…）必须排除，否则凭据没有排他性。
+
+**前端一并对齐**：`RegisterPage.vue` 采购经理卡片的文案原为
+"I manage procurement and **approve orders** for my organization" —— 这句话**承诺了一个客户拿不到的能力**（客户侧订单审批根本不是这条权限口径），已改为 "I handle purchasing and shipping details…"，并把卡片发送的 `role` 改成 `researcher`。
+
+**验证**：新增 19 例（`test_membership_guard.py` 11 + `test_address_write_permission.py` 8），修前红 13 条，修后 `apps/accounts` **92 passed / 0 failed**（改动前 73）。
+3 条旧 join 测试的桩数据补了 `contact_email`（钉的是旧契约，不是"改到绿"）；`test_po_gaps.py` 里那条 `test_create_requires_procurement` 改名为 `test_create_allowed_for_org_member`，**保留"organization 由后端按 user.organization 推入"这条关键断言**。
+
+### 3.13.6 仍然「未修」的两条
 
 | # | 问题 | 为什么不擅自修 |
 |---|---|---|
-| 1 | **注册时可自选 `role='procurement'`**（`accounts/api/v1/serializers.py:15-18,29`，`validate` 只挡了 `editor`/`admin`）⇒ 等价于内部采购员：可改库存、批订单、开票、**把任意发票标记为已收款**（`services.py:519` 写死 `status=VERIFIED`）、拉全库订单（`transactions/api/v1/views.py:39-40`） | 前端 `RegisterPage.vue:78-85` **确有** "Procurement Manager" 注册卡片 ⇒ 是**产品设计**，不是笔误。**堵它就会改变产品行为**，属产品决策（可选：注册只给 `researcher` + 管理员授予 / 落实 `Organization.approval_required` / 把 `procurement` 的财务权限拆出去） |
-| 2 | 注册可**自助加入任意机构**（`organization_choice='join'` + 任意 `organization_id`，`serializers.py:147-155`），而 `Organization.approval_required`（`accounts/models.py:43`）**全仓无任何读取点** ⇒ 一旦"同机构"，`_is_order_viewer` 的机构分支（`po_views.py:319-320`）就放行该机构**所有**发票 PDF / PO 附件 / 代客户接受报价 | 同上，属产品/审批流决策 |
-| 3 | `DEBUG` 默认 `True`（`base.py:18` `getenv('DEBUG','True')`）+ `wsgi.py:3`/`asgi.py:3` 默认 `development` ⇒ 误部署时一个匿名请求可拿到约 71 KB 的 Django 技术页（traceback + settings + 绝对路径） | 改默认值影响本机开发体验，且生产链路已有 `production.py` 硬写 `DEBUG=False` + Dockerfile 切 settings ⇒ 属部署加固项，应先确认部署方式 |
-| 4 | `/api/schema/`、`/api/docs/` 匿名可拉（实测 408,643 字节，含 `/api/v1/admin/orders/`） | 是否公开 API 文档是产品选择（很多项目**故意**公开） |
+| 1 | `DEBUG` 默认 `True`（`base.py:18` `getenv('DEBUG','True')`）+ `wsgi.py:3`/`asgi.py:3` 默认 `development` ⇒ 误部署时一个匿名请求可拿到约 71 KB 的 Django 技术页（traceback + settings + 绝对路径） | 改默认值影响本机开发体验；生产链路已由 `production.py` 硬写 `DEBUG=False` + Dockerfile 切 settings 兜底 ⇒ 属部署加固，需先确认部署方式 |
+| 2 | `/api/schema/`、`/api/docs/` 匿名可拉（实测 408,643 字节，含 `/api/v1/admin/orders/`） | 是否公开 API 文档是产品选择（不少项目**故意**公开） |
 
 ---
 
