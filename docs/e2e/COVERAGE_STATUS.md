@@ -130,7 +130,7 @@
 | ProductNew | 1 → 0 | AppSelect 的 aria-label 透传 |
 | ResearchGoalIndex | 1 → **1** | **未修**（axe 判 .el-table th，疑库问题） |
 
-**通用组件修复**：（39 实例）、（14 实例）。
+**通用组件修复**：`AppInput`（39 实例）、`AppSelect`（14 实例）。
 ★ 关键教训：**Element Plus 组件的 id 不透传到内部可聚焦元素，但 aria-label 会**。
 
 剩余 26 failed 全是 serious（color-contrast，50 处 / 25 页）。
@@ -155,6 +155,7 @@
 |---|---|---|
 | 1 | **grep 判"不存在"** | 换关键词/换路径形态再验（正则转义 `/\/admin\//` 也要想到） |
 | 2 | **中文引号破坏 Python 字符串** | 脚本里用 `「」`，不要用 `"` |
+| 2b | **反引号被 shell 执行** | ⚠️ `python -c "...\`AppInput\`..."` 里的反引号会被 bash 当命令替换，**内容静默丢失**（本节曾因此丢掉两个组件名）。⇒ 改文档用编辑器，或脚本从**文件**读写，别把 markdown 塞进 `-c` |
 | 3 | **`| head` 杀 dev server（SIGPIPE）** | 输出重定向到文件，不要 head |
 | 4 | **命令链 `&&` 断后误以为跑了** | 核对 EXIT + 日志行数 + 关键标记 |
 | 5 | **`4 skipped` 当成"通过"** | 看 `passed/failed/skipped` 三者 |
