@@ -84,9 +84,16 @@ export function getArAging() {
 
 /* ── E 客户/机构管理 ── */
 
-/** 机构搜索（OrganizationSearchView）。 */
+/**
+ * 机构全量列表（OrganizationManageListView，采购/管理员）。
+ *
+ * ★ 2026-10-21：原先打的是 `/organizations`（OrganizationSearchView），靠它
+ *   「不传 q ⇒ q='' ⇒ 命中全表」这个**缺陷行为**取到左栏数据。该端点已收紧为
+ *   「匿名 + q 至少 2 字符 + 仅 5 个摘要素」，不带 q 会返回空数组 ⇒ 左栏表格空白。
+ *   现改打专供管理台的分页端点：匿名搜索保持收紧，管理页面拿到完整字段。
+ */
 export function getOrganizations(params = {}) {
-  return http.get('/organizations', { params })
+  return http.get('/organizations/manage/', { params })
 }
 
 /** 指定机构的订单（OrderViewSet，admin 全量，按 organization_id 过滤）。 */

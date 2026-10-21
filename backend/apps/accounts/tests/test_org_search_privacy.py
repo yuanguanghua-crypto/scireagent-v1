@@ -114,3 +114,102 @@ class OrganizationSearchPrivacyTests(APITestCase):
         resp = self.client.get(self.url, {'q': 'Beijing Bulk'})
         self.assertEqual(resp.status_code, 200)
         self.assertLessEqual(len(resp.json()['data']), 10)
+
+
+# ---------------------------------------------------------------------------
+# F2 功能回退修复 —— 运维台「机构管理」全量列表端点
+#
+# 收紧 `OrganizationSearchView` 之后，`/ops/po/organizations`
+# （frontend/src/views/admin/PoOrgManagement.vue:16）用 `page_size: 100` **不带 q**
+# 去取左栏列表，于是恒得空数组 —— 左栏 Organizations 表格空白。
+# 修法不是放开匿名搜索（那等于把刚堵的洞重新打开），而是另开受权限保护的管理端点。
+# 本组用例钉住：谁能访问、按什么排序、分页边界、以及字段面与匿名面**刻意不同**。
+# ---------------------------------------------------------------------------
+from apps.accounts.tests.factories import UserFactory  # noqa: E402
+
+
+class OrganizationManageListTests(APITestCase):
+    URL = '/api/v1/organizations/manage/'
+
+    def setUp(self):
+        self.org = Organization.objects.create(
+            name='Zeta Labs', org_type='academic', country='China', status='active',
+            contact_email='pi@zeta.example.com',
+            address_line1='9 Zeta Rd',
+        )
+        Organization.objects.create(
+            name='Alpha Labs', org_type='industry', country='China', status='active')
+        # 非 active 不应出现
+        Organization.objects.create(
+            name='Beta Suspended', org_type='industry', status='suspended')
+
+    def _login(self, *, role='procurement', is_staff=False):
+        u = UserFactory(role=role, is_staff=is_staff)
+        self.client.force_authenticate(user=u)
+        return u
+
+    def test_anonymous_denied(self):
+        self.client.force_authenticate(None)
+        resp = self.client.get(self.URL)
+        self.assertIn(resp.status_code, (401, 403), f'匿名不该拿到全量机构：{resp.status_code}')
+
+    def test_plain_researcher_denied(self):
+        self._login(role='researcher')
+        resp = self.client.get(self.URL)
+        self.assertIn(resp.status_code, (401, 403), f'普通研究员不该拿到全量机构：{resp.status_code}')
+
+    def test_procurement_allowed_and_gets_active_orgs(self):
+        self._login(role='procurement')
+        resp = self.client.get(self.URL)
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        names = [o['name'] for o in body['data']]
+        self.assertIn('Zeta Labs', names)
+        self.assertIn('Alpha Labs', names)
+        self.assertNotIn('Beta Suspended', names, '非 active 机构不得返回')
+
+    def test_admin_allowed(self):
+        self._login(role='admin', is_staff=True)
+        resp = self.client.get(self.URL)
+        self.assertEqual(resp.status_code, 200)
+
+    def test_sorted_by_name(self):
+        self._login(role='procurement')
+        names = [o['name'] for o in self.client.get(self.URL).json()['data']]
+        self.assertEqual(names, sorted(names), '左栏列表应按 name 排序，否则同一批数据每次顺序都可能不同')
+
+    def test_manage_exposes_full_fields_unlike_anonymous_search(self):
+        """管理面**刻意**比匿名面宽：机构管理要看到联系人/地址。
+
+        这条是"两条路径字段面不同"的显式契约 —— 若将来有人把管理面也换成
+        OrganizationSummarySerializer，这里会红，提醒他先确认管理台是否还需要这些列。
+        """
+        self._login(role='procurement')
+        rows = self.client.get(self.URL).json()['data']
+        zeta = next(o for o in rows if o['name'] == 'Zeta Labs')
+        self.assertIn('contact_email', zeta)
+        self.assertIn('address_line1', zeta)
+        # 但匿名面必须仍然不含（对照组，防止"顺手把两边统一"）
+        anon = self.client.get('/api/v1/organizations', {'q': 'Zeta'}).json()['data']
+        self.assertEqual(set(anon[0].keys()), PUBLIC_FIELDS)
+
+    def test_pagination_meta_and_clamping(self):
+        self._login(role='procurement')
+        body = self.client.get(self.URL, {'page_size': 1}).json()
+        self.assertEqual(len(body['data']), 1, 'page_size=1 应只返回 1 条')
+        self.assertGreaterEqual(body['meta']['pagination']['count'], 2,
+                                'meta.pagination.count 应是全量条数，不是本页条数')
+
+    def test_invalid_page_size_falls_back(self):
+        self._login(role='procurement')
+        for bad in ('0', '-5', 'abc', ''):
+            resp = self.client.get(self.URL, {'page_size': bad})
+            self.assertEqual(resp.status_code, 200, f'page_size={bad!r} 不该报错')
+            self.assertGreaterEqual(len(resp.json()['data']), 1,
+                                    f'page_size={bad!r} 被夹紧后应至少返回 1 条')
+
+    def test_page_size_upper_bound(self):
+        self._login(role='procurement')
+        resp = self.client.get(self.URL, {'page_size': 999999})
+        self.assertEqual(resp.status_code, 200)
+        self.assertLessEqual(resp.json()['meta']['pagination']['page_size'], 500)

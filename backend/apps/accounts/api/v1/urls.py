@@ -12,6 +12,12 @@ urlpatterns = [
     path('auth/me', views.MeView.as_view(), name='auth-me'),
     path('auth/profile', views.ProfileView.as_view(), name='auth-profile'),
     path('organizations', views.OrganizationSearchView.as_view(), name='org-search'),
+    # 运维台「机构管理」全量列表（采购/管理员；匿名搜索仍走上面那条收紧的端点）
+    path(
+        'organizations/manage/',
+        views.OrganizationManageListView.as_view(),
+        name='org-manage-list',
+    ),
     path(
         'organizations/create',
         views.OrganizationCreateView.as_view(),

@@ -250,6 +250,50 @@ class OrganizationSearchView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+class OrganizationManageListView(EnvelopeMixin, APIView):
+    """GET /api/v1/organizations/manage/ — 运维台「机构管理」的全量分页列表。
+
+    ★ 2026-10-21 补 F2 的功能回退：`OrganizationSearchView` 收紧为
+      「匿名 + q 至少 2 字符 + 仅 5 个摘要素」之后，`/ops/po/organizations`
+      （`frontend/src/views/admin/PoOrgManagement.vue:16`）拿 `page_size: 100`
+      **不带 q** 去取左栏列表，于是恒得空数组 —— 左栏 Organizations 表格空白。
+      ⇒ 不能靠"放开匿名搜索"来修（那等于把刚堵的 PII 泄露洞重新打开），
+      而是**另开一个受权限保护的管理端点**：匿名搜索保持收紧，管理页面走这里。
+
+    为什么权限是 `IsProcurementOrAdmin` 而不是 `IsStaffUser`：
+      该页面属 PO 运维域，本仓库同类端点（`AdminOrderListView`、`ArAgingView`）
+      一律用 `IsProcurementOrAdmin`；改成 `IsStaffUser` 会把 `procurement`
+      角色（非 staff）挡在门外，直接打断他们的日常流程。
+
+    为什么这里可以用完整 `OrganizationSerializer`（含 contact_* / 地址 / member_count）：
+      调用方已限定为内部采购/管理员，这些正是机构管理需要看的字段；
+      而匿名面走的是 `OrganizationSummarySerializer`。两条路径的字段面**刻意不同**，
+      改动任一序列化器前请先看 F2 的测试（`test_org_search_privacy.py` 用
+      `set(item.keys()) == {...}` 钉死了匿名面的字段集）。
+    """
+
+    permission_classes = [IsProcurementOrAdmin]
+
+    DEFAULT_PAGE_SIZE = 100
+    MAX_PAGE_SIZE = 500
+
+    def get(self, request):
+        try:
+            page_size = int(request.query_params.get('page_size') or self.DEFAULT_PAGE_SIZE)
+        except (TypeError, ValueError):
+            page_size = self.DEFAULT_PAGE_SIZE
+        # 上下夹紧：防止 page_size=0（返回空）或超大值（一次拉全表）
+        page_size = max(1, min(page_size, self.MAX_PAGE_SIZE))
+
+        qs = Organization.objects.filter(status='active').order_by('name')
+        total = qs.count()
+        serializer = OrganizationSerializer(qs[:page_size], many=True)
+        return self.success_response(
+            serializer.data,
+            meta={'pagination': {'count': total, 'page': 1, 'page_size': page_size}},
+        )
+
+
 class OrganizationCreateView(APIView):
     """POST /api/v1/organizations/create — Create a new organization."""
 
