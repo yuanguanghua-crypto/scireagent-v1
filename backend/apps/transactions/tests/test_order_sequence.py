@@ -360,13 +360,19 @@ class TestPostgresOnlyConcurrency:
                 '本地无法验证并发互斥（sqlite 结果为假红）'
             )
 
-        user = UserFactory()
-        # 预建各用户购物车，避免并发期创建 Product/SKU 干扰
-        products = []
+        # ★ 2026-10-21 修正测试设计（第一次在真 PG 上跑时暴露）：
+        #   原写法 8 个线程共用一个 user 的**同一份购物车** ⇒ 第一个成功的 checkout
+        #   会清空购物车，其余线程直接拿到 `EMPTY_BASKET`（实测 3 条 400）。
+        #   那条断言永远不可能成立，而且它测的根本不是我们要验证的东西。
+        #   要测的是「**并发取号**是否互斥」，所以每个线程必须操作**自己的**购物车，
+        #   只共享同一个 OrderSequence 取号器。
+        users, products = [], []
         for i in range(8):
+            u = UserFactory()
             p = ProductFactory()
             s = SKUFactory(product=p, price=Decimal('100.00'))
-            BasketFactory(user=user, product=p, sku=s, quantity=1)
+            BasketFactory(user=u, product=p, sku=s, quantity=1)
+            users.append(u)
             products.append((p, s))
 
         results, errors = [], []
@@ -376,7 +382,7 @@ class TestPostgresOnlyConcurrency:
         def worker(i):
             try:
                 c = APIClient()
-                c.force_authenticate(user)
+                c.force_authenticate(users[i])
                 barrier.wait(timeout=30)
                 r = c.post('/api/v1/checkout/', {
                     'payment_method': 'purchase_order',
@@ -387,10 +393,19 @@ class TestPostgresOnlyConcurrency:
                     if r.status_code == 201:
                         results.append(r.data['order_no'])
                     else:
-                        errors.append(r.status_code)
+                        # ★ 2026-10-21：第一次在真 PG 上跑时只记了状态码，拿到
+                        #   `[400, 400, 400]` 无法判断是"并发互斥失效"还是"校验层拒绝"
+                        #   —— 两者处置完全不同。这里把响应体一并记下，下次一眼能看出。
+                        errors.append((r.status_code, getattr(r, 'data', None)))
             except Exception as e:            # noqa: BLE001
                 with lock:
                     errors.append(repr(e))
+            finally:
+                # ★ 每个线程用完就关连接。第一次在 PG 上跑时 teardown 报
+                #   `database "test_scireagent_l4" is being accessed by other users
+                #   (4 other sessions)` —— 线程持有的连接没释放，库删不掉。
+                from django.db import connections
+                connections.close_all()
 
         threads = [threading.Thread(target=worker, args=(i,))
                    for i in range(len(products))]

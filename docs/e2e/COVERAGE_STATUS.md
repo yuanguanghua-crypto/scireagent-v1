@@ -596,6 +596,99 @@ PubMed / Europe PMC / Bioz / ChEMBL / PubChem enhancer 全部经
 
 ---
 
+## 3.16 L4 并发（真实 PostgreSQL，2026-10-21 打通）
+
+### 3.16.1 这一层为什么拖到最后
+`select_for_update()` 在 **sqlite 上是 no-op**（实发 SQL 不含 `FOR UPDATE`），
+而 sqlite 又是整库文件锁 ⇒ 并发用例在 sqlite 上要么**假通过**（锁根本没起作用）、
+要么**假失败**（写冲突被放大成 `database is locked`）。**两种结果都不可信**，
+所以那批用例一直"诚实 skip"，而"并发互斥性"始终只是**推断**。
+
+### 3.16.2 环境决策：为什么装本机
+| 选项 | 为什么不选 |
+|---|---|
+| 装服务器 | 生产 2 vCPU / 3.5GB，已在跑 gunicorn(3×4) + nginx + PG 16；并发测试本身就是压 CPU，会**抢线上资源**，而且测出来的数字被线上负载污染。且 pytest 会建/删 `test_*` 库，误伤生产代价极高 |
+| 本机直连生产 PG | **连不上**：`docker-compose.yml` 的 `db` 服务**没有 `ports:` 映射**，只在 compose 网络内（`DB_HOST=db`）。要连必须把 DB 端口暴露到公网 —— 明确的安全倒退 |
+| **本机独立集群** | ✅ 行级隔离，测试库随便建随便删，`dev≠prod` |
+
+**版本差**：本机 **17.11**，生产 **16（alpine）**。`select_for_update` 的锁语义在
+16–18 之间稳定，不影响本次验证结论；但记录在此，避免后人误以为版本完全一致。
+
+### 3.16.3 落地形态（有一处环境限制必须知道）
+winget 装 `PostgreSQL.PostgreSQL.17`，安装器退出码 1 但**二进制完整可用**
+（`psql` / `pg_ctl` / `postgres` 均正常）。集群由 `initdb -A trust` 建在
+`2026-07-08-11-22-32\pgdata-l4`（**git 仓库外**，不污染），端口 **5433**、
+`listen_addresses=127.0.0.1`。
+
+> ⚠️ **`initdb.exe` 与 `postgres.exe` 被本机安全策略拦截**（agent 侧执行会得到
+> "命令被安全策略拦截" / `0xC0000409`），但 **`psql` / `pg_ctl --version` 正常**。
+> 所以集群的**创建与启动需人工执行一次**（用户终端不受此限制），之后 agent 侧
+> 可用 `psql` / `psycopg2` 正常连接跑测试。已排除 NTFS/端口占用/目录属主三个原因。
+
+### 3.16.4 新增的两个并发不变量（断言业务事实，不是断言"代码写了锁"）
+`apps/inventory/tests/test_pg_concurrency.py`（`django_db(transaction=True)`）：
+
+| 用例 | 断言 |
+|---|---|
+| `test_allocate_does_not_oversell` | 库存 3、8 个并发各要 1 ⇒ **正好 3 成功 / 5 被拒**，最终 `available=0`、`allocated=3`（既不超卖也不少卖） |
+| `test_receipt_does_not_lose_updates` | 8 个并发入库各 +1 ⇒ `available == 8`（读-改-写不丢更新） |
+| `test_allocate_and_receipt_interleave_safely` | 入库与分配交错 ⇒ `available + allocated` **守恒**（锁的是同一个对象） |
+
+### 3.16.5 ★ 变异验证：证明这些测试真的能抓到问题
+一次就绿最需要警惕。**把 `apps/inventory/services.py` 里三处 `.select_for_update()` 全部摘掉**后重跑：
+
+| 用例 | 变异后实测 |
+|---|---|
+| 不超卖 | **成功 5 个**（应为 3）⇒ **真超卖了 2 件** |
+| 不丢更新 | 8 次 +1 后 `available = 7` ⇒ 丢了 1 次 |
+| 总量守恒 | `available=1 + allocated=3 = 4`（应为 5）⇒ 凭空少了 1 件 |
+
+复原后全部回到绿（md5 比对确认）。⇒ 这批用例**不是摆设**，且`select_for_update`
+在这三条路径上**确实必需**。
+
+### 3.16.6 订单号并发（原有用例，首次真跑通过）
+`test_order_sequence.py::TestPostgresOnlyConcurrency` 此前在 sqlite 下 skip。
+第一次在 PG 上跑**失败了**，但失败原因是**测试自己的设计问题**：
+8 个线程共用**同一个 user 的同一份购物车**，第一个成功的 checkout 把它清空，
+其余拿到 `EMPTY_BASKET`（实测 3 条 400）。原断言"8 个都成功"永远不可能成立，
+而且它测的根本不是并发取号。
+⇒ 改为**每个线程操作自己的购物车**、只共享同一个 `OrderSequence` 取号器。
+修改后：8 线程并发 checkout，**单号两两不同、序号稠密 1..8**，通过。
+
+顺带修了两处测试卫生问题（都不影响断言强度）：
+- 失败时只记状态码 → 改为**连响应体一起记**（否则 `[400,400,400]` 无法区分
+  "并发互斥失效"与"校验层拒绝"，而两者处置完全不同）
+- worker 结束不关连接 → teardown 报
+  `database "test_scireagent_l4" is being accessed by other users (4 sessions)`
+  ⇒ 加 `connections.close_all()`
+
+### 3.16.7 一键执行（并防"静默退化"）
+`scripts/run_pg_tests.py`：
+```bash
+cd backend && venv/Scripts/python.exe ../scripts/run_pg_tests.py
+```
+它做三件脚本该做的事：
+1. **前置检查**：5433 连不上就**直接退出（码 2）**，并打印启动命令 ——
+   绝不"退化成 sqlite 然后假装成功"
+2. 注入 `DB_*` 环境变量后跑全部 PG-only 用例
+3. ★ **防静默通过**：退出码 0 时若输出里出现「需 Postgres」跳过，
+   判 **FAIL（码 3）**。因为最危险的失败模式是 `DB_*` 没生效 ⇒ 回落 sqlite ⇒
+   整批 skip ⇒ **退出码 0、看起来通过、并发一条都没验**。
+   **已变异验证**：把 `DB_ENGINE` 故意改成 `sqlite` ⇒ 4 条全 skip ⇒ 脚本输出
+   `❌ 有并发用例因「需 Postgres」被跳过` 并返回 **3**。
+
+### 3.16.8 覆盖边界（诚实说明）
+全仓 **23 处** `select_for_update`，本次实测覆盖：
+- ✅ 订单号取号（`transactions/services.py:212`）
+- ✅ 库存分配 / 入库 / 盘点（`inventory/services.py:33,144`）
+- ⬜ **发票号取号**（`transactions/services.py:232`，与 OrderSequence 同构，未单独测）
+- ⬜ 发货标记（`transactions/services.py:391,431`）
+- ⬜ 其余 18 处
+
+**没有声称"L4 全覆盖"**。已测的是风险最高的三处（钱与库存）。
+
+---
+
 ## 4. 下一轮该做什么（按价值排序）
 
 | # | 任务 | 价值 | 成本 |
