@@ -18,10 +18,13 @@
  *   - 断言不允许 `>=0` 这类永真条件；
  *   - 每条断言的 message 都带「页面 name + path」，失败可直接定位。
  *
- * :id 不写死：首次需要时调用 resolveIds()（模块级 memo），
- *   经 helpers/api.cjs 的 getSession 拿 staff token，读各实体列表的第一条 id；
- *   解析失败由普通 throw 抛错 ⇒ 会落到**每个**相关用例上显式失败，
- *   绝不静默 skip（不用 beforeAll：beforeAll 失败会把整组用例标成 skipped）。
+ * :id 不写死：首次需要时调用 getIds()（模块级 memo），经 helpers/api.cjs 的 getSession
+ *   拿 staff token，读各实体列表的第一条 id。
+ *   ★ 2026-10-21 改造：解析**尽力而为** —— 某个实体在本库没有数据时，
+ *   只 `test.skip` **依赖它的那几页**（并写明原因），其余页面照跑。
+ *   原实现是任一缺失就 throw，而每个用例都会调 getIds() ⇒ 空库/缺数据时**44 页全红**
+ *   （连 Home/Login 都红）。在 CI（空库 + 最小种子）里会把「缺 4 类实体」放大成「整站不可用」，
+ *   属假失败。**注意：skip 一律带原因，不静默跳过。**
  *
  * ⚠️ 环境说明：本机系统代理（FlClash）会把 http://localhost:5173/@vite/client 接走返回 404，
  *   导致 Firefox 下 SPA 挂不上。config 的 firefox project 已加
@@ -37,7 +40,7 @@ const { getSession, apiContext, API_BASE } = require('./helpers/api.cjs')
 const PUBLIC = [
   { name: 'Home', path: '/', sel: '.home' },
   { name: 'Products', path: '/products', sel: '.product-grid' },
-  { name: 'ProductDetail', path: (ids) => `/products/${ids.product}`, sel: 'main' },
+  { name: 'ProductDetail', path: (ids) => `/products/${ids.product}`, sel: 'main', needs: 'product' },
   { name: 'Search', path: '/search', sel: '.search-page' },
   { name: 'Login', path: '/login', sel: '.auth-page' },
   { name: 'Register', path: '/register', sel: '.auth-page' },
@@ -48,10 +51,10 @@ const PUBLIC = [
   { name: 'RGIndex', path: '/research-goals', sel: '.research-goal-index' },
   { name: 'CartPage', path: '/cart', sel: '.cart-page' },
   // ★ 本文件补齐（audit 第 6/8/10/14/17 行）
-  { name: 'AppDetail', path: (ids) => `/applications/${ids.application}`, sel: '.detail-page' },
-  { name: 'MethodDetail', path: (ids) => `/methods/${ids.method}`, sel: '.detail-page' },
-  { name: 'ProtocolDetail', path: (ids) => `/protocols/${ids.protocol}`, sel: '.protocol-detail' },
-  { name: 'RGDetail', path: (ids) => `/research-goals/${ids.researchGoal}`, sel: '.research-goal-detail' },
+  { name: 'AppDetail', path: (ids) => `/applications/${ids.application}`, sel: '.detail-page', needs: 'application' },
+  { name: 'MethodDetail', path: (ids) => `/methods/${ids.method}`, sel: '.detail-page', needs: 'method' },
+  { name: 'ProtocolDetail', path: (ids) => `/protocols/${ids.protocol}`, sel: '.protocol-detail', needs: 'protocol' },
+  { name: 'RGDetail', path: (ids) => `/research-goals/${ids.researchGoal}`, sel: '.research-goal-detail', needs: 'researchGoal' },
   { name: 'NotFound', path: '/__xbr_no_such_route__', sel: '.not-found' },
 ]
 
@@ -83,10 +86,10 @@ const STAFF = [
   { name: 'WsKnowledgeIntake', path: '/workspace/knowledge-intake', sel: '.ki-page' },
   // ★ 本文件补齐（audit 第 21/24/31/39 行）
   // 真实路由是 `products/:id/edit`（router/index.js:272），不是 products/new/:id/edit
-  { name: 'OrderDetail', path: (ids) => `/orders/${ids.order}`, sel: '.order-detail-page' },
-  { name: 'PoOrderDetail', path: (ids) => `/po/orders/${ids.poOrder}`, sel: '.po-page' },
-  { name: 'ProductEdit', path: (ids) => `/workspace/products/${ids.product}/edit`, sel: '.product-edit' },
-  { name: 'AdminOrderDetail', path: (ids) => `/ops/orders/${ids.adminOrder}`, sel: '.admin-order-detail' },
+  { name: 'OrderDetail', path: (ids) => `/orders/${ids.order}`, sel: '.order-detail-page', needs: 'order' },
+  { name: 'PoOrderDetail', path: (ids) => `/po/orders/${ids.poOrder}`, sel: '.po-page', needs: 'poOrder' },
+  { name: 'ProductEdit', path: (ids) => `/workspace/products/${ids.product}/edit`, sel: '.product-edit', needs: 'product' },
+  { name: 'AdminOrderDetail', path: (ids) => `/ops/orders/${ids.adminOrder}`, sel: '.admin-order-detail', needs: 'adminOrder' },
 ]
 
 const ALL = [...PUBLIC, ...STAFF]
@@ -127,56 +130,72 @@ async function _resolveIds() {
   const staffReq = await apiRequest.newContext()
   const anonReq = await apiRequest.newContext()
   let api = null
+  const ids = {}
+  // ★ 2026-10-21 改造：解析**尽力而为**，缺哪个只影响依赖它的那几页，不再连坐全部 44 页。
+  //   原实现是"任一缺失就 throw"，而 throw 发生在每个用例里（都调 getIds()）
+  //   ⇒ 空库/缺数据时 44 页**全部**失败，连 Home/Login 这种静态页也红。
+  //   在 CI（全新空库 + 最小种子）里这会把"缺 4 类实体"放大成"整站不可用"，属于假失败。
+  //   ⇒ 现在：缺失记进 `ids._issues`，用例侧只 `test.skip` 依赖它的页，其余照跑。
+  ids._issues = {}
+
+  const take = async (key, label, fn) => {
+    try {
+      const v = await fn()
+      if (v === undefined || v === null || v === '') throw new Error('解析结果为空')
+      if (!Number.isFinite(Number(v)) || Number(v) <= 0) {
+        throw new Error('期望正整数，实际 ' + JSON.stringify(v))
+      }
+      ids[key] = v
+    } catch (e) {
+      ids._issues[key] = label + '：' + String((e && e.message) || e).split('\n')[0]
+    }
+  }
+
   try {
     // staff token：与 loginAsStaff 共用 helpers/api.cjs 的模块级缓存 ⇒ 整轮只登录 1 次
     const session = await getSession(staffReq, ADMIN_USER, ADMIN_PASS)
     api = await apiContext(session.token)
 
-    const ids = {}
-
-    // ⚠️ 5 个**公开**详情页（applications/methods/protocols/research-goals/products）
-    //   的 :id 必须从**匿名**列表里取：staff 列表含未发布/内部状态的实体，
-    //   拿它去打开公开详情页会得到 404（实测：/api/v1/methods/54/ 匿名 404，
-    //   而匿名列表首条是 95034）——那是测试数据选错了，不是页面缺陷。
-    // ⚠️ anonReq 是裸 request context（没有 baseURL）⇒ 必须用绝对 URL；
-    //    传相对路径会拿到 HTML（实测：Unexpected token '<'）。
+    // ⚠️ 5 个**公开**实体（applications/methods/protocols/research-goals/products）的 :id
+    //   必须从**匿名**列表里取：staff 列表含未发布/内部状态的实体，
+    //   拿它去打开公开详情页会得到 404（实测：/api/v1/methods/54/ 匿名 404）。
+    // ⚠️ anonReq 是裸 request context（没有 baseURL）⇒ 必须用绝对 URL。
     const anonList = (path, label) => _rows(anonReq, `${API_BASE}${path}`, label)
 
-    let rows = await anonList('/applications/?page_size=5', 'applications（匿名）')
-    ids.application = _pickId(rows[0], 'applications', '/applications/')
+    await take('application', 'applications（匿名）', async () =>
+      _pickId((await anonList('/applications/?page_size=5', 'applications（匿名）'))[0], 'applications', '/applications/'))
+    await take('method', 'methods（匿名）', async () =>
+      _pickId((await anonList('/methods/?page_size=5', 'methods（匿名）'))[0], 'methods', '/methods/'))
+    await take('protocol', 'protocols（匿名）', async () =>
+      _pickId((await anonList('/protocols/?page_size=5', 'protocols（匿名）'))[0], 'protocols', '/protocols/'))
+    await take('researchGoal', 'research-goals（匿名）', async () =>
+      _pickId((await anonList('/research-goals/?page_size=5', 'research-goals（匿名）'))[0], 'research-goals', '/research-goals/'))
+    await take('product', 'products（匿名）', async () =>
+      _pickId((await anonList('/products/?page_size=5', 'products（匿名）'))[0], 'products', '/products/'))
 
-    rows = await anonList('/methods/?page_size=5', 'methods（匿名）')
-    ids.method = _pickId(rows[0], 'methods', '/methods/')
-
-    rows = await anonList('/protocols/?page_size=5', 'protocols（匿名）')
-    ids.protocol = _pickId(rows[0], 'protocols', '/protocols/')
-
-    rows = await anonList('/research-goals/?page_size=5', 'research-goals（匿名）')
-    ids.researchGoal = _pickId(rows[0], 'research-goals', '/research-goals/')
-
-    rows = await anonList('/products/?page_size=5', 'products（匿名）')
-    ids.product = _pickId(rows[0], 'products', '/products/')
-
-    rows = await _rows(api, '/orders/?page_size=200', 'orders')
-    ids.order = _pickId(rows[0], 'orders', '/orders/')
-    const poRow = rows.find((o) => o.payment_method === 'purchase_order' || /^po_/.test(String(o.status || '')))
-    if (!poRow) {
-      throw new Error(
-        '解析 poOrder 的 :id 失败：GET /orders/?page_size=200 里没有 payment_method=purchase_order ' +
-          '（或 status 以 po_ 开头）的订单。/po/orders/:id 只对 PO 单有意义，请先在本地库准备一张 PO 单。',
-      )
-    }
-    ids.poOrder = _pickId(poRow, 'po orders', '/orders/?page_size=200')
-
-    rows = await _rows(api, '/admin/orders/?page_size=5', 'admin/orders')
-    ids.adminOrder = _pickId(rows[0], 'admin/orders', '/admin/orders/')
-
-    // 解析不出来宁可炸：所有 :id 必须是正整数
-    for (const [k, v] of Object.entries(ids)) {
-      if (!Number.isFinite(Number(v)) || Number(v) <= 0) {
-        throw new Error(`解析 :id 失败：${k} = ${JSON.stringify(v)}（期望正整数）`)
+    // 订单类：一次取 200 条，同时挑出普通单 / PO 单
+    let orderRows = []
+    try {
+      orderRows = await _rows(api, '/orders/?page_size=200', 'orders')
+      const first = orderRows[0]
+      if (first) {
+        ids.order = _pickId(first, 'orders', '/orders/')
+      } else {
+        ids._issues.order = 'orders：列表为空（本库没有订单）'
       }
+      const poRow = orderRows.find(
+        (o) => o.payment_method === 'purchase_order' || /^po_/.test(String(o.status || '')),
+      )
+      if (poRow) ids.poOrder = _pickId(poRow, 'po orders', '/orders/')
+      else ids._issues.poOrder = 'poOrder：本库没有 PO 单（/po/orders/:id 只对 PO 单有意义）'
+    } catch (e) {
+      ids._issues.order = 'orders：' + String((e && e.message) || e).split('\n')[0]
+      ids._issues.poOrder = ids._issues.order
     }
+
+    await take('adminOrder', 'admin/orders', async () =>
+      _pickId((await _rows(api, '/admin/orders/?page_size=5', 'admin/orders'))[0], 'admin/orders', '/admin/orders/'))
+
     return ids
   } finally {
     if (api) await api.dispose().catch(() => {})
@@ -253,6 +272,10 @@ test.describe('跨浏览器冒烟：全站 44 页', { tag: ['@readonly', '@local
     for (const p of PUBLIC) {
       test(`${p.name} — 匿名渲染正常`, async ({ page }) => {
         const ids = await getIds()
+        // 该页需要某个 :id 但本库没有 ⇒ 只跳过这一页，并写明原因（不静默、不连坐）
+        if (p.needs && ids[p.needs] === undefined) {
+          test.skip(true, `本库无可用 ${p.needs}：${(ids._issues || {})[p.needs] || '解析失败'}`)
+        }
         await checkPage(page, p, ids)
       })
     }
@@ -265,6 +288,9 @@ test.describe('跨浏览器冒烟：全站 44 页', { tag: ['@readonly', '@local
     for (const p of STAFF) {
       test(`${p.name} — staff 渲染正常`, async ({ page }) => {
         const ids = await getIds()
+        if (p.needs && ids[p.needs] === undefined) {
+          test.skip(true, `本库无可用 ${p.needs}：${(ids._issues || {})[p.needs] || '解析失败'}`)
+        }
         await checkPage(page, p, ids)
       })
     }

@@ -362,6 +362,14 @@
   --el-color-success: var(--color-emerald-700);
   /* EP 默认 info 灰 #909399 在白底只有 3.08:1 */
   --el-color-info: var(--color-gray-600);
+
+  /* ★ 2026-10-21 修 D7 补：**空态描述**用 EP 的 `--el-text-color-secondary`（默认 #909399），
+     压在 `--color-bg`(#f8fafc) 上只有 **2.94:1** ⇒ `.el-empty__description > p`（"No applications found" 等）
+     在 4 个索引页的空态下全部 serious 违规。
+     ⚠️ 这个只在**空数据**时才出现 —— 本地开发库有数据，所以先前的 a11y 全绿掩盖了它；
+        是"空库演练"（为接 CI 而做）才把它逼出来。
+     改成 gray-600(#475569)：白底 7.58:1。 */
+  --el-text-color-secondary: var(--color-gray-600);
 }
 
 /* ★ 2026-10-21 修 D7：表头文字色必须在 **`.el-table` 作用域**覆盖 ——

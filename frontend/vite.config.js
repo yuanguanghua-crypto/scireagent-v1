@@ -81,11 +81,12 @@ export default defineConfig({
       // 强制 IPv4, 避免 Node 把 localhost 解析成 [::1] 后转发到
       // 只监听 127.0.0.1 的 Django(runserver 默认 IPv4)导致 ECONNREFUSED。
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        // ★ 2026-10-21：可用 VITE_API_PROXY 指向另一套后端（空库演练 / CI 多用例隔离）
+        target: process.env.VITE_API_PROXY || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
       '/api/v1': {
-        target: 'http://127.0.0.1:8000',
+        target: process.env.VITE_API_PROXY || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
       '/media': {

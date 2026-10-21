@@ -170,6 +170,46 @@ a11y 也已从"25 页 180 处对比度 + 1 处 critical"降到 **35 页全部 0 
 
 ---
 
+## 3.7 CI 里到底跑什么（2026-10-21 新增 · L6 接线）
+
+`.github/workflows/ci.yml` 新增 `e2e-smoke` job（第 9 个 job）：
+
+```
+空库 migrate → seed_e2e_ci.py（最小种子）→ 起后端:8000 + 前端:5173
+→ preflight 环境自检 → npm run test:e2e:ci（81 例只读）
+```
+
+**覆盖（81 例）**：`cross-browser-smoke`（44 页 + 1 自检）+ `a11y`（35 页）+ `visual-tokens`（1 条）。
+**不覆盖**：其余 773 例（29 个 `@write` spec + 依赖开发库历史数据的用例）。
+
+> ⚠️ **CI 绿 ≠ 全站绿**。CI 是"页面还能不能渲染 + 有没有 a11y 回归"的**底线闸门**；
+> 全量 854 例仍只在本地跑。这条口径必须一直写在这里，别把 CI 绿当成验收。
+
+### 关键设计（都是踩过才定下来的）
+| 决定 | 原因 |
+|---|---|
+| CI 用**最小种子**而不是"照搬 dev 库" | dev 库有 127 产品 / 983 订单，CI 是空库，照搬必然大面积假失败 |
+| 种子**显式造 `Product pk=66`** | 多个 spec 硬编码 `/products/66`，这个 id 必须真实存在 |
+| `cross-browser-smoke` 的 `:id` 解析改为**尽力而为** | 原实现"任一实体缺失就 throw"，而每个用例都调 `getIds()` ⇒ 空库时 **44 页全红**（连 Home/Login 都红）。现在缺哪个只 `test.skip` 依赖它的几页并写明原因 |
+| 先跑 `preflight` 再跑测试 | 把"环境没起来"和"代码坏了"分开，避免 CI 报一堆看不懂的 element not found |
+| `PW_CHANNEL: ""`（空串） | Linux runner 没系统 Edge；config 里"变量存在但为空"⇒ 走 bundled chromium |
+
+### 空库演练的意外收获（真缺陷）
+第一次在空库跑，暴露了 **`el-empty` 空态描述**的 a11y 违规：
+`.el-empty__description > p` 用 EP 默认 `#909399`，压在 `#f8fafc` 上只有 **2.94:1**
+⇒ 4 个索引页（applications/methods/protocols/research-goals）在**空数据**时全部 serious。
+本地开发库有数据、从未显示空态 ⇒ 之前的 a11y 全绿**掩盖了它**。
+已覆盖 `--el-text-color-secondary → gray-600`（7.58:1）。
+
+### 实测（2026-10-21）
+| 场景 | 结果 |
+|---|---|
+| **空库** + 最小种子（8001/5174 隔离环境） | **77 passed / 4 skipped / 0 failed**；4 skip 全是缺实体的公开详情页（AppDetail/MethodDetail/ProtocolDetail/RGDetail），skip 原因写明"本库无该实体" |
+| **本地库**跑 `npm run test:e2e:ci` | **81 passed / 1.3 分钟** |
+| 本地库 a11y（35 页）回归 | **35 passed / 27.3s**，新令牌覆盖无副作用 |
+
+---
+
 ## 4. 下一轮该做什么（按价值排序）
 
 | # | 任务 | 价值 | 成本 |

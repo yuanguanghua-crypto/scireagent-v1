@@ -259,3 +259,104 @@ jobs:
       - name: 构建
         working-directory: frontend
         run: npx vite build --outDir dist --emptyOutDir
+
+  # ── 6. E2E 冒烟（空库 + 最小种子）─────────────────────────────────────
+  #
+  # 为什么只跑这个子集，而不是全部 854 个用例：
+  #   854 个用例里 29 个 spec 是 @write（要造/清数据），大量用例外依赖开发库里的历史数据
+  #   （127 产品 / 983 订单 / 各类实体）。CI 是**全新空库**，照搬必然大面积假失败。
+  #   ⇒ 这里只跑「渲染 / 可访问性 / 设计令牌」这三类**只读**断言（约 81 例），
+  #     配 `backend/seed_e2e_ci.py` 造的最小数据（账号 / org / 3 产品 / 1 订单）。
+  #   ⚠️ **CI 绿 ≠ 全站绿**：这只是"页面还能不能渲染 + 有没有 a11y 回归"的底线闸门。
+  #      全量 854 例仍只在本地跑（见 docs/e2e/COVERAGE_STATUS.md）。
+  #
+  # 为什么先跑 preflight：把"环境没起来"和"代码坏了"分开，避免 CI 报一堆看不懂的 element not found。
+  e2e-smoke:
+    name: E2E 冒烟（空库 + 最小种子 / chromium）
+    runs-on: ubuntu-latest
+    needs: backend-tests
+    env:
+      DB_ENGINE: sqlite
+      SECRET_KEY: ci-only-not-a-real-secret
+      PYTHONDONTWRITEBYTECODE: "1"
+      # Linux runner 上没有系统 Edge ⇒ 清空 channel 走 Playwright 自带 chromium
+      # （config 里 `PW_CHANNEL` **存在但为空** ⇒ undefined ⇒ bundled chromium）
+      PW_CHANNEL: ""
+      BASE_URL: http://localhost:5173
+      E2E_API_BASE: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装后端依赖
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: 建空库 + 迁移
+        working-directory: backend
+        run: python manage.py migrate --noinput
+
+      - name: 灌最小种子（幂等）
+        working-directory: backend
+        run: python manage.py shell -c "exec(open('seed_e2e_ci.py').read())"
+
+      - name: 安装前端依赖
+        working-directory: frontend
+        run: npm ci
+
+      - name: 安装 chromium（含系统依赖）
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: 起后端（:8000）
+        working-directory: backend
+        run: nohup python manage.py runserver 8000 --noreload > /tmp/be.log 2>&1 &
+
+      - name: 起前端（:5173）
+        working-directory: frontend
+        run: nohup npx vite --port 5173 --strictPort > /tmp/fe.log 2>&1 &
+
+      - name: 等两个端口就绪（最多 90s）
+        run: |
+          for i in $(seq 1 45); do
+            if curl -sf http://localhost:8000/api/v1/products/ >/dev/null && curl -sf http://localhost:5173/ >/dev/null; then
+              echo "两个服务已就绪"; exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::服务 90s 内未就绪"; echo "--- backend log ---"; tail -40 /tmp/be.log
+          echo "--- frontend log ---"; tail -40 /tmp/fe.log; exit 1
+
+      - name: 环境自检（preflight）
+        working-directory: frontend
+        run: node e2e/preflight.cjs
+
+      - name: E2E 冒烟（81 例只读）
+        working-directory: frontend
+        run: npm run test:e2e:ci
+
+      - name: 失败现场（截图/trace）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-report
+          path: |
+            frontend/playwright-report/
+            frontend/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: 服务日志（失败时）
+        if: failure()
+        run: |
+          echo "--- backend ---"; tail -60 /tmp/be.log || true
+          echo "--- frontend ---"; tail -60 /tmp/fe.log || true
