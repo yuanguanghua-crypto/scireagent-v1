@@ -1,0 +1,245 @@
+{
+  "note": "P0/P1/DYNAMIC 端点基线。--check 只拦\"新增\"与\"严重度升级\"；全部待办清单见 unsigned 计数。签字字段 reviewed/reason 由人填写。",
+  "reviewed": {
+    "DELETE /api/v1/basket/items/<int:pk>/delete": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P0",
+      "view": "apps.transactions.api.v1.basket_views.DeleteBasketItemView"
+    },
+    "GET /api/docs/": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "drf_spectacular.views.SpectacularSwaggerView"
+    },
+    "GET /api/schema/": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "drf_spectacular.views.SpectacularAPIView"
+    },
+    "GET /api/v1/": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "rest_framework.routers.APIRootView"
+    },
+    "GET /api/v1/<drf_format_suffix:None>": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "rest_framework.routers.APIRootView"
+    },
+    "GET /api/v1/^orders/$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.OrderViewSet"
+    },
+    "GET /api/v1/^orders/(?P<pk>[^/.]+)/$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.OrderViewSet"
+    },
+    "GET /api/v1/^orders/(?P<pk>[^/.]+)\\.(?P<None>[a-z0-9]+)/?$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.OrderViewSet"
+    },
+    "GET /api/v1/^orders\\.(?P<None>[a-z0-9]+)/?$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.OrderViewSet"
+    },
+    "GET /api/v1/^quotes/$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.QuoteViewSet"
+    },
+    "GET /api/v1/^quotes/(?P<pk>[^/.]+)/$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.QuoteViewSet"
+    },
+    "GET /api/v1/^quotes/(?P<pk>[^/.]+)\\.(?P<None>[a-z0-9]+)/?$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.QuoteViewSet"
+    },
+    "GET /api/v1/^quotes\\.(?P<None>[a-z0-9]+)/?$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.QuoteViewSet"
+    },
+    "GET /api/v1/^wishlist/$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.WishlistViewSet"
+    },
+    "GET /api/v1/^wishlist/(?P<pk>[^/.]+)/$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.WishlistViewSet"
+    },
+    "GET /api/v1/^wishlist/(?P<pk>[^/.]+)\\.(?P<None>[a-z0-9]+)/?$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.WishlistViewSet"
+    },
+    "GET /api/v1/^wishlist\\.(?P<None>[a-z0-9]+)/?$": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.views.WishlistViewSet"
+    },
+    "GET /api/v1/auth/verify-email": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.accounts.api.v1.views.VerifyEmailView"
+    },
+    "GET /api/v1/basket": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.transactions.api.v1.basket_views.BasketView"
+    },
+    "GET /api/v1/categories": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.commerce.api.v1.categories.CategoryTreeView"
+    },
+    "GET /api/v1/graph": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.knowledge.api.v1.graph_views.graph_view"
+    },
+    "GET /api/v1/methods/<int:pk>/products/": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.bridges.api.v1.views.MethodProductsView"
+    },
+    "GET /api/v1/organizations": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.accounts.api.v1.views.OrganizationSearchView"
+    },
+    "GET /api/v1/products/<int:pk>/faq/": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.commerce.api.v1.faq_views.ProductFAQView"
+    },
+    "GET /api/v1/products/<int:pk>/methods/": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.bridges.api.v1.views.ProductMethodsView"
+    },
+    "GET /api/v1/products/<int:pk>/related/": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.commerce.api.v1.related_views.RelatedProductsView"
+    },
+    "GET /api/v1/search": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.knowledge.api.v1.search_views.search"
+    },
+    "GET /api/v1/search/grouped": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.knowledge.api.v1.search_grouped_views.search_grouped"
+    },
+    "GET /api/v1/search/suggest": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.knowledge.api.v1.search_views.search_suggest"
+    },
+    "GET /api/v1/site/home": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.knowledge.api.v1.site_views.site_home"
+    },
+    "GET /api/v1/site/navigation": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.knowledge.api.v1.site_views.site_navigation"
+    },
+    "GET /api/v1/sitemap.xml": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.knowledge.api.v1.site_views.sitemap_xml"
+    },
+    "GET /robots.txt": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.knowledge.api.v1.site_views.robots_txt"
+    },
+    "GET /sitemap.xml": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P1",
+      "view": "apps.knowledge.api.v1.site_views.sitemap_xml"
+    },
+    "PATCH /api/v1/basket/items/<int:pk>": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P0",
+      "view": "apps.transactions.api.v1.basket_views.UpdateBasketItemView"
+    },
+    "POST /api/v1/auth/login": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P0",
+      "view": "apps.accounts.api.v1.views.LoginView"
+    },
+    "POST /api/v1/auth/register": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P0",
+      "view": "apps.accounts.api.v1.views.RegisterView"
+    },
+    "POST /api/v1/auth/resend-verification": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P0",
+      "view": "apps.accounts.api.v1.views.ResendVerificationView"
+    },
+    "POST /api/v1/basket/items": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P0",
+      "view": "apps.transactions.api.v1.basket_views.AddToBasketView"
+    },
+    "POST /api/v1/quote-requests/": {
+      "reason": "",
+      "reviewed": false,
+      "severity": "P0",
+      "view": "apps.quotes.api.v1.views.QuoteRequestCreateView"
+    }
+  }
+}

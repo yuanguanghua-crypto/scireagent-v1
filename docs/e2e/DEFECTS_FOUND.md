@@ -181,6 +181,62 @@
 
 ---
 
+## D12 — `PATCH /api/v1/verified/<pk>/` 任意登录用户可改任意人的"已验证适用性"证据（P1 越权写 / 审计伪造）
+
+| 项 | 内容 |
+|---|---|
+| 现象 | 任意注册用户可改**任意 id** 的 verified 证据，且 `curator` 字段保持不变 |
+| 证据 | `apps/bridges/api/v1/views.py:118-130` 只有 `permission_classes = [IsAuthenticated]`；`apps/bridges/services/verified_service.py:62-89` 的 `patch_verified()` 只按 `pk + relation_type` 取对象，**既不校验 status 也不校验调用者**；`curator`（`models.py:521`）只在 approve 时写入，patch 不动它 |
+| 可枚举性 | `ProductMethodRelation` 的 id 可从**匿名公开**的 `GET /api/v1/products/<pk>/methods/`（`bridges/api/v1/views.py:29-47`，`AllowAny`）批量拿到 ⇒ 不构成"猜不到 id"的障碍 |
+| 影响 | 已审核通过（`status=ACTIVE`）的证据可被静默改写，而审计日志会把篡改**记在原审核人名下** ⇒ 知识库"已验证"数据的可信度与审计链同时被破坏 |
+| 对比 | 同文件 `VerifiedApproveView`（`:132`）与 `VerifiedRejectView`（`:148`）都是 `IsStaffUser`，只有 patch 漏了 |
+| **修法** | ① `permission_classes` → `[IsStaffUser]`；② `patch_verified()` 加状态门：仅 `status == REVIEW` 可改，否则抛 `ValidationError`，View 转 400 `code='invalid_status'`。<br>**为什么收紧权限是安全的**：前端 `frontend/src/api/bridges.js` **没有** PATCH `/verified/<id>/` 的调用（只有 list / create / approve / reject）⇒ 这是**孤儿端点**，收紧零功能损失。<br>**为什么不做"只允许草稿创建者"**：`ProductMethodRelation` **没有** owner/created_by 字段（只有 `curator` 字符串）⇒ 做不到，硬加要改 schema。加状态门则是**落实 `patch_verified` 原本 docstring 写的"REVIEW 草稿可部分更新"**，不是新增约束 |
+| **验证** | `apps/bridges/tests/test_verified_patch_guard.py` 4 例。修前红：`test_normal_user_patch_forbidden` 实测 `200 != 403`；`test_staff_patch_active_rejected_with_400_and_no_write` 实测 `200 != 400`。修后全绿，且 ACTIVE 那条会**回库重新读取**断言 `evidence_note` 未被改动（防止"返回 400 但已落库"） |
+
+---
+
+## D13 — 匿名 `GET /api/v1/organizations` 吐出客户名录 + 联系人 PII（P1 泄露）
+
+| 项 | 内容 |
+|---|---|
+| 现象 | 匿名请求（无需任何凭据）一次可拿到最多 10 条机构的 `contact_email` / `contact_phone` / 完整邮寄地址 / `member_count`（该机构用户数） |
+| 证据 | `apps/accounts/api/v1/views.py:221-233` 是 `AllowAny` + `authentication_classes = []`；`q = request.query_params.get('q', '')` ⇒ **不传 q 时 `q=''`**，`name__icontains=''` 命中全部 active 机构；序列化器 `serializers.py:213-231` 用完整 `OrganizationSerializer` |
+| 放大因素 | 这些字段由 `OrganizationCreateView`（`views.py:236-251`，任意登录用户可调）写入 ⇒ **字段一旦被填就匿名可见**，是结构性的，不是数据现状问题。配 `AnonRateThrottle` 100/hour 可稳定枚举完整客户清单 |
+| **修法** | ① 新建 `OrganizationSummarySerializer`，**只输出** `id / name / short_name / org_type / country`；② `q` 去空白后长度 < 2 直接返回空列表（不是全表），保留 `status='active'` 与 `[:10]` |
+| **⚠️ 修完立刻暴露一个功能回退（同日补修）** | `/ops/po/organizations`（`views/admin/PoOrgManagement.vue:16`）调 `getOrganizations({ page_size: 100 })` —— **不带 q**，靠的正是被修掉的那个缺陷行为 ⇒ 左栏 Organizations 表格**恒空白**。该视图 `authentication_classes = []`，即使管理员已登录也是 AnonymousUser ⇒ "给搜索端点放行已登录用户"这条路走不通。<br>**正确修法不是把洞重新打开**：另开 `GET /api/v1/organizations/manage/`（`IsProcurementOrAdmin` + 完整字段 + `meta.pagination.count` + `page_size` 夹紧到 [1,500]），前端改打它；匿名搜索维持收紧。<br>教训：**收紧一个"被别的页面当查询接口滥用"的端点时，必须全仓 grep 它的所有调用点**，不能只看它自己的语义 |
+| **验证** | `apps/accounts/tests/test_org_search_privacy.py` 17 例（匿名面 8 + 管理面 9）。修前红 4 条，含 `'contact_email' unexpectedly found in ...`、键集合多出 13 个字段、不带 q 时 `{'success':True,'data':[...]} != []`。<br>关键设计：字段集用 `set(item.keys()) == {5 个}` 断言（加字段立刻红），并用**对照组** `test_manage_exposes_full_fields_unlike_anonymous_search` 钉住"管理面必须含 contact_email、匿名面必须仍然恰好 5 字段" —— 防止将来"顺手把两边统一" |
+
+---
+
+## D14 — nginx `/media/` 同源直出，绕过全部按单授权（P1 越权读）
+
+| 项 | 内容 |
+|---|---|
+| 现象 | 发票 PDF、PO 附件、COA/SDS 均可通过 `https://<host>/media/<路径>` 直接取到，**不经过 Django 的任何对象级校验** |
+| 证据 | `deploy/nginx.conf:138-142` 的 `location /media/ { alias /usr/share/nginx/media/; }`；`docker-compose.yml:53,81` 把同一个卷挂给 backend（写）和 nginx（只读），**nginx 侧完全独立于 Django 的授权逻辑** |
+| 被绕过的门控 | ① `InvoicePdfDownloadView`（`po_views.py:331-357`）的 `_is_order_viewer`；② `PoAttachmentDownloadView`（`:360-379`）的同名校验；③ `CoaViewSet` 下载 action（`documents/api/v1/views.py:127-150`）的「未 PUBLISHED 一律 404」；④ `SdsRevisionViewSet` 同上（`:220-240`） |
+| 可枚举性 | 发票文件名是 `INV-{年}-{4位序号}`（`services.py` 的 `_next_invoice_no`）⇒ 顺序号可枚举；COA/SDS 落 `media/documents/coa|sds/`，路径同样可预测 |
+| 当前缓解（**不可依赖**） | `deploy/nginx.conf:84-85` 的 server 级 `auth_basic` 会被 `/media/` 继承 ⇒ 目前并非全网匿名。但它是**共享口令、不做按单授权**（买了 A 公司发票的人拿同一口令也能读 B 公司的），且注释写明是"仅限内部测试人员"的临时措施 |
+| 附带问题 | `/media/` 没有任何 `X-Content-Type-Options`、没有 `Content-Disposition`；CSP 只有 Report-Only（`:81`）⇒ 上传一个 `.html`（把 `Content-Type` 声明成 `image/png`，白名单只校验客户端自报）再让人打开，即可形成同源存储型 XSS |
+| **修法** | nginx 在 `location /media/` **之前**插入四段精确拒绝：`^~ /media/invoices/`、`^~ /media/po_attachments/`、`^~ /media/documents/coa/`、`^~ /media/documents/sds/` 全部 `deny all`；`/media/` 块补 `X-Content-Type-Options: nosniff always` 并把 server 级 CSP 原样复制进来（**nginx 的 `add_header` 是"location 有自己的就替换掉 server 级全部"**，不复制等于把 CSP 丢掉） |
+| **为什么只禁这四类、不整体封禁** | 前端 `src/` 里**零** `/media/` 直链（已 grep 确认），四类敏感文件全部由 Django `FileResponse` 交付 ⇒ 禁掉零功能损失。但 `media/pdfs/` 与 `media/documents/` 下的产品文档（`ProductDocument.file`）在序列化器里以 URL 返回（`PdfFileSerializer` / `ProductDocumentSerializer` 含 `file` 字段）⇒ **整体封禁会砍掉产品文档**，故必须精确到子树 |
+| **验证** | `apps/core/tests/test_nginx_media_guard.py` 7 例（纯文本解析，含"不得整体封禁 `/media/`"的反向断言、三处 CSP 逐字一致断言）。<br>**⚠️ 未做语法级验证**：本机无 `nginx`、无 `docker`，`nginx -t` **没跑过**，上线前必须在容器里补跑 |
+
+---
+
+## D15 — PO 提交的 `unit_price` 可写 + `POST /api/v1/orders/` 是孤儿写口（P2 纵深防御 / 数据污染）
+
+| 项 | 内容 |
+|---|---|
+| 现象 | ① `PoSubmitItemSerializer.unit_price` 允许客户端提交单价；② `OrderViewSet` 的 POST/PATCH/DELETE 开放，可造 `user=NULL` 的孤儿订单，缺 `order_no` 则 `IntegrityError` → 500 |
+| 证据 | ① `transactions/api/v1/serializers.py:277-288`；② `transactions/api/v1/views.py:12-46` 无 `perform_create`，`Order.user` 是 `null=True`（`models.py:77-80`），`order_no` 非 read_only 且 `unique=True` 无默认值 |
+| 为什么 ① 目前**不构成**篡改 | `services.py:132-141` 用 `sku.price` 强制覆盖（注释写明"客户端提交不可信"）⇒ 实测"传 1% 的价格仍按真实价落库"。但这是**单点防御**：任何人新增一个复用该序列化器的写端点、或改动 `PoSubmissionService`，价格篡改立刻敞开 |
+| 为什么 ② 可以只读化 | 前端对 `/orders/` **只有 GET**（`api/orders.js:24`、`api/poPortal.js:69,101`、`api/adminPo.js:12,34,94` 全是 `http.get`，全仓无 `post('/orders/'`）。真实下单走 `CheckoutView` / `POSubmitView` ⇒ 这是孤儿写口 |
+| **修法** | ① `unit_price` 改 `read_only=True`（DRF 对 read_only **忽略入参**，前端继续发也不会 400 ⇒ **前端零改动**），服务层那道覆盖**保留**作第二道防线；② `OrderViewSet` 加 `http_method_names = ['get','head','options']`，与同文件 `QuoteViewSet:54` 完全同一做法；`filterset_fields`（D1 刚修的）与匿名空列表契约**不动** |
+| **验证** | `test_po_unit_price_readonly.py` 2 例（修前红：`'unit_price' unexpectedly found in {...}`；而"篡改价仍按 sku.price 落库"那条**一开始就是绿的**，正好实证了"唯一防线在服务层"）；`test_order_viewset_readonly.py` 5 例（修前红：POST `400 != 405`、PATCH `200 != 405`、DELETE `204 != 405`） |
+
+---
+
 ## 附：这些缺陷是怎么被"测"出来的（方法论）
 
 1. **状态分支穷举**（S 维）：每页先读源码列出全部状态分支，再**逐分支走一遍**，且优先写**反向断言**（"在 A 状态可见、在 B 状态必须不可见"）。D3/D6 都是反向断言抓出来的。

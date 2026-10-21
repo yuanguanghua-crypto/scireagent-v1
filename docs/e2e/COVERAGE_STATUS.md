@@ -349,6 +349,88 @@ drill 的第②步（造贴近生产形态的存量数据）有三种结果，�
 
 ---
 
+## 3.13 L7 安全专项（2026-10-21 新增）
+
+L1–L6 都在问"功能对不对"，L7 问的是"**能不能被人钻**"。本轮做了三件事。
+
+### 3.13.1 先建闸门，再点点排查
+
+根源不在某个用例写错了，而在**结构性默认值**：`config/settings/base.py:163-189` 的
+`REST_FRAMEWORK` **没有** `DEFAULT_PERMISSION_CLASSES` ⇒ DRF 落回 `AllowAny` ⇒
+**任何忘记写 `permission_classes` 的写端点都是匿名可写**。这不是假设：
+`SKUViewSet` 曾因此"匿名可写 SKU"，靠人工发现才补上（`commerce/api/v1/views.py:323` 有记录）。
+
+所以第一件事是 `scripts/permission_audit.py`——**枚举全站每个端点实际生效的权限类**。
+
+| 为什么不用 grep | 为什么不用 drf-spectacular 的 security 字段 |
+|---|---|
+| 视图可通过 `@action(permission_classes=[...])`、`get_permissions()` 动态返回、或 `as_view()` 的 initkwargs 传权限 —— grep 数 `permission_classes` 出现次数**证明不了安全** | 它给的是**推断**结果；本脚本**实例化真实视图类**去调 `get_permissions()`，与生产运行时判定同源 |
+
+首跑结果（**实测**）：332 个端点（path × method）。
+
+| 级别 | 数量 | 含义 |
+|---|---|---|
+| P0 | **7** | 匿名可写 —— **全部是登录/注册/找回验证/询价单提交等本来就该匿名的入口**，逐条核对后无一是缺陷 |
+| P1 | 33 | 匿名可读（商品目录/搜索/sitemap/docs 等，需确认"本来就该公开"） |
+| DYNAMIC | 0 | `get_permissions()` 无法静态求值（本期没有） |
+| INFO | 292 | 需认证 |
+
+> ⚠️ **第一版脚本报出 76 个 P0，是误报，根因值得记**：它把"`http_method_names` **允许**哪些方法"
+> 当成了"端点**实现**了哪些方法"。DRF `dispatch()` 是
+> `handler = getattr(self, method.lower(), self.http_method_not_allowed)`
+> —— 类里没写 `put` ⇒ **恒 405，与权限无关**。
+> 于是"只实现 `post` 的登录页"被报成 4 个匿名可写端点。
+> **修法：判据改成 `hasattr(cls, method)`。** 76 → 7。
+>
+> 教训：**"匿名可写"的判据必须同时满足两点** —— 权限放行 **且** 该方法真的实现了。
+> 少任何一条，报警都会多到没人看。
+
+### 3.13.2 闸门形态：棘轮，不是一次性大签字
+
+CI 里加了 `permission-check` job（第 8 个，现共 **10 个**）。
+
+**为什么不让"40 个端点全部 `reviewed=true` 才 PASS"**：那样最省事的过法就是
+**批量把 reviewed 写成 true** ⇒ 假签字 ⇒ 闸门退化成仪式。真实价值在**拦住新增**：
+
+- 新出现的 **P0 / DYNAMIC** ⇒ FAIL
+- 存量端点**严重度升级**（如 P1→P0）⇒ FAIL
+- 存量 P1 作为**可见债务**打印出来，随处置逐条签字
+
+**闸门已验证过（变异测试）**：把 `VerifiedApproveView` 的 `IsStaffUser` 临时改成
+`AllowAny` ⇒ 立刻输出
+`[新增 P0] POST /api/v1/verified/<int:pk>/approve/ (VerifiedApproveView)` 并 FAIL；
+复原后 `git diff` 为空、闸门回 PASS。
+**没做过变异验证的闸门等于没有闸门。**
+
+### 3.13.3 这一层真正抓到的东西
+
+权限清单是"面"，具体缺陷还得逐条挖。本轮抓到 4 组（D12–D15，详见 `DEFECTS_FOUND.md`）：
+
+| 编号 | 缺陷 | 级别 | 一句话 |
+|---|---|---|---|
+| **D12** | `PATCH /verified/<pk>/` 任意登录用户可改任意人的"已验证适用性"证据 | P1 | 且 `curator` 不变 ⇒ 篡改**记在原审核人名下**，审计链被伪造 |
+| **D13** | 匿名 `GET /organizations` 吐出客户名录 + 联系人 PII | P1 | 不传 `q` 时 `q=''` ⇒ `icontains('')` 命中全表 |
+| **D14** | nginx `/media/` 同源直出，绕过全部按单授权 | P1 | 发票号 `INV-YYYY-NNNN` 可枚举；COA/SDS 的"未发布 404"门形同虚设 |
+| **D15** | `unit_price` 可写（单点防御）+ `POST /orders/` 孤儿写口 | P2 | 一个复用序列化器的新端点就能让价格篡改敞开 |
+
+**已排除的（同样是结论，别重复查）**：
+- 购物车 `PATCH`/`DELETE` 虽然是 `AllowAny`，但**逐行核实过做了归属校验**：非本人一律返 404，且匿名行 `session_key=''` 与 `guest_*` 永不相等 ⇒ 两侧都咬不住。**不是 IDOR**
+- 所有序列化器的 `password` 都是 `write_only`（`register`/`login`）；`UserSerializer` 只在 4 处被用，**全部是"本人"**，从不序列化他人
+- 17 个 `ModelViewSet` 逐个核对过 `get_queryset()`：**没有**"有 `user`/`organization` 外键却 `return .all()` 且权限非管理员"的裸 IDOR
+- `graph` / `search` / `site/navigation` 输出面只有公开知识实体，无 PII
+- 全局异常处理器不拼 traceback/SQL/路径；生产 `DEBUG=False`（`production.py:5` 硬写）
+
+### 3.13.4 ⚠️ 已发现但**未修**（需要决策 / 需要环境）
+
+| # | 问题 | 为什么不擅自修 |
+|---|---|---|
+| 1 | **注册时可自选 `role='procurement'`**（`accounts/api/v1/serializers.py:15-18,29`，`validate` 只挡了 `editor`/`admin`）⇒ 等价于内部采购员：可改库存、批订单、开票、**把任意发票标记为已收款**（`services.py:519` 写死 `status=VERIFIED`）、拉全库订单（`transactions/api/v1/views.py:39-40`） | 前端 `RegisterPage.vue:78-85` **确有** "Procurement Manager" 注册卡片 ⇒ 是**产品设计**，不是笔误。**堵它就会改变产品行为**，属产品决策（可选：注册只给 `researcher` + 管理员授予 / 落实 `Organization.approval_required` / 把 `procurement` 的财务权限拆出去） |
+| 2 | 注册可**自助加入任意机构**（`organization_choice='join'` + 任意 `organization_id`，`serializers.py:147-155`），而 `Organization.approval_required`（`accounts/models.py:43`）**全仓无任何读取点** ⇒ 一旦"同机构"，`_is_order_viewer` 的机构分支（`po_views.py:319-320`）就放行该机构**所有**发票 PDF / PO 附件 / 代客户接受报价 | 同上，属产品/审批流决策 |
+| 3 | `DEBUG` 默认 `True`（`base.py:18` `getenv('DEBUG','True')`）+ `wsgi.py:3`/`asgi.py:3` 默认 `development` ⇒ 误部署时一个匿名请求可拿到约 71 KB 的 Django 技术页（traceback + settings + 绝对路径） | 改默认值影响本机开发体验，且生产链路已有 `production.py` 硬写 `DEBUG=False` + Dockerfile 切 settings ⇒ 属部署加固项，应先确认部署方式 |
+| 4 | `/api/schema/`、`/api/docs/` 匿名可拉（实测 408,643 字节，含 `/api/v1/admin/orders/`） | 是否公开 API 文档是产品选择（很多项目**故意**公开） |
+
+---
+
 ## 4. 下一轮该做什么（按价值排序）
 
 | # | 任务 | 价值 | 成本 |

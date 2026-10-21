@@ -394,6 +394,44 @@ jobs:
       - name: 契约比对（基线 docs/e2e/API_CONTRACT_SCHEMA.json）
         run: python scripts/check_api_contract.py --verbose
 
+  # ── 7.5 权限闸门（L7 棘轮）────────────────────────────────────────────
+  #
+  # 为什么要有：本仓库 settings 里**没有** DEFAULT_PERMISSION_CLASSES ⇒ DRF 落回
+  # `AllowAny` ⇒ **任何忘记写 permission_classes 的写端点都是匿名可写**。
+  # 这不是假设：`SKUViewSet` 曾因此"匿名可写 SKU"，靠人工发现才补上。
+  #
+  # 为什么不用 grep 数 permission_classes：数出现次数证明不了安全。
+  # 视图可能通过 `@action(permission_classes=...)`、`get_permissions()` 动态返回、
+  # 或 `as_view()` 的 initkwargs 传权限 —— grep 全部看不准。本脚本**实例化真实视图类**
+  # 去读 get_permissions()，与生产运行时的判定一致。
+  #
+  # 闸门形态是**棘轮（ratchet）而不是一次性大签字**：要求 40 个端点全部
+  # reviewed=true 才 PASS，最省事的过法就是批量写 true ⇒ 假签字 ⇒ 闸门退化成仪式。
+  # 所以只拦两件事：**新出现的 P0/DYNAMIC** 与 **存量端点的严重度升级**。
+  # 存量 P1（匿名可读）作为可见债务打印出来，随处置逐条签字。
+  # 本闸门已做过变异验证：把 VerifiedApproveView 的 IsStaffUser 改成 AllowAny
+  # ⇒ 立刻报 `[新增 P0] POST /api/v1/verified/<int:pk>/approve/` 并 FAIL。
+  permission-check:
+    name: L7 权限闸门（无新增匿名写口）
+    runs-on: ubuntu-latest
+    env:
+      DB_ENGINE: sqlite
+      SECRET_KEY: ci-only-not-a-real-secret
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装后端依赖
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: 权限审计（对比基线 docs/e2e/PERMISSION_BASELINE.json）
+        run: python scripts/permission_audit.py --check
+
   # ── 8. 前端组件单测（vitest）─────────────────────────────────────────
   #
   # 为什么要有：项目 59 个页面 / 44 个组件，此前**零组件单测**，全靠 E2E（分钟级）。
