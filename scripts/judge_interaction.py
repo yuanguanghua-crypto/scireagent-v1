@@ -54,6 +54,29 @@ SYN = {
     "增删改": ["create", "update", "delete", "crud"],
 }
 
+# ★ 逐项同义词（2026-10-21 补）：只对**下面这几个原子项**生效，**不进通用 SYN 表**。
+#
+# 为什么需要：通用 SYN 是按「子串包含」命中的（`if cn in kw`），而这几项的**文字措辞**
+# 与 spec 里的实现用词毫无交集（"3步注册" vs `.step-item`），故一律 0 命中 ⇒ 假阴性。
+#
+# ⚠️ 为什么不用通用词（如 "product"/"select"/"step"）：本脚本是**全局 grep 所有 spec**，
+#   一旦用这种词，任何提到 product 的 spec 都会让该项变绿 ⇒ 变成"用同义词把判定刷绿"，
+#   比假阴性更危险。所以这里每条都必须是**该 spec 独有的类名/文案**，并且附证据。
+ATOM_SYN = {
+    # 证据：frontend/e2e/register-wizard.spec.cjs（5 passed，独立复跑已验证）
+    #   「步骤 1 → 2 → 3 推进；第 3 步指标出现；Back 回退保留已填值」
+    #   → :92 `.step-item` count == 2、:153 count == 3
+    "3步注册": ["step-item", "Complete Registration"],
+    # 证据：frontend/e2e/checkout-progressive-sections.spec.cjs（2 passed）
+    #   「四段齐全且顺序正确 Shipping→Payment→Notes→Summary」→ :89 `.checkout-section .section-title`
+    #   「支付分段推进/回退」→ :106-124 `.payment-option--active` / `.po-fields`
+    "多步": ["checkout-section", "payment-option--active"],
+    # 证据：frontend/e2e/workspace-entry-intake.spec.cjs（1 passed）
+    #   「产品列表可筛选 → 选中 → 右侧回显」→ `.ki-product-item` / `.ki-active` / `.ki-form-area`
+    "产品下拉": ["ki-product-item", "ki-form-area"],
+}
+
+
 def load_specs():
     d = {}
     for f in sorted(glob.glob(os.path.join(E2E, "*.spec.cjs"))):
@@ -78,6 +101,10 @@ def expanded(kw):
     out = [kw]
     for cn, ens in SYN.items():
         if cn in kw:
+            out += ens
+    # 原子项级覆盖（见 ATOM_SYN 的说明：只认该 spec 独有的类名/文案）
+    for atom, ens in ATOM_SYN.items():
+        if atom == kw:
             out += ens
     # 英文片段
     out += re.findall(r"[A-Za-z][A-Za-z0-9_]{2,}", kw)

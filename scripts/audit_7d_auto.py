@@ -6,11 +6,11 @@
 | 维 | 能否自动 | 依据 | 局限 |
 |---|---|---|---|
 | P 权限 | ✅ | `permission-matrix.spec.cjs` 的三个页面数组 | 只证明"该页在权限矩阵里"，不证明 4 角色全覆盖 |
-| S 状态 | ⚠️ 部分 | `state-matrix.spec.cjs` 的 PO_STATES | 只覆盖 PO 状态，不是所有页都有状态维 |
+| S 状态 | ✅ | `state-matrix.spec.cjs` + `state-branches-*.spec.cjs` 的 `path:` 注册表 | 后者按页面穷举状态分支 |
 | R 响应式 | ✅ | `responsive.spec.cjs` 的 path 数组 | 只证明"加载不崩"，不证明布局真的对 |
 | V 视觉 | ✅ | `visual-tokens.spec.cjs` 的 path 数组 | 只证明"断言过令牌"，不证明全站一致 |
 | A 可访问 | ✅ | `a11y.spec.cjs` 的 path 数组 | 只证明"扫过 axe"，不证明零 violation |
-| B 浏览器 | ✅ | `package.json` 的 npm script 是否含多 project | 全局一刀切 |
+| B 浏览器 | ✅ | `cross-browser-smoke.spec.cjs` 页面清单 **且** 有 firefox 实测基线 | 2 引擎（Chromium+Firefox）；WebKit 见基线文档 |
 | **I 交互** | ❌ | 需逐页比对 FULL_SITE 要求的交互 vs spec 断言 | **必须人工** |
 
 ⇒ 本脚本填 P/S/R/V/A/B 六维，**I 维留空 `☐` 交人工**。
@@ -69,17 +69,50 @@ if os.path.isfile(pm):
     for m in re.finditer(r"已登录访问\s+(/[A-Za-z0-9_/-]+)", s):
         P_PAGES.add(m.group(1))
 
-# S 维：state-matrix 覆盖的页面（它按 PO 状态组织，不是按页面）
-sm = os.path.join(E2E, "state-matrix.spec.cjs")
+# S 维：状态分支测试覆盖的页面。
+# 数据源有两个（2026-10-21 补）：
+#   ① state-matrix.spec.cjs —— **按 PO 的 8/9 个状态**组织，全部落在 /ops/orders/:id 一页；
+#   ② state-branches-*.spec.cjs —— **按页面**组织的状态分支穷举（commerce / po 两个域），
+#      每页在 `PAGES` 注册表里写 `path: '/xxx'` 字面量（同时作为 goto 依据）。
+# 初版只读 ①，于是「按页面」的状态测试写了也不算数 ⇒ 14 页恒判 ✗（这正是当时的缺口根因）。
+S_SPECS = ["state-matrix.spec.cjs",
+           "state-branches-commerce.spec.cjs",
+           "state-branches-po.spec.cjs"]
 S_PAGES = set()
-if os.path.isfile(sm):
-    s = io.open(sm, encoding="utf-8", errors="replace").read()
-    S_PAGES.update(re.findall(r"path:\s*'([^']+)'", s))
+for _spec in S_SPECS:
+    _p = os.path.join(E2E, _spec)
+    if os.path.isfile(_p):
+        _s = io.open(_p, encoding="utf-8", errors="replace").read()
+        S_PAGES.update(re.findall(r"path:\s*'([^']+)'", _s))
 
-# B 维：npm script 是否跑多 project
-pkg = json.load(io.open("frontend/package.json", encoding="utf-8"))
-scripts = pkg.get("scripts", {})
-b_multi = any("--project=" not in v and "test" in k for k, v in scripts.items() if k.startswith("test:e2e"))
+# B 维：跨浏览器冒烟。
+#
+# ★ 2026-10-21 重写判据。旧判据是「`package.json` 里有没有不带 `--project=` 的
+#   `test:e2e*` script」—— 那是**纸面判据**（写个 script 就能判绿，跑没跑过完全不管），
+#   而且当时它恒为假，把 44 格全判 ✗ 并写进文档说"基础设施阻塞、不可补"。
+#   实测该结论是**误判**：真因是本机系统代理把 `/@vite/client` 接走返回 404（见
+#   `playwright.config.cjs` firefox project 的注释），关掉代理后 Firefox 45 例全绿。
+#
+# 新判据 = 两件事同时成立（缺一不可）：
+#   ① 该页出现在 `cross-browser-smoke.spec.cjs` 的页面清单里（**真被覆盖**）；
+#   ② `docs/e2e/CROSS_BROWSER_BASELINE.md` 存在，且记录了 **firefox 的 passed>0**
+#      （**真跑过**，不是只有 spec 文件）。
+xb = os.path.join(E2E, "cross-browser-smoke.spec.cjs")
+B_PAGES = set()
+if os.path.isfile(xb):
+    s = io.open(xb, encoding="utf-8", errors="replace").read()
+    B_PAGES.update(re.findall(r"path:\s*'([^']+)'", s))
+
+B_BASELINE_DOC = "docs/e2e/CROSS_BROWSER_BASELINE.md"
+b_firefox_passed = 0
+if os.path.isfile(B_BASELINE_DOC):
+    _bt = io.open(B_BASELINE_DOC, encoding="utf-8").read()
+    # 基线表里固定写一行：| firefox | <passed> | <failed> | ... |
+    _m = re.search(r"\|\s*\**firefox\**\s*\|\s*\**(\d+)\**\s*\|", _bt, re.I)
+    if _m:
+        b_firefox_passed = int(_m.group(1))
+b_ok = bool(B_PAGES) and b_firefox_passed > 0
+
 
 # I 维：读 judge_interaction.py 的判定（不再返回 ☐）
 VERDICT = "docs/e2e/INTERACTION_VERDICT.md"
@@ -118,7 +151,11 @@ def verdict(route, dim, planned):
     if dim == "A":
         return ("✓", "在 a11y") if has(A_PAGES, route) else ("✗", "不在 a11y")
     if dim == "B":
-        return ("✓", "多 project") if b_multi else ("✗", "只跑 chromium")
+        if has(B_PAGES, route) and b_ok:
+            return "✓", "跨浏览器冒烟（chromium+firefox 实测）"
+        if has(B_PAGES, route):
+            return "✗", "有 spec 但无实测基线"
+        return "✗", "不在 cross-browser-smoke"
     return "☐", ""
 
 # ── 4. 输出 ──
@@ -135,11 +172,11 @@ L.append("")
 L.append("| 维 | 依据文件 | 覆盖页面数 |")
 L.append("|---|---|---|")
 L.append("| P 权限 | `permission-matrix.spec.cjs`（3 数组） | **%d** |" % len(P_PAGES))
-L.append("| S 状态 | `state-matrix.spec.cjs` | %d |" % len(S_PAGES))
+L.append("| S 状态 | `state-matrix` + `state-branches-*` | %d |" % len(S_PAGES))
 L.append("| R 响应式 | `responsive.spec.cjs` | **%d** |" % len(R_PAGES))
 L.append("| V 视觉 | `visual-tokens.spec.cjs` | %d |" % len(V_PAGES))
 L.append("| A 可访问 | `a11y.spec.cjs` | %d |" % len(A_PAGES))
-L.append("| B 浏览器 | `package.json` npm script | %s |" % ("多 project" if b_multi else "**只 chromium**"))
+L.append("| B 浏览器 | `cross-browser-smoke.spec.cjs`（firefox 实测 %d passed） | %d |" % (b_firefox_passed, len(B_PAGES)))
 L.append("| I 交互 | — | **不可自动判** |")
 L.append("")
 

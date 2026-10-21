@@ -32,7 +32,7 @@
 | 28 | `/workspace` | workspace/AdminLayout.vue | workspace-layout | ADMIN | P1 | ✅ |
 | 29 | `/workspace/products` | ? | ? | ADMIN | P1 | ⚠️ 无根class |
 | 30 | `/workspace/products/new` | ? | ? | ADMIN | P0 | ⚠️ 无根class |
-| 31 | `/workspace/products/new/:id/edit` | ? | ? | AUTH | P0 | ❌ 需 fixture |
+| 31 | `/workspace/products/:id/edit` | ? | ? | AUTH | P0 | ❌ 需 fixture |
 | 32 | `/workspace/goals` | ? | ? | ADMIN | P1 | ⚠️ 无根class |
 | 33 | `/workspace/applications` | ? | ? | ADMIN | P1 | ⚠️ 无根class |
 | 34 | `/workspace/methods` | ? | ? | ADMIN | P1 | ⚠️ 无根class |

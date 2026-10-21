@@ -105,7 +105,36 @@ module.exports = defineConfig({
       },
     },
     // 阶段 9 启用（需先 npx playwright install firefox webkit）：
-    { name: 'firefox', use: { browserName: 'firefox' } },
+    //
+    // ★ 2026-10-21 根因更正（推翻了 `e2e/GATE.md` §8.1 的旧结论）：
+    //   旧文档写「`Vite dev server(5173)` + Playwright Firefox/WebKit 这条路走不通：
+    //   FF 下所有模块加载报错」，并据此判定跨浏览器闸门「待投入 / 要靠 dist+preview 绕」。
+    //   **实测真因不是 dev server，而是本机的系统代理**（FlClash 之类）：
+    //     ├ 症状：`/@vite/client` 与 `/src/main.js` 返回 **404**、`NS_ERROR_CORRUPTED_CONTENT`，
+    //     │        `#app` innerHTML 长度 = **0**（SPA 从未挂载）
+    //     ├ 对照 1：同一 URL 用 `curl`（含 Firefox UA）⇒ **200 text/javascript**（服务端没问题）
+    //     ├ 对照 2：Chromium（走 channel=msedge）⇒ 正常挂载（Playwright 启动时未继承系统代理）
+    //     ├ 对照 3：Firefox 加 `network.proxy.type=0` ⇒ `#app` 挂载 **30329 字符、失败请求 0**
+    //     └ ⇒ 请求是被**系统代理**接走后返回 404，dev server 本身完全正常。
+    //   ⇒ 所以 **Firefox 只要关掉代理就能用**，无需改走 preview/dist。
+    //
+    // ⚠️ WebKit 另说：Windows 版 Playwright WebKit **无法**绕开系统代理 ——
+    //   `proxy: { server: 'direct://' }` 报 `Could not resolve proxy name`（不支持该 scheme），
+    //   改用 `127.0.0.1` 也照样被代理拦成 404；WebKit 又没有 firefoxUserPrefs 等价开关。
+    //   ⇒ **WK 仍不可用**，只能在「关掉系统代理的机器 / CI」上跑。见 docs/e2e/CROSS_BROWSER_BASELINE.md。
+    {
+      name: 'firefox',
+      use: {
+        browserName: 'firefox',
+        // 0 = 直接连接（不使用系统代理）。**这是 FF 能跑通的唯一关键开关**。
+        // ⚠️ 必须放 `launchOptions`：`firefoxUserPrefs` **不是** TestOptions 的顶层键，
+        //    写成 `use: { firefoxUserPrefs }` 会被**静默忽略**（实测：改完仍然
+        //    `#app` 长度 0、`.hero-title` element not found，与未改一模一样）。
+        launchOptions: {
+          firefoxUserPrefs: { 'network.proxy.type': 0 },
+        },
+      },
+    },
     { name: 'webkit', use: { browserName: 'webkit' } },
   ],
 });

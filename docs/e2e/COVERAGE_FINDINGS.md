@@ -18,7 +18,7 @@
 | **R 响应式** | **✓** | `responsive.spec.cjs` 含 `{ name: 'Home', path: '/', sel: '.home' }`，跑 4 视口：desktop 1280 / laptop 1024 / tablet 768 / mobile 375 | 覆盖 |
 | **V 视觉** | **✗** | `homepage.spec.cjs` 里 `toHaveCSS` / `color` / `borderRadius` / `fontFamily` **全部 0 次** | **无任何设计令牌断言** |
 | **A 可访问性** | **✓** | `a11y.spec.cjs:52` 有 `{ name: 'Home', path: '/', sel: '.home' }`，用 `@axe-core/playwright` AxeBuilder 扫描 | 覆盖 |
-| **B 浏览器** | **✗** | `playwright.config.cjs` 定义了 3 个 project（chromium / firefox / webkit），**但所有 npm script 只跑 `--project=chromium`** | **FF/WK 从未跑过**（GATE.md 记载 dev server 下 FF/WK 模块响应损坏，是已知阻塞） |
+| **B 浏览器** | **✓** | `cross-browser-smoke.spec.cjs` 覆盖全站 44 页；`playwright.config.cjs` 的 firefox project 已关系统代理 | **已跑通**：firefox 45 passed / chromium 45 passed（2026-10-21，见 `CROSS_BROWSER_BASELINE.md`）。⚠️ 此前「dev server 模块响应损坏」是**误判**，真因是本机系统代理 |
 
 **小计：2 ✓ / 3 ✗**
 
@@ -28,7 +28,7 @@
 |---|---|---|---|
 | 1 | **I 维：分类 pills + CTA** | 在 `homepage.spec.cjs` 加 2 个 test：点 pills 断言筛选生效；点 CTA 断言跳转 | 小（沿用现有 helper） |
 | 2 | **V 维：设计令牌** | 加断言 `expect(hero).toHaveCSS('border-radius', '4px')` 等 —— 只测**关键令牌**（主色/圆角/字体），不做像素级 | 中（要确认令牌实际值） |
-| 3 | **B 维：FF/WK** | **先解决 GATE.md 记载的 dev server 模块响应损坏**，否则加了也跑不通 | **大**（基础设施问题） |
+| 3 | ~~B 维：FF/WK~~ | **已完成（2026-10-21）**：真因是系统代理不是 dev server，FF 加 `network.proxy.type=0` 即打通 | ~~大~~ 已解决；WK 仍需无代理环境 |
 
 ⚠️ **第 3 条不要贸然做** —— 它是已知阻塞，不是"补个 test"能解的。
 
@@ -292,7 +292,7 @@ axe 报 `label` 规则命中 `.el-table__header th`，但：
 
 | 维 | 缺什么 | 补齐难度 |
 |---|---|---|
-| **B 浏览器** | 44 页从未跑 FF/WK | **大**（GATE.md：dev server 下 FF/WK 模块响应损坏） |
+| **B 浏览器** | ~~44 页从未跑 FF/WK~~ → **已全站覆盖**（firefox 45 passed / chromium 45 passed） | WK 需无系统代理环境（`CROSS_BROWSER_BASELINE.md` §4） |
 | **S 状态** | state-matrix 只测 PO 状态，未按页面覆盖 | 中 |
 | **A 可访问** | 39 页没扫过 axe | **小**（把页面数组扩到 44 页） |
 | **V 视觉** | 39 页没断言设计令牌 | **小**（同上） |

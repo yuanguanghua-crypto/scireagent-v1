@@ -417,7 +417,29 @@ node node_modules/@playwright/test/cli.js test -g "@local-only" --grep-invert "@
 
 ## 8. 待办（2026-09-23 记录，**尚未投入**）
 
-### 8.1 ◻ 跨浏览器闸门尚未建立（chromium/msedge 之外的 firefox / webkit）
+### 8.1 ✅ 跨浏览器闸门**已建立**（Firefox 打通；WebKit 仍不可用）——2026-10-21 更新
+
+> **⚠️ 本节的旧结论已被推翻，先读这段再看下面（保留原文作教训）。**
+>
+> **旧结论**：第 2 条写「`Vite dev server(5173)` + Playwright FF/WK 这条路走不通」，并归因为
+> 「服务器无问题，损坏发生在浏览器进程内」，进而建议改走 `vite preview` + dist 绕开。
+>
+> **真因（2026-10-21 实测）**：**本机的系统代理**（FlClash 之类）把 `http://localhost:5173/@vite/client`
+> 接走并返回 **404**，于是 SPA 从未挂载。**dev server 本身完全正常**，也不需要改走 preview/dist。
+> 决定性对照：**Firefox 加 `network.proxy.type=0` 后 `#app` 挂载 30329 字符、失败请求 0**。
+>
+> **修法（已入库）**：`frontend/playwright.config.cjs` 的 firefox project
+> `use.launchOptions.firefoxUserPrefs = { 'network.proxy.type': 0 }`
+> （⚠️ 放 `launchOptions`；写成 `use.firefoxUserPrefs` 会被**静默忽略**）。
+>
+> **现成基线**：`docs/e2e/CROSS_BROWSER_BASELINE.md` —— 全站 44 页冒烟 **firefox 45 passed / chromium 45 passed**，
+> spec 为 `frontend/e2e/cross-browser-smoke.spec.cjs`。
+> **WebKit 仍不可用**：`direct://` 报 `Could not resolve proxy name`、`127.0.0.1` 一样 404、`NO_PROXY` 无效
+> ⇒ 只能在无系统代理的机器/CI 上跑（详见该基线文档 §4）。
+>
+> ⇒ 下面 8.1 的原文**保留但已作废**，`vite preview + dist` 那条绕路**不需要做了**。
+
+### 8.1-原文 ◻ 跨浏览器闸门尚未建立（chromium/msedge 之外的 firefox / webkit）
 
 **现状**：本闸门**只在 `chromium` project（实际走系统 Edge）**跑过。`firefox` / `webkit` 两个 project 此前因"本机未安装 Playwright bundled 浏览器"从未启用；
 2026-09-23 已 `npx playwright install firefox webkit`（⇒ `firefox-1522` / `webkit-2287`），**前置条件已满足**，但**基线尚未建立**。

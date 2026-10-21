@@ -108,4 +108,22 @@ test.describe('guest 页已登录重定向', { tag: ['@readonly', '@local-only']
     await page.waitForURL(BASE_URL + '/', { timeout: 8000 })
     expect(page.url()).toBe(BASE_URL + '/')
   })
+
+  // ★ 2026-10-21 补：`/register` 与 `/login` 同为 `meta.guest: true`（`router/index.js:26,32`），
+  //   守卫 `router.beforeEach` 对 guest 路由统一处理（`router/index.js:299-303`）：
+  //   `to.meta.guest && hasToken` ⇒ 内部账号跳 `/workspace`、外部账号跳 `/`。
+  //   此前只测了 `/login`，`/register` 这一格因此被判 P 维空白（台账 44 页里唯一的 P ✗）。
+  test('staff 已登录访问 /register → 跳 /workspace', async ({ page }) => {
+    await loginAsStaff(page)
+    await page.goto(BASE_URL + '/register', { waitUntil: 'domcontentloaded' })
+    await page.waitForURL(/\/workspace/, { timeout: 8000 })
+    expect(page.url()).toContain('/workspace')
+  })
+
+  test('customer 已登录访问 /register → 跳 /', async ({ page }) => {
+    await loginAsCustomer(page)
+    await page.goto(BASE_URL + '/register', { waitUntil: 'domcontentloaded' })
+    await page.waitForURL(BASE_URL + '/', { timeout: 8000 })
+    expect(page.url()).toBe(BASE_URL + '/')
+  })
 })

@@ -94,7 +94,7 @@
 | 28 | `/workspace` | DashboardPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、cascader-workflow.spec.c… |
 | 29 | `/workspace/products` | ProductsPage | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
 | 30 | `/workspace/products/new` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
-| 31 | `/workspace/products/new/:id/edit` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
+| 31 | `/workspace/products/:id/edit` | ProductEditPage | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | ☐ | P0 | a11y.spec.cjs、api-permission-writes.sp… |
 | 32 | `/workspace/goals` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、cascader-workflow.spec.c… |
 | 33 | `/workspace/applications` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、applayout-navpad-check.s… |
 | 34 | `/workspace/methods` | 各管理页 | ☐ | ☐ | — | ☐ | ☐ | ☐ | ☐ | P1 | a11y.spec.cjs、api-permission-writes.sp… |
@@ -148,7 +148,7 @@
 | `/research-goals/:id` | RGIndex/Detail | 5 |
 | `/:pathMatch` | NotFound | 5 |
 | `/workspace/products/new` | ProductEditPage | 7 |
-| `/workspace/products/new/:id/edit` | ProductEditPage | 7 |
+| `/workspace/products/:id/edit` | ProductEditPage | 7 |
 
 ## 更新方式
 
