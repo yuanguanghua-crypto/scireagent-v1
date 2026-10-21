@@ -7,6 +7,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from apps.knowledge.api.v1.site_views import robots_txt, sitemap_xml
 from apps.knowledge.admin_views import knowledge_import_view
 from apps.knowledge.admin_dashboard import dashboard_view
+from core.health import health_check
 
 
 def admin_redirect(request):
@@ -22,6 +23,8 @@ urlpatterns = [
     path('robots.txt', robots_txt, name='robots-txt'),
     path('sitemap.xml', sitemap_xml, name='sitemap-xml'),
     path('api/v1/', include('apps.accounts.api.v1.urls')),
+    # 健康检查：匿名可轮询，DB 挂时返 503（对应 FAILURE_MODES 7.2/7.3）
+    path('api/v1/health/', health_check, name='health'),
     path('api/v1/', include('apps.knowledge.api.v1.urls')),
     path('api/v1/', include('apps.commerce.api.v1.urls')),
     path('api/v1/', include('apps.bridges.api.v1.urls')),
