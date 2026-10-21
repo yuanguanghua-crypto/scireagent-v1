@@ -46,6 +46,40 @@ if [ "${SKIP_CAPABILITY_GUARD:-0}" = "1" ]; then
   exit 0
 fi
 
+# ── 变异残留检测（2026-10-21 新增）──────────────────────────────────────
+# 目的：`# MUTATION` 是「临时改坏代码，看测试会不会红」的标记，**绝不能进提交**。
+#
+# 为什么用闸门而不是靠自觉：2026-10-21 一天做了 8 次变异验证，其中**两次**
+#   "注入成功"其实**根本没改到文件** —— `read_text()` 拿到的 CRLF 与 `\n` 锚点
+#   不匹配，`replace()` 静默返回原串，跑出来 20 passed 是**假绿**。
+#   人眼几乎无法区分"变异没生效"和"测试太强所以没红"，只有工具能立刻发现。
+#   这类"假绿"正是本项目反复付代价的那一类错误。
+#
+# 代价：一次 `git diff --cached` + grep，毫秒级；且只扫**新增行**（`-U0` + `^\+`），
+#   不会误报历史代码里的正常注释。
+#
+# ★ 模式必须收紧（第一版就误伤了自己）：最初用 `(★|#)\s*MUTATION`，
+#   结果 `scripts/mutate_and_verify.py` 的 docstring 里引用这个标记
+#   （写成反引号包起来的形式）就被自己的闸门拦住 —— **闸门必须能跑过自己的
+#   代码库**，否则第一天就会被人关掉。所以只认两种**变异代码**的真实写法：
+#     · `# ★MUTATION`   —— scripts/mutation_check.py 的约定
+#     · `# MUTATION:` / `# MUTATION A:` —— 手工变异时带冒号的写法
+#   普通叙述（不带冒号、被反引号包住）不再命中。
+if [ "${SKIP_MUTATION_RESIDUE:-0}" != "1" ]; then
+  _RESIDUE="$(git diff --cached -U0 -- '*.py' 2>/dev/null \
+              | grep -E '^\+[^+]' \
+              | grep -E '(★[[:space:]]*MUTATION|MUTATION[[:space:]]*[A-Z]?[[:space:]]*:)' || true)"
+  if [ -n "${_RESIDUE}" ]; then
+    echo "[mutation-residue] 🛑 提交里有「变异标记」的新增行 —— 通常是临时改坏的代码没复原：" >&2
+    printf '%s\n' "${_RESIDUE}" | head -10 >&2
+    echo "[mutation-residue] 自查：git diff --cached -- '*.py'" >&2
+    echo "[mutation-residue] 复原：git checkout -- <文件>" >&2
+    echo "[mutation-residue]   ⚠️ 复原后要确认 **git diff 为空**，不要只看文件 sha（CRLF 归一化会让 sha 变而内容没差）" >&2
+    echo "[mutation-residue] 确属正常注释：SKIP_MUTATION_RESIDUE=1 git commit ..." >&2
+    exit 1
+  fi
+fi
+
 # ── 变异检测（2026-10-19 新增）──────────────────────────────────────────
 # 目的：把「质疑测试是否有效」变成流水线的一步，而不是靠自觉。
 #
