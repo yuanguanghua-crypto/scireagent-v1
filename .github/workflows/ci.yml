@@ -360,3 +360,36 @@ jobs:
         run: |
           echo "--- backend ---"; tail -60 /tmp/be.log || true
           echo "--- frontend ---"; tail -60 /tmp/fe.log || true
+
+  # ── 7. L5 前后端契约（字段漂移）───────────────────────────────────────
+  #
+  # 为什么需要：本轮修的 D3/D6 是同一类缺陷 —— 前端读了一个**后端不返回的字段**，
+  #   判定恒真/恒假，页面上完全看不出来。后端单测只测自己的形状、E2E 走真实数据也不报错
+  #   ⇒ **没有任何现有闸门能拦**。这个 job 填的就是这个洞。
+  #
+  # 输入是 drf-spectacular 生成的 OpenAPI schema（不是真实响应）⇒ 不依赖数据、不用起服务，
+  #   所以又快又不会因"种子数据太薄"而假失败（第一版抓真实响应，实测在薄种子下大面积假 FAIL）。
+  contract-check:
+    name: L5 契约检查（字段漂移）
+    runs-on: ubuntu-latest
+    env:
+      DB_ENGINE: sqlite
+      SECRET_KEY: ci-only-not-a-real-secret
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装后端依赖
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: 建空库 + 迁移（spectacular 需要能连 DB）
+        working-directory: backend
+        run: python manage.py migrate --noinput
+
+      - name: 契约比对（基线 docs/e2e/API_CONTRACT_SCHEMA.json）
+        run: python scripts/check_api_contract.py --verbose

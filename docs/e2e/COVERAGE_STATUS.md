@@ -210,6 +210,35 @@ a11y 也已从"25 页 180 处对比度 + 1 处 critical"降到 **35 页全部 0 
 
 ---
 
+## 3.8 L5 前后端契约检查（2026-10-21 新增）
+
+`scripts/check_api_contract.py` + CI job `contract-check`。
+
+**为什么是它**：D3（`o.invoice`）与 D6（`it.is_ruo`）是**同一类**缺陷 —— 前端读了一个后端不返回的字段，
+判定恒真/恒假，页面完全看不出来。后端单测只测自己的形状、E2E 走真实数据也不报错
+⇒ 之前**没有任何闸门能拦**。
+
+**做法**：用项目自己的 `drf-spectacular` 生成 OpenAPI schema，抽出每个受检端点的 200 响应
+（展开 `$ref`、剥掉分页/信封包装）得到「字段路径 → 类型」，与
+`docs/e2e/API_CONTRACT_SCHEMA.json` 比对：
+- **少了字段 / 类型变了** ⇒ FAIL
+- **多了字段** ⇒ WARN（正常演进）
+
+| 项 | 值 |
+|---|---|
+| 覆盖端点 | **4 个**（orders.list / orders.detail / products.list / products.detail），**158 个字段路径** |
+| 未覆盖 | `admin_orders.list` / `basket.detail` / `auth.me` —— schema 里这 3 个端点没有 200 JSON 响应定义（自定义 APIView 未声明 serializer），**待补** |
+| 是否依赖数据 | **不依赖**（输入是 schema 不是真实响应）⇒ 不用起服务，CI 里几秒跑完 |
+| 反向验证 | ① 基线加 `[].invoice`（schema 里没有）⇒ 精确报「少了字段 `[].invoice` ★ 前端可能正在用它」，EXIT=1 ② 把 `grand_total` 类型改 `integer` ⇒ 报「类型变了」，EXIT=1 |
+
+> ★ 第一版是"抓真实响应存快照"，实测**天然脆弱**：字段集依赖数据形态（购物车空 ⇒ items 空数组
+> ⇒ 元素字段全"消失"），在 CI 薄种子下大面积假 FAIL。改用 schema 后才稳定。
+
+**已知局限（写在脚本头部）**：不知道该前端实际用了哪些字段 ⇒ 删"没人用"的字段也会 FAIL（故意偏保守）；
+只保证字段存在与类型，不保证运行时值语义。
+
+---
+
 ## 4. 下一轮该做什么（按价值排序）
 
 | # | 任务 | 价值 | 成本 |
