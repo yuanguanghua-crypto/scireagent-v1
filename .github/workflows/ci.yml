@@ -432,6 +432,28 @@ jobs:
       - name: 权限审计（对比基线 docs/e2e/PERMISSION_BASELINE.json）
         run: python scripts/permission_audit.py --check
 
+  # ── 7.6 配置一致性闸门（横切面 A）──────────────────────────────────────
+  #
+  # 为什么要有：回看本项目所有**生产级**事故，一半以上的根因不在功能代码里，
+  # 而在配置差异 —— `ALLOWED_HOSTS` 漏配导致全部端点 400（性能首测"8ms 极快"的真相）、
+  # `DEBUG` 默认 True 泄露 traceback、wsgi 默认指向 development。
+  # 旧测试框架（7 维 × 7 层）**一个都覆盖不到**。
+  #
+  # 为什么纯静态检查、不装依赖：不导入 Django ⇒ 不受当前环境变量影响，
+  # 查的是"文件里怎么写的"而不是"此刻解析成什么"；且毫秒级，无 DB 需求。
+  config-parity:
+    name: 配置一致性（dev/prod 差异）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 检查配置一致性（对应 FAILURE_MODES.md 第 6 类）
+        run: python scripts/config_parity.py --verbose
+
   # ── 8. 前端组件单测（vitest）─────────────────────────────────────────
   #
   # 为什么要有：项目 59 个页面 / 44 个组件，此前**零组件单测**，全靠 E2E（分钟级）。
