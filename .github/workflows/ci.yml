@@ -421,3 +421,43 @@ jobs:
       - name: 组件单测
         working-directory: frontend
         run: npm run test:unit
+
+  # ── 9. 迁移演练（台账）───────────────────────────────────────────────
+  #
+  # 已发生过的真实事故（本脚本就是为它写的）：`documents/0006` 漏了 commerce 的跨 app 依赖
+  # ⇒ 回填抛 `FieldError: Cannot resolve keyword 'current_sds_id'`。
+  # ⚠️ `manage.py check` **查不出这个**（它只查 model 层，不查迁移图的跨 app 依赖）。
+  #
+  # 这个 job 对 10 个 app 各跑一遍完整链路（正向 → 造存量数据 → 应用 → 幂等重放 → 反向回滚），
+  # 全部在**独立临时 sqlite** 上，不碰任何真实库。约 2 分钟。
+  # 结果同时重写 docs/e2e/MIGRATION_DRILL_LEDGER.md（若与仓库里不一致，说明需要更新台账）。
+  migration-drill:
+    name: 迁移演练（10 app / 74 迁移）
+    runs-on: ubuntu-latest
+    env:
+      DB_ENGINE: sqlite
+      SECRET_KEY: ci-only-not-a-real-secret
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装后端依赖
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: 全量演练（重写台账）
+        run: python scripts/migration_ledger.py
+
+      - name: 台账是否被本次运行改变（提示提交）
+        if: always()
+        run: |
+          if ! git diff --quiet -- docs/e2e/MIGRATION_DRILL_LEDGER.md; then
+            echo "::warning::台账有变化（迁移/环境变动）⇒ 请把 docs/e2e/MIGRATION_DRILL_LEDGER.md 一并提交"
+            git diff --stat -- docs/e2e/MIGRATION_DRILL_LEDGER.md
+          else
+            echo "台账无变化"
+          fi

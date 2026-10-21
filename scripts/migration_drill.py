@@ -335,12 +335,21 @@ class Drill:
 
             # 步骤 2：造存量数据
             s = Step("② 造贴近生产形态的存量数据")
-            s.detail = self.seed()
+            if self.prev is None:
+                # ★ 2026-10-21 修：当目标就是该 app 的**首个迁移**时，没有"存量 schema"可言
+                #   （表都还不存在）⇒ 造数**不适用**。
+                #   原实现会把 "zero" 当迁移节点传给 `project_state()`，
+                #   抛 `NodeNotFoundError: Node ('app','zero') not a valid node`
+                #   ⇒ 整个演练被误判为失败（而 ③④⑤ 其实都通过了）。
+                #   实测：每个 app 的 `0001_initial` 都会踩到，10 个 app 全军覆没。
+                s.detail = "目标是首个迁移（无存量 schema）⇒ 不适用，跳过造数"
+            else:
+                s.detail = self.seed()
             # ⚠️ 造数失败必须**标红**：数据没造出来时，
             #    后面③的迁移「成功」只证明了空库能迁 —— 毫无价值。
             #    实测踩到：seed 脚本因模型名写错而静默退出，
             #    演练却报告「全链路通过」，那是**假绿灯**，比红灯更危险。
-            s.ok = ("失败" not in s.detail and "缺少" not in s.detail)
+            s.ok = self.prev is None or ("失败" not in s.detail and "缺少" not in s.detail)
             s.critical = True
             self.steps.append(s)
             ok = ok and s.ok
@@ -469,8 +478,18 @@ def _safe(fn, label):
 
 def seed_sds():
     """documents/commerce：0006 的回填读 Product.current_sds 指针。"""
-    Product = state.apps.get_model("commerce", "Product")
-    SdsRevision = state.apps.get_model("documents", "SdsRevision")
+    # ★ 2026-10-21 修：演练**其他 app**（如 accounts）时，drill 只把该 app 迁到 prev，
+    #   commerce / documents **根本不在迁移图里** ⇒ `get_model` 抛
+    #   `LookupError: No installed app with label 'commerce'`。
+    #   原实现把它记成「造数失败」⇒ 整个演练被判失败（台账 6/10），
+    #   但真正失败的是"seed 不适用于该 app"，**迁移链路本身是好的**。
+    #   ⇒ 这种情况下记「跳过」（不含"失败"字样），让判定正确，同时台账会标注"空库迁移"。
+    try:
+        Product = state.apps.get_model("commerce", "Product")
+        SdsRevision = state.apps.get_model("documents", "SdsRevision")
+    except LookupError as e:
+        notes.append("跳过 sds 造数：此刻迁移图里没有 commerce/documents（%s）" % e)
+        return
     if not _has_table(Product) or not _has_table(SdsRevision):
         notes.append("跳过 sds 造数：此刻表尚未存在")
         return
@@ -525,11 +544,25 @@ def seed_orders():
     seq_n = uuid_n = 0
     for i in range(3):
         if "order_no" in fields and "status" in fields:
+            # ★ 2026-10-21 修：`po_number` 的历史版本是 **`unique=True`**
+            #   （现版本已改成"条件唯一"，见 models.py 注释：空串/NULL 不进唯一索引，
+            #     否则"任意登录用户连建两单、第二单 500"）。
+            #   而演练跑在**迁移状态里的历史模型**上 ⇒ 不传 po_number 会落默认空串 ''，
+            #   第二条就撞 `UNIQUE constraint failed: order.po_number`（实测 inventory 演练卡在这）。
+            #   ⇒ 每条订单都显式给唯一 PO 号，使造数在"任何历史版本"下都成立。
+            def _extra():
+                if "po_number" not in fields:
+                    return {}
+                try:
+                    return {"po_number": "DRILL-%s" % uuid.uuid4().hex[:10].upper()}
+                except Exception:
+                    return {}
+
             Order.objects.create(
-                order_no="ORD-2026010%d-00%d" % (i + 1, i + 1), status="draft")
+                order_no="ORD-2026010%d-00%d" % (i + 1, i + 1), status="draft", **_extra())
             seq_n += 1
             Order.objects.create(
-                order_no="ORD-%s" % uuid.uuid4().hex[:8].upper(), status="draft")
+                order_no="ORD-%s" % uuid.uuid4().hex[:8].upper(), status="draft", **_extra())
             uuid_n += 1
     if seq_n or uuid_n:
         notes.append("Order 序号版 %d + uuid 版 %d" % (seq_n, uuid_n))
