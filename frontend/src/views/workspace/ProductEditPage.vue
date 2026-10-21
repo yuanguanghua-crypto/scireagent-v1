@@ -1703,7 +1703,7 @@ watch(
       <div class="word-import-row">
         <label class="file-upload-btn">
           Choose .docx File
-          <input type="file" accept=".docx" @change="handleWordFile" hidden />
+          <input type="file" accept=".docx" @change="handleWordFile" hidden aria-label="Choose a .docx file to upload" />
         </label>
         <span v-if="wordFile" class="file-name">{{ wordFile.name }}</span>
         <span v-if="wordImporting" class="word-status">Parsing…</span>
@@ -2276,7 +2276,7 @@ watch(
                 <AppSelect v-model="s.currency" :options="currencyOptions" style="margin-bottom:0" />
               </td>
               <td class="col-default">
-                <input type="radio" name="default-sku" :checked="s.is_default"
+                <input type="radio" name="default-sku" :aria-label="'Set ' + (s.sku_code || 'SKU') + ' as default'" :checked="s.is_default"
                   @change="skus.forEach((sk, j) => sk.is_default = (j === i))" />
               </td>
               <td><button type="button" @click="removeSku(i)" class="btn btn-ghost btn-sm">✕</button></td>
@@ -2412,10 +2412,10 @@ watch(
               <AppInput v-model="newBatchForms[sc.sku.id].lot_number" placeholder="默认带入 SKU code，可修改" style="margin-bottom:0" />
             </label>
             <label>Production date
-              <input v-model="newBatchForms[sc.sku.id].produced_at" type="date" />
+              <input v-model="newBatchForms[sc.sku.id].produced_at" type="date" aria-label="Production date" />
             </label>
             <label>Retest date
-              <input v-model="newBatchForms[sc.sku.id].retest_at" type="date" />
+              <input v-model="newBatchForms[sc.sku.id].retest_at" type="date" aria-label="Retest date" />
             </label>
             <button type="button" class="btn btn-primary btn-sm" :disabled="creatingBatch" @click="createBatchAndCoa(sc.sku.id)">
               {{ creatingBatch ? 'Creating…' : 'Generate COA' }}

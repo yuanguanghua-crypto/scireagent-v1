@@ -650,10 +650,10 @@ function litKeywords(list) {
           <button type="button" :class="['view-toggle__btn', { 'is-active': viewMode === 'active' }]" @click="setView('active')">Products</button>
           <button type="button" :class="['view-toggle__btn', { 'is-active': viewMode === 'recycle' }]" @click="setView('recycle')">Recycle Bin ({{ recycleCount }})</button>
         </div>
-        <select v-model="statusFilter" class="filter-select">
+        <select v-model="statusFilter" class="filter-select" aria-label="Filter by status">
           <option v-for="o in statusOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
         </select>
-        <select v-model="completenessFilter" class="filter-select">
+        <select v-model="completenessFilter" class="filter-select" aria-label="Filter by completeness">
           <option v-for="o in completenessOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
         </select>
         <span class="filter-count">{{ filteredProducts.length }} products</span>
@@ -696,7 +696,7 @@ function litKeywords(list) {
       <table class="products-table">
         <thead>
           <tr>
-            <th class="col-check"><input type="checkbox" v-model="allSelected" /></th>
+            <th class="col-check"><input type="checkbox" v-model="allSelected" aria-label="Select all products" /></th>
             <th class="sortable" @click="toggleSort('catalog_no')">Catalog No{{ sortIcon('catalog_no') }}</th>
             <th class="sortable" @click="toggleSort('name')">Name{{ sortIcon('name') }}</th>
             <th class="sortable" @click="toggleSort('cas')">CAS{{ sortIcon('cas') }}</th>
@@ -710,7 +710,7 @@ function litKeywords(list) {
         </thead>
         <tbody>
           <tr v-for="p in filteredProducts" :key="p.id" @click="viewMode === 'active' && goToProduct(p.id)" class="clickable-row">
-            <td class="col-check" @click.stop><input type="checkbox" :checked="selectedIds.has(p.id)" @change="toggleSelect(p.id)" /></td>
+            <td class="col-check" @click.stop><input type="checkbox" :checked="selectedIds.has(p.id)" @change="toggleSelect(p.id)" :aria-label="'Select ' + (p.name || p.sku_code || p.id)" /></td>
             <td class="col-code">{{ p.catalog_no }}</td>
             <td class="col-name">{{ p.name }}</td>
             <td class="col-cas">{{ p.cas || '—' }}</td>

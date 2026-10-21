@@ -1,7 +1,10 @@
 <template>
   <div class="app-select" :class="{ 'app-select--error': error }">
-    <label v-if="label" class="form-label">{{ label }}</label>
+    <!-- ★ 2026-10-21 a11y：与 AppInput 同问题（label 无 for、el-select 无 id）
+         修一处，14 个 AppSelect 实例同时受益 -->
+    <label v-if="label" class="form-label" :for="selectId">{{ label }}</label>
     <el-select
+      :id="selectId"
       :model-value="modelValue"
       :placeholder="placeholder"
       :size="size"
@@ -28,6 +31,10 @@
 </template>
 
 <script setup>
+import { useId } from 'vue'
+
+// 每个实例一个稳定唯一 id，用于 label[for] ↔ el-select[id] 关联
+const selectId = useId()
 defineProps({
   modelValue: { type: [String, Number], default: '' },
   label: { type: String, default: '' },
