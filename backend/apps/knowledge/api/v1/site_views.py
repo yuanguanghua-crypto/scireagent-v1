@@ -8,6 +8,11 @@ from apps.commerce.models import Product
 from apps.bridges.models import ProductMethod
 from apps.knowledge.services.graph_service import build_graph
 
+#: 导航里最多返回多少个 application（见 site_navigation 的 docstring）。
+#: 默认 200 足够覆盖"常用应用"；上限 2000 是防有人用 `?limit=999999` 把放大点重新打开。
+NAV_APPLICATION_LIMIT = 200
+NAV_APPLICATION_LIMIT_MAX = 2000
+
 
 def _build_homepage_graph():
     """Build a graph preview from the top-priority application."""
@@ -280,8 +285,32 @@ def site_home(request):
 
 @api_view(['GET'])
 def site_navigation(request):
-    """Navigation tree for frontend."""
-    apps = Application.objects.public().filter(status='active').order_by('sort_order')
+    """Navigation tree for frontend.
+
+    ★ 2026-10-21 性能（L7，实测 p95 267ms / 响应 **2.78MB**）：
+      此前把**全部** active application 塞进一次响应（实测 28,566 条
+      `{id, name, slug}`）。而这份数据**没有任何消费者**：
+      `frontend/src/stores/app.js` 的 `fetchNavigation()` 全仓**零调用**，
+      也没有任何组件读 `appStore.navigation`。
+      ⇒ 2.78MB 白花，而且是**匿名可触发**的带宽/内存放大点
+        （配 `AnonRateThrottle` 即可持续打）。
+
+    ⇒ `applications` 改为只取前 `NAV_APPLICATION_LIMIT` 条；
+      `meta` 里给出 `application_total`（被截断时调用方能知道还有多少）。
+      需要完整列表请用 `/api/v1/applications/`（有分页）。
+
+    ⚠️ 这是**契约变更**（原来返回全量）。已核实前端零消费方；
+      若外部有客户端依赖全量，用 `?limit=`（上限 2000）或改用分页端点。
+    """
+    try:
+        limit = int(request.query_params.get('limit') or NAV_APPLICATION_LIMIT)
+    except (TypeError, ValueError):
+        limit = NAV_APPLICATION_LIMIT
+    limit = max(1, min(limit, NAV_APPLICATION_LIMIT_MAX))
+
+    qs = Application.objects.public().filter(status='active').order_by('sort_order')
+    total = qs.count()
+    apps = qs[:limit]
     return Response({
         'success': True,
         'data': {
@@ -297,7 +326,11 @@ def site_navigation(request):
                 for a in apps
             ],
         },
-        'meta': {},
+        'meta': {
+            'application_total': total,
+            'application_limit': limit,
+            'applications_truncated': total > limit,
+        },
     })
 
 

@@ -103,6 +103,55 @@ class SiteNavigationAPITest(TestCase):
         self.assertEqual(len(apps), 1)
         self.assertEqual(apps[0]['name'], 'RNA Labeling')
 
+    # ── 2026-10-21 L7 性能：单次响应 2.78MB（全部 active application）→ 加 limit ──
+    def test_navigation_is_capped_by_default(self):
+        """★ 核心回归：不能把全部 application 塞进一次响应。
+
+        修复前实测 28,566 条 ⇒ 2.78MB / p95 267ms，而前端**零消费方**
+        （`stores/app.js` 的 fetchNavigation 全仓无调用）⇒ 纯浪费 + 匿名可放大。
+        """
+        from apps.knowledge.api.v1.site_views import NAV_APPLICATION_LIMIT
+
+        ApplicationFactory.create_batch(NAV_APPLICATION_LIMIT + 5, status='active')
+        body = self.client.get('/api/v1/site/navigation').json()
+
+        apps = body['data']['applications']
+        self.assertEqual(len(apps), NAV_APPLICATION_LIMIT,
+                         f'默认应截断到 {NAV_APPLICATION_LIMIT} 条，实际 {len(apps)}')
+        # total 必须如实（否则调用方不知道被截断）
+        self.assertEqual(body['meta']['application_total'], NAV_APPLICATION_LIMIT + 5)
+        self.assertTrue(body['meta']['applications_truncated'])
+
+    def test_navigation_limit_param_respected(self):
+        ApplicationFactory.create_batch(10, status='active')
+        body = self.client.get('/api/v1/site/navigation?limit=3').json()
+        self.assertEqual(len(body['data']['applications']), 3)
+        self.assertEqual(body['meta']['application_total'], 10)
+        self.assertTrue(body['meta']['applications_truncated'])
+
+    def test_navigation_limit_is_clamped(self):
+        """`?limit=999999` 不能把放大点重新打开。"""
+        from apps.knowledge.api.v1.site_views import NAV_APPLICATION_LIMIT_MAX
+
+        ApplicationFactory.create_batch(5, status='active')
+        body = self.client.get('/api/v1/site/navigation?limit=999999').json()
+        self.assertLessEqual(body['meta']['application_limit'], NAV_APPLICATION_LIMIT_MAX)
+        # 数据量不足上限时不该丢数据
+        self.assertEqual(len(body['data']['applications']), 5)
+
+    def test_navigation_invalid_limit_falls_back(self):
+        ApplicationFactory.create_batch(3, status='active')
+        for bad in ('abc', '0', '-7', '', 'null'):
+            body = self.client.get(f'/api/v1/site/navigation?limit={bad}').json()
+            self.assertGreaterEqual(len(body['data']['applications']), 1,
+                                    f'limit={bad!r} 应回落默认值而不是返回空/报错')
+
+    def test_navigation_not_truncated_flag_when_small(self):
+        ApplicationFactory.create_batch(2, status='active')
+        body = self.client.get('/api/v1/site/navigation').json()
+        self.assertFalse(body['meta']['applications_truncated'])
+        self.assertEqual(body['meta']['application_total'], 2)
+
 
 class SearchAPITest(TestCase):
     def setUp(self):

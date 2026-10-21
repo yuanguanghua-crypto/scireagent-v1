@@ -544,6 +544,58 @@ PubMed / Europe PMC / Bioz / ChEMBL / PubChem enhancer 全部经
 
 ---
 
+## 3.15 L7 性能闸门（2026-10-21 新增）
+
+### 3.15.1 三个刻意的取舍（先说为什么，数字才有意义）
+
+| 决定 | 为什么 |
+|---|---|
+| **进程内测**（Django test client），不起服务不打网络 | 起 `runserver` + HTTP 打请求会把端口/连接复用/DNS/防火墙都算进去，同机两次能差 3 倍。进程内测的是「视图 + ORM + 序列化」的真实成本，重复测量稳定。代价：不含网络栈，**绝对值不能当 SLA**，只能同环境前后对比 |
+| **不进 CI 做「相对基线」比较**，只保留绝对上限 | 单机测量天然有波动（GC/文件缓存/后台进程）。拿 p95 精确比基线，在共享 CI runner 上会**频繁假红** —— 那比没闸门更糟，因为人会开始忽略它 |
+| **必须先断言 `status == 200`** | 不是理论风险，本脚本第一版就踩了：`ALLOWED_HOSTS` 不含 `testserver` ⇒ 全部端点返回 **400**，而 400 只要 8ms，看起来"性能极好"。**测量脚本不校验状态码 = 给自己造假数据** |
+
+> ⚠️ 所以本闸门**没有加进 CI job**。这是判断，不是遗漏：CI 是空库 + 共享 runner，
+> 端点返回空数组、耗时极低，2000ms 的绝对上限几乎永不触发 ⇒ 会变成"绿灯装饰"。
+> **正确用法是发版前跑**：`--strict` 对比基线，`--factor 2.0`。
+
+### 3.15.2 首测就抓到两个真问题
+
+| 端点 | 修前 | 修后 | 性质 |
+|---|---|---|---|
+| `/api/v1/site/navigation` | **2.78MB / p95 267ms** | **20.4KB / p95 18.1ms** | 真缺陷，已修 |
+| `/api/v1/site/home` | 42.3KB / p95 **322ms** | 未改 | **只报告**，见下 |
+| `/api/v1/sitemap.xml` | 2.41MB / p95 548ms | 未改 | 合理（sitemap 本就该列全站） |
+
+**`site/navigation` 的根因不是 SQL**：实测 SQL 只 28ms，**235ms 全在 Python 侧**——
+把**全部 28,566 个 active application** 造成 dict 再序列化成 2.78MB。
+而这份数据**没有任何消费者**：`frontend/src/stores/app.js` 的 `fetchNavigation()`
+**全仓零调用**，也没有组件读 `appStore.navigation`。
+⇒ 2.78MB 白花，且是**匿名可触发**的带宽放大点。
+修法：`applications` 加 `limit`（默认 200 / 上限 2000），`meta` 回 `application_total`
+与 `applications_truncated`。**这是契约变更**，已核实前端零消费方；
+需要全量的走 `/api/v1/applications/`（有分页）。
+
+**`site/home` 为什么只看不修**：profile 显示 **51 次查询**，其中一条 application 查询
+**213ms**。这已经超出"加个缓存"的范围（涉及 site_home 的取数结构与索引），
+按纪律**不在性能闸门这一轮顺手改业务逻辑**。已记为后续项。
+
+### 3.15.3 闸门自身的有效性验证
+**变异测试**：把 `navigation` 的 `apps = qs[:limit]` 改回 `apps = qs`（恢复全量）
+⇒ 闸门精确报 **`/api/v1/site/navigation` p95 272.1ms = 基线 18.5ms 的 14.7x，FAIL**，
+而其余 8 个端点 0.9–1.0x **无一条误报**。复原后 PASS。
+⇒ 既证明"能抓退化"，也证明"阈值 2.0x 不会因正常波动误报"。
+
+### 3.15.4 落地
+- `scripts/perf_gate.py`（新）—— `--update` 建基线 / `--strict` 相对对比 / `--factor` 可调
+- `docs/e2e/PERF_BASELINE.json`（新）—— 9 个匿名端点的 p50/p95/bytes
+- `apps/knowledge/tests/test_site_api.py` —— 新增 5 例钉住 limit 行为（默认截断 / `?limit=` 生效 / 上限夹紧 / 非法值回落 / 小数据不报截断）
+- `apps/knowledge/api/v1/site_views.py` —— `site_navigation` 加 limit
+
+**基线维护纪律**：性能基线与机器强相关，**换机器 / 改 docker 资源限制后必须 `--update` 重做**
+（旧数字在新机器上没有意义）。本机是 sqlite，生产是 PostgreSQL ⇒ 绝对值不可外推。
+
+---
+
 ## 4. 下一轮该做什么（按价值排序）
 
 | # | 任务 | 价值 | 成本 |

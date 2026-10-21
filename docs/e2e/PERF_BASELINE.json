@@ -1,0 +1,51 @@
+{
+  "endpoints": {
+    "/api/v1/categories": {
+      "bytes": 841,
+      "p50_ms": 12.3,
+      "p95_ms": 13.1
+    },
+    "/api/v1/graph?type=product&id={product_id}": {
+      "bytes": 14919,
+      "p50_ms": 9.9,
+      "p95_ms": 10.2
+    },
+    "/api/v1/products/": {
+      "bytes": 24534,
+      "p50_ms": 24.5,
+      "p95_ms": 25.9
+    },
+    "/api/v1/search/grouped?q=a": {
+      "bytes": 5368,
+      "p50_ms": 31.9,
+      "p95_ms": 32.9
+    },
+    "/api/v1/search/suggest?q=ab": {
+      "bytes": 231,
+      "p50_ms": 11.5,
+      "p95_ms": 11.7
+    },
+    "/api/v1/search?q=a": {
+      "bytes": 8899,
+      "p50_ms": 34.0,
+      "p95_ms": 34.5
+    },
+    "/api/v1/site/home": {
+      "bytes": 43360,
+      "p50_ms": 300.9,
+      "p95_ms": 322.2
+    },
+    "/api/v1/site/navigation": {
+      "bytes": 20918,
+      "p50_ms": 18.3,
+      "p95_ms": 18.5
+    },
+    "/api/v1/sitemap.xml": {
+      "bytes": 2523173,
+      "p50_ms": 532.7,
+      "p95_ms": 540.6
+    }
+  },
+  "measured_at": "2026-10-21T17:51:40",
+  "note": "进程内测量（Django test client），非 SLA。与机器强相关：换机器或改 docker 资源限制后必须 --update 重做。"
+}
