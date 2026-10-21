@@ -25,9 +25,9 @@
 | D5 | P1 | `/po/orders` ~~筛选缺 `quote_pending` / `quoted`~~ | ✅ **已修 2026-10-21** |
 | D6 | P1 | ~~`/po/orders/:id` RUO 声明恒显示~~ | ✅ **已修 2026-10-21** |
 | D7 | P2 | a11y：25 页 50 处 color-contrast + 1 critical | ⬜ 待修 |
-| D8 | P3 | `PoSubmit.vue:156-159` 死代码 alert | ⬜ 待修 |
-| D9 | P3 | `/po/addresses` 过期 callout 文案 | ⬜ 待修 |
-| D10 | P2 | `/orders` `/ops/orders` 错误只有 4 秒 toast（静默失败） | ⬜ 待修 |
+| D8 | P3 | ~~`PoSubmit.vue` 死代码 alert~~ | ✅ **已删 2026-10-21** |
+| D9 | P3 | ~~`/po/addresses` 过期 callout~~ | ✅ **已删 2026-10-21**（附守卫用例） |
+| D10 | P2 | ~~错误只有 4 秒 toast（静默失败）~~ | ✅ **已修 2026-10-21**（4 页统一持久横幅） |
 
 ---
 
@@ -120,24 +120,26 @@
 | 已修 | 本轮之前已把全站 critical 从 **10 处 / 4 页**降到 **1 处 / 1 页**（AppInput 39 实例、AppSelect 14 实例的 for/id 与 aria-label 透传） |
 | 为什么没继续修 | 改对比度要动设计令牌（`frontend/src/assets/css/main.css`），会连带 `visual-tokens.spec.cjs` 的"全站一致"断言 ⇒ 需单独一轮 |
 
-## D8 · P3 · `PoSubmit.vue:156-159` 第三条 alert 是死代码
+## D8 · P3 · ✅ **已删（2026-10-21）** · `PoSubmit.vue` 第三条 alert 是死代码
 
 | 项 | 内容 |
 |---|---|
-| 现象 | 该 `alert('Delivery date cannot be in the past.')` 在 UI 路径上**永远不执行** |
+| 现象 | 该 `alert('Requested delivery date cannot be in the past.')` 在 UI 路径上**永远不执行** |
 | 根因 | `#po-f5` 带 `:min="minDeliveryDate"`（`PoSubmit.vue:232`），浏览器先做 HTML5 约束校验并直接拦掉 `submit` 事件，`handleSubmit` 根本不进 |
 | 实测 | 失败现场为原生 `rangeUnderflow` 气泡；`validity.rangeUnderflow === true`；`/api/v1/orders/po/` 请求数 **0** |
-| 处理 | 已把**真实行为**固化成断言（alert 不出现 + 0 次请求），避免误判成"漏测" |
+| **处置** | **删除**该不可达分支（保留另两条真校验 alert），把"过去日期"交给原生校验——提示更早、还带本地化文案。删掉比"改成可达"更好：改可达就要去掉 `:min`，等于丢掉原生校验 |
+| **回归** | `order-error-paths.spec.cjs` 已固化「原生 rangeUnderflow 拦截 + 0 次 PO 请求」，删除后该断言仍绿 |
 
-## D9 · P3 · `/po/addresses` 顶部 callout 文案过期
+## D9 · P3 · ✅ **已删（2026-10-21）** · `/po/addresses` 顶部 callout 文案过期
 
 | 项 | 内容 |
 |---|---|
-| 现象 | 页面顶部写着「后端 `/addresses/` CRUD 计划 P1 落地」 |
-| 实测 | 新增→编辑→删除闭环**全通**（`po-addresses-crud.spec.cjs` 1 passed） |
-| 处置 | 删掉/更正该 callout（改文案，不动逻辑） |
+| 现象 | 页面顶部写着「Backend `/addresses/` CRUD is scheduled for P1. Save actions will surface an error toast until the endpoint ships.」 |
+| 实测 | 新增→编辑→删除闭环**全通**（`po-addresses-crud.spec.cjs` 1 passed）⇒ 文案已过期，会让用户以为功能不可用 |
+| **处置** | 删除整个 callout（不改逻辑） |
+| **回归** | 新增守卫用例「页面不得再显示『CRUD 未上线』的过期提示」（断言不含 `scheduled for P1` / `until the endpoint ships`）。删除前证据：`git show HEAD:...PoAddressList.vue` 第 76 行确有该文案 |
 
-## D10 · P2 · `/orders` `/ops/orders` 无持久错误横幅，只有瞬时 toast
+## D10 · P2 · ✅ **已修（2026-10-21）** · 错误只留 4 秒 toast（静默失败），全站不统一
 
 | 项 | 内容 |
 |---|---|
@@ -145,6 +147,9 @@
 | 证据 | `src/utils/http.js:96-97` 全局 toast；`src/stores/orders.js:22-24` 与 `admin/AdminOrdersPage.vue:33-35` 只 `console.error` |
 | 影响 | **静默失败**：接口挂了与"真的没数据"对用户不可区分 |
 | 对比 | `/ops/orders/:id` 的动作失败**有**持久 `.error-banner`（`AdminOrderDetail.vue:125`）⇒ 全站错误提示不统一 |
+| **修法** | 抽公共组件 `components/common/ErrorBanner.vue`（`role="alert"` + `data-kind` 区分 `load`/`action`），**4 个页面统一使用**：`/orders`、`/orders/:id`、`/ops/orders`、`/ops/orders/:id`。错误文案用 `extractErrorMessage(err.response.data, fallback)`（从 `utils/http.js` 导出）⇒ 与全局 toast **同一句后端文案**，不会各说一套。顺带删掉 `AdminOrderDetail` 内联的重复 `.error-banner` 样式 |
+| **两个实现要点（都踩过）** | ① 横幅必须放在 `v-if="order"` **外面**，否则加载失败时 `order=null`，整块含横幅都不渲染；② `/orders/:id` 原来失败时**整页空白**，现在给横幅 + "Back to orders" 出口 |
+| **验证** | `order-error-paths.spec.cjs` **7 passed**：4 条错误路径全部新增「持久横幅可见且文案 = 后端 detail」断言（修前实测红：`element(s) not found`）；`/ops/orders/:id` 那条还区分 `data-kind="load"` vs `"action"`，防止把"动作失败横幅"误当加载错误 |
 
 ---
 

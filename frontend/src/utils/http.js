@@ -39,7 +39,10 @@ http.interceptors.request.use(
 )
 
 // 从后端返回体（envelope 或原始 DRF 形状）中提取可读错误消息
-function extractErrorMessage(data) {
+// ★ 2026-10-21 导出（D10）：列表/详情页的**持久错误横幅**也要显示同一句后端文案，
+//   否则 toast 与横幅会说两套话。
+//   `fallback` 可定制兜底文案（加载失败 vs 动作失败语义不同）。
+export function extractErrorMessage(data, fallback = 'Action failed') {
   const metaError = data?.meta?.error
   // 1) 后端错误可能被包成 meta.error（字符串直接可用）
   if (typeof metaError === 'string') {
@@ -58,7 +61,7 @@ function extractErrorMessage(data) {
   if (data?.detail) return data.detail
   if (data?.message) return data.message
   // 4) 通用兜底文案
-  return 'Action failed'
+  return fallback
 }
 
 // Response interceptor

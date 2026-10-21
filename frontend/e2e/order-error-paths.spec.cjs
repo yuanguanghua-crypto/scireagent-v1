@@ -150,6 +150,12 @@ test.describe('客户侧订单错误路径', () => {
     // ① 错误 UI 可见且文案精确匹配（toast —— 非持久横幅，约 3s 消失）
     await expect(sharedPage.locator('.el-message--error')).toContainText(FAIL_TEXT, { timeout: 10000 });
 
+    // ★ D10：**不能只有 4 秒 toast** —— 必须有持久横幅，否则接口挂了看起来就像「你没有订单」
+    await expect(
+      sharedPage.locator('.error-banner[data-kind="load"]'),
+      '列表加载失败必须留下持久横幅（不能只靠瞬时 toast）',
+    ).toContainText(FAIL_TEXT, { timeout: 10000 });
+
     // ② 原本该渲染的数据没了：表体不存在、没有任何订单行
     await expect(sharedPage.locator('.order-table')).toHaveCount(0);
     await expect(sharedPage.locator('.order-row')).toHaveCount(0);
@@ -165,6 +171,11 @@ test.describe('客户侧订单错误路径', () => {
     await sharedPage.goto(`${BASE_URL}/orders/903`, { waitUntil: 'domcontentloaded' });
 
     await expect(sharedPage.locator('.el-message--error')).toContainText(FAIL_TEXT, { timeout: 10000 });
+
+    // ★ D10：详情加载失败也要有持久横幅（否则整页空白，用户以为是页面坏了）
+    await expect(sharedPage.locator('.error-banner[data-kind="load"]')).toContainText(FAIL_TEXT, {
+      timeout: 10000,
+    });
 
     // OrderDetailPage.vue:39 `v-if="order"` ⇒ 失败时 order 为 null，整块详情不渲染
     await expect(sharedPage.locator('.order-detail-page')).toHaveCount(0);
@@ -328,7 +339,13 @@ test.describe('内部台订单错误路径', () => {
 
     await expect(sharedPage.locator('.el-message--error')).toContainText(FAIL_TEXT, { timeout: 10000 });
 
-    // AdminOrdersPage.vue:33-35 catch 只 console.error ⇒ 表格仍在，但 rows=[] ⇒ 落 EmptyState
+    // ★ D10：运营侧同样必须有持久横幅
+    await expect(
+      sharedPage.locator('.error-banner[data-kind="load"]'),
+      '运营订单列表加载失败必须留下持久横幅',
+    ).toContainText(FAIL_TEXT, { timeout: 10000 });
+
+    // AdminOrdersPage catch 会把 rows 置空 ⇒ 落 EmptyState
     await expect(sharedPage.locator('.order-row')).toHaveCount(0);
     await expect(sharedPage.locator('.empty-title')).toHaveText('No orders found');
     await expect(sharedPage.locator('.loading-spinner')).toHaveCount(0);
@@ -344,7 +361,11 @@ test.describe('内部台订单错误路径', () => {
     // AdminOrderDetail.vue:39-40 加载失败只 console.error ⇒ order 为 null ⇒ 整块不渲染
     await expect(sharedPage.locator('main .admin-order-detail')).toHaveCount(0);
     await expect(sharedPage.locator('main .order-title')).toHaveCount(0);
-    await expect(sharedPage.locator('.error-banner')).toHaveCount(0); // 加载失败不走动作错误横幅
+    // ★ D10：加载失败现在**有**持久横幅，但要与「动作失败横幅」区分开（data-kind）
+    await expect(sharedPage.locator('.error-banner[data-kind="load"]')).toContainText(FAIL_TEXT, {
+      timeout: 10000,
+    });
+    await expect(sharedPage.locator('.error-banner[data-kind="action"]')).toHaveCount(0);
   });
 
   test('/ops/orders/:id Approve 动作 500 ⇒ 持久 .error-banner 出现（不是 toast）', async () => {

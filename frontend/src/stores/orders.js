@@ -5,6 +5,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { getOrders, getOrder } from '@/api/orders'
+import { extractErrorMessage } from '@/utils/http'
 
 export const useOrdersStore = defineStore('orders', () => {
   const orders = ref([])
@@ -14,9 +15,14 @@ export const useOrdersStore = defineStore('orders', () => {
   // ★ 2026-10-21 新增（D2）：分页状态。此前 store 完全没有 page 概念，导致恒为第 1 页。
   const page = ref(1)
   const pageSize = ref(20)
+  // ★ 2026-10-21 修 D10：加载失败的**持久**错误文案。
+  //   此前 catch 只 console.error ⇒ 接口挂了页面落成「No orders yet」，
+  //   看起来就像"你真的没有订单"（静默失败，只剩 4 秒 toast 一闪）。
+  const error = ref('')
 
   async function fetchOrders(params = {}) {
     loading.value = true
+    error.value = ''
     try {
       // ★ 显式带上分页参数：`getOrders` 原文档就写了 "Query params (page, status)"，但一直没人传。
       const reqPage = Number(params.page ?? page.value) || 1
@@ -45,6 +51,7 @@ export const useOrdersStore = defineStore('orders', () => {
       pageSize.value = reqSize
     } catch (err) {
       console.error('[Orders] fetchOrders failed:', err)
+      error.value = extractErrorMessage(err?.response?.data ?? err?.data ?? err, 'Failed to load orders.')
     } finally {
       loading.value = false
     }
@@ -52,11 +59,13 @@ export const useOrdersStore = defineStore('orders', () => {
 
   async function fetchOrder(id) {
     loading.value = true
+    error.value = ''
     try {
       const res = await getOrder(id)
       currentOrder.value = res.data || res
     } catch (err) {
       console.error('[Orders] fetchOrder failed:', err)
+      error.value = extractErrorMessage(err?.response?.data ?? err?.data ?? err, 'Failed to load this order.')
     } finally {
       loading.value = false
     }
@@ -67,7 +76,7 @@ export const useOrdersStore = defineStore('orders', () => {
   }
 
   return {
-    orders, currentOrder, total, loading,
+    orders, currentOrder, total, loading, error,
     page, pageSize,
     fetchOrders, fetchOrder, clearCurrent,
   }

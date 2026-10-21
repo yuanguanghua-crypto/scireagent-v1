@@ -5,6 +5,7 @@ export { default as AppToast, toast } from './AppToast.js'
 // 保留已有——不要动其他已有 common 组件
 export { default as DataPagination } from './DataPagination.vue'
 export { default as EmptyState } from './EmptyState.vue'
+export { default as ErrorBanner } from './ErrorBanner.vue'
 export { default as ErrorState } from './ErrorState.vue'
 export { default as LoadingSpinner } from './LoadingSpinner.vue'
 export { default as AppInput } from './AppInput.vue'

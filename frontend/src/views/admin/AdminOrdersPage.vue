@@ -3,7 +3,8 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getAdminOrders } from '@/api/orders'
 import { formatCurrency } from '@/utils/helpers'
-import { LoadingSpinner, EmptyState, DataPagination } from '@/components/common'
+import { extractErrorMessage } from '@/utils/http'
+import { LoadingSpinner, EmptyState, DataPagination, ErrorBanner } from '@/components/common'
 import { ORDER_STATUS_FILTERS, LEGACY_STATUS_FILTERS, ORDER_STATUS_COLORS } from '@/config/poConstants'
 
 const router = useRouter()
@@ -16,6 +17,8 @@ const searchQuery = ref('')
 const page = ref(1)
 const pageSize = ref(20)
 const total = ref(0)
+// ★ 2026-10-21 修 D10：加载失败此前只 console.error ⇒ 表格空 + 4 秒 toast，看着像"没有订单"
+const error = ref('')
 
 // ★ 2026-10-21 修 D4：状态色表改为引用统一常量（原先内联且缺 3 个状态 ⇒ 徽章 undefined15 无底色）
 const statusColors = ORDER_STATUS_COLORS
@@ -28,6 +31,7 @@ function getStatusLabel(status) {
 
 async function fetchOrders(opts = {}) {
   loading.value = true
+  error.value = ''
   try {
     // 换筛选/换搜索时回到第 1 页；翻页时保持
     const nextPage = Number(opts.page ?? page.value) || 1
@@ -43,6 +47,7 @@ async function fetchOrders(opts = {}) {
     page.value = nextPage
   } catch (err) {
     console.error('Failed to fetch orders:', err)
+    error.value = extractErrorMessage(err?.response?.data ?? err?.data ?? err, 'Failed to load orders.')
   } finally {
     loading.value = false
   }
@@ -83,6 +88,9 @@ function goToDetail(order) {
         <button class="search-btn" @click="onFilterChange">Search</button>
       </div>
     </div>
+
+    <!-- ★ D10：加载失败的持久横幅 -->
+    <ErrorBanner :message="error" kind="load" title="Couldn't load orders." />
 
     <!-- Loading -->
     <LoadingSpinner v-if="loading" text="Loading..." />

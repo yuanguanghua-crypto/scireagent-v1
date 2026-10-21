@@ -7,7 +7,8 @@ import {
   issueInvoice, payInvoice,
 } from '@/api/adminPo'
 import { formatCurrency } from '@/utils/helpers'
-import { LoadingSpinner } from '@/components/common'
+import { extractErrorMessage } from '@/utils/http'
+import { LoadingSpinner, ErrorBanner } from '@/components/common'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,6 +16,8 @@ const order = ref(null)
 const loading = ref(false)
 const actionLoading = ref(false)
 const actionError = ref('')
+// ★ 2026-10-21 修 D10：加载失败此前只 console.error ⇒ 整页空白 + 4 秒 toast
+const loadError = ref('')
 
 /* Shipment form */
 const shipForm = ref({ carrier: 'FedEx', tracking_number: '' })
@@ -33,11 +36,16 @@ const CANCELABLE = [
 
 onMounted(async () => {
   loading.value = true
+  loadError.value = ''
   try {
     const res = await getAdminOrder(route.params.id)
     order.value = res.data || res
   } catch (err) {
     console.error(err)
+    loadError.value = extractErrorMessage(
+      err?.response?.data ?? err?.data ?? err,
+      'Failed to load this order.',
+    )
   } finally {
     loading.value = false
   }
@@ -109,6 +117,12 @@ async function doAction(action) {
 </script>
 
 <template>
+  <!-- ★ D10：加载失败的持久横幅必须放在 `v-if="order"` **外面**，
+       否则 order 为 null 时整块（含横幅）都不渲染（改造时踩过）。 -->
+  <div v-if="!order && loadError" class="admin-order-detail-error">
+    <ErrorBanner :message="loadError" kind="load" title="Couldn't load this order." />
+  </div>
+
   <div class="admin-order-detail" v-if="order">
     <!-- Header -->
     <div class="order-header">
@@ -122,7 +136,7 @@ async function doAction(action) {
     </div>
 
     <!-- Error -->
-    <div v-if="actionError" class="error-banner">{{ actionError }}</div>
+    <ErrorBanner :message="actionError" kind="action" />
 
     <!-- Action buttons based on canonical PO state machine -->
     <div class="action-bar">
@@ -298,5 +312,4 @@ async function doAction(action) {
 .info-item { display: flex; gap: 8px; font-size: 14px; }
 .info-label { font-size: 12px; font-weight: 600; color: var(--color-text-tertiary); min-width: 80px; }
 
-.error-banner { padding: 12px; background: var(--color-danger-bg); border: 1px solid var(--color-danger); border-radius: var(--radius-md); color: var(--color-danger); margin-bottom: 16px; }
 </style>

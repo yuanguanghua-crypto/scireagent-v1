@@ -93,6 +93,20 @@ async function fillAddressForm(page, { attention, line1, city, state, postal }) 
 }
 
 test.describe('@local-only /po/addresses · CRUD 闭环', { tag: ['@local-only'] }, () => {
+  /** ★ D9 回归（2026-10-21 已修）：页面曾挂着一条过期 callout
+   *  「Backend /addresses/ CRUD is scheduled for P1. Save actions will surface an error toast
+   *   until the endpoint ships.」—— 实测 CRUD 早已全通，留着会让用户以为功能不可用。 */
+  test('页面不得再显示「CRUD 未上线」的过期提示', async ({ page }) => {
+    // 该页 requiresAuth 即可访问；沿用本文件既有角色（procurement）
+    await loginAsProcurement(page)
+    await page.goto(`${BASE_URL}/po/addresses`, { waitUntil: 'domcontentloaded' })
+    await expect(page.locator('.po-page')).toBeVisible({ timeout: 20000 })
+    await expect(
+      page.getByText(/scheduled for P1|until the endpoint ships/i),
+      '过期文案「CRUD 计划 P1 落地」必须已删除',
+    ).toHaveCount(0)
+  })
+
   test('新增 → 列表出现该行 → 编辑 → 行内容更新 → 删除 → 行消失（且刷新后仍消失）', async ({ page }) => {
     test.setTimeout(120000);
 

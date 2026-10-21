@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
 import { respondToQuote } from '@/api/orders'
 import { formatCurrency } from '@/utils/helpers'
-import { LoadingSpinner } from '@/components/common'
+import { LoadingSpinner, ErrorBanner } from '@/components/common'
 
 const route = useRoute()
 const router = useRouter()
@@ -36,6 +36,13 @@ async function handleQuoteAction(action) {
 </script>
 
 <template>
+  <!-- ★ D10：加载失败的持久横幅。此前失败时 `v-if="order"` 让整页空白，
+       用户只会看到一个 4 秒 toast，然后以为页面坏了。 -->
+  <div v-if="!order && store.error" class="order-detail-error">
+    <ErrorBanner :message="store.error" kind="load" title="Couldn't load this order." />
+    <router-link to="/orders" class="btn-primary">Back to orders</router-link>
+  </div>
+
   <div class="order-detail-page" v-if="order">
     <!-- Header -->
     <div class="order-header">

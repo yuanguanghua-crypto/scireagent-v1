@@ -153,10 +153,12 @@ async function handleSubmit() {
     alert('Each line item requires a SKU, quantity and unit price.')
     return
   }
-  if (form.requested_delivery_date && form.requested_delivery_date < minDeliveryDate.value) {
-    alert('Requested delivery date cannot be in the past.')
-    return
-  }
+  // ★ 2026-10-21 修 D8：这里原本还有第三条 `alert('Requested delivery date cannot be in the past.')`，
+  //   但 `#po-f5` 带了 `:min="minDeliveryDate"`（模板 :232），浏览器会先做 **HTML5 约束校验**
+  //   并直接吃掉 submit 事件 ⇒ `handleSubmit` 根本不执行 ⇒ 那段是**死代码**（实测：
+  //   `validity.rangeUnderflow === true`、`/api/v1/orders/po/` 请求数 0）。
+  //   ⇒ 删除，把"过去日期"交给原生校验（提示更早、还带本地化文案）。
+  //   回归：`e2e/order-error-paths.spec.cjs` 里固化了「原生 rangeUnderflow 拦截 + 0 次请求」。
   submitting.value = true
   try {
     const payload = {

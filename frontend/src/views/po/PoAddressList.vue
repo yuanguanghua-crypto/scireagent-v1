@@ -72,9 +72,10 @@ onMounted(() => store.fetchAddresses())
       <button class="po-btn po-btn-accent" @click="openNew">+ New Address</button>
     </div>
 
-    <div class="po-callout warn" style="margin-bottom:24px">
-      Backend <code>/addresses/</code> CRUD is scheduled for P1. Save actions will surface an error toast until the endpoint ships.
-    </div>
+    <!-- ★ 2026-10-21 修 D9：此处原有 callout 写「Backend /addresses/ CRUD is scheduled for P1.
+         Save actions will surface an error toast until the endpoint ships.」——
+         该文案已过期：实测新增→编辑→删除闭环全通（`e2e/po-addresses-crud.spec.cjs` 1 passed），
+         留着会让用户以为功能不可用，故删除。 -->
 
     <div class="po-card" v-if="showForm">
       <h2 class="po-section-title">{{ editingId ? 'Edit' : 'New' }} Address</h2>

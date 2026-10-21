@@ -3,7 +3,7 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
 import { formatCurrency } from '@/utils/helpers'
-import { LoadingSpinner, EmptyState, DataPagination } from '@/components/common'
+import { LoadingSpinner, EmptyState, DataPagination, ErrorBanner } from '@/components/common'
 
 const router = useRouter()
 const store = useOrdersStore()
@@ -44,6 +44,9 @@ function goToDetail(order) {
 <template>
   <div class="order-list-page">
     <h1 class="page-title">My Orders</h1>
+
+    <!-- ★ D10：加载失败的持久横幅（此前只有 4 秒 toast ⇒ 看起来像"你没有订单"） -->
+    <ErrorBanner :message="store.error" kind="load" title="Couldn't load orders." />
 
     <!-- Loading -->
     <LoadingSpinner v-if="store.loading" text="Loading orders..." />
