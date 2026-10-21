@@ -454,6 +454,62 @@ jobs:
       - name: 检查配置一致性（对应 FAILURE_MODES.md 第 6 类）
         run: python scripts/config_parity.py --verbose
 
+  # ── 7.7 迁移 state 一致性（**必须跑在 PostgreSQL 下**）─────────────────
+  #
+  # 为什么必须在 PG 下：`commerce`/`knowledge` 的 `search_vector` 字段是
+  # `if _USE_POSTGRES:` 条件定义的，而 sqlite 分支会把 `django.contrib.postgres`
+  # 从 INSTALLED_APPS 里移除 ⇒ 模型里根本没这个字段
+  # ⇒ 在 sqlite 下跑 `makemigrations --check` **永远返回 "No changes detected"**，
+  # 等于什么都没检查。本项目就因此让一个 P0 陷阱活到今天：
+  # 生产库里 `search_vector` 列和 9 个索引早就存在（0008 用 RunPython 原生 SQL 建的），
+  # 但 migration state 里没有 ⇒ 谁生成普通 AddField 迁移并 migrate，
+  # 空库会撞 "column already exists"、生产部署会中断。
+  # 已于 2026-10-21 用 state-only 迁移（SeparateDatabaseAndState）对齐。
+  migration-state-check:
+    name: 迁移 state 一致性（PostgreSQL）
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ci
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: ci
+      DB_USER: ci
+      DB_PASSWORD: ci
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      SECRET_KEY: ci-only-not-a-real-secret
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装后端依赖
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: 检查模型与迁移是否一致（PG 环境）
+        working-directory: backend
+        run: |
+          python manage.py makemigrations --check --dry-run ||
+            (echo "::error::模型与迁移不一致 —— 见 backend/apps/*/migrations/。"
+                   "⚠️ 不要在 sqlite 环境下生成迁移：search_vector 等 PG 专属字段"
+                   "在 sqlite 下不存在，会生成错误的删除迁移。" && exit 1)
+
   # ── 8. 前端组件单测（vitest）─────────────────────────────────────────
   #
   # 为什么要有：项目 59 个页面 / 44 个组件，此前**零组件单测**，全靠 E2E（分钟级）。
