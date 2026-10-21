@@ -270,6 +270,38 @@ a11y 也已从"25 页 180 处对比度 + 1 处 critical"降到 **35 页全部 0 
 
 ---
 
+## 3.10 前端组件单测（vitest，2026-10-21 引入）
+
+此前 **59 页面 / 44 组件 / 0 组件单测**，全靠 E2E（分钟级）。现在有了毫秒级反馈层。
+
+| 项 | 值 |
+|---|---|
+| 框架 | vitest 5 + @vue/test-utils 2 + **happy-dom**（比 jsdom 轻） |
+| 配置 | `frontend/vitest.config.mjs`（**不复用** vite.config：那里面挂着 tailwind 插件与 dev 代理，单测用不到） |
+| 用例 | **51 条 / 6 文件**，跑完约 **2 秒** |
+| 覆盖组件 | `ErrorBanner`(8) · `AppInput`(14) · `AppSelect`(9) · `DataPagination`(6) · `StatusBadge`(7) · `EmptyState`+`LoadingSpinner`(7) |
+| 入口 | `npm run test:unit`（watch 模式 `test:unit:watch`） |
+| CI | 第 8 个 job `unit-tests` |
+
+### 第一次跑就抓到 2 个真问题（E2E 全绿也发现不了）
+1. **`AppInput` 的 label 与输入框从未真正关联**（详见 `DEFECTS_FOUND.md` D11）
+   —— Element Plus 的 `el-input` **吞掉 `id`**，所以 `<label for="v-0">` 指向不存在的元素。
+   而 axe 不报（placeholder 兜住了可访问名）⇒ D7 全绿也没暴露。
+2. **`AppSelect` 的 `|| 'Select an option'` 是无效兜底**（EP 会用自己的 `Please select` 覆盖）。
+
+### 方法论收获（写进组件本身与测试注释）
+- **"看起来关联上了" ≠ 关联上了**：必须断言**最终 DOM**（`input` 上的 `aria-label`/`id`），不能只看模板写了 `:for`。
+- **EP 的属性透传规则要逐项实测**：`aria-label`/`name`/`data-*`/`placeholder` 会透传，**`id` 不会**。
+- **保留"事实断言"**：`AppInput.spec.js` 里有一条 `expect(input.attributes('id')).toBeUndefined()`，
+  哪天 EP 开始透传 id 它会红 —— 提示我们"可以改回 id 路线了"。
+
+### 顺带补上的扫描漏洞
+a11y 的 `/checkout` 一直是在**购物车为空**时扫的 ⇒ 表单不渲染 ⇒ CheckoutPage 里 7 个带 label 的输入**从没被扫过**。
+已新增用例「CheckoutPage（购物车非空）」：真加购 → 扫 → **可访问名精确断言** → 清空购物车（零残留）。
+a11y 总数从 36 → **37 条**（35 页 + 令牌 + 表单态）。
+
+---
+
 ## 4. 下一轮该做什么（按价值排序）
 
 | # | 任务 | 价值 | 成本 |

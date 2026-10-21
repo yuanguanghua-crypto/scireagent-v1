@@ -28,6 +28,7 @@
 | D8 | P3 | ~~`PoSubmit.vue` 死代码 alert~~ | ✅ **已删 2026-10-21** |
 | D9 | P3 | ~~`/po/addresses` 过期 callout~~ | ✅ **已删 2026-10-21**（附守卫用例） |
 | D10 | P2 | ~~错误只有 4 秒 toast（静默失败）~~ | ✅ **已修 2026-10-21**（4 页统一持久横幅） |
+| D11 | P2 | ~~`AppInput` 的 label 与输入框从未真正关联（EP 吞 id）~~ | ✅ **已修 2026-10-21**（改 aria-label；补表单态 a11y 扫描） |
 
 ---
 
@@ -128,6 +129,23 @@
 | **验证** | 一次性探针复测：**180 → 0**；`a11y.spec.cjs` 35 页全绿（0 critical / 0 serious）；`visual-tokens.spec.cjs` 1 passed（accent 断言已从 `#D97706` 更新为 `#B45309`，否则会撞） |
 | **顺带修掉的 2 处非对比度 a11y** | ① `ResearchGoalIndex` **critical=1**：`el-select` 的内部 `<input role="combobox">` 无可访问名（EP 的 `id` 不透传，只认 `aria-label`）⇒ 补 `aria-label`；② `WsKnowledgeIntake` **serious=1**：`.ki-product-list` 是 `max-height + overflow-y:auto` 的可滚动区却不可键盘聚焦（`scrollable-region-focusable`）⇒ 补 `tabindex="0" role="group" aria-label` |
 | **最终口径** | 35 页扫描 **36 passed**（35 页 0 critical / 0 serious + 令牌一致 1 条）。A 维从此是**真通过**，不再是"有覆盖但 25 页不合格" |
+
+## D11 · P2 · ✅ **已修（2026-10-21，组件单测发现）** · `AppInput` 的 label 与输入框**从未真正关联**
+
+| 项 | 内容 |
+|---|---|
+| 怎么发现的 | 引入 vitest 写第一批组件单测，`AppInput.spec.js` 断言 `input[id] === label[for]` 时直接红了 |
+| 真相 | 2026-10-20 那版给 `el-input` 加 `:id`、给 `<label>` 加 `:for`，**看起来**就关联上了。但实测 **Element Plus 的 `el-input` 会吞掉 `id`**：内部 `<input class="el-input__inner">` 没有 id，连 `.el-input` 根 div 上也没有 ⇒ `<label for="v-0">` 指向**不存在的元素**，是孤儿 label |
+| 对照实验（同一组件） | `aria-label` / `name` / `data-*` / `placeholder` **都能**透传到内部 input，**唯独 `id` 不能** |
+| ⚠️ 为什么 axe 没报 | 这 7 个输入都有 **placeholder**，axe 的 `label` 规则允许 `non-empty-placeholder` 作为可访问名候选 ⇒ **automated 层面 0 违规**，所以 D7 全绿也没暴露它 |
+| 真实影响 | 屏幕阅读器听到的是 placeholder（如 "Dr. John Smith"），而**label 里的必填标记 "Recipient Name *" 丢失** ⇒ 读屏用户不知道哪个字段必填 |
+| 影响面 | 全站 **39 个 AppInput 实例**里只有 **CheckoutPage 的 7 个**传了 label；其余 32 个在 ProductEditPage，多用外层 `<label>…<AppInput/></label>` **包裹式**关联（那种是有效的） |
+| **修法** | `AppInput` 改走 **`aria-label`**（`:aria-label="label \|\| placeholder \|\| undefined"`），并去掉 `label` 的 `for`（避免指向不存在目标）；`:id` 保留（无害，将来 EP 支持自动生效） |
+| **验证** | ① vitest 断言内部 input 的 `aria-label === label`；② 新增 a11y 用例「CheckoutPage（购物车非空）」——**此前扫描时购物车是空的、表单根本不渲染**，这 7 个输入从没被扫过；③ 该用例加**可访问名精确断言** `getByRole('textbox', { name: 'Recipient Name *' })`；④ 变异验证：把 `aria-label` 置为 undefined ⇒ 该断言立刻红（可访问名退回 placeholder） |
+
+> ★ 附带发现：`AppSelect` 里 `:aria-label="label \|\| placeholder \|\| 'Select an option'"` 的**第三级兜底是无效代码** ——
+> label 与 placeholder 都为空时，EP 会用自己的默认 `Please select` 覆盖传入值（实测读到 'Please select'）。
+> 已改成 `\|\| undefined`，让代码与事实一致。
 
 ## D8 · P3 · ✅ **已删（2026-10-21）** · `PoSubmit.vue` 第三条 alert 是死代码
 

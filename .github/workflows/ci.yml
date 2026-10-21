@@ -393,3 +393,31 @@ jobs:
 
       - name: 契约比对（基线 docs/e2e/API_CONTRACT_SCHEMA.json）
         run: python scripts/check_api_contract.py --verbose
+
+  # ── 8. 前端组件单测（vitest）─────────────────────────────────────────
+  #
+  # 为什么要有：项目 59 个页面 / 44 个组件，此前**零组件单测**，全靠 E2E（分钟级）。
+  # 而组件里有大量"条件渲染 / props 默认值 / 可访问名"这类**毫秒级就能发现**的逻辑错误。
+  # 实例：2026-10-21 单测第一次跑就发现两个真问题 ——
+  #   ① Element Plus 的 el-input **吞掉 id** ⇒ 之前给 label 加 for 的 a11y 修法**其实没生效**
+  #   ② AppSelect 里的 `|| 'Select an option'` 兜底是**无效代码**（EP 会用自己的 'Please select' 覆盖）
+  # 这类问题 E2E 都发现不了（页面看起来完全正常）。
+  unit-tests:
+    name: 前端组件单测（vitest）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装依赖
+        working-directory: frontend
+        run: npm ci
+
+      - name: 组件单测
+        working-directory: frontend
+        run: npm run test:unit

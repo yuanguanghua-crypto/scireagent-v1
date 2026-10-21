@@ -114,6 +114,57 @@ test.describe('a11y 公开页扫描（硬断言 0 critical/0 serious）', { tag:
   }
 })
 
+/**
+ * ★ 2026-10-21 补：**表单态**的结算页扫描（这是此前的一个扫描漏洞）
+ *
+ * 原来的 35 页扫描里，`/checkout` 是在**购物车为空**时扫的 ⇒ 页面显示空态、**表单根本不渲染**。
+ * 而 CheckoutPage 有 7 个带 `label` 的 `AppInput` —— 它们从来没被扫到过。
+ * 组件单测顺带发现：那些 `label[for="v-x"]` 指向的 id **不存在**（EP 的 el-input 吞 id）
+ * ⇒ 真实表单一旦渲染，无障碍关联本应不成立。补上这条用例，把"表单态"纳入闸门。
+ *
+ * 顺带覆盖：加购 → 结算 → 清空购物车（保证零残留）。
+ */
+test.describe('a11y 表单态扫描（有商品才渲染的页）', { tag: ['@readonly', '@local-only'] }, () => {
+  test('CheckoutPage（购物车非空）扫描完成', async ({ page }) => {
+    test.setTimeout(90000)
+    await loginAsStaff(page)
+
+    // ① 真加购（走 UI，不直接 POST）
+    await page.goto(BASE_URL + '/products/66', { waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('.pd-sku-row', { timeout: 20000 })
+    await page.locator('.pd-sku-row').first().getByRole('button', { name: 'Add to Cart' }).click()
+    await page.waitForSelector('.cart-badge', { timeout: 10000 })
+
+    // ② 进结算页，确认表单真的渲染了（不能只等 .checkout-page 这个外壳）
+    await page.goto(BASE_URL + '/checkout', { waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('.checkout-page', { timeout: 20000 })
+    await page.waitForSelector('.checkout-page input', { timeout: 20000 })
+
+    await scan(page, 'CheckoutPage(有商品)')
+
+    // ★ 比 axe 更严格的断言：可访问名必须是 **label 文案**，不能被 placeholder 顶替。
+    //   实测背景：这 7 个 AppInput 原本 `label[for="v-x"]` 指向**不存在**的 id（EP 的 el-input 吞 id），
+    //   而 input 恰好有 placeholder ⇒ **axe 不报 critical**（axe 允许 placeholder 作可访问名）。
+    //   但真实影响是：屏幕阅读器只听到 placeholder（"Dr. John Smith"），
+    //   **听不到 label 里的必填标记**（"Recipient Name *"）⇒ 必填信息对读屏用户丢失。
+    //   所以这里按可访问名精确定位，而不是只靠 axe 的 0 违规。
+    await expect(
+      page.getByRole('textbox', { name: 'Recipient Name *' }),
+      '收货人输入的可访问名应为 label 文案（含必填星号），而不是 placeholder',
+    ).toBeVisible({ timeout: 10000 })
+
+    // ③ 清空购物车，保证零残留（这条用例会真加购）
+    await page.goto(BASE_URL + '/cart', { waitUntil: 'domcontentloaded' })
+    for (let i = 0; i < 10; i++) {
+      const n = await page.locator('.cart-item').count()
+      if (n === 0) break
+      await page.locator('.cart-item').first()
+        .getByRole('button', { name: /remove|delete|×/i }).click()
+      await page.waitForTimeout(200)
+    }
+  })
+})
+
 test.describe('a11y staff 页扫描（硬断言 0 critical/0 serious）', { tag: ['@readonly', '@local-only'] }, () => {
   test.beforeEach(async ({ page }) => { await loginAsStaff(page) })
   for (const p of STAFF) {

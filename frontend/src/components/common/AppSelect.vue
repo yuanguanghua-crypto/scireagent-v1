@@ -1,11 +1,14 @@
 <template>
   <div class="app-select" :class="{ 'app-select--error': error }">
-    <!-- ★ 2026-10-21 a11y：与 AppInput 同问题（label 无 for、el-select 无 id）
-         修一处，14 个 AppSelect 实例同时受益 -->
+    <!-- ★ 2026-10-21 a11y：与 AppInput 同坑 —— el-select **不吃 id**，只认 aria-label。
+         组件单测实测确认：`aria-label` 会落到内部 `<input role="combobox">` 上（有效）。
+         ⚠️ 原先写的 `|| 'Select an option'` 是**无效兜底**：label 与 placeholder 都为空时，
+            Element Plus 会用它自己的默认 `Please select` 覆盖掉传入值（实测读到 'Please select'）。
+         ⇒ 改成 `|| undefined`，把兜底交给 EP，避免代码与实际行为不符。 -->
     <label v-if="label" class="form-label" :for="selectId">{{ label }}</label>
     <el-select
       :id="selectId"
-      :aria-label="label || placeholder || 'Select an option'"
+      :aria-label="label || placeholder || undefined"
       :model-value="modelValue"
       :placeholder="placeholder"
       :size="size"

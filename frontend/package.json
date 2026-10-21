@@ -14,7 +14,9 @@
     "test:e2e:local": "node e2e/preflight.cjs && node e2e/gate-audit.cjs && node node_modules/@playwright/test/cli.js test -g \"@local-only\" --grep-invert \"@obsolete\" --project=chromium --reporter=line",
     "test:e2e:xtb": "node node_modules/@playwright/test/cli.js test e2e/cross-browser-smoke.spec.cjs --project=chromium --project=firefox --project=webkit --reporter=line",
     "test:e2e:preflight": "node e2e/preflight.cjs",
-    "test:e2e:ci": "node node_modules/@playwright/test/cli.js test e2e/cross-browser-smoke.spec.cjs e2e/a11y.spec.cjs e2e/visual-tokens.spec.cjs --project=chromium --retries=0 --reporter=line"
+    "test:e2e:ci": "node node_modules/@playwright/test/cli.js test e2e/cross-browser-smoke.spec.cjs e2e/a11y.spec.cjs e2e/visual-tokens.spec.cjs --project=chromium --retries=0 --reporter=line",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.12.1",
@@ -34,10 +36,13 @@
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
     "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/test-utils": "^2.5.1",
     "autoprefixer": "^10.4.20",
+    "happy-dom": "^21.0.4",
     "playwright": "^1.61.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.0.0",
-    "vite": "^6.0.5"
+    "vite": "^6.0.5",
+    "vitest": "^5.0.5"
   }
 }
