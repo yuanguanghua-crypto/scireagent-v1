@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 from datetime import timedelta
@@ -8,6 +9,8 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     Order, OrderItem, Invoice, PaymentRecord, ShippingRecord,
@@ -174,6 +177,8 @@ class PoSubmissionService:
             to=[user.email] if getattr(user, 'email', None) else [],
             ctx={'order_no': order.order_no, 'po_number': po_number},
         )
+        logger.info('PO submitted: order_no=%s po_number=%s user_id=%s',
+                      order.order_no, order.po_number, user.id)
         return order
 
     @classmethod
@@ -278,6 +283,8 @@ class InvoiceService:
             ctx={'order_no': order.order_no, 'invoice_no': invoice_no,
                  'due_date': str(due_date)},
         )
+        logger.info('Invoice issued: invoice_no=%s order_no=%s',
+                      invoice.invoice_no, order.order_no)
         return invoice
 
     @classmethod
@@ -530,6 +537,8 @@ class PaymentArService:
                 invoice.order, Order.Status.PAID, actor=actor,
                 action_type=StatusLog.ActionType.INVOICE, note='Invoice paid'
             )
+        logger.info('Payment recorded: invoice_no=%s amount=%s method=%s',
+                      invoice.invoice_no, amount, method)
         return invoice
 
     @staticmethod

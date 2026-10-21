@@ -1,4 +1,5 @@
 """Checkout endpoint — creates order from basket."""
+import logging
 from decimal import Decimal
 from datetime import date, timedelta
 from django.db import transaction
@@ -11,6 +12,8 @@ from core.business_time import business_today
 from apps.transactions.models import Order, OrderItem, Basket, Invoice
 from apps.transactions.services import OrderNoService
 from apps.transactions.api.v1.serializers import CheckoutSerializer, OrderDetailSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class CheckoutView(APIView):
@@ -109,6 +112,8 @@ class CheckoutView(APIView):
             # Clear basket
             basket_items.delete()
 
+        logger.info('Checkout completed: order_no=%s user_id=%s',
+                    order.order_no, order.user_id)
         return Response(
             OrderDetailSerializer(order).data,
             status=status.HTTP_201_CREATED,
