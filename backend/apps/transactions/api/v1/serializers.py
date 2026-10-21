@@ -26,13 +26,29 @@ class OrderItemSerializer(BaseModelSerializer):
     sku_code = serializers.CharField(source='sku.sku_code', read_only=True)
     pack_size = serializers.CharField(source='sku.pack_size', read_only=True)
     sku_available = serializers.SerializerMethodField()  # ★ P1-1：审核台库存可分配量
+    # ★ 2026-10-21 修 D6（P1·合规误标）：前端 `PoOrderDetail.vue:105` 用
+    #   `order.items?.some(it => it.is_ruo !== false)` 决定是否显示
+    #   "For Research Use Only. Not for use in diagnostic or therapeutic procedures."，
+    #   但本序列化器**从未返回 `is_ruo`** ⇒ `undefined !== false` 恒真
+    #   ⇒ **每张订单都显示该声明**，哪怕产品明确不是 RUO。
+    #   三态语义：True=确认 RUO / False=确认非 RUO / None=无法判定（产品已被删，SET_NULL）。
+    #   前端用 `!== false` 判定 ⇒ None 时**保守显示**（合规优先：宁可多声明，不可漏声明）。
+    is_ruo = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
         fields = [
             'id', 'product_id', 'product_name', 'sku_id', 'sku_code', 'pack_size',
-            'quantity', 'unit_price', 'subtotal', 'sku_available',
+            'quantity', 'unit_price', 'subtotal', 'sku_available', 'is_ruo',
         ]
+
+    def get_is_ruo(self, obj):
+        """产品是否「仅限研究用途」。字段来源 `Product.research_use_only`
+        （`apps/commerce/models.py:157`，default=True）。"""
+        product = getattr(obj, 'product', None)
+        if product is None:
+            return None
+        return bool(product.research_use_only)
 
     def get_sku_available(self, obj):
         from apps.inventory.services import InventoryService

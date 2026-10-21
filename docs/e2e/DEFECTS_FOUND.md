@@ -23,7 +23,7 @@
 | D3 | P1 | `/ops/po/invoicing` ~~一开票订单就消失~~ | ✅ **已修 2026-10-21** |
 | D4 | P1 | `/ops/orders` ~~状态筛选缺 PO 流程态（且无分页）~~ | ✅ **已修 2026-10-21** |
 | D5 | P1 | `/po/orders` ~~筛选缺 `quote_pending` / `quoted`~~ | ✅ **已修 2026-10-21** |
-| D6 | P1 | `/po/orders/:id` RUO 声明恒显示 | ⬜ 待修 |
+| D6 | P1 | ~~`/po/orders/:id` RUO 声明恒显示~~ | ✅ **已修 2026-10-21** |
 | D7 | P2 | a11y：25 页 50 处 color-contrast + 1 critical | ⬜ 待修 |
 | D8 | P3 | `PoSubmit.vue:156-159` 死代码 alert | ⬜ 待修 |
 | D9 | P3 | `/po/addresses` 过期 callout 文案 | ⬜ 待修 |
@@ -97,14 +97,19 @@
 | **修法** | ① 补 `LEGACY_STATUS_FILTERS` 并用 `<optgroup>` 渲染；② `poPortal.fetchOrders` 改读**信封** `meta.pagination.count` 并显式传 `page/page_size`；③ 加 `DataPagination`（layout 不含 `sizes`）；④ 切换筛选时**回到第 1 页**（否则停在越界页会显示空表） |
 | **验证** | `order-status-filters.spec.cjs` 3 例：①下拉含 `quote_pending`/`quoted` ②选 `quoted` 后每行都是 Quoted、副标题总单数 > 20 ③能翻到第 2 页看到不同的单 |
 
-## D6 · P1 · `/po/orders/:id` 的 "For Research Use Only" 声明恒显示
+## D6 · P1 · ✅ **已修（2026-10-21）** · `/po/orders/:id` 的 "For Research Use Only" 声明恒显示
 
 | 项 | 内容 |
 |---|---|
 | 现象 | 非 RUO 产品也显示 RUO 声明 |
-| 根因 | `PoOrderDetail.vue:105` 用 `it.is_ruo !== false` 判定，而 `OrderItemSerializer`（`serializers.py:24-35`）**不返回 `is_ruo`** ⇒ `undefined !== false` 恒为真 |
-| 实测 | 明细 `items[]` 里无 `is_ruo` 键 |
+| 根因 | `PoOrderDetail.vue:105` 用 `it.is_ruo !== false` 判定，而 `OrderItemSerializer` **不返回 `is_ruo`** ⇒ `undefined !== false` 恒为真 |
+| 实测（修前） | 明细 `items[]` 里无 `is_ruo` 键；单测报 `KeyError: 'is_ruo'` |
 | 影响 | **合规声明误用**（把非 RUO 试剂标成仅科研用） |
+| **修法** | ① 后端 `OrderItemSerializer` 增加 `is_ruo`（`SerializerMethodField`，来源 `Product.research_use_only`，`apps/commerce/models.py:157`）；② **三态语义**：`True` 确认 RUO / `False` 确认非 RUO / `None` 无法判定（`OrderItem.product` 是 `SET_NULL`，产品被删）⇒ 前端保留 `!== false`，**无法判定时保守显示**（合规优先：宁可多声明，不可漏声明）；③ 前端补注释说明为什么不能"简化"成 `=== true` |
+| **验证（后端）** | `apps/transactions/tests/test_serializers.py::OrderItemIsRuoTest` 3 例（真 / 假 / 产品已删=null）——修前 `KeyError` 红，修后 **17 passed** |
+| **验证（端到端）** | `frontend/e2e/po-ruo-declaration.spec.cjs` 4 例：①接口必须返回布尔 `is_ruo` ②`true` ⇒ 显示 ③`false` ⇒ **不显示**（反向，带"明细表已渲染"对照防白屏）④字段缺失 ⇒ 保守显示。**4 passed** |
+| **变异验证** | 把前端判定改成 `=== true` 重跑 ⇒ 第 4 例精确红（无法判定时不显示了）⇒ 证明该断言钉住了"保守显示"语义；随后按 sha 还原 |
+| ⚠️ 覆盖边界 | dev 库 **127 个产品全是 `research_use_only=True`**，所以"非 RUO 不显示"这条无法用真实数据端到端覆盖 ⇒ 用 `page.route` 注入 `is_ruo=false` 走 UI 判定；后端真实取值由单测覆盖。**零写入** |
 
 ## D7 · P2 · a11y：25 个页面 50 处 `color-contrast` + 1 处 critical 未清
 

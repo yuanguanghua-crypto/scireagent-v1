@@ -132,7 +132,7 @@
 | D3 | P1 | ~~`/ops/po/invoicing` 一开票订单就消失~~ **✅ 已修 10-21**（队列改按状态过滤；E2E 正+反 2 例，含变异验证） |
 | D4 | P1 | ~~`/ops/orders` 状态筛选缺 PO 流程态 + 无分页~~ **✅ 已修 10-21**（词表统一到 poConstants；补分页；E2E 3 例） |
 | D5 | P1 | ~~`/po/orders` 筛选缺 quote_pending/quoted~~ **✅ 已修 10-21**（补 legacy 组 + 修 total + 补分页；E2E 3 例） |
-| D6 | P1 | `/po/orders/:id` 的 "For Research Use Only" **恒显示**（合规声明误用） |
+| D6 | P1 | ~~`/po/orders/:id` RUO 声明恒显示~~ **✅ 已修 10-21**（serializer 加 is_ruo 三态；后端 3 例 + E2E 4 例，含变异验证） |
 | D7 | P2 | a11y：25 页 50 处 color-contrast + 1 处 critical 未清 |
 | D8 | P3 | `PoSubmit.vue:156-159` 第三条 alert 是**死代码** |
 | D9 | P3 | `/po/addresses` 顶部 callout 文案过期（CRUD 其实全通） |
@@ -144,12 +144,11 @@
 
 | # | 任务 | 价值 | 成本 |
 |---|---|---|---|
-| ~~1~~ | ~~修 D1 / D2~~ | ~~最高~~ | **✅ 已完成（2026-10-21）**，见 `DEFECTS_FOUND.md` |
-| ~~1~~ | ~~修 D3~~ | ~~最高~~ | **✅ 已完成（2026-10-21）**：改前端队列过滤即可，无需动 serializer |
-| ~~1~~ | ~~修 D4 / D5~~ | ~~最高~~ | **✅ 已完成（2026-10-21）**：`order-status-filters.spec.cjs` 6 例 |
-| 1 | 修 **D6**（RUO 恒显示） | **最高（合规声明误用）** | 小（serializer 补 `is_ruo`） |
-| 3 | 修 **D7** color-contrast 50 处 | 中 | **大**（动设计令牌，连带 visual-tokens） |
-| 4 | WebKit 跨浏览器（需无代理环境/CI） | 中 | 大（环境依赖） |
+| 1 | 修 **D7** color-contrast 50 处（25 页） | **最高**（现存最大一批，影响真实可读性） | **大**（动设计令牌 `main.css`，连带 `visual-tokens.spec.cjs`） |
+| 2 | 修 **D8/D9/D10**（`PoSubmit` 死代码 alert、`/po/addresses` 过期文案、错误提示不统一只有 4s toast） | 中 | 小（都是局部改动） |
+| 3 | WebKit 跨浏览器（需无代理环境/CI） | 中 | 大（环境依赖） |
+
+**已修完的（2026-10-21 一天内核掉 6 条，2 条 P0）**：D1 跨机构订单可见 · D2 订单第 21 单起不可达 · D3 开票后订单消失 · D4 `/ops/orders` 筛选缺 PO 态+无分页 · D5 `/po/orders` 筛选缺 legacy 态 · D6 RUO 声明恒显示。
 
 ⚠️ 修完缺陷后**必须**把对应用例从"记录现状"改成"断言正确行为"，
 例如 D1 的 `test.fixme` 要去掉变成真断言，否则修了也没人拦。

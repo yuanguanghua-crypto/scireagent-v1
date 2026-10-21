@@ -102,6 +102,9 @@ function statusTransition(log) {
           </tr>
         </tbody>
       </table>
+      <!-- ★ 三态语义（2026-10-21 修 D6）：is_ruo = true/false/none（产品已删）。
+           用 `!== false` 而非 `=== true`：无法判定时**保守显示**声明（合规优先）。
+           依赖后端 `OrderItemSerializer.is_ruo`（此前该字段根本不存在 ⇒ 恒真 ⇒ 每单都显示）。 -->
       <p v-if="order.items?.some(it => it.is_ruo !== false)" class="po-muted" style="margin-top:6px; font-size:12px; color:#888">
         For Research Use Only. Not for use in diagnostic or therapeutic procedures.
       </p>
