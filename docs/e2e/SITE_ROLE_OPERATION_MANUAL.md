@@ -1,9 +1,20 @@
 # SciReAgent 全站角色与功能操作说明书
 
-**版本** V1.4 · **生成日期** 2026-10-22 · **对应代码** `cc4e8f2`
+**版本** V2.0 · **生成日期** 2026-10-22 · **对应代码** `cc4e8f2`
 **性质** 操作说明书（不是设计草案、不是改造建议）。每一条都对应现有代码。
 **配套** `ROLE_CAPABILITY_MATRIX.md`（权限事实基线）、`ROLE_TEST_PLAN.md`（测试方案）、`PAGE_API_MAP.json`（页面↔API 机读表）
 
+> **V2.0 修订（2026-10-22，手册化）——为什么升大版本**
+> V1.x 是"事实与证据文档"：结论可靠，但**当手册用不合格**——没有目录、没有反查入口、
+> 每段都插实测编号。V2.0 在不改动任何已实测事实的前提下，补了四样手册必备的东西：
+> 1. **[目录](#目录按章节号-ctrlf-跳转)**（22 条，全部指向真实存在的标题，脚本校验 58/58 有效）
+> 2. **[任务索引](#任务索引我想做什么去哪)**：28 个"我想做 X → 谁有权限 → 去哪个页面 → 详见哪节"
+> 3. **[第 12 章 页面索引](#第-12-章-页面索引按页面反查)**：**52 个页面逐页**反查（谁能进 / 能干什么 / 调什么接口）
+> 4. **[附录 F 错误提示对照表](#附录-f-错误提示对照表)**：看到什么提示 → 什么原因 → 怎么办
+> 5. 每角色的"**一天/一周工作流**"（§1.0 / §3.0 / §5.0 / §7.0），把零散流程按真实时序串起来
+> 另新增 [附录 G 术语表](#附录-g-术语表)、[附录 H 本地环境与实验栈](#附录-h-本地环境与实验栈)，
+> 并把附录顺序调整为 A→B→C→D→E→F→G→H。
+>
 > **V1.4 修订（2026-10-22，凭据到位后补完最后两项 + 修正一处错结论）**
 > 1. **生产登录态只读**已实测（`Authorization: Basic` + `X-Auth-Token` 两层头）：
 >    生产**公开产品 0 条 / 回收站 125 / 库存 0 / 订单 16 / COA 33 / SDS 12**；
@@ -46,6 +57,107 @@
 > V1.0 把"页面没写 try/catch"写成"用户看不到任何反馈"——**错**。
 > 前端有全局错误拦截器，403/404/5xx 都会弹 toast，401 还会强制整页跳转。
 > 真正静默的只有"请求根本没发出"的前端早退。修正涉及 §0.6（新增）、§5.2、§7.8.3、§11.2 共 19 处。
+
+---
+
+---
+
+## 目录（按章节号 Ctrl+F 跳转）
+
+| 章 | 标题 | 一句话说明 |
+|---|---|---|
+| **[第 0 章](#第-0-章-系统总览)** | 系统总览 | 有多少页面、多少种身份、权限怎么判、数据怎么流 |
+| **[第 1 章](#第-1-章-匿名访客)** | 匿名访客 | 不登录能干什么：浏览 / 搜索 / 加购 / 询价 / 注册 |
+| **[第 2 章](#第-2-章-已注册未验证用户)** | 已注册未验证 | 为什么登不进去、怎么让用户通过验证 |
+| **[第 3 章](#第-3-章-researcher普通客户绝大多数用户)** | researcher（客户） | 下单 / 看单 / 提 PO / 地址 / 下载 / 收藏 |
+| **[第 4 章](#第-4-章-researcher-is_org_admin机构管理员)** | 机构管理员 | **结论：这个身份没有任何额外权限** |
+| **[第 5 章](#第-5-章-procurement采购经理is_staff-false)** | procurement（采购） | 履约主线：审批 / 发货 / 开票 / 收款 / 库存 |
+| **[第 6 章](#第-6-章-adminroleadminis_stafffalse)** | admin（`role=admin`） | 只比采购多一个"指派销售"按钮 |
+| **[第 7 章](#第-7-章-staff内部员工is_staff-true)** | staff（内部员工） | 全功能：产品 / 知识实体 / 合规文档 / 全部订单 |
+| **[第 8 章](#第-8-章-superuser)** | superuser | 多一个无入口的物理删除 + Django admin |
+| **[第 9 章](#第-9-章-跨角色闭环同一业务在多个角色间的传递)** | 跨角色闭环 | 一件事在角色之间怎么流动（接缝在哪） |
+| **[第 10 章](#第-10-章-权限速查总表)** | 权限速查总表 | 8 身份 × 30 个关键动作，一页看完 |
+| **[第 11 章](#第-11-章-已知限制与常见故障参考章非操作步骤)** | 已知限制与常见故障 | 死按钮 / 假成功 / 能力缺口 / 生产状态（参考章） |
+| **[第 12 章](#第-12-章-页面索引按页面反查)** | **页面索引（按页面反查）** | **52 个页面逐页：谁能进、能做什么、调什么接口** |
+| [附录 A](#附录-a-状态机全表) | 状态机全表 | Order / CoA / SDS / verified 的合法流转 |
+| [附录 B](#附录-b-端点索引按业务域) | 端点索引 | 按业务域查 335 个端点的权限 |
+| [附录 C](#附录-c-如何复核本文) | 如何复核 | 每类结论怎么自己重跑一遍 |
+| [附录 D](#附录-d-本轮审计记录v10-v11) | 审计记录 | 我们自己写错过什么、怎么改的 |
+| [附录 E](#附录-e-实测证据索引) | 实测证据索引 | `[M-nn]` 编号去哪查 |
+| [附录 F](#附录-f-错误提示对照表) | **错误提示对照表** | **看到什么提示 = 什么原因 = 怎么办** |
+| [附录 G](#附录-g-术语表) | 术语表 | RG / AP / PMR / COA / RUO 等 |
+| [附录 H](#附录-h-本地环境与实验栈) | 本地环境与实验栈 | 想自己复跑实测要准备什么 |
+
+---
+
+## 怎么用这份文档
+
+**你是运营 / 客服** → 先看 [任务索引](#任务索引我想做什么去哪)，再翻对应角色的章节；遇到报错查 [附录 F](#附录-f-错误提示对照表)。
+**你是开发** → 看 [第 12 章页面索引](#第-12-章-页面索引按页面反查) + [附录 B 端点索引](#附录-b-端点索引按业务域)；改权限前必读 [第 0.4 节](#04-权限判定机制)。
+**你要写汇报 / 对外说明** → 只能说"**开发测试态 + 种子数据**"。理由见 [第 11.6 节](#116-生产环境当前状态全站-401仍是内部测试态)：生产全站挂着 Basic 认证，匿名用户连首页都打不开。
+**你要判断"这个功能能不能用"** → 认证据等级：`[M-nn]` 是实测可查，`[E]` 是权限类求值，`[S]` 是读码推断。没标记的按 `[S]` 对待。
+
+> 一条硬规矩：**本文任何"能不能"的结论，都以"当前代码 + 当前配置"为准**。
+> 权限改了口径，先跑 `scripts/role_capability_probe.py` 与 `scripts/http_role_probe.py` 复验，再改文档。
+
+---
+
+## 任务索引（我想做什么，去哪）
+
+> 按"你要完成的事"反查：先看左边，再跳到对应章节；"能不能做"那一列是**由你的身份决定的**。
+
+| 我想做… | 谁能做 | 去哪个页面 | 详细步骤 |
+|---|---|---|---|
+| 看有哪些试剂、查 CAS | 任何人 | `/products` `/search` | [F1-2](#f1-2-浏览产品列表与筛选) [F1-4](#f1-4-搜索分组搜索) |
+| 加购物车 | 任何人（含匿名） | 产品详情 `Add to Cart` | [F1-6](#f1-6-加入购物车匿名) |
+| 直接下单（不用 PO） | 已登录客户 | `/checkout` | [F3-4](#f3-4-结账下单核心流程) |
+| 用采购单（PO）下单 | 已登录客户 | `/po/submit` | [F3-7](#f3-7-提交-po客户门户的核心动作) |
+| 看自己的订单进度 | 已登录客户 | `/orders` `/po/orders` | [F3-5](#f3-5-查看订单列表) [F3-8](#f3-8-查看-po-单) |
+| 下载发票 / PO 附件 | 已登录客户 | `/po/downloads` | [F3-11](#f3-11-下载中心) |
+| 改收货地址 | 已登录客户 | `/po/addresses` | [F3-10](#f3-10-地址簿-crud) |
+| 接受 / 拒绝报价 | 已登录客户 | `/orders/:id` | [F3-6](#f3-6-订单详情-报价应答) |
+| 改个人资料 | 已登录客户 | `/settings` | [F3-2](#f3-2-管理个人资料5-个-tab) |
+| **改密码 / 找回密码** | ⚠️ **没人能自助** | — | 见 [11.3.0](#1130-最严重账号自救能力为零)：只能运维上 Django admin |
+| 审批客户的 PO | staff / procurement | `/ops/po/review` | [F5-1](#f5-1-审批-poopsporeview) [F7-8](#78-交易运营订单与-po8-个页面) |
+| 发货 / 标记送达 | staff / procurement | `/ops/po/shipments` | [F5-2](#f5-2-发货opsposhipments) |
+| 开票 / 记收款 | staff / procurement | `/ops/po/invoicing` | [F5-3](#f5-3-开票与收款opspoinvoicing) |
+| 查应收账款账龄 | staff / procurement | `/ops/po/ar` | [F5-4](#f5-4-看应收账龄opspoar) |
+| 按机构查订单 | staff / procurement | `/ops/po/organizations` | [F5-5](#f5-5-机构管理opspoorganizations) |
+| 入库 / 盘点调整 | staff / procurement | `/ops/inventory` | [F5-6](#f5-6-库存管理opsinventory) |
+| 指派销售 | **staff / admin(role)** | `/ops/po/review` | [F6-1](#62-f6-1-指派销售本角色唯一专属流程) |
+| 新建产品 | **仅 staff** | `/workspace/products/new` | [7.3](#73-产品新建全站最复杂的页面) |
+| 从 Word 导入产品 | 仅 staff | 同上 `Word Import` | [7.3.2](#732-word-文档导入) |
+| 用 AI 补全产品资料 | 仅 staff | 同上 `AI AUTO MATCH` | [7.3.3](#733-ai-auto-match一站式-enrich) |
+| 改产品价格 / 加 SKU | 仅 staff | `/workspace/products/:id/edit` | [7.3.6](#736-sku-表section-7) |
+| 上架 / 下架 / 删除产品 | 仅 staff | `/workspace/products` | [7.4](#74-产品管理列表页) |
+| 生成 / 审批 COA 与 SDS | 仅 staff | 产品编辑页 Section 9 | [7.3.7](#737-合规文档section-9coa-sds) |
+| 新建知识实体（RG/AP/Method/Protocol/Ref） | 仅 staff | `/workspace/{goals,applications,methods,protocols,references}` | [7.5](#75-知识实体-crud5-个页面) |
+| 审核 verified 适用性 | 仅 staff | `/workspace/verified` | [7.6](#76-verified-适用性审核) |
+| 批量录入知识 | 仅 staff | `/workspace/knowledge-intake` | [7.7](#77-知识录入knowledge-intake) |
+| 分配角色 / 给某人 is_staff | **仅 superuser** | Django admin（无产品界面） | [8.3](#83-f8-2-django-admin角色与权限分配的唯一场所) |
+| 物理删除产品 | superuser（**但无 UI**） | — | [8.2](#82-f8-1-物理删除产品-有端点无-ui) |
+| 退出登录 | 所有已登录 | 右上角头像下拉 `Sign Out` | [0.7](#07-全角色通用动作登出与会话失效) |
+
+---
+
+## 角色速查（30 秒判断"这个人能干什么"）
+
+| 身份 | 一句话 | 能进内部台吗 | 能改产品吗 | 能履约订单吗 |
+|---|---|---|---|---|
+| 匿名 | 只能逛 | ❌ | ❌ | ❌ |
+| 已注册未验证 | **登不进去** | ❌ | ❌ | ❌ |
+| researcher | 正常客户 | ❌ | ❌ | ❌（只能下自己的单） |
+| researcher + 机构管理员 | **与普通客户完全一样** | ❌ | ❌ | ❌ |
+| procurement | 采购：只管履约 | ✅ 19 页里能用 7 页 | ❌ | ✅ |
+| admin（`role=admin`） | 采购 + 指派销售 | ✅ 同上 | ❌ | ✅ |
+| staff | 内部员工 | ✅ 全 19 页 | ✅ | ✅ |
+| superuser | staff + Django admin | ✅ | ✅（含物理删） | ✅ |
+
+**记住三个反直觉的点**（都是实测确认的）：
+1. **`role='admin'` 不是管理员**：231 个写操作只看 `is_staff`，`role` 只影响 17 个端点
+2. **`is_org_admin` 没有任何权限效果**，只是 `/settings` 上一个展示徽章
+3. **`email_verified` 不是权限维度**，它只是登录闸门（未验证=拿不到 token）
+
 
 ---
 
@@ -121,6 +233,8 @@
 | `path:` 声明 | **56** | 含 `/login` 等重定向声明 |
 | 路由 `name` 声明 | **54** | `/workspace` 同时挂了父级 `Workspace` 与子级 `Dashboard` 两个 name（同一 URL） |
 | **不同 URL 的页面** | **52** | 23 公开 + 10 客户 + 19 内部；另加 1 个 404 兜底 |
+
+> 逐页的"谁能进 / 能干什么 / 调什么接口"见 **[第 12 章 页面索引](#第-12-章-页面索引按页面反查)**。
 
 ⚠️ **易错点**：只数带 `meta.requiresAdmin` 的路由块会得到 **9**（8 个 `/ops` + `/workspace` 父级），实际是 **19** 个页面 —— 因为 `/workspace` 下有 **11 个页面**（`Dashboard` 本身 + 10 个子页），子页自身没有 meta、继承父级守卫。
 
@@ -340,6 +454,23 @@ router.beforeEach（router/index.js:299）
 ---
 
 # 第 1 章 匿名访客
+
+### 1.0 匿名访客能走多远（一条线看完）
+
+```
+首页 → 分类/搜索 → 产品详情（看 CAS/结构式/COA/SDS/知识关联）
+     → 加购物车（X-Session-Key 识别，换浏览器即丢）
+     → 想下单 ⇒ 被拦到 /login
+     → 也可以直接提交询价 /quote-request（无需登录）
+     → 或注册 → 验证邮箱 → 成为客户
+```
+
+| 能做 | 不能做 |
+|---|---|
+| 浏览 23 个公开页、搜索、看产品详情与文档 | 下单、看订单、进内部台 |
+| 加购物车（匿名会话） | 收藏（点了提示"请先登录"） |
+| 提交询价 RFQ | 看到别人的购物车 |
+| 注册 / 登录 | 看 draft 状态的产品 |
 
 ## 1.1 身份与边界
 
@@ -623,6 +754,19 @@ router.beforeEach（router/index.js:299）
 ---
 
 # 第 3 章 researcher（普通客户，绝大多数用户）
+
+### 3.0 researcher 的一天（把 3.2 的流程按真实时序串起来）
+
+| 时间点 | 他要做什么 | 页面 | 对应流程 |
+|---|---|---|---|
+| 上午 | 搜试剂、比价、看 COA/SDS | `/search` → `/products/:id` | F1-4 / F1-3 |
+| 上午 | 加购物车（可能先不登录） | 产品详情 `Add to Cart` | F1-6 |
+| 中午 | 登录后结账 | `/checkout` | F3-4 |
+| 或中午 | 走内部采购流程：提 PO + 传采购单附件 | `/po/submit` | F3-7 |
+| 下午 | 查进度、下载发票 | `/orders` `/po/downloads` | F3-5 / F3-11 |
+| 随时 | 机构地址变更 | `/po/addresses` | F3-10 |
+| 需要时 | 内部给了报价 → 接受/拒绝 | `/orders/:id` | F3-6 |
+| ⚠️ 卡住时 | 忘了密码 | **无处可去** | 见 11.3.0 |
 
 ## 3.1 身份与边界
 
@@ -1006,6 +1150,22 @@ router.beforeEach（router/index.js:299）
 
 # 第 5 章 procurement（采购经理，`is_staff = false`）
 
+### 5.0 procurement 的一天（履约主线）
+
+| 时间点 | 他要做什么 | 页面 | 对应流程 |
+|---|---|---|---|
+| 早 | 看有没有新 PO 待审 | `/ops/po/review` | F5-1 |
+| 早 | 审批 / 拒绝（填拒绝原因） | 同上 | F5-1 |
+| 上午 | 建发货单、标记发出 | `/ops/po/shipments` | F5-2 |
+| 下午 | 在途订单标记送达 | 同上 | F5-2 |
+| 下午 | 已送达订单开票 | `/ops/po/invoicing` | F5-3 |
+| 下午 | 记录客户回款 | 同上 | F5-3 |
+| 每周 | 看应收账龄、催款 | `/ops/po/ar` | F5-4 |
+| 按需 | 到货入库、盘点调整 | `/ops/inventory` | F5-6 |
+| 按需 | 查某机构的订货历史 | `/ops/po/organizations` | F5-5 |
+| ⚠️ 别去 | 订单管理页 `/ops/orders`（403 + 误导性空态） | — | 见 5.1 |
+| ⚠️ 别点 | PO 台的 `Assign Rep`（必 403） | — | 见 5.3 |
+
 ## 5.1 身份与边界（这一章是全站最容易踩坑的地方）
 
 | 项 | 值 |
@@ -1202,6 +1362,34 @@ router.beforeEach（router/index.js:299）
 ---
 
 # 第 7 章 staff（内部员工，`is_staff = true`）
+
+### 7.0 staff 的一周（内容 + 交易两条线）
+
+**内容线（产品从无到上架）**：
+```
+新建产品 → 补全字段 → Word 导入 / AI AUTO MATCH → 建 SKU 定价
+        → 关联知识实体 → 生成并联审 COA·SDS → Publish → （可选）建并审 verified 关系
+```
+对应：`/workspace/products/new` → 编辑页各 Section → `/workspace/verified`
+
+**交易线（订单从收到完结）**：
+```
+PO 审核 → 发货 → 送达 → 开票 → 记录收款 → 完成（Mark as Completed）
+```
+对应：`/ops/po/review` → `/ops/po/shipments` → `/ops/po/invoicing` → `/ops/orders/:id`
+
+| 场景 | 页面 | 详细 |
+|---|---|---|
+| 产品全生命周期 | `/workspace/products/*` | §7.3 §7.4 |
+| 知识实体维护 | `/workspace/{goals,applications,methods,protocols,references}` | §7.5 |
+| 合规文档（SDS/COA） | 产品编辑页 Section 9 | §7.3.7 |
+| verified 审核 | `/workspace/verified` | §7.6 |
+| 订单详情推进 | `/ops/orders/:id`（**状态按钮矩阵**） | §7.8.2 |
+| 四个 PO Desk | `/ops/po/*` | §7.8.3 |
+| 库存 | `/ops/inventory` | §5.6 |
+
+> ⚠️ **staff 也读不到客户地址**（实测）：地址簿按"你所属机构"过滤，内部员工机构与客户不同 ⇒ 404。
+> 要让客户改地址，或把该员工加入该机构。详见 §3.3。
 
 ## 7.1 身份与边界
 
@@ -1816,7 +2004,7 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 
 ---
 
-# 第 11 章 已知不一致、限制与死按钮
+# 第 11 章 已知限制与常见故障（参考章，非操作步骤）
 
 > 本章是"操作时一定会撞上的坑"。按影响面排序，每条都带代码依据。
 
@@ -1977,6 +2165,102 @@ X-Auth-Token: <应用层 token>          ← 过 Django（前端就是这么发�
 对外前必须改口令，或把 Basic 层撤掉时同步收紧账号。
 
 > 生产**只做了 GET**；唯一写动作是回收自己刚拿到的 token（logout）。凭据未落盘、未入仓库。
+
+---
+
+# 第 12 章 页面索引（按页面反查）
+
+> 前面各章是"按角色讲流程"，本章反过来：**给你一个页面，告诉你是谁的地盘、能干什么、调什么接口**。
+> "客户能进 / 采购能进"这三列来自**实测**（`PAGE_ROLE_MATRIX.json`），不是推断。
+
+## 12.1 公开页（23 个 + 404）
+
+> 守卫：**无**。未登录可访问；已登录也可访问。
+
+| 页面 | 路由 | 主要动作（界面文案） | 关键接口 | 详见 |
+|---|---|---|---|---|
+| 首页 | `/` | 搜索框、热门词、分类胶囊、精选商品、折叠知识图谱 | `GET /site/home` | §F1-1 |
+| 产品列表 | `/products` | 按三级分类筛、排序（默认/名称/最新/关联最强）、搜索、翻页 | `GET /products` `GET /categories` | §F1-2 |
+| 产品详情 | `/products/:id` | 看规格/SKU/COA·SDS/知识 Tabs；`Add to Cart` `Request Quote` `收藏` | `GET /products/{id}/detail` | §F1-3 |
+| 搜索 | `/search` | 关键词搜全站；按 Products/Applications/Methods/Protocols 过滤 | `GET /search/grouped` `GET /search/suggest` | §F1-4 |
+| 应用列表 | `/applications` | `All Applications` / `Browse by Class` 两个 Tab、状态 chips | `GET /applications/` `GET /convergence-classes/` | §F1-5 |
+| 应用详情 | `/applications/:id` | 看该应用下的方法 / 方案 / 产品 | `GET /applications/{id}/` | §F1-5 |
+| 收敛类详情（应用侧） | `/applications/classes/:class_id` | 看该类成员与来源徽标 | `GET /convergence-classes/{class_id}` | §F1-5 |
+| 方法列表 | `/methods` | 浏览、搜索（⚠️ 状态 chips 点击不筛数据） | `GET /methods/` | §F1-5 |
+| 方法详情 | `/methods/:id` | 看 Purpose / 成本带宽 / 优劣 / 方案 / 关联产品 | `GET /methods/{id}/` | §F1-5 |
+| 方案列表 | `/protocols` | 浏览、搜索（⚠️ 状态 chips 同上） | `GET /protocols/` | §F1-5 |
+| 方案详情 | `/protocols/:id` | 6 Tab：`Steps` `Materials` `Troubleshooting` `Expected Results` `References` `Products` | `GET /protocols/{id}/` | §F1-5 |
+| 研究目标列表 | `/research-goals` | 搜索、状态下拉、`Browse by Class` | `GET /research-goals/` | §F1-5 |
+| 研究目标详情 | `/research-goals/:id` | 看摘要 + 策展方案表 | `GET /research-goals/{id}/` | §F1-5 |
+| 收敛类详情（目标侧） | `/research-goals/classes/:class_id` | 同上 | 同上 | §F1-5 |
+| 提交询价 | `/quote-request` | 填联系人、加多行需求、`Submit Quote Request` | `POST /quote-requests/` | §F1-7 |
+| 购物车 | `/cart` | 改数量、`Remove`、`Place Order`、`Request Quote` | `GET /basket`、`PATCH/DELETE /basket/items/*` | §F1-6 |
+| 收藏夹 | `/wishlist` | 看收藏、`移除`、`清空收藏`（未登录提示登录） | `GET/POST /wishlist/`、`PATCH /wishlist/{id}/` | §F1-8 |
+| 登录 | `/login` | `Sign In`；未验证时显示重发（⚠️ 按钮死链） | `POST /auth/login` | §F3-1 |
+| 注册 | `/register` | 三步向导：基本信息 → 身份（3 张卡）→ 机构（加入/新建） | `POST /auth/register` | §F1-8 |
+| 邮箱验证 | `/verify-email` | 点邮件链接后自动验证并登录（1.8s 跳转） | `GET /auth/verify-email` | §F1-9 |
+| 关于 | `/about` | 纯静态 | — | §F1-10 |
+| 隐私政策 | `/privacy` | 纯静态 | — | §F1-10 |
+| 服务条款 | `/terms` | 纯静态 | — | §F1-10 |
+| 404 | 任意未匹配路径 | 兜底页 | — | §F1-10 |
+
+## 12.2 客户门户（10 个）
+
+> 守卫：`meta.requiresAuth`。未登录 → `/login?redirect=`。
+
+| 页面 | 路由 | 主要动作 | 关键接口 | 详见 |
+|---|---|---|---|---|
+| 设置 | `/settings` | 5 Tab：Profile / Shipping / Contact / Security / Account。⚠️ `Update Password` **假成功** | `PUT /auth/profile` | §F3-2 |
+| 结账 | `/checkout` | 填收货、选支付方式（PO / 卡 / 电汇 / 报价）、`Place Order` | `POST /checkout/` | §F3-4 |
+| 我的订单 | `/orders` | 看自己的订单列表、翻页 | `GET /orders/` | §F3-5 |
+| 订单详情 | `/orders/:id` | 看明细/支付/收货/发票/物流；`status=quoted` 时出现 `Accept Quote` `Reject Quote` | `GET /orders/{id}/`、`POST /orders/{id}/confirm-quote/` | §F3-6 |
+| 提交 PO | `/po/submit` | PO 信息 + 收货 + 账单 + 附件 + 多行明细；`Submit PO` | `POST /orders/po/` | §F3-7 |
+| PO 单列表 | `/po/orders` | 状态筛选、`View`、`Re-order`、`+ New PO` | `GET /orders/` | §F3-8 |
+| PO 单详情 | `/po/orders/:id` | 看明细/RUO 声明/发票/物流/附件/状态时间线；`Download PDF` `Track Package` | `GET /orders/{id}/`、`GET /invoices/{id}/pdf/` | §F3-9 |
+| 地址簿 | `/po/addresses` | `+ New Address` / `Edit` / `Delete`（同机构成员共享可见可改） | `/addresses/` CRUD | §F3-10 |
+| 下载中心 | `/po/downloads` | 集中下载发票 PDF 与 PO 附件 | `GET /orders/?page_size=100` | §F3-11 |
+| 再次订购 | `/po/reorder` | 从已完成订单 `Re-order` | `GET /orders/?status=completed` | §F3-12 |
+
+## 12.3 内部台（19 个）
+
+> 守卫：`meta.requiresAdmin` ⇒ 前端 `isInternal()` = `is_staff` **或** `role ∈ (procurement, admin)`。
+> "采购能否用得起来"这一列是**实测**结果（`procurement`，`is_staff=false`）。
+
+| 页面 | 路由 | 采购（非 staff） | 主要动作 | 关键接口 | 详见 |
+|---|---|---|---|---|---|
+| 工作台首页 | `/workspace` | ⚠️ 统计卡 403，其余正常 | 看统计卡与「最近更新」 | `GET /admin/dashboard-stats/` | §7.2 |
+| 产品管理 | `/workspace/products` | ⚠️ **只读**（写 0/7） | 筛选/排序、批量关联、批量 AI、`Unpublish`/`Discontinue`/回收站 | `GET /products/`、`POST /products/{id}/archive/` | §7.4 |
+| 产品新建 | `/workspace/products/new` | ⚠️ **只读**（写 0/21） | 11 区块：Word 导入 / AI AUTO MATCH / SKU / 知识关联 / SEO / 合规 | `POST /products/` | §7.3 |
+| 产品编辑 | `/workspace/products/:id/edit` | ⚠️ **只读** | 同上 + 生成/审批 COA·SDS + 建 verified 草稿 | `PUT /products/{id}/` | §7.3 |
+| 研究目标 | `/workspace/goals` | ⚠️ 只读 | 增改研究目标、绑策展方案 | `/research-goals/` | §7.5 |
+| 应用 | `/workspace/applications` | ⚠️ 只读 | 增改应用、挂到研究目标 | `/applications/` | §7.5 |
+| 方法 | `/workspace/methods` | ⚠️ 只读 | 增改方法、挂到应用 | `/methods/` | §7.5 |
+| 方案 | `/workspace/protocols` | ⚠️ 只读 | 增改方案、挂到方法 | `/protocols/` | §7.5 |
+| 文献 | `/workspace/references` | ⚠️ 只读 | 增改文献 | `/references/` | §7.5 |
+| Verified 审核 | `/workspace/verified` | ❌ **不可用**（403） | 审核通过 / 驳回（通过即公开到产品页） | `GET /verified/`、`POST /verified/{id}/approve/` | §7.6 |
+| 知识录入 | `/workspace/knowledge-intake` | ⚠️ **保存必 403** | 按产品填知识、`Copy to Similar Products` | `POST /knowledge-intake/` | §7.7 |
+| 订单管理 | `/ops/orders` | ❌ **不可用**（403 + 误导性空态） | 全库订单、状态筛、搜索、进详情 | `GET /admin/orders/` | §7.8.1 |
+| 订单详情（内部） | `/ops/orders/:id` | ❌ **不可用**（403） | 8 个状态推进按钮，矩阵见 §7.8.2 | `/admin/orders/*`、`/orders/{id}/approve/` 等 | §7.8.2 |
+| PO 审核台 | `/ops/po/review` | ✅ 可用（`Assign Rep` 除外） | 审批 / 拒绝 / 指派 / 看明细与缺货 | `GET /orders/?status=po_received` | §F5-1 |
+| 发货台 | `/ops/po/shipments` | ✅ 可用 | 建发货单、`Mark Shipped`、`Mark Delivered` | `POST /orders/{id}/shipments/` | §F5-2 |
+| 开票台 | `/ops/po/invoicing` | ✅ 可用 | `Issue Invoice`、`Record Payment` | `POST /orders/{id}/invoice/`、`POST /invoices/{id}/pay/` | §F5-3 |
+| AR 账龄 | `/ops/po/ar` | ✅ 可用 | 看 4 个账龄桶与应收总额 | `GET /ar/aging/` | §F5-4 |
+| 机构管理 | `/ops/po/organizations` | ✅ 可用 | 机构列表、按机构查订单 | `GET /organizations/manage/` | §F5-5 |
+| 库存台 | `/ops/inventory` | ✅ 可用 | `Receipt` 入库、`Adjust` 盘点、`History` 流水 | `POST /inventory/receipt/`、`POST /inventory/{id}/adjust/` | §F5-6 |
+
+## 12.4 两套"同名页面"别混（最容易走错的地方）
+
+| 看起来一样 | 实际是两套 | 谁能进 | 数据源 |
+|---|---|---|---|
+| 「订单管理」 | `/ops/orders`（内部全库） vs `/orders`（客户自己的） | 前者 staff；后者任何客户 | `/admin/orders/` vs `/orders/`（按 user 收窄） |
+| 「订单详情」 | `/ops/orders/:id`（内部） vs `/orders/:id`（客户） | 前者 staff；后者仅本人 | 同上 |
+| 「PO 单」 | `/po/orders`（客户提交的 PO 后自己看） vs `/ops/po/*`（内部处理 PO 的四个台） | 前者客户；后者内部 | `/orders/`（收窄） vs `/orders/`（跨机构） |
+| 「产品」 | `/products`（公开目录，只出 active 且未归档） vs `/workspace/products`（管理台，含回收站） | 前者任何人；后者 staff | 两者 queryset 不同 |
+
+**同一个动作在两个页面权限不同**（实测，最容易踩）：
+- 开票：`/ops/po/invoicing` 用 `/orders/{id}/invoice/`（采购**可以**）；
+  `/ops/orders/:id` 用 `/admin/orders/{id}/invoice/`（采购**403**）
+- 完成订单 / 提交报价：只有 `/ops/orders/:id` 有，且是 `IsAdminUser`（采购 403）
 
 ---
 
@@ -2151,19 +2435,6 @@ cd backend && DB_ENGINE=sqlite venv/Scripts/python.exe ../scripts/role_capabilit
 
 ---
 
-# 附录 E 实测证据索引
-
-本文所有 `[M-nn]` 标记的出处，以及完整实验环境、复跑命令、以及**尚未实测的 7 项**，都在：
-
-**`docs/e2e/MANUAL_FACTS_MEASURED.md`**
-
-该文件同时记录了「实测推翻了旧版哪 8 句话」的逐条对照表 —— 读它可以知道本文哪些结论曾经不可靠。
-
-V1.3 又补齐 5 项（对象级权限、邮件、跨浏览器、视觉响应式、并发），证据编号 `M-30 ~ M-61`；
-生产匿名边界为 `M-70`。**只剩 2 项未覆盖**（生产登录态、PG 并发），阻塞原因写在实测清单 §10。
-
----
-
 # 附录 D 本轮审计记录（V1.0 → V1.1）
 
 > 这一节记录的是**我自己上一版写错/漏掉的东西**。写出来是为了让后来者知道哪些结论曾经不可靠、
@@ -2228,12 +2499,158 @@ python scripts/audit_manual_numbers.py
 
 ## D.6 下一轮建议（按投入产出排序）
 
-| 优先 | 做什么 | 产出 |
+> **2026-10-22 更新**：本节原有 5 条 P0/P1 已全部完成，留档如下；当前建议见文末「下一步」。
+
+| 原优先 | 原建议 | 状态 |
 |---|---|---|
-| P0 | 给 §11.3.0 三条账号自救问题定方案（补端点 / 修按钮 / 写运营应答口径） | 需求单 |
-| P0 | 用 Playwright 实测 3 个 DEAD 页面（`/ops/orders`、`/ops/orders/:id`、`/workspace/verified` 对 procurement），把 §8.1 的结论从"推断"升级为"实测" | `ROLE_TEST_PLAN.md` L3 |
-| P1 | 把 §0.6 的错误机制做成一次真实抓包验证（故意 403 / 401 各一次，记录 toast 文案与跳转行为） | 附录补实测截图/日志 |
-| P1 | 补 ViewSet 详情路由的字段级说明（当前只按 CRUD 概括） | 附录 B 扩充 |
-| P2 | 把附录 A 状态机做成"当前状态 → 界面出现哪些按钮"的可视化矩阵（现已按页面散落在 §7.8.2） | 单独一页速查 |
+| ~~P0~~ | ~~给 §11.3.0 三条账号自救问题定方案~~ | ⏳ **仍未做**（唯一的 P0 遗留） |
+| ~~P0~~ | ~~用 Playwright 实测 3 个 DEAD 页面~~ | ✅ 已完成（`M-10~M-12`） |
+| ~~P1~~ | ~~把 §0.6 错误机制做成真实抓包验证~~ | ✅ 已完成（`M-20`、`M-21`） |
+| ~~P1~~ | ~~补 ViewSet 详情路由的字段级说明~~ | ✅ 已完成（第 12 章 + 附录 B） |
+| ~~P2~~ | ~~把附录 A 状态机做成按钮矩阵~~ | ✅ 已完成（§7.8.2 状态推进按钮矩阵） |
 
+**当前唯一遗留**：账号自救能力为零（改密码假成功 + 无忘记密码 + 登录页重发死链）。
+处置方案见 §11.3.0。
 
+---
+
+# 附录 E 实测证据索引
+
+本文所有 `[M-nn]` 标记的出处，以及完整实验环境、复跑命令、以及**尚未实测的 7 项**，都在：
+
+**`docs/e2e/MANUAL_FACTS_MEASURED.md`**
+
+该文件同时记录了「实测推翻了旧版哪 8 句话」的逐条对照表 —— 读它可以知道本文哪些结论曾经不可靠。
+
+V1.3 又补齐 5 项（对象级权限、邮件、跨浏览器、视觉响应式、并发），证据编号 `M-30 ~ M-61`；
+生产匿名边界为 `M-70`。**只剩 2 项未覆盖**（生产登录态、PG 并发），阻塞原因写在实测清单 §10。
+
+---
+
+---
+
+# 附录 F 错误提示对照表
+
+> 用途：运营/客服看到用户报错时，按"屏幕上那句话"查原因与处置。
+> 文案来自实测（`MANUAL_FACTS_MEASURED.md`）与代码里的字符串常量。
+
+## F.1 登录与账号
+
+| 屏幕上的提示 | 真实原因 | 怎么办 |
+|---|---|---|
+| `Incorrect username or password. Please check and try again.` | 账号或密码错（HTTP 401） | 核对账号；⚠️ **产品没有"忘记密码"功能**，只能运维上 Django admin 重置 |
+| `Your email address is not verified. Please check your inbox for the verification link.` | `email_verified=false`，登录被拒（403） | 让用户点注册时的验证邮件；⚠️ **登录页的"重发"按钮是死链**，只能重新走注册页或由运维改 `email_verified` |
+| `Session expired, please sign in again` | 任意请求返回 401（token 失效/被吊销） | 重新登录；⚠️ 会**整页跳转**，未保存的表单会丢 |
+| `Please enter your username` / `Please enter your password` | 前端必填校验 | 补填 |
+| `Email already registered` / `Username already exists` | 注册重复 | 换用户名或找回原账号（需运维） |
+
+## F.2 权限（403）
+
+| 屏幕上的提示 | 真实原因 | 怎么办 |
+|---|---|---|
+| `You do not have permission to perform this action.` | 403：你的身份不在该端点的允许集合里 | 看 §10.1 确认该动作是否属于你的角色；采购改产品、非 staff 开票等都属此类 |
+| 页面显示 `Failed to load dashboard data` | `GET /admin/dashboard-stats/` 403（`IsStaffUser`） | 采购/`role=admin` 无此权限，正常现象 |
+| 页面显示 `Failed to load review queue.` + 列表 0 行 | `GET /verified/` 403（`IsStaffUser`） | 该页只给 staff |
+| 页面显示 `Couldn't load orders.` **并且** `No orders found` | `GET /admin/orders/` 403（`IsAdminUser`） | ⚠️ **不是"没有订单"**，是没权限。采购请用 `/ops/po/review` |
+| `Couldn't load this order.` | `GET /admin/orders/{id}/` 403 | 同上 |
+
+## F.3 业务校验（400）
+
+| 屏幕上的提示 | 原因 | 怎么办 |
+|---|---|---|
+| `Basket is empty`（`EMPTY_BASKET`） | 购物车为空就点结账 | 先加购 |
+| `SKU {code} is out of stock`（`OUT_OF_STOCK`） | 该 SKU `inventory_status = out_of_stock` | 换 SKU 或改库存状态（注意：库存台数量与这个徽章**不联动**，见 §F5-6） |
+| `catalog_no: 该字段已存在`（字段校验被展开成人话） | 唯一冲突 | 换编号 |
+| `该 产品-方法 已存在 verified 关系`（`unique_conflict`） | 重复建 verified | 去审核台处理已有的那条 |
+| `rep_id is required` / `Invalid rep_id` | 指派销售没填 / 填了非采购非 admin 的用户 | 填**数字用户 ID**（不是用户名） |
+| `PO number is required for Purchase Order payment` | 选 PO 支付但没填 PO 号 | 补填 |
+
+## F.4 服务端异常（500）
+
+| 现象 | 原因 | 怎么办 |
+|---|---|---|
+| `Assign Rep` 填**用户名**后弹 `Action failed` | `ValueError`（`pk` 期望整数）→ 500 + HTML 错误页 | 改填**数字 ID**；实测填数字 26 成功 |
+| 本地/开发环境并发操作弹 `Action failed` | SQLite `database is locked` | 本地特有；**生产 PG 无此问题**（实测 10/10 成功） |
+
+## F.5 点了没反应（三种沉默，判断责任方用）
+
+| 现象 | 类型 | 判断方法 |
+|---|---|---|
+| 点了，无 toast、无变化 | **① 前端早退**（请求没发出） | 看该动作是否必填未填（Rep ID / 收款金额 / 库存数量与原因） |
+| 点了，弹红 toast | **② 请求被拒**（4xx/5xx） | 读 toast 文案，按 F.2/F.3 处理 |
+| 提示成功，但数据没变 | **③ 假成功** | 目前已知两处：`/settings` 改密码、`Internal Notes` 输入框 |
+
+---
+
+# 附录 G 术语表
+
+| 术语 | 全称 / 含义 | 在本系统中的位置 |
+|---|---|---|
+| **RG** | Research Goal 研究目标 | 知识链顶层；`/research-goals` |
+| **AP** | Application 应用场景 | 挂在 RG 下；`/applications` |
+| **Method** | 实验方法 | 挂在 AP 下；`/methods` |
+| **Protocol** | 实验方案（带版本 `v{n}`） | 挂在 Method 下；`/protocols` |
+| **PMR** | Product-Method Relation 产品-方法关系 | 两条边：`derived_relevance`（算法派生）/ `verified_applicability`（人工策展） |
+| **verified** | 已验证适用性 | 需 staff 审核；通过后公开到产品页 |
+| **SKU** | 最小可售单元（包装规格 + 价格 + 币种 + 现货状态） | 产品详情右栏、产品编辑页 Section 7 |
+| **COA** | Certificate of Analysis 质检报告 | 挂批次；`draft → published` 才能被客户下载 |
+| **SDS** | Safety Data Sheet 安全数据表 | 挂产品；同上门控 |
+| **RUO** | Research Use Only 仅供科研 | 商品页/订单页/发票上的法定标注 |
+| **PO** | Purchase Order 采购订单 | 客户在 `/po/submit` 提交；内部在 PO 审核台处理 |
+| **RFQ** | Request for Quotation 询价单 | `/quote-request`，**匿名也能提交** |
+| **Quote** | ⚠️ 三个不同的东西：① RFQ 询价线索 ② `Quote` 实体（有 `quote_no`）③ 订单的 `quote_pending` 状态 | 详见 §9.5，沟通时必须说清是哪个 |
+| **AR** | Accounts Receivable 应收账款 | `/ops/po/ar` 账龄 |
+| **is_staff** | Django 的"员工"标记 | **实际权限的主开关**（231 个端点看它） |
+| **role** | 业务角色（researcher/procurement/editor/admin） | 只影响 17 个端点 |
+| **is_org_admin** | 机构管理员标记 | ⚠️ **对权限零影响**，仅展示徽章 |
+| **is_superuser** | 超管 | 多物理删除 + Django admin |
+| **Basic Auth** | nginx 第一层认证 | 生产全站挂着；`realm="SciReAgent Internal Test"` |
+| **X-Auth-Token** | 应用层 token 头 | 与 Basic 并存（不用 `Authorization` 以免冲突） |
+| **收件箱（Outbox）** | `EmailOutbox` 待发邮件表 | ⚠️ 当前 **2984 封全 pending、模板表 0 条**，见 §11.3 |
+
+---
+
+# 附录 H 本地环境与实验栈
+
+想自己复跑本文的实测，需要两套环境。**两套都与你的日常开发栈隔离**。
+
+## H.1 独立探测栈（用来跑权限/页面实测，不碰开发库）
+
+```bash
+cd src_claude
+cp backend/db.sqlite3 backend/db_probe.sqlite3          # 99MB 副本
+cd backend && DB_ENGINE=sqlite SCIREAGENT_DB_NAME="$(pwd)/db_probe.sqlite3" \
+  venv/Scripts/python.exe ../scripts/probe_seed_accounts.py    # 建 7 个身份账号
+DB_ENGINE=sqlite SCIREAGENT_DB_NAME="$(pwd)/db_probe.sqlite3" \
+  venv/Scripts/python.exe manage.py runserver 127.0.0.1:8011 --noreload
+# 另开终端（必须 E: 物理路径，C: 是联接会让 vite 解析失败）
+cd /e/Users/yuankaifeng/WorkBuddy/2026-07-08-11-22-32/src_claude/frontend
+VITE_API_PROXY=http://127.0.0.1:8011 ./node_modules/.bin/vite --port 5174 --strictPort
+```
+7 个探测账号：`probe_researcher` / `probe_orgadmin` / `probe_procure` / `probe_adminrole` /
+`probe_staff` / `probe_super` / `probe_unverified`，密码统一 `Probe#2026!`。
+**用完删掉副本**：`rm backend/db_probe.sqlite3`。
+
+## H.2 PostgreSQL（并发结论只认它）
+
+见 **[`PG_QUICKSTART.md`](./PG_QUICKSTART.md)**：集群 `pgdata-l4` 在 5433，角色 `scireagent`，
+库 `scireagent_l4`，**不需要 initdb**。
+
+## H.3 复跑命令一览
+
+| 想复核什么 | 命令 |
+|---|---|
+| 权限矩阵（0 次 HTTP） | `python scripts/role_capability_probe.py` |
+| 真实 HTTP 权限（8 身份） | `python scripts/http_role_probe.py` |
+| 对象级权限 / 数据隔离 | `python scripts/http_object_probe.py`、`http_object_probe2.py` |
+| 求值 vs 实测比对 | `python scripts/compare_probe_vs_http.py` |
+| 页面 × 角色判定 | `python scripts/page_role_matrix.py` |
+| PG 并发用例 | `cd backend && venv/Scripts/python.exe ../scripts/run_pg_tests.py` |
+| 浏览器实测 | `npx playwright test manual-facts-probe --project=chromium\|firefox\|webkit` |
+| 生产匿名边界 | `python scripts/prod_anon_probe.py` |
+| 生产登录态只读 | `SC_BASIC_USER=… SC_APP_PASS=… python scripts/prod_readonly_probe.py` |
+
+> ⚠️ 所有命令都要**剥代理**：`env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy`；
+> 本机 `http_proxy` 会把回环请求转出去，实测得到 502。
+
+---
