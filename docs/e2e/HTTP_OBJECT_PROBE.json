@@ -1,0 +1,211 @@
+{
+ "generated_at": "2026-10-22 11:59:42",
+ "fixture": {
+  "order_a": 1257,
+  "order_b": 1258,
+  "addr_a": 6,
+  "addr_b": 7
+ },
+ "rows": [
+  {
+   "section": "A 自己的订单",
+   "who": "probe_ouser_a",
+   "method": "GET",
+   "path": "/api/v1/orders/1257/",
+   "status": 200,
+   "expect": "200",
+   "note": "",
+   "body": "{\"success\":true,\"data\":{\"id\":1257,\"order_no\":\"PROBE-ORD-A-0001\",\"user_id\":31,\"organization_id\":10,\"status\":\"co"
+  },
+  {
+   "section": "A 自己的地址",
+   "who": "probe_ouser_a",
+   "method": "GET",
+   "path": "/api/v1/addresses/6/",
+   "status": 200,
+   "expect": "200",
+   "note": "",
+   "body": "{\"success\":true,\"data\":{\"id\":6,\"organization_id\":10,\"type\":\"shipping\",\"is_default\":false,\"attention\":\"Attentio"
+  },
+  {
+   "section": "A 订单列表",
+   "who": "probe_ouser_a",
+   "method": "GET",
+   "path": "/api/v1/orders/",
+   "status": 200,
+   "expect": "200",
+   "note": "",
+   "body": "{\"success\":true,\"data\":[{\"id\":1257,\"order_no\":\"PROBE-ORD-A-0001\",\"status\":\"confirmed\",\"payment_method\":\"purcha"
+  },
+  {
+   "section": "A 地址列表",
+   "who": "probe_ouser_a",
+   "method": "GET",
+   "path": "/api/v1/addresses/",
+   "status": 200,
+   "expect": "200",
+   "note": "",
+   "body": "{\"success\":true,\"data\":[{\"id\":6,\"organization_id\":10,\"type\":\"shipping\",\"is_default\":false,\"attention\":\"Attenti"
+  },
+  {
+   "section": "C 跨机构读地址",
+   "who": "probe_ouser_a",
+   "method": "GET",
+   "path": "/api/v1/addresses/7/",
+   "status": 404,
+   "expect": "403 或 404",
+   "note": "",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"not_found\",\"message\":\"No Address matches the given query"
+  },
+  {
+   "section": "C 跨机构改地址(带 body)",
+   "who": "probe_ouser_a",
+   "method": "PUT",
+   "path": "/api/v1/addresses/7/",
+   "status": 404,
+   "expect": "403 或 404",
+   "note": "body={attention:HIJACKED-BY-A}",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"not_found\",\"message\":\"No Address matches the given query"
+  },
+  {
+   "section": "B 同机构第二人改地址",
+   "who": "probe_ouser_a2",
+   "method": "PUT",
+   "path": "/api/v1/addresses/6/",
+   "status": 200,
+   "expect": "待测（文档称机构内可互改）",
+   "note": "body={attention:EDITED-BY-A2}",
+   "body": "{\"success\":true,\"data\":{\"id\":6,\"organization_id\":10,\"type\":\"shipping\",\"is_default\":false,\"attention\":\"EDITED-B"
+  },
+  {
+   "section": "D 跨机构读订单",
+   "who": "probe_ouser_a",
+   "method": "GET",
+   "path": "/api/v1/orders/1258/",
+   "status": 404,
+   "expect": "403 或 404",
+   "note": "",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"not_found\",\"message\":\"No Order matches the given query.\""
+  },
+  {
+   "section": "E 对别人订单 accept 报价",
+   "who": "probe_ouser_a",
+   "method": "POST",
+   "path": "/api/v1/orders/1258/confirm-quote/",
+   "status": 403,
+   "expect": "403 或 404",
+   "note": "body={action:accept}",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"FORBIDDEN\",\"message\":\"Not allowed to respond to this ord"
+  },
+  {
+   "section": "E 对别人订单 accept(带 body)",
+   "who": "probe_ouser_a",
+   "method": "POST",
+   "path": "/api/v1/orders/1258/confirm-quote/",
+   "status": 403,
+   "expect": "403 或 404",
+   "note": "body={action:accept}",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"FORBIDDEN\",\"message\":\"Not allowed to respond to this ord"
+  },
+  {
+   "section": "F staff 读 B 订单",
+   "who": "probe_staff",
+   "method": "GET",
+   "path": "/api/v1/orders/1258/",
+   "status": 200,
+   "expect": "200（全库可见）",
+   "note": "",
+   "body": "{\"success\":true,\"data\":{\"id\":1258,\"order_no\":\"PROBE-ORD-B-0001\",\"user_id\":33,\"organization_id\":11,\"status\":\"co"
+  },
+  {
+   "section": "F procurement 读 B 订单",
+   "who": "probe_procure",
+   "method": "GET",
+   "path": "/api/v1/orders/1258/",
+   "status": 200,
+   "expect": "200（跨机构可见）",
+   "note": "",
+   "body": "{\"success\":true,\"data\":{\"id\":1258,\"order_no\":\"PROBE-ORD-B-0001\",\"user_id\":33,\"organization_id\":11,\"status\":\"co"
+  },
+  {
+   "section": "F staff 读 B 地址",
+   "who": "probe_staff",
+   "method": "GET",
+   "path": "/api/v1/addresses/7/",
+   "status": 404,
+   "expect": "待测（无机构时 .none()）",
+   "note": "",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"not_found\",\"message\":\"No Address matches the given query"
+  },
+  {
+   "section": "F procurement 读 B 地址",
+   "who": "probe_procure",
+   "method": "GET",
+   "path": "/api/v1/addresses/7/",
+   "status": 404,
+   "expect": "待测",
+   "note": "",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"not_found\",\"message\":\"No Address matches the given query"
+  },
+  {
+   "section": "C 跨机构删地址",
+   "who": "probe_ouser_a",
+   "method": "DELETE",
+   "path": "/api/v1/addresses/7/",
+   "status": 404,
+   "expect": "403 或 404",
+   "note": "",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"not_found\",\"message\":\"No Address matches the given query"
+  },
+  {
+   "section": "C 事后校验 B 自己的地址",
+   "who": "probe_ouser_b",
+   "method": "GET",
+   "path": "/api/v1/addresses/7/",
+   "status": 200,
+   "expect": "200 = 未被删掉（隔离生效）",
+   "note": "若 404 说明被跨机构删除",
+   "body": "{\"success\":true,\"data\":{\"id\":7,\"organization_id\":11,\"type\":\"shipping\",\"is_default\":false,\"attention\":\"Attentio"
+  },
+  {
+   "section": "G 订单列表是否含他机构单",
+   "who": "probe_ouser_a",
+   "method": "GET",
+   "path": "/api/v1/orders/?page_size=200",
+   "status": 200,
+   "expect": "只含自己的",
+   "note": "A 单=True B 单=False",
+   "body": "含A=True 含B=False"
+  },
+  {
+   "section": "G 地址列表是否含他机构地址",
+   "who": "probe_ouser_a",
+   "method": "GET",
+   "path": "/api/v1/addresses/?page_size=200",
+   "status": 200,
+   "expect": "只含本机构",
+   "note": "Attention A=False Attention B=False",
+   "body": "含A=False 含B=False"
+  },
+  {
+   "section": "G 订单列表是否含他机构单",
+   "who": "probe_ouser_b",
+   "method": "GET",
+   "path": "/api/v1/orders/?page_size=200",
+   "status": 200,
+   "expect": "只含自己的",
+   "note": "A 单=False B 单=True",
+   "body": "含A=False 含B=True"
+  },
+  {
+   "section": "G 地址列表是否含他机构地址",
+   "who": "probe_ouser_b",
+   "method": "GET",
+   "path": "/api/v1/addresses/?page_size=200",
+   "status": 200,
+   "expect": "只含本机构",
+   "note": "Attention A=False Attention B=True",
+   "body": "含A=False 含B=True"
+  }
+ ]
+}

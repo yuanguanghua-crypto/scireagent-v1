@@ -1,0 +1,132 @@
+{
+ "generated_at": "2026-10-22 12:00:30",
+ "fixture": {
+  "invoice": 266,
+  "sds_published": 1,
+  "sds_draft": 17,
+  "sku": 443
+ },
+ "rows": [
+  {
+   "section": "1 匿名下载发票PDF",
+   "who": "anon",
+   "method": "GET",
+   "path": "/api/v1/invoices/266/pdf/",
+   "status": 401,
+   "expect": "401/403",
+   "note": "",
+   "ctype": "application/json",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"unauthorized\",\"message\":\"Authentication credentials were not provi"
+  },
+  {
+   "section": "1 非本人下载发票PDF",
+   "who": "probe_ouser_a",
+   "method": "GET",
+   "path": "/api/v1/invoices/266/pdf/",
+   "status": 403,
+   "expect": "403/404",
+   "note": "",
+   "ctype": "application/json",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"FORBIDDEN\",\"message\":\"Not allowed to view this invoice\"}}}"
+  },
+  {
+   "section": "1 非本人下载发票PDF",
+   "who": "probe_ouser_b",
+   "method": "GET",
+   "path": "/api/v1/invoices/266/pdf/",
+   "status": 403,
+   "expect": "403/404",
+   "note": "",
+   "ctype": "application/json",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"FORBIDDEN\",\"message\":\"Not allowed to view this invoice\"}}}"
+  },
+  {
+   "section": "2 匿名下载已发布SDS",
+   "who": "anon",
+   "method": "GET",
+   "path": "/api/v1/sds-revisions/1/download/",
+   "status": 200,
+   "expect": "200 + application/pdf",
+   "note": "",
+   "ctype": "application/pdf",
+   "body": "%PDF-1.4 %���� ReportLab Generated PDF document (opensource) 1 0 obj << /F1 2 0 R /F2 3 0 R /F3 4 0 R /F4 5 0 R /F5 9 0 "
+  },
+  {
+   "section": "2 匿名下载草稿SDS",
+   "who": "anon",
+   "method": "GET",
+   "path": "/api/v1/sds-revisions/17/download/",
+   "status": 404,
+   "expect": "403/404（门控）",
+   "note": "",
+   "ctype": "application/json",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":\"该 SDS 尚未发布\"}}"
+  },
+  {
+   "section": "3 A 建购物车行",
+   "who": "probe_ouser_a",
+   "method": "POST",
+   "path": "/api/v1/basket/items",
+   "status": 201,
+   "expect": "201",
+   "note": "item_id=779",
+   "ctype": "",
+   "body": "{\"success\":true,\"data\":{\"id\":779,\"product\":61,\"product_name\":\"2'-Amino-dATP\",\"product_slug\":\"sc8042-2-amino-datp\",\"produ"
+  },
+  {
+   "section": "3 B 改A的购物车行",
+   "who": "probe_ouser_b",
+   "method": "PATCH",
+   "path": "/api/v1/basket/items/779",
+   "status": 404,
+   "expect": "403/404",
+   "note": "",
+   "ctype": "application/json",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":\"Item not found\"}}"
+  },
+  {
+   "section": "3 B 删A的购物车行",
+   "who": "probe_ouser_b",
+   "method": "DELETE",
+   "path": "/api/v1/basket/items/779/delete",
+   "status": 404,
+   "expect": "403/404",
+   "note": "",
+   "ctype": "application/json",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":\"Item not found\"}}"
+  },
+  {
+   "section": "4 A 的愿望清单",
+   "who": "probe_ouser_a",
+   "method": "GET",
+   "path": "/api/v1/wishlist/",
+   "status": 200,
+   "expect": "—",
+   "note": "wishlist_id=6",
+   "ctype": "",
+   "body": ""
+  },
+  {
+   "section": "4 B 改A的愿望清单",
+   "who": "probe_ouser_b",
+   "method": "PATCH",
+   "path": "/api/v1/wishlist/6/",
+   "status": 404,
+   "expect": "403/404",
+   "note": "",
+   "ctype": "application/json",
+   "body": "{\"success\":false,\"data\":null,\"meta\":{\"error\":{\"code\":\"not_found\",\"message\":\"No Wishlist matches the given query.\",\"detai"
+  },
+  {
+   "section": "4 A 事后读自己的清单",
+   "who": "probe_ouser_a",
+   "method": "GET",
+   "path": "/api/v1/wishlist/",
+   "status": 200,
+   "expect": "200",
+   "note": "name 是否被改成 HIJACKED",
+   "ctype": "application/json",
+   "body": "{\"success\":true,\"data\":[{\"id\":6,\"name\":\"Probe A Wishlist\",\"product_count\":0,\"products\":[],\"created_at\":\"2026-10-22T04:00"
+  }
+ ]
+}

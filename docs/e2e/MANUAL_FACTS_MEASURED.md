@@ -257,27 +257,217 @@ except User.DoesNotExist: ...
 
 ---
 
-## 4. 本次实测**仍未覆盖**的（不假装全覆盖）
+## 4. 对象级权限 / queryset 收窄（第二轮补齐，上一轮的最大空白）
 
-| # | 未覆盖项 | 原因 | 补法 |
+上一轮用假 id 探测时 `get_object()` 先 404，`has_object_permission` 根本没执行。
+本轮用 `probe_seed_cross_org.py` 造了**真实对象**再打：
+
+| 夹具 | 值 |
+|---|---|
+| Org A / Org B | id=10 / id=11 |
+| `probe_ouser_a`（A 成员） | id=31 |
+| `probe_ouser_a2`（A 的**第二人**） | id=32 |
+| `probe_ouser_b`（B 成员） | id=33 |
+| 地址 | A=6（org10）、B=7（org11） |
+| 订单 | A=1257（user31）、B=1258（user33） |
+
+### M-30 订单与地址：靠 `get_queryset` 收窄，表现为 **404 而不是 403**
+
+| 场景 | 身份 | 结果 | 判读 |
 |---|---|---|---|
-| 1 | `has_object_permission`（机构隔离、客户只能看自己的单） | 探针用假 id，对象不存在则对象级权限不执行 | 用**真实 id + 跨机构双账号**，接受可能写数据（在副本上） |
-| 2 | `get_queryset` 收窄的实际效果 | 同上 | 同上 |
-| 3 | 生产环境行为 | **完全未测**。本次只测本地 sqlite 副本：`DEBUG=True`、`DISABLE_THROTTLE=True`、LocMem 缓存 | 生产只读探测需另行授权（且不能建 probe 账号） |
-| 4 | 大并发/时序 | 串行单线程 | 见 `run_pg_tests.py` |
-| 5 | 邮件是否真的发出 | 未接真实 SMTP | 看 `EmailService.enqueue` 的落库/队列状态 |
-| 6 | 跨浏览器（firefox/webkit） | 只跑了 chromium | `--project=webkit`（需直连代理） |
-| 7 | 视觉/响应式 | 未测 | 既有 `visual-tokens` / `responsive` spec |
+| 读自己的订单/地址 | probe_ouser_a | **200** | 正常 |
+| 跨机构读地址 B | probe_ouser_a | **404** `code=not_found`，message `No Address matches the given query.` | 查不到（收窄），不是"查得到但不许" |
+| 跨机构**改**地址 B（带 body） | probe_ouser_a | **404** | 写也被挡 |
+| 跨机构**删**地址 B | probe_ouser_a | **404** | 且事后 B 仍能读到自己的地址（**未被删**） |
+| 跨机构读订单 B | probe_ouser_a | **404** | 收窄 |
+| **对别人订单 accept 报价** | probe_ouser_a | **403** | ★ 与上面不同：这是"查得到但不许"，说明该端点有显式归属校验 |
+| 订单/地址列表 | A / B | 各自**只含自己的**（A 列表无 B 单、B 列表无 A 单） | 列表隔离生效 |
+
+### M-31 同机构第二人可以改第一人的地址（实测 200，且已持久化）
+
+```
+probe_ouser_a2  PUT /api/v1/addresses/6/  {"attention":"EDITED-BY-A2"}
+→ 200
+事后查库：Address 6 attention = "EDITED-BY-A2"
+```
+⇒ 坐实 `AddressPermission` 注释里写的"同机构成员可改彼此的地址——本来就是机构内协作"。
+
+### M-32 **staff / procurement 也读不到客户地址**（预期外）
+
+```
+probe_staff      GET /api/v1/addresses/7/  → 404
+probe_procure    GET /api/v1/addresses/7/  → 404
+```
+原因：地址 ViewSet 的 `get_queryset` 按**请求者自己所属机构**过滤，staff 属于 `Probe Lab`、不在 org 11 ⇒ `.none()`。
+⇒ **地址簿对所有人（含内部员工）都严格按"你所属机构"隔离**，内部台无法查看客户地址。
+这是说明书里原来没写的实际限制（不是缺陷，但要写进运营预期）。
+
+### M-33 发票 PDF：非本人 403、匿名 401
+```
+anon            GET /invoices/266/pdf/ → 401
+probe_ouser_a   GET /invoices/266/pdf/ → 403
+probe_ouser_b   GET /invoices/266/pdf/ → 403
+```
+
+### M-34 购物车 / 愿望清单：跨用户 404
+```
+B PATCH  /basket/items/779        → 404      （A 建的行）
+B DELETE /basket/items/779/delete → 404
+B PATCH  /wishlist/6/             → 404      （A 的清单）
+A 事后 GET /wishlist/             → 200      （未被改动）
+```
+
+### M-35 SDS 下载门控生效（published 可下、draft 不可）
+```
+anon GET /sds-revisions/1/download/   (published) → 200，13,764 字节
+anon GET /sds-revisions/17/download/  (draft)     → 404
+```
+⇒ 草稿用 **404** 而不是 403，不泄露"该文档存在"。
+
+> COA 无法测：**副本里 `Coa` 表 0 条记录**（`Coa.objects.count() == 0`），没有对象可打。
+> 门控代码与 SDS 同构，但**未实测**，不冒充。
 
 ---
 
-## 5. 方法学教训（同一轮里真实踩到的）
+## 5. 邮件链路（§4 原第 5 项）：**从未发出，且发出去也是空邮件**
+
+### M-40 验证邮件"发出"= 只打印到后端日志
+
+注册两个账号后，后端 stdout 出现完整邮件正文（console backend）：
+```
+Subject: Verify your SciReAgent account email
+From: noreply@scireagent.com
+To: probe_reg_rese_1792641672@probe.local
+https://scireagent.com/verify-email?token=b3fad0e6-de1d-47d0-ac48-acf6e1e132e9
+```
+而接口同时返回 201 + `"Registration successful. We have sent a verification link to your email address"`
+⇒ **文案说"已发送"，实际用户收不到**（`EMAIL_BACKEND` 在无 `MAILGUN_API_KEY` 时是
+`console.EmailBackend`，`config/settings/base.py:352-354`）。本地/dev 一律如此。
+
+### M-41 业务通知队列：**2984 封全在 pending，历史零发送**
+
+```
+EmailOutbox 状态分布：{pending: 2984}     ← 没有任何 sent/failed
+template_key 分布：po_submitted 1023、order_confirmed 756、shipped 490、
+                  delivered 423、invoice_issued 290
+```
+没有任何 crontab / celery beat / docker-compose 调度引用 `send_outbox_emails`
+⇒ 只能人工跑命令。
+
+### M-42 即使跑命令，发出去的也是**空主题空正文**
+
+```
+$ manage.py send_outbox_emails --limit 2
+→ "Sent 2, failed 0"
+→ 打印的邮件：Subject: （空）   正文（空）
+状态：{pending: 2982, sent: 2}
+```
+根因（实测）：**`EmailTemplate` 表 0 条记录**。
+`EmailService.enqueue` 在模板缺失时不报错、直接用空字符串入队
+（`notifications/services.py:30-40`）⇒ **通知邮件全是空壳**。
+
+### M-43 注册时提交 `role=procurement` 落库仍是 `researcher`（提权链已堵）
+```
+POST /auth/register {"role":"procurement", ...} → 201
+落库：probe_reg_proc_... role=researcher  staff=False  verified=False
+```
+⇒ 序列化器接受该值但不采纳（`serializers.py:59` 允许，`create` 强制 researcher）。
+
+---
+
+## 6. 跨浏览器（§4 原第 6 项）：三浏览器事实一致
+
+同一套 `manual-facts-probe*.spec.cjs`（12 个 case）在三个引擎上跑：
+
+| 引擎 | 结果 | 关键事实是否一致 |
+|---|---|---|
+| chromium（msedge channel） | **12 passed / 0 failed** | 基准 |
+| firefox（`network.proxy.type=0`） | **12 passed / 0 failed** | ✅ 全部一致（仅 console 少一条 403 记录） |
+| webkit（走 `e2e/direct-proxy.cjs` 直连代理） | **12 passed / 0 failed**（6.6 min） | ✅ 全部一致 |
+
+WebKit 额外噪声：vite HMR websocket 连接失败（`Unexpected response code: 400`），
+不影响页面渲染与业务事实（`#app` 正常、403/UI 文案一致）。
+
+## 7. 视觉 / 响应式（§4 原第 7 项）：72 / 72 通过
+
+```
+npx playwright test visual-tokens responsive --project=chromium → 72 passed (33.2s)
+```
+覆盖：3 个视口（desktop/tablet/mobile 375×667）× 多页面「加载不崩」+ 全站设计令牌与品牌色一致。
+
+> **诚实边界**：既有用例断言的是"**加载不崩**"与"令牌一致"，**不是像素级视觉回归**。
+> 真正的视觉回归需要基线截图比对，本仓库目前没有。
+
+## 8. 并发（§4 原第 4 项）：SQLite 下并发写大面积 500；PG 未能测
+
+**先说不确定性**：`SQLite` 的 `select_for_update()` 是 **no-op**，所以本实验**证明不了行级锁互斥**。
+它证明的是"应用层在 SQLite 下的真实行为"。
+
+### M-50 库存入库并发 N=10（每次 +1，同一 sku+location）
+```
+初始 available=1000 → 结束 available=1000   实际增量 0（期望 10）
+响应码：500 × 8、200 × 2
+后端日志：django.db.utils.OperationalError: database is locked
+```
+### M-51 PO 提交并发 N=10（空 body）
+```
+响应码：201 × 1（真的建成一张订单）、500 × 9
+同上：database is locked
+```
+**判读**：SQLite 写锁争用 → `OperationalError` → **直接冒泡成 500**。
+`core/db_retry.py` 只重试 PG 的 `40P01`/`40001`，**不覆盖** sqlite 的 `database is locked`。
+⇒ 本地/dev 并发写会 500；**生产 PG 的行为本轮未测**（见 §9 阻塞说明）。
+
+## 9. 生产环境（§4 原第 3 项）：**全站 401，匿名不可达**
+
+只发 GET、不带任何凭证、共 10 条路径（`scripts/prod_anon_probe.py`）：
+
+| 路径 | 状态 | WWW-Authenticate |
+|---|---|---|
+| `/` | **401** | `Basic realm="SciReAgent Internal Test"` |
+| `/robots.txt` | **401** | 同上 |
+| `/sitemap.xml` | **401** | 同上 |
+| `/api/v1/health/` | **401** | 同上 |
+| `/api/v1/site/home` | **401** | 同上 |
+| `/api/v1/products/` | **401** | 同上 |
+| `/api/v1/search/suggest?q=a` | **401** | 同上 |
+| `/api/v1/orders/` | **401** | 同上 |
+| `/api/v1/admin/orders/` | **401** | 同上 |
+| `/api/v1/verified/` | **401** | 同上 |
+
+**三条可下结论的事实**：
+1. **生产当前对整个互联网不可访问** —— 连首页、`robots.txt`、`sitemap.xml` 都要 Basic 认证
+2. realm 名是 `SciReAgent Internal Test` ⇒ 站点仍是**内部测试态**，未对外
+3. 我们做的 sitemap 分片/SEO 优化**当前对搜索引擎无效**（爬虫同样吃 401）
+
+> 这条与项目口径铁律一致：**汇报只能是"开发测试态 + 种子数据"，不能说"已上线"**。
+
+---
+
+## 10. 本次实测**仍未覆盖**的（只剩 2 项，且都写明阻塞原因）
+
+| # | 未覆盖项 | 阻塞原因（实测确认，不是偷懒） | 解锁条件 |
+|---|---|---|---|
+| 1 | **生产环境登录态 / 写操作 / 内部台** | 生产全站挂 nginx Basic 认证（`realm="SciReAgent Internal Test"`，10/10 路径 401）。本地**没有** `deploy/CREDENTIALS.txt`。不猜口令、不试弱口令 | 提供 nginx basic-auth 账号 + 一个生产应用层账号；且需明确授权在生产做**读**操作（写操作不建议在生产验） |
+| 2 | **PostgreSQL 下的并发互斥** | `initdb.exe` / `postgres.exe` 被本机安全策略拦截（实测报"命令被安全策略拦截"），无法起 PG 集群；`pgdata-l4` 目录已不存在 | 用户手动启动 PG（或允许 `initdb`），然后跑 `scripts/run_pg_tests.py` + 本文件的并发脚本改指 PG |
+
+**以下原列各项本轮已全部补齐**：对象级权限 / queryset 收窄（§4）、邮件链路（§5）、
+跨浏览器（§6）、视觉响应式（§7）、并发行为（§8）、生产匿名边界（§9）。
+
+**仍然只做到"未覆盖"的一条**：跨浏览器只覆盖了 chromium/firefox/webkit 三家的**功能事实**，
+没有做像素级视觉回归（仓库无基线截图机制）。
+
+---
+
+## 11. 方法学教训（累计）
 
 | # | 坑 | 现象 | 正确做法 |
 |---|---|---|---|
 | 1 | **探测器自己把 token 打死了** | 第一版全量扫描第 137 个请求起整片 401，researcher 读通过(49)反而少于匿名(69) | 批量扫描必须**排除** `POST /auth/logout`；破坏性认证端点单独测 |
 | 2 | 数字不单调就是信号 | 身份越高、权限越少 —— 物理上不可能 | **先看单调性**再信数字 |
-| 3 | 本机代理污染回环 | `http_proxy=127.0.0.1:56679` ⇒ 所有 127.0.0.1 请求得 **502 Bad Gateway** | 一律 `ProxyHandler({})` / `env -u ...` / `NO_PROXY` |
+| 3 | 本机代理污染回环 | `http_proxy=127.0.0.1:56679` ⇒ 所有 127.0.0.1 请求得 **502** | 一律 `ProxyHandler({})` / `env -u ...` / `NO_PROXY` |
 | 4 | vite 在 C: 联接盘上解析失败 | `Pre-transform error: Failed to load url /src/main.js`，页面**全白** | 必须从 `E:` 物理路径启动 vite |
 | 5 | `nohup ... &` 起服务被回收 | 端口不监听、日志 0 字节 | 用后台任务机制（`run_in_background`） |
 | 6 | 换身份必须换 context | 同 context 里 `localStorage.clear()` + 导航 ⇒ `ERR_ABORTED` | 每个身份 `browser.newContext()` |
+| 7 | **脚本用错解释器** | 并发脚本要 ORM，却用托管 python 跑 ⇒ `No module named 'django'` | 需要 ORM 的脚本必须用 `backend/venv/Scripts/python.exe` |
+| 8 | `django.apps` 属性判断写错 | `if not django.apps.apps.ready` ⇒ `AttributeError` | 直接 `django.setup()`（重复调用安全），别探测 `django.apps` |

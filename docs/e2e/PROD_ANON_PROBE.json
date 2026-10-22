@@ -1,0 +1,87 @@
+{
+ "generated_at": "2026-10-22 12:13:25",
+ "base": "https://scireagent.com",
+ "method": "GET only, no auth, no writes",
+ "rows": [
+  {
+   "path": "/",
+   "status": 401,
+   "bytes": 0,
+   "ms": 1409,
+   "ctype": "text/html",
+   "www_auth": "Basic realm=\"SciReAgent Internal Test\""
+  },
+  {
+   "path": "/robots.txt",
+   "status": 401,
+   "bytes": 0,
+   "ms": 1945,
+   "ctype": "text/html",
+   "www_auth": "Basic realm=\"SciReAgent Internal Test\""
+  },
+  {
+   "path": "/sitemap.xml",
+   "status": 401,
+   "bytes": 0,
+   "ms": 900,
+   "ctype": "text/html",
+   "www_auth": "Basic realm=\"SciReAgent Internal Test\""
+  },
+  {
+   "path": "/api/v1/health/",
+   "status": 401,
+   "bytes": 0,
+   "ms": 1339,
+   "ctype": "text/html",
+   "www_auth": "Basic realm=\"SciReAgent Internal Test\""
+  },
+  {
+   "path": "/api/v1/site/home",
+   "status": 401,
+   "bytes": 0,
+   "ms": 1546,
+   "ctype": "text/html",
+   "www_auth": "Basic realm=\"SciReAgent Internal Test\""
+  },
+  {
+   "path": "/api/v1/products/",
+   "status": 401,
+   "bytes": 0,
+   "ms": 1372,
+   "ctype": "text/html",
+   "www_auth": "Basic realm=\"SciReAgent Internal Test\""
+  },
+  {
+   "path": "/api/v1/search/suggest?q=a",
+   "status": 401,
+   "bytes": 0,
+   "ms": 4576,
+   "ctype": "text/html",
+   "www_auth": "Basic realm=\"SciReAgent Internal Test\""
+  },
+  {
+   "path": "/api/v1/orders/",
+   "status": 401,
+   "bytes": 0,
+   "ms": 1935,
+   "ctype": "text/html",
+   "www_auth": "Basic realm=\"SciReAgent Internal Test\""
+  },
+  {
+   "path": "/api/v1/admin/orders/",
+   "status": 401,
+   "bytes": 0,
+   "ms": 1598,
+   "ctype": "text/html",
+   "www_auth": "Basic realm=\"SciReAgent Internal Test\""
+  },
+  {
+   "path": "/api/v1/verified/",
+   "status": 401,
+   "bytes": 0,
+   "ms": 3360,
+   "ctype": "text/html",
+   "www_auth": "Basic realm=\"SciReAgent Internal Test\""
+  }
+ ]
+}
