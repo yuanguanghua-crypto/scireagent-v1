@@ -107,6 +107,16 @@ def build_suites(profile):
                           [NPX, 'playwright', 'test', '--project=chromium',
                            '--reporter=line', '--retries=0'],
                           FRONTEND, ['stack', 'frontend'], env={'BASE_URL': FE}, timeout=7200)
+    S['fixtures'] = Suite('fixtures', '重置 E2E 夹具（账号/跨机构/客户流水，仅副本）',
+                          [PY, 'scripts/probe_seed_all.py'], ROOT, ['cross-org'],
+                          env={'DB_ENGINE': 'sqlite',
+                               'SCIREAGENT_DB_NAME': os.path.join(BACKEND, 'db_probe.sqlite3')},
+                          timeout=600)
+    S['e2e-probe'] = Suite('e2e-probe', 'P0/P1/P2 覆盖补齐（探针栈 + 夹具）',
+                           [NPX, 'playwright', 'test', 'p0-', 'p1-', 'p2-',
+                            '--project=chromium', '--reporter=line', '--retries=0'],
+                           FRONTEND, ['stack', 'frontend', 'cross-org'],
+                           env={'BASE_URL': FE}, timeout=3600)
     S['pg-concurrency'] = Suite('pg-concurrency', 'PG 并发（库存/订单号/发票号）',
                                 [PY, '../scripts/run_pg_tests.py'], BACKEND, ['pg'], timeout=3600)
     S['browser-matrix'] = Suite('browser-matrix', '跨浏览器（firefox + webkit）',
@@ -119,9 +129,9 @@ def build_suites(profile):
     PROFILES = {
         'fast': ['config', 'perm-matrix', 'unit'],
         'full': ['config', 'perm-matrix', 'unit', 'perm-http', 'object-perm',
-                 'e2e-smoke', 'e2e-manual', 'e2e-full', 'pg-concurrency'],
+                 'e2e-smoke', 'e2e-manual', 'fixtures', 'e2e-probe', 'pg-concurrency'],
         'nightly': ['config', 'perm-matrix', 'unit', 'perm-http', 'object-perm',
-                    'e2e-smoke', 'e2e-manual', 'e2e-full', 'pg-concurrency',
+                    'e2e-smoke', 'e2e-manual', 'fixtures', 'e2e-probe', 'e2e-full', 'pg-concurrency',
                     'browser-matrix', 'prod-readonly'],
     }
     return S, PROFILES

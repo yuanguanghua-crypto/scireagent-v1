@@ -61,3 +61,14 @@ for username, role, staff, sup, orgadm, verified in SPECS:
 
 print('\n密码统一：%s' % PW)
 print('账号数：%d' % len(SPECS))
+
+# ★ 把用户名 → id 落一个 JSON：E2E 里"指派销售"这类需要真实数字 id 的用例直接读它，
+#   避免在 spec 里硬编码 id（副本重建后 id 可能变）
+import json  # noqa: E402
+
+ids = dict(User.objects.filter(username__in=[s[0] for s in SPECS])
+           .values_list('username', 'id'))
+out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                   'backend', '_probe_ids.json')
+json.dump(ids, open(out, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+print('id 表已写入 %s：%s' % (out, ids))

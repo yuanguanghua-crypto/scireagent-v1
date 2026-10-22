@@ -1,5 +1,5 @@
 {
- "generated_at": "2026-10-22 11:37:40",
+ "generated_at": "2026-10-22 13:05:14",
  "base": "http://127.0.0.1:8011",
  "note": "真实 HTTP 请求；写方法用空 body（权限通过后停 400，不落库）；对象路由用假 id（不触发 has_object_permission）",
  "endpoint_count": 199,

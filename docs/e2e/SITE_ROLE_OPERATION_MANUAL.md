@@ -2065,7 +2065,7 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | 5a | **`get_permissions()` 按方法分权，静态读类属性会读错** | `bridges/api/v1/views.py:79-82` | 探针把 `POST /verified/` 判成 `IsStaffUser`，实测是 `IsAuthenticated`（一致度 99.7% 里唯一的一类偏差）`[M-02][M-15]` |
 | 5 | **同一动作两套端点、两套权限** | `/admin/orders/{id}/invoice/`(`IsAdminUser`) vs `/orders/{id}/invoice/`(`IsProcurementOrAdmin`) | 采购在订单详情页开不了票，在开票台却能 |
 
-## 11.2 死按钮 / 假成功 / 反馈缺失（运营最常撞的）
+## 11.2 死按钮 / 假成功 / 功能失效（运营最常撞的，22 条）
 
 > **先分清三种"没反应"**（判断责任方时最关键）：
 > 1. **请求根本没发出**（前端校验早退）⇒ 无 toast、无任何提示，纯靠代码里的 `return`
@@ -2094,6 +2094,8 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | 17 | `PoOrgManagement` 副标题 | 声称 "their addresses"，模板无地址字段 | `PoOrgManagement.vue:44` |
 | 18 | 完整性条缺失项 | 纯文本，不可点击跳转到缺失字段 | `ProductEditPage.vue:1666-1667` |
 | 20 | 并发写（库存入库 / PO 提交） | **仅 SQLite 下出现**：10 并发 → 8~9 个 500，异常 `database is locked`。**PostgreSQL 下同样 10 并发全部成功**（库存 +10、PO 10×201），`run_pg_tests.py` 6/6 通过 ⇒ **这是本地 dev 环境特性，不是应用缺陷** `[M-50 修正]` | — |
+| **21** | **`/po/downloads` 永远是空态** | `PoDownloadCenter.vue:18-21` 用 `o.invoice \|\| o.attachments.length` 过滤订单，但 `/api/v1/orders/` 的**列表序列化器不返回这两个字段** ⇒ 客户即使有已开票订单+PO 附件也看不到任何下载入口 `[实测]` | 见用例 `p1-customer-pages` 的缺陷锁定 |
+| **22** | **`/verify-email?token=<非UUID>` 返回 500 + HTML 错误页** | `token` 用 `UUIDField` 解析，畸形字符串抛 `ValidationError` 未捕获。合法 UUID 但不存在时才正常返回 400 `Invalid or expired verification token` `[实测]` | 见用例 `p2-auth-verify` 的缺陷锁定 |
 | 19 | `/ops/po/review` → `Assign Rep` 填**用户名** | **500 + HTML 错误页**（不是 JSON 信封）。`except` 只捕获 `User.DoesNotExist`，非数字 `rep_id` 抛 `ValueError`。实测：填 `probe_staff`→500，填数字 `26`→200 成功 `[M-21]` | `transactions/api/v1/po_views.py:130` |
 
 ## 11.3 能力缺口（有需求、无实现）

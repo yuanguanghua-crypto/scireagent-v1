@@ -137,3 +137,4 @@ e2e_po_fixture.json                  # PO E2E 夹具（backend/seed_e2e_po_fixtu
 # 统一测试入口的运行产物（日志 + summary.json）
 _test_runs/
 backend/db_probe.sqlite3
+backend/_probe_ids.json

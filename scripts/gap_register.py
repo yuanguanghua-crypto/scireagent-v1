@@ -26,10 +26,9 @@ from flow_coverage_matrix import FLOWS, DEPTH_MARK  # noqa: E402
 # 不属于任何"流程编号"、但两份方案里确实需要的条目
 # ★ 注意：F8-1 / F8-3 已在 FLOWS 里，不要在 EXTRA 里重复登记（第一版就重了，已删）
 EXTRA = [
-    ('X-3', '金额快照不被改价影响', 'P0', 'A',
-     '跨角色接力', 'P3 下单后内部改 SKU 价，历史订单金额必须不变（当前无用例）'),
-    ('X-4', '邮件可投递性', 'P1', 'B',
-     '§11.3', '模板表 0 条、outbox 全 pending ⇒ 没有可投递内容，暂无法测；补齐模板后再加'),
+    # X-3 金额快照 已由 apps/transactions/tests/test_price_snapshot.py 覆盖（3 例，2026-10-22）
+    # X-4 邮件：已由 apps/notifications/tests/test_email_outbox_contract.py 锁定契约
+    #      （入队 pending / 命令标记 sent / 模板缺失产出空壳），真实投递仍无法测（B 类）
 ]
 
 # 按深度机械给优先级会误判的两处：C 类不该是 P0；hard-delete 不可逆该提前
