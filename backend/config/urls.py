@@ -4,7 +4,9 @@ from django.http import HttpResponseRedirect
 from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
-from apps.knowledge.api.v1.site_views import robots_txt, sitemap_xml
+from apps.knowledge.api.v1.site_views import (
+    robots_txt, sitemap_index, sitemap_part, sitemap_static,
+)
 from apps.knowledge.admin_views import knowledge_import_view
 from apps.knowledge.admin_dashboard import dashboard_view
 from core.health import health_check
@@ -21,7 +23,10 @@ urlpatterns = [
     path('admin/', admin_redirect),  # redirect /admin/ to dashboard
     path('admin/', admin.site.urls),
     path('robots.txt', robots_txt, name='robots-txt'),
-    path('sitemap.xml', sitemap_xml, name='sitemap-xml'),
+    # sitemap：index + 按类型分片（协议上限 50,000 URL/文件，实测已到 42,779）
+    path('sitemap.xml', sitemap_index, name='sitemap-xml'),
+    path('sitemap-static.xml', sitemap_static, name='sitemap-static'),
+    path('sitemap-<str:kind>-<int:page>.xml', sitemap_part, name='sitemap-part'),
     path('api/v1/', include('apps.accounts.api.v1.urls')),
     # 健康检查：匿名可轮询，DB 挂时返 503（对应 FAILURE_MODES 7.2/7.3）
     path('api/v1/health/', health_check, name='health'),

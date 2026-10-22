@@ -1,6 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.db.models import Count, Q
 from core.svg_sanitizer import sanitize_svg
 from apps.knowledge.models import Application, Method, Protocol, ResearchGoal, Reference
@@ -400,32 +400,106 @@ Sitemap: {base_url}/sitemap.xml
     return HttpResponse(content.strip(), content_type='text/plain')
 
 
+#: sitemap 单文件 URL 上限。协议硬上限 50,000，留 10% 余量防边界。
+SITEMAP_PAGE_SIZE = 45000
+
+#: 静态页（不来自数据库）
+SITEMAP_STATIC_PATHS = ['/', '/products', '/applications', '/methods',
+                        '/protocols', '/research-goals']
+
+
+def _site_base(request) -> str:
+    """站点根 URL。
+
+    ⚠️ 依赖 `request.scheme`，反代场景下它来自 `X-Forwarded-Proto`
+    （`production.py` 已设 `SECURE_PROXY_SSL_HEADER`，nginx 也设了
+    `proxy_set_header X-Forwarded-Proto https`）。
+    若哪天漏设该头，sitemap 里的 URL 会退化成 http —— 搜索引擎会去爬 http
+    再被重定向，白耗抓取配额。这是一处**脆弱依赖**，改动反代配置时要想到它。
+    """
+    return f'{request.scheme}://{request.get_host()}'
+
+
+def _sitemap_sources() -> dict:
+    """分片类型 → **只取 id** 的 QuerySet。
+
+    ★ 只 `values_list('id', flat=True)` 而不遍历对象：原实现逐个实例化模型，
+    10 倍数据下光 ORM 实例化就占了大半耗时（实测 16.6MB / 7.6s）。
+    """
+    return {
+        'applications': (Application.objects.public().filter(status='active')
+                         .values_list('id', flat=True)),
+        'methods': (Method.objects.public().filter(status='active')
+                    .values_list('id', flat=True)),
+        'protocols': (Protocol.objects.filter(status='published')
+                      .values_list('id', flat=True)),
+        'products': (Product.objects.filter(status__in=['active', 'published'], archived=False)
+                     .values_list('id', flat=True)),
+    }
+
+
+def _urlset(urls) -> HttpResponse:
+    xml = ['<?xml version="1.0" encoding="UTF-8"?>',
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for u in urls:
+        xml.append(f'  <url><loc>{u}</loc></url>')
+    xml.append('</urlset>')
+    return HttpResponse('\n'.join(xml), content_type='application/xml')
+
+
 @api_view(['GET'])
+def sitemap_index(request):
+    """`/sitemap.xml` → `<sitemapindex>`，指向各分片。
+
+    ★ 2026-10-22 改（FAILURE_MODES 10.2 的实测结论）：
+      原实现把全站 URL 塞进**一个** `urlset`。实测生产 **42,779 个 URL / 2.72MB**，
+      而协议上限是**单文件 ≤ 50,000 URL / ≤ 50MB** —— **只剩 17% 余量**，
+      数据再涨 17% 搜索引擎就会拒收整个 sitemap。
+      10 倍压测时响应到 **16.6MB / 7.6s**（超线性 25.5 倍）。
+      ⇒ 改为 sitemap index + 按类型分片（每片 ≤45,000 URL）。
+      这是 sitemap 协议的**标准做法**，搜索引擎完全支持。
+    """
+    base = _site_base(request)
+    parts = [f'{base}/sitemap-static.xml']
+    for kind, qs in _sitemap_sources().items():
+        total = qs.count()
+        pages = max(1, -(-total // SITEMAP_PAGE_SIZE))     # 向上取整
+        for page in range(1, pages + 1):
+            parts.append(f'{base}/sitemap-{kind}-{page}.xml')
+
+    xml = ['<?xml version="1.0" encoding="UTF-8"?>',
+           '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for part in parts:
+        xml.append(f'  <sitemap><loc>{part}</loc></sitemap>')
+    xml.append('</sitemapindex>')
+    return HttpResponse('\n'.join(xml), content_type='application/xml')
+
+
+@api_view(['GET'])
+def sitemap_static(request):
+    """`/sitemap-static.xml` —— 静态页分片（不随数据量增长）。"""
+    base = _site_base(request)
+    return _urlset(f'{base}{path}' for path in SITEMAP_STATIC_PATHS)
+
+
+@api_view(['GET'])
+def sitemap_part(request, kind: str, page: int):
+    """`/sitemap-<kind>-<page>.xml` —— 某一类实体的某一页（每页 ≤45,000 条）。"""
+    sources = _sitemap_sources()
+    qs = sources.get(kind)
+    if qs is None or page < 1:
+        raise Http404
+
+    start = (page - 1) * SITEMAP_PAGE_SIZE
+    ids = list(qs[start:start + SITEMAP_PAGE_SIZE])
+    if not ids and page > 1:
+        # 越界页码：404 比"空 urlset"更明确（空 urlset 会被搜索引擎当成"该片没内容"）
+        raise Http404
+
+    base = _site_base(request)
+    return _urlset(f'{base}/{kind}/{pk}' for pk in ids)
+
+
 def sitemap_xml(request):
-    """Generate basic sitemap XML."""
-    base_url = f'{request.scheme}://{request.get_host()}'
-    urls = [f'{base_url}/']
-
-    # Applications
-    for app in Application.objects.public().filter(status='active'):
-        urls.append(f'{base_url}/applications/{app.id}')
-
-    # Methods
-    for method in Method.objects.public().filter(status='active'):
-        urls.append(f'{base_url}/methods/{method.id}')
-
-    # Protocols
-    for protocol in Protocol.objects.filter(status='published'):
-        urls.append(f'{base_url}/protocols/{protocol.id}')
-
-    # Products
-    for product in Product.objects.filter(status__in=['active', 'published'], archived=False):
-        urls.append(f'{base_url}/products/{product.id}')
-
-    xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
-    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-    for url in urls:
-        xml += f'  <url><loc>{url}</loc></url>\n'
-    xml += '</urlset>'
-
-    return HttpResponse(xml, content_type='application/xml')
+    """兼容别名 —— 旧路由仍指向 `/sitemap.xml`（现为 index）。"""
+    return sitemap_index(request)

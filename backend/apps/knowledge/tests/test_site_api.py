@@ -250,63 +250,71 @@ class SearchAPITest(TestCase):
 
 
 class SitemapAPITest(TestCase):
+    """sitemap 已改为 **index + 分片**（2026-10-22）。
+
+    ⚠️ 本类断言**整体改写过**（契约变更，不是"改到绿"）：
+    旧版断言 `/api/v1/sitemap.xml` 直接含 `/applications/`、`/products/` 等实体 URL
+    —— 那是"单一 urlset"的契约。实测该文件已达 **42,779 URL / 2.72MB**，
+    而协议上限是单文件 **50,000 URL**（仅剩 17% 余量），10 倍数据下到 **16.6MB**。
+    ⇒ 改为 sitemap index + 按类型分片。
+
+    这里**保留每个用例的原意图**（某类型是否被收录、draft/archived 是否被排除），
+    只把请求目标从 index 换到对应分片。新增 `test_sitemap_index_returns_sitemapindex`
+    钉住新契约本身。
+    """
+
     def setUp(self):
         self.client = APIClient()
 
-    def test_sitemap_xml(self):
-        ApplicationFactory(status='active')
-        ProductFactory(status='active')
+    def _part(self, kind, page=1):
+        return self.client.get(f'/sitemap-{kind}-{page}.xml')
+
+    def test_sitemap_index_returns_sitemapindex(self):
+        """新契约：入口返回 sitemapindex，实体 URL 在分片里。"""
         resp = self.client.get('/api/v1/sitemap.xml')
         self.assertEqual(resp.status_code, 200)
         content = resp.content.decode()
         self.assertIn('<?xml', content)
-        self.assertIn('<urlset', content)
-        self.assertIn('</urlset>', content)
+        self.assertIn('<sitemapindex', content)
+        self.assertNotIn('<urlset', content)
 
     def test_sitemap_contains_applications(self):
         ApplicationFactory(status='active')
-        resp = self.client.get('/api/v1/sitemap.xml')
-        content = resp.content.decode()
-        self.assertIn('/applications/', content)
+        self.assertIn('/applications/', self._part('applications').content.decode())
 
     def test_sitemap_contains_methods(self):
         MethodFactory(status='active')
-        resp = self.client.get('/api/v1/sitemap.xml')
-        content = resp.content.decode()
-        self.assertIn('/methods/', content)
+        self.assertIn('/methods/', self._part('methods').content.decode())
 
     def test_sitemap_contains_products(self):
         ProductFactory(status='active')
-        resp = self.client.get('/api/v1/sitemap.xml')
-        content = resp.content.decode()
-        self.assertIn('/products/', content)
+        self.assertIn('/products/', self._part('products').content.decode())
 
     def test_sitemap_contains_protocols(self):
         ProtocolFactory(status='published')
-        resp = self.client.get('/api/v1/sitemap.xml')
-        content = resp.content.decode()
-        self.assertIn('/protocols/', content)
+        self.assertIn('/protocols/', self._part('protocols').content.decode())
 
     def test_sitemap_excludes_draft(self):
         ApplicationFactory(status='draft')
-        resp = self.client.get('/api/v1/sitemap.xml')
-        content = resp.content.decode()
-        self.assertNotIn('/applications/', content)
+        self.assertNotIn('/applications/', self._part('applications').content.decode())
 
     def test_sitemap_content_type(self):
         resp = self.client.get('/api/v1/sitemap.xml')
         self.assertEqual(resp.get('Content-Type'), 'application/xml')
 
-    def test_sitemap_always_contains_home(self):
-        resp = self.client.get('/api/v1/sitemap.xml')
-        content = resp.content.decode()
-        # Home URL should always be present
+    def test_sitemap_static_part_contains_home(self):
+        """原 `test_sitemap_always_contains_home` 的意图：首页必须在 sitemap 里。
+
+        新结构下首页在 static 分片。
+        """
+        content = self.client.get('/sitemap-static.xml').content.decode()
         self.assertIn('<url>', content)
+        self.assertIn('/</loc>', content)
 
     def test_sitemap_excludes_archived_products(self):
         """S2 路径 8：sitemap 不含归档产品 URL；未归档 active 产品仍在。"""
         live = ProductFactory(status='active')
         arch = ProductFactory(status='active', archived=True)
-        content = self.client.get('/api/v1/sitemap.xml').content.decode()
+        content = self._part('products').content.decode()
         self.assertIn(f'/products/{live.id}</loc>', content)
         self.assertNotIn(f'/products/{arch.id}</loc>', content)

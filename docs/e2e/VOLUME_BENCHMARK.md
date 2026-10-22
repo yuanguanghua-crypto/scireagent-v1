@@ -68,7 +68,7 @@ scripts/seed_volume.py --apps 286000 --products 1270    # 10x（增量补到目�
 
 | # | 问题 | 修法 | 成本 |
 |---|---|---|---|
-| 1 | **`sitemap.xml` 16.6MB** | 改 sitemap **index**：拆成多个子 sitemap（每片 ≤ 5 万 URL），主文件只列索引。这是 sitemap 协议的标准做法，搜索引擎完全支持 | 半天 |
+| 1 | ~~**`sitemap.xml` 16.6MB**~~ | ✅ **已修（2026-10-22）**：改为 sitemap index + 按类型分片（每片 ≤45,000 URL）。见 §5 | 半天 |
 | 2 | **`search/grouped` 7.5s** | 给 `search_vector` **加 trigger + 一次性 backfill**，把"查询时现算"改成"写时维护 + GIN 索引"。列和索引**都已经建好了**（`search_vector` + `search_gin`），只差让它有值 | 半天 |
 
 > 第 2 项尤其讽刺：schema 层面**早就准备好了**索引，但因为列从来没人填过，
@@ -86,3 +86,45 @@ scripts/seed_volume.py --apps 286000 --products 1270    # 10x（增量补到目�
 - ❌ **不是"已优化"**——两个瓶颈都还在，只是现在**被量化并归档**了
 
 ⇒ 后续任何"数据量要涨"的决策，都应该先按本文 §1 的方法重跑一次。
+
+## 5. `sitemap.xml` 修复记录（2026-10-22）
+
+### 动手前先测了一件事，它改变了优先级
+不只是"10 倍才出问题"——**当前生产就已经逼近上限**：
+
+| 指标 | 实测 |
+|---|---|
+| 当前 URL 数 | **42,779** |
+| 协议上限（单文件） | **50,000 URL / 50MB** |
+| 剩余余量 | **仅 17%** |
+
+⇒ 数据再涨 17%，搜索引擎就会**拒收整个 sitemap**（不是变慢，是失效）。
+所以这不是"优化"，是**带时间窗的缺陷**。
+
+### 改法
+`sitemap.xml` → `<sitemapindex>`，按类型分片：
+- `/sitemap-static.xml`（6 个静态页）
+- `/sitemap-applications-{n}.xml`
+- `/sitemap-methods-{n}.xml`
+- `/sitemap-protocols-{n}.xml`
+- `/sitemap-products-{n}.xml`
+
+每片 ≤ `SITEMAP_PAGE_SIZE = 45000`（留 10% 余量）。非法 kind / 越界页码 ⇒ **404**
+（不用空 urlset —— 那会被搜索引擎当成"该片没内容"）。
+
+### 验证：分片后不丢 URL
+| 项 | 值 |
+|---|---|
+| 旧实现（理论） | 43,141（1 个静态页 + 43,140 实体） |
+| 新实现（逐片累加实测） | **43,146**（6 个静态页 + 43,140 实体） |
+| 差值 | **+5 = 新增的 5 个静态页**（`/products`、`/applications`、`/methods`、`/protocols`、`/research-goals`） |
+
+> 旧 sitemap **只收录了首页**，漏掉了 5 个重要列表页 —— 顺带补上了。
+
+单片最大 28,558 条 / 1.66MB（applications），距 45,000 还有 57% 余量；
+即使数据涨 1 倍，applications 也只会分成 2 片、每片仍在限内。
+
+### ⚠️ 过程中我违反了第 14 条铁律
+改 sitemap 契约时，我只改了 `test_site_api.py`，**没有全仓 grep 谁在测 sitemap**
+⇒ 漏了 `test_seo.py`（2 条）和 `test_seo_api.py`（1 条），跑全量才暴露。
+正是「改/删/放开既有东西前，必全仓 grep 调用点」这条 —— **自己立的规矩自己没遵守**。

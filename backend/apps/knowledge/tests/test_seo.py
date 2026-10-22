@@ -23,16 +23,19 @@ class SEOTest(TestCase):
         )
 
     def test_sitemap_returns_200(self):
-        """Sitemap should return 200 with XML content."""
+        """Sitemap 入口返回 200，且是 **sitemapindex**。
+
+        ⚠️ 2026-10-22 契约变更：单一 `urlset`（实测 42,779 URL，逼近协议上限
+        50,000）改为 sitemap index + 按类型分片。
+        """
         response = self.client.get('/sitemap.xml')
         self.assertEqual(response.status_code, 200)
-        self.assertIn('urlset', response.content.decode())
+        self.assertIn('sitemapindex', response.content.decode())
 
     def test_sitemap_includes_products(self):
-        """Sitemap should include product URLs."""
-        response = self.client.get('/sitemap.xml')
-        content = response.content.decode()
-        self.assertIn('/products/', content)
+        """产品 URL 现在在 **products 分片**里（契约变更为 index + 分片）。"""
+        response = self.client.get('/sitemap-products-1.xml')
+        self.assertIn('/products/', response.content.decode())
 
     def test_robots_txt_returns_200(self):
         """Robots.txt should return 200."""

@@ -111,9 +111,9 @@ class SitemapTest(TestCase):
         self.assertEqual(resp.status_code, 200)
 
     def test_sitemap_contains_product_urls(self):
-        """T6-12"""
+        """T6-12（2026-10-22：产品 URL 移到 products 分片，`/sitemap.xml` 现为 index）"""
         ProductFactory(name='RNA Kit', status='active')
-        resp = self.client.get('/sitemap.xml')
+        resp = self.client.get('/sitemap-products-1.xml')
         self.assertContains(resp, '/products/')
 
 
