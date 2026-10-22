@@ -60,8 +60,8 @@ FLOWS = [
     ('F3-9',  'PO 单详情与下载',       'FULL', 'po-lifecycle.ui, p2-customer-flows（发票区+RUO+下载请求+跨机构 403/404）', ''),
     ('F3-10', '地址簿 CRUD',           'FULL', 'po-addresses-crud',
      ''),
-    ('F3-11', '下载中心',              'PART', 'p1-customer-pages（缺陷锁定 + 发票 PDF 端点验证）',
-     '★ 实测发现页面永远空态（列表序列化器不返回 invoice/attachments）；功能本身待修'),
+    ('F3-11', '下载中心',              'FULL',
+     'p1-customer-pages（契约字段 + 列出发票号 + 点下载发请求 + PO 附件 + 无数据空态）', ''),
     ('F3-12', '再次订购',              'FULL', 'p1-customer-pages（列表含已完成单 + Re-order 跳转带参）', ''),
     ('F3-13', '收藏夹',                'FULL', 'p1-customer-pages（未登录提示 / 收藏落库 / 移除）', ''),
     # ---- 第 4 章 ----

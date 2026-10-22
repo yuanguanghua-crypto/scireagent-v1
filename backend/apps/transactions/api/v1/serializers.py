@@ -69,15 +69,41 @@ class OrderListSerializer(BaseModelSerializer):
     status = serializers.CharField(read_only=True)
     grand_total = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
 
+    # ★ 2026-10-22 修「下载中心永远空态」：
+    #   `PoDownloadCenter.vue:18-21` 用 `o.invoice || o.attachments.length` 过滤订单，
+    #   但本序列化器此前**不返回这两个字段** ⇒ 客户即使有已开票订单 + PO 附件，
+    #   页面也永远显示 `No downloadable documents yet`。
+    #   这里只暴露前端需要的**最小子集**（不把整张发票/全部附件字段倒出来）：
+    #     invoice      → {id, invoice_no}   供显示单号 + 下载 PDF
+    #     attachments  → [{id, original_filename}]  供按钮标签 + 下载
+    #   查询侧已在 ViewSet 的 get_queryset 加 select_related/prefetch，避免 N+1。
+    invoice = serializers.SerializerMethodField()
+    attachments = serializers.SerializerMethodField()
+
     class Meta:
         model = Order
         fields = [
             'id', 'order_no', 'status', 'payment_method', 'po_number',
             'grand_total', 'currency', 'items_count', 'created_at',
+            'invoice', 'attachments',
         ]
 
     def get_items_count(self, obj):
-        return obj.items.count()
+        # 用索引访问已 prefetch 的缓存；未 prefetch 时退化为一次 COUNT（与原行为一致）
+        return len(obj.items.all())
+
+    def get_invoice(self, obj):
+        # reverse OneToOne：不存在时抛 RelatedObjectDoesNotExist（是 AttributeError 子类）
+        inv = getattr(obj, 'invoice', None)
+        if inv is None:
+            return None
+        return {'id': inv.id, 'invoice_no': inv.invoice_no}
+
+    def get_attachments(self, obj):
+        return [
+            {'id': a.id, 'original_filename': a.original_filename}
+            for a in obj.attachments.all()
+        ]
 
 
 class StatusLogSerializer(BaseModelSerializer):

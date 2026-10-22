@@ -1,8 +1,8 @@
 {
  "generated": "2026-10-22",
- "total": 3,
+ "total": 2,
  "by_prio": {
-  "P2": 3
+  "P2": 2
  },
  "items": [
   {
@@ -14,16 +14,6 @@
    "owner": "A",
    "existing": "public-smoke, responsive, p1-public-pages",
    "gap": "chips 不筛数据已锁死；实体详情的交互（Tab/展开）仍只有加载级"
-  },
-  {
-   "id": "F3-11",
-   "name": "下载中心",
-   "depth": "PART",
-   "mark": "🟨",
-   "prio": "P2",
-   "owner": "A",
-   "existing": "p1-customer-pages（缺陷锁定 + 发票 PDF 端点验证）",
-   "gap": "★ 实测发现页面永远空态（列表序列化器不返回 invoice/attachments）；功能本身待修"
   },
   {
    "id": "F8-3",

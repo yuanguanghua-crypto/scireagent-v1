@@ -2065,7 +2065,7 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | 5a | **`get_permissions()` 按方法分权，静态读类属性会读错** | `bridges/api/v1/views.py:79-82` | 探针把 `POST /verified/` 判成 `IsStaffUser`，实测是 `IsAuthenticated`（一致度 99.7% 里唯一的一类偏差）`[M-02][M-15]` |
 | 5 | **同一动作两套端点、两套权限** | `/admin/orders/{id}/invoice/`(`IsAdminUser`) vs `/orders/{id}/invoice/`(`IsProcurementOrAdmin`) | 采购在订单详情页开不了票，在开票台却能 |
 
-## 11.2 死按钮 / 假成功 / 功能失效（运营最常撞的，22 条）
+## 11.2 死按钮 / 假成功 / 功能失效（运营最常撞的，21 条）
 
 > **先分清三种"没反应"**（判断责任方时最关键）：
 > 1. **请求根本没发出**（前端校验早退）⇒ 无 toast、无任何提示，纯靠代码里的 `return`
@@ -2094,7 +2094,6 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | 17 | `PoOrgManagement` 副标题 | 声称 "their addresses"，模板无地址字段 | `PoOrgManagement.vue:44` |
 | 18 | 完整性条缺失项 | 纯文本，不可点击跳转到缺失字段 | `ProductEditPage.vue:1666-1667` |
 | 20 | 并发写（库存入库 / PO 提交） | **仅 SQLite 下出现**：10 并发 → 8~9 个 500，异常 `database is locked`。**PostgreSQL 下同样 10 并发全部成功**（库存 +10、PO 10×201），`run_pg_tests.py` 6/6 通过 ⇒ **这是本地 dev 环境特性，不是应用缺陷** `[M-50 修正]` | — |
-| **21** | **`/po/downloads` 永远是空态** | `PoDownloadCenter.vue:18-21` 用 `o.invoice \|\| o.attachments.length` 过滤订单，但 `/api/v1/orders/` 的**列表序列化器不返回这两个字段** ⇒ 客户即使有已开票订单+PO 附件也看不到任何下载入口 `[实测]` | 见用例 `p1-customer-pages` 的缺陷锁定 |
 | **22** | **`/verify-email?token=<非UUID>` 返回 500 + HTML 错误页** | `token` 用 `UUIDField` 解析，畸形字符串抛 `ValidationError` 未捕获。合法 UUID 但不存在时才正常返回 400 `Invalid or expired verification token` `[实测]` | 见用例 `p2-auth-verify` 的缺陷锁定 |
 | 19 | `/ops/po/review` → `Assign Rep` 填**用户名** | **500 + HTML 错误页**（不是 JSON 信封）。`except` 只捕获 `User.DoesNotExist`，非数字 `rep_id` 抛 `ValueError`。实测：填 `probe_staff`→500，填数字 `26`→200 成功 `[M-21]` | `transactions/api/v1/po_views.py:130` |
 
@@ -2561,6 +2560,12 @@ python scripts/audit_manual_numbers.py
 | 3 | `get_queryset` 收窄未覆盖 | "客户只能看自己的订单"是按代码读出来的，未实证 | 同上 |
 | 4 | 组件**运行时**条件渲染只读到表达式 | 例如某按钮 `v-if` 依赖异步结果，静态只能确认条件存在，不能确认何时为真 | 浏览器实测 |
 | 5 | 未验证服务端错误文案的**实际渲染** | 403 弹的是 DRF 英文原文，这是读 `core/exceptions.py` 推出来的 | 打一次 403 看 toast 文案 |
+
+## D.5.1 已经修掉的缺陷（不在 §11 里重复列）
+
+| 日期 | 缺陷 | 修法 | 回归 |
+|---|---|---|---|
+| 2026-10-22 | **`/po/downloads` 永远空态**：页面按 `o.invoice \|\| o.attachments.length` 过滤，但 `/orders/` 列表序列化器不返回这两个字段 | `OrderListSerializer` 增加最小子集 `invoice{id,invoice_no}` / `attachments[{id,original_filename}]`；`OrderViewSet` 与 `/admin/orders/` 的 queryset 加 `select_related('invoice')` + `prefetch_related('attachments','items')` 防 N+1；`items_count` 改用 `len(obj.items.all())` 以吃 prefetch 缓存 | 后端 `apps/transactions` + `apps/commerce` 全绿；`p1-customer-pages` 7/7（含"无数据客户仍空态"反例） |
 
 ## D.6 下一轮建议（按投入产出排序）
 

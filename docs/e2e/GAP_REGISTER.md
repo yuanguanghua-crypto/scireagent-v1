@@ -3,13 +3,12 @@
 **生成** 2026-10-22 · **事实源** `scripts/flow_coverage_matrix.py` 的 FLOWS 表
 **用途** 两份测试方案（V3 / PERSONA）的缺口**只有这一份清单**，不要在别处再列一遍。
 
-> 合计 **3** 条：P0 0 / P1 0 / P2 3
+> 合计 **2** 条：P0 0 / P1 0 / P2 2
 
 | 序 | ID | 缺口 | 现深度 | 优先级 | 归属 | 现状 | 缺什么 |
 |---|---|---|---|---|---|---|---|
 | 1 | `F1-5` | 浏览知识实体 | 🟨 PART | **P2** | A | public-smoke, responsive, p1-public-page | chips 不筛数据已锁死；实体详情的交互（Tab/展开）仍只有加载级 |
-| 2 | `F3-11` | 下载中心 | 🟨 PART | **P2** | A | p1-customer-pages（缺陷锁定 + 发票 PDF 端点验证） | ★ 实测发现页面永远空态（列表序列化器不返回 invoice/attachments）；功能本身待修 |
-| 3 | `F8-3` | Django admin 角色分配 | 🟥 NONE | **P2** | C | — | 无自动化（C 类）；另外"改完权限必须重登才看到菜单"这条**从未验证** |
+| 2 | `F8-3` | Django admin 角色分配 | 🟥 NONE | **P2** | C | — | 无自动化（C 类）；另外"改完权限必须重登才看到菜单"这条**从未验证** |
 
 ## 归属口径（沿用 GLOBAL_TEST_DEFINITION）
 

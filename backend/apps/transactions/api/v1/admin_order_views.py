@@ -24,7 +24,11 @@ class AdminOrderListView(APIView):
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        orders = Order.objects.all().order_by('-created_at')
+        # ★ 2026-10-22：列表序列化器新增 invoice/attachments 字段，需一并预取防 N+1
+        orders = (Order.objects
+                  .select_related('invoice')
+                  .prefetch_related('attachments', 'items')
+                  .order_by('-created_at'))
         # Filters
         status_filter = request.query_params.get('status', '')
         if status_filter:

@@ -48,12 +48,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 BACKEND = os.path.join(ROOT, 'backend')
 FRONTEND = os.path.join(ROOT, 'frontend')
-PY = os.path.join(BACKEND, 'venv', 'Scripts', 'python.exe')
+# ★ 解释器：本地用 backend/venv（Windows 是 Scripts/python.exe）；CI 里没有这个 venv
+#   ⇒ 回落到当前解释器。否则在 ubuntu runner 上直接 FileNotFoundError。
+_VENV_PY = os.path.join(BACKEND, 'venv', 'Scripts', 'python.exe')
+PY = _VENV_PY if os.path.exists(_VENV_PY) else sys.executable
 # ★ Windows 上 `npx` 不是可执行文件而是 `npx.cmd`；subprocess 不开 shell 时必须给出真实路径，
 #   否则直接 FileNotFoundError（实测踩过：suite 被误报成 ERROR）
 import shutil  # noqa: E402
 
-NPX = shutil.which('npx') or shutil.which('npx.cmd') or 'npx.cmd'
+NPX = shutil.which('npx') or shutil.which('npx.cmd') or 'npx'
 RUNS = os.path.join(ROOT, '_test_runs')
 
 PROBES = os.getenv('PROBE_BASE', 'http://127.0.0.1:8011')

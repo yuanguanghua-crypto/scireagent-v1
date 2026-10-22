@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-22T13:04:20",
+  "generated_at": "2026-10-22T14:40:57",
   "note": "has_permission 层求值；不含 has_object_permission / queryset 收窄 / 前端守卫",
   "endpoint_count": 335,
   "identities": {

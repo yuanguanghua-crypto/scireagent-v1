@@ -50,11 +50,16 @@ class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_authenticated:
             return Order.objects.none()
+        # ★ 2026-10-22：列表序列化器新增 `invoice` / `attachments` 字段（修下载中心空态），
+        #   这里必须一并 select_related/prefetch，否则每行多 2 次查询（客户 100 单 = 200 次）。
+        base = (Order.objects
+                .select_related('invoice')
+                .prefetch_related('attachments', 'items'))
         # ★ 2026-10-14 修：内部人员（is_staff 或 procurement/admin）跨机构可见所有订单（审核台），
         #   客户仍只看自己的。此前仅 is_staff 可见全量 ⇒ procurement（非 staff）审核台空列表。
         if user.is_staff or user.role in ('procurement', 'admin'):
-            return Order.objects.all().order_by('-created_at')
-        return Order.objects.filter(user=user).order_by('-created_at')
+            return base.order_by('-created_at')
+        return base.filter(user=user).order_by('-created_at')
 
     def get_serializer_class(self):
         if self.action == 'retrieve':

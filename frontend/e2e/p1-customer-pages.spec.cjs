@@ -12,47 +12,71 @@ const H = require('./helpers/probeAuth.cjs');
 
 test.describe('@p1 @local-only F3-11 下载中心', () => {
   /**
-   * ★ 2026-10-22 实测发现的功能缺陷（不是权限问题）：
-   *   `PoDownloadCenter.vue:18-21` 用 `o.invoice || o.attachments.length` 过滤订单，
-   *   但 `/api/v1/orders/` 的**列表序列化器不返回这两个字段**
-   *   ⇒ 即使客户有已开票订单 + PO 附件，页面**永远显示空态**。
-   *
-   * 本用例锁定的是"当前是坏的"：一旦列表补上字段/页面改走详情接口，这里会红，
-   * 请同时更新说明书 §11.3 与 flow_coverage_matrix 的 F3-11。
+   * 2026-10-22 修：此前 `PoDownloadCenter.vue` 用 `o.invoice || o.attachments.length` 过滤订单，
+   * 而 `/api/v1/orders/` 的列表序列化器**不返回这两个字段** ⇒ 页面永远空态。
+   * 修复：`OrderListSerializer` 增加最小子集 invoice{id,invoice_no} / attachments[{id,original_filename}]，
+   * 并在两个 ViewSet 的 queryset 加 select_related/prefetch 防 N+1。
+   * 本用例从"锁缺陷"改为"验功能"。
    */
-  test('★ 缺陷锁定：有已开票订单，页面仍空态（根因：列表缺 invoice/attachments）', async ({ page }) => {
+  test('列表接口返回 invoice / attachments（契约）', async ({ page }) => {
     const IDS = H.ids();
-
     await H.login(page, 'probe_ouser_a');
-
-    // 侧证 1：API 里确实有一张 invoiced 订单
     const list = await H.api(page, 'GET', '/api/v1/orders/?page_size=100');
     const rows = (list.data?.data ?? list.data) || [];
     const inv = rows.find((o) => String(o.id) === String(IDS.order_invoiced));
-    expect(inv, `夹具订单 ${IDS.order_invoiced} 不在客户订单列表里`).toBeTruthy();
-    expect(inv.status, '夹具订单状态应为 invoiced').toBe('invoiced');
+    expect(inv, `夹具订单 ${IDS.order_invoiced} 不在列表里`).toBeTruthy();
 
-    // 侧证 2：根因 —— 列表行里没有 invoice / attachments
-    expect(inv.invoice, '列表开始返回 invoice 了 —— 若下载中心已修，请更新本文档与 F3-11')
-      .toBeUndefined();
-    expect(inv.attachments, '列表开始返回 attachments 了 —— 同上').toBeUndefined();
+    expect(inv.invoice, '列表仍未返回 invoice 字段（下载中心会继续空态）').toBeTruthy();
+    expect(String(inv.invoice.invoice_no), '发票号缺失').toMatch(/PROBE-INV-1/);
+    expect(Array.isArray(inv.attachments), 'attachments 应为数组').toBe(true);
+    expect(inv.attachments.length, '夹具 PO 附件未出现在列表').toBeGreaterThan(0);
+    expect(inv.attachments[0].id, '附件缺 id（前端按钮需要）').toBeTruthy();
+  });
 
-    // 现象：页面空态
+  test('页面列出可下载文档，点 Invoice PDF 真的发请求', async ({ page }) => {
+    const hits = [];
+    page.on('request', (r) => {
+      if (/\/invoices\/\d+\/pdf\//.test(r.url())) hits.push(r.url());
+    });
+
+    await H.login(page, 'probe_ouser_a');
+    await page.goto(`${H.BASE}/po/downloads`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2500);
+
+    const txt = await H.bodyText(page);
+    expect(txt, '仍显示空态（修复未生效）').not.toMatch(/No downloadable documents yet/i);
+    expect(txt, '页面没显示该订单').toMatch(/PROBE-CUST-INV-1/);
+    expect(txt, '页面没显示发票号').toMatch(/PROBE-INV-1/);
+
+    const pdf = page.getByRole('button', { name: /Invoice PDF/i }).first();
+    expect(await pdf.count(), '没有 Invoice PDF 按钮').toBeGreaterThan(0);
+    await pdf.click();
+    await page.waitForTimeout(2000);
+    expect(hits.length, '点 Invoice PDF 没发请求').toBeGreaterThan(0);
+  });
+
+  test('PO 附件按钮渲染并可点', async ({ page }) => {
+    const hits = [];
+    page.on('request', (r) => {
+      if (/orders\/attachments\/\d+\/download/.test(r.url())) hits.push(r.url());
+    });
+    await H.login(page, 'probe_ouser_a');
+    await page.goto(`${H.BASE}/po/downloads`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(2500);
+
+    const att = page.getByRole('button', { name: /^PO \d+/ }).first();
+    expect(await att.count(), '没有 PO 附件按钮').toBeGreaterThan(0);
+    await att.click();
+    await page.waitForTimeout(1500);
+    expect(hits.length, 'PO 附件下载没发请求').toBeGreaterThan(0);
+  });
+
+  test('没有发票/附件的客户仍显示空态（不误报）', async ({ page }) => {
+    await H.login(page, 'probe_ouser_b');
     await page.goto(`${H.BASE}/po/downloads`, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(2500);
     const txt = await H.bodyText(page);
-    expect(txt, '页面不再空态了 —— 若已修复，请更新本文档').toMatch(
-      /No downloadable documents yet/i,
-    );
-  });
-
-  test('（应为绿）发票 PDF 端点本身对本人可用 —— 说明缺的只是页面数据通路', async ({ page }) => {
-    const IDS = H.ids();
-    await H.login(page, 'probe_ouser_a');
-    const r = await H.api(page, 'GET', `/api/v1/invoices/${IDS.invoice_id}/pdf/`);
-    // 200=有 PDF；404=发票存在但无 pdf_path；都不是权限问题（403/401）
-    expect([200, 404], `本人读自己发票 PDF 得 ${r.status}，若是 403/401 说明权限有问题`)
-      .toContain(r.status);
+    expect(txt).toMatch(/No downloadable documents yet/i);
   });
 });
 
