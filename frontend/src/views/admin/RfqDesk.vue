@@ -77,6 +77,20 @@ function fmtDate(v) {
   return new Date(v).toLocaleString()
 }
 
+/**
+ * 明细的"产品"标签。
+ *
+ * ⚠️ RFQ 明细允许**只填产品名不挂产品**（`product_id` 可为 null；客户从自由文本提交时就是这种），
+ *    所以 `product_name` 与 `product_id` 都可能为空。此时必须显示占位符 ——
+ *    原实现写 `#${it.product_id}`，为空时会渲染成 **`#null`**（实测截图确认过），
+ *    运营看到会以为是数据坏了。
+ */
+function itemProductLabel(it) {
+  if (it.product_name) return it.product_name
+  if (it.product_id) return `#${it.product_id}`
+  return '—'
+}
+
 onMounted(load)
 </script>
 
@@ -109,11 +123,12 @@ onMounted(load)
     <div class="rfq-grid">
       <!-- 左：列表 -->
       <div class="po-card">
-        <table class="po-table" v-if="rows.length">
+        <div class="rfq-list-scroll" v-if="rows.length">
+        <table class="po-table">
           <thead>
             <tr>
               <th>ID</th><th>Received</th><th>Contact</th><th>Company</th>
-              <th>Country</th><th>Items</th><th>Status</th><th></th>
+              <th>Items</th><th>Status</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -122,16 +137,21 @@ onMounted(load)
               <td class="po-muted">{{ fmtDate(r.created_at) }}</td>
               <td>
                 <div>{{ r.contact_name }}</div>
-                <div class="po-muted po-mono">{{ r.contact_email }}</div>
+                <div class="po-muted po-mono rfq-email">{{ r.contact_email }}</div>
               </td>
-              <td>{{ r.company_name || '—' }}</td>
-              <td>{{ r.country || '—' }}</td>
+              <!-- Company / Country 合并一列：8 列在 1.6fr（约 520px）里放不下，
+                   拆开必然横向溢出（实测 Country 被压成 "Chi"）。国家放详情里看。 -->
+              <td>
+                <div>{{ r.company_name || '—' }}</div>
+                <div v-if="r.country" class="po-muted">{{ r.country }}</div>
+              </td>
               <td class="po-num">{{ r.items_count }}</td>
               <td><span class="po-tag">{{ r.status }}</span></td>
               <td><button class="po-btn po-btn-outline po-btn-sm" @click="openRow(r)">View</button></td>
             </tr>
           </tbody>
         </table>
+        </div>
         <div v-else-if="loading" class="po-empty">Loading…</div>
         <div v-else class="po-empty">No quote requests yet.</div>
       </div>
@@ -160,7 +180,7 @@ onMounted(load)
             </thead>
             <tbody>
               <tr v-for="it in detail.items" :key="it.id">
-                <td>{{ it.product_name || `#${it.product_id}` }}</td>
+                <td>{{ itemProductLabel(it) }}</td>
                 <td class="po-mono">{{ it.sku_code || '—' }}</td>
                 <td class="po-num">{{ it.quantity }}</td>
                 <td>{{ it.note || '—' }}</td>
@@ -180,7 +200,29 @@ onMounted(load)
 
 <style scoped>
 .po-filter-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
-.rfq-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; }
+.rfq-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+
+/* ★ 8 列的表格在 1.6fr 里放不下，会**溢出到右侧详情卡片底下**（实测截图：Country 列被压成 "Chi"）。
+   两个 card 都要 `min-width: 0`（grid 子项默认 min-width:auto，不会收缩），
+   表格容器自己横向滚动，别让内容顶出去。 */
+.rfq-grid > .po-card { min-width: 0; overflow: hidden; }
+.rfq-list-scroll { overflow-x: auto; }
+/* 不再硬性设 min-width：7 列 + 长邮箱会撑到 876px，容器只有 ~640px ⇒ 必然横向滚动。
+   正确做法是让长邮箱**可断行**（`anywhere` 允许在任意位置断开，中文/邮箱都适用），
+   让表格自然收缩；横向滚动只作为兜底，不当作常态。 */
+/* ★ 必须 `table-layout: fixed` + 显式列宽。
+   自动布局下表格**按内容撑宽**，`max-width` 写在单元格内的 div 上完全无效
+   （实测：给邮箱 div 设 220/185/168px，表格总宽一直是 652px 不变）。
+   固定布局后表格宽度=容器宽度，长邮箱靠 break-all 换行。 */
+.rfq-list-scroll .po-table { width: 100%; table-layout: fixed; }
+.rfq-list-scroll .po-table th:nth-child(1) { width: 48px; }   /* ID */
+.rfq-list-scroll .po-table th:nth-child(2) { width: 92px; }   /* Received */
+.rfq-list-scroll .po-table th:nth-child(4) { width: 96px; }   /* Company */
+.rfq-list-scroll .po-table th:nth-child(5) { width: 52px; }   /* Items */
+.rfq-list-scroll .po-table th:nth-child(6) { width: 84px; }   /* Status */
+.rfq-list-scroll .po-table th:nth-child(7) { width: 76px; }   /* View */
+.rfq-email { overflow-wrap: anywhere; word-break: break-all; }
+
 .po-table tbody tr.is-active { background: var(--color-bg-subtle, #f8f9fa); }
 .rfq-detail-title { font-size: 16px; font-weight: 700; margin: 0 0 12px; }
 .rfq-items-title { font-size: 14px; font-weight: 700; margin: 16px 0 8px; }

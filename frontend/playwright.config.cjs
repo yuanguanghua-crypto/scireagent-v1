@@ -86,6 +86,19 @@ if (isProdTarget) {
  */
 module.exports = defineConfig({
   testDir: './e2e',
+
+  // ★ 每次运行用**唯一**产物目录，别用固定的 `test-results`。
+  //
+  // 原因（2026-10-22 实测）：Playwright 每次启动会自己 `rm -rf <outputDir>`，这个删除
+  // 经过本机 node 的 safe-delete 钩子；该目录累计 >50 个文件就抛
+  // `SAFE_DELETE_BULK_CONFIRM_REQUIRED` ⇒ **一个用例都没跑**就以 FAIL 退出
+  // （日志只有 1~9 秒、堆栈在 wrappedPromisesRm，看着像"测试挂了"，其实是环境拦截）。
+  //
+  // 用唯一目录后 Playwright 无需删除任何已存在的目录，问题从根上消失。
+  // 代价：历史产物会累积 —— `test-artifacts/` 已进 .gitignore，定期清即可；
+  // 也可用 `PW_OUTPUT` 显式指定（CI / run_all_tests.py 就是这么做的）。
+  outputDir: process.env.PW_OUTPUT
+    || require('path').join('test-artifacts', `${Date.now()}-${process.pid}`),
   // 跑 webkit 时自动拉起本地直连代理（Playwright 会等端口可连；已存在则复用）
   ...(USE_DIRECT_PROXY
     ? {

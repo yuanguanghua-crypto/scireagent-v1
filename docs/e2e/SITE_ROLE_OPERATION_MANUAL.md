@@ -1346,10 +1346,10 @@ router.beforeEach（router/index.js:299）
 | 按状态筛 | 下拉 `All statuses / Pending / Reviewing / Quoted / Closed`（`change` 即发） | `status`；**非法值被忽略**（不报错，退回全量） | 同上带 `status` |
 | 看明细 | 行内 `View` | — | `GET /quote-requests/{id}/`（内部人员可读**任意** RFQ） |
 
-**列表列**：`ID` / `Received` / `Contact`（姓名 + 邮箱两行）/ `Company` / `Country` / `Items`（`items_count`）/ `Status` / `View`
+**列表列**：`ID` / `Received` / `Contact`（姓名 + 邮箱两行）/ `Company`（公司，下面一行灰字显示国家 —— 国家不单独占一列：8 列在 1.6fr 里放不下，实测会把 `Country` 压成 `Chi`）/ `Items`（`items_count`）/ `Status` / `View`
 **详情区**：联系人 / 邮箱 / 电话 / 公司 / 国家 / 状态 / 收到时间 / 备注 + `Items (N)` 表（`Product` / `SKU` / `Qty` / `Note`）
 
-⚠️ **四条必须知道的事实**：
+⚠️ **五条必须知道的事实**：
 
 1. **本页是只读的，且这是刻意的。**
    `pending → reviewing → quoted → closed` 这条状态机**后端没有更新端点**，前端也不提供任何按钮
@@ -1359,7 +1359,11 @@ router.beforeEach（router/index.js:299）
    要明细必须点 `View`（`QuoteRequestListSerializer` 与 Detail 的刻意差别）。
 3. **`search` 搜不到产品名和明细备注。** 只覆盖 RFQ 表头四个字段；
    想"按询价的产品找单子"目前做不到（`items` 未参与过滤）。
-4. **⚠️ 没有分页组件。** 首次只取 100 条（副标题显示的是**总数** `N quote request(s)`），
+4. **明细的 `Product` 列可能显示 `—`。** RFQ 明细允许**只填产品名、不挂产品**
+   （`product_id` 可为 `null`，客户走自由文本提交时就是这种），此时 `product_name` 也是空
+   ⇒ 前端必须显示占位符。⚠️ 早期实现写成 `#${item.product_id}`，空值会渲染成 **`#null`**
+   （截图确认过），运营会误以为数据坏了 —— 已改为 `itemProductLabel()` 判空。
+5. **⚠️ 没有分页组件。** 首次只取 100 条（副标题显示的是**总数** `N quote request(s)`），
    超过 100 条时**看不到后面的记录，也没有翻页入口**。本地当前 RFQ 数未到 100，故尚未暴露；
    若运营真要靠它管线索，这是下一个必须补的点（与 F5-4/F5-5 的"行数与 API 一致"断言同性质）。
 

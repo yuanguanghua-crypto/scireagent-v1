@@ -6,6 +6,8 @@ dist_new/
 _d*/
 _dist*/
 .verify-build/
+# Playwright 产物目录（每次运行唯一子目录，见 playwright.config.cjs 的 outputDir 注释）
+test-artifacts/
 test-results/
 test-results-tmp/
 xoutput/
