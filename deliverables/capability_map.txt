@@ -1,7 +1,7 @@
 ====================================================================================================
 后端存活端点 → 前端调用方 映射表（按 URL 聚合）
 ====================================================================================================
-URL 总数 144｜有测试 124｜有前端入口 92｜⚠️ 零前端入口（潜在孤儿能力） 52
+URL 总数 145｜有测试 125｜有前端入口 93｜⚠️ 零前端入口（潜在孤儿能力） 52
 
 ####################################################################################################
 # 第一部分：⚠️ 零前端入口的后端存活能力（52 条）
@@ -68,7 +68,7 @@ URL 总数 144｜有测试 124｜有前端入口 92｜⚠️ 零前端入口（�
   ⚠️  GET                    /api/v1/protocols/{X}/json-ld/
         后端 ProtocolViewSet @ backend/apps/knowledge/api/v1/views.py:130  (action, 有测试)
   ⚠️  ANY                    /api/v1/quote-requests/{X}/
-        后端 QuoteRequestDetailView @ backend/apps/quotes/api/v1/urls.py:6  (path, 有测试)
+        后端 QuoteRequestDetailView @ backend/apps/quotes/api/v1/urls.py:16  (path, 有测试)
   ⚠️  DELETE,GET,PATCH,PUT   /api/v1/quotes/{X}/
         后端 QuoteViewSet @ backend/apps/transactions/api/v1/urls.py:23  (router-detail, 有测试)
   ⚠️  ANY                    /api/v1/robots.txt
@@ -113,7 +113,7 @@ URL 总数 144｜有测试 124｜有前端入口 92｜⚠️ 零前端入口（�
         后端 sitemap_part @ backend/config/urls.py:29  (path, 无测试)
 
 ####################################################################################################
-# 第二部分：有前端入口的能力（92 条）
+# 第二部分：有前端入口的能力（93 条）
 ####################################################################################################
 [T] ANY                    /api/v1/addresses/  ← 1 入口
 [T] ANY                    /api/v1/addresses/{X}/  ← 1 入口
@@ -188,6 +188,7 @@ URL 总数 144｜有测试 124｜有前端入口 92｜⚠️ 零前端入口（�
 [T] GET,POST               /api/v1/protocols/  ← 5 入口
 [T] DELETE,GET,PATCH,PUT   /api/v1/protocols/{X}/  ← 2 入口
 [T] ANY                    /api/v1/quote-requests/  ← 1 入口
+[T] ANY                    /api/v1/quote-requests/manage/  ← 1 入口
 [T] GET,POST               /api/v1/quotes/  ← 1 入口
 [T] GET,POST               /api/v1/references/  ← 2 入口
 [T] DELETE,GET,PATCH,PUT   /api/v1/references/{X}/  ← 1 入口
@@ -209,4 +210,4 @@ URL 总数 144｜有测试 124｜有前端入口 92｜⚠️ 零前端入口（�
 [T] DELETE,GET,PATCH,PUT   /api/v1/wishlist/{X}/  ← 2 入口
   （--verbose 展开每个入口文件与经由符号）
 
-[耗时] 索引构建 2.44s｜总计 2.65s｜后端端点 220｜api 符号 142
+[耗时] 索引构建 2.42s｜总计 2.63s｜后端端点 221｜api 符号 144
