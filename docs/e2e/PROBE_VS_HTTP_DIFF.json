@@ -1,0 +1,79 @@
+{
+ "totals": {
+  "compared": 1393,
+  "agree": 1389,
+  "eval_pass_http_deny": 0,
+  "eval_deny_http_pass": 4
+ },
+ "by_identity": {
+  "anon": {
+   "compared": 199,
+   "mismatch": []
+  },
+  "probe_unverified": {
+   "compared": 0,
+   "mismatch": [],
+   "note": "该身份未能登录，无 HTTP 数据"
+  },
+  "researcher": {
+   "compared": 199,
+   "mismatch": [
+    {
+     "path": "/api/v1/verified/",
+     "method": "POST",
+     "eval": false,
+     "http_status": 400,
+     "kind": "eval_deny_http_pass",
+     "error_code": "validation_error"
+    }
+   ]
+  },
+  "org_admin": {
+   "compared": 199,
+   "mismatch": [
+    {
+     "path": "/api/v1/verified/",
+     "method": "POST",
+     "eval": false,
+     "http_status": 400,
+     "kind": "eval_deny_http_pass",
+     "error_code": "validation_error"
+    }
+   ]
+  },
+  "procurement": {
+   "compared": 199,
+   "mismatch": [
+    {
+     "path": "/api/v1/verified/",
+     "method": "POST",
+     "eval": false,
+     "http_status": 400,
+     "kind": "eval_deny_http_pass",
+     "error_code": "validation_error"
+    }
+   ]
+  },
+  "admin_role": {
+   "compared": 199,
+   "mismatch": [
+    {
+     "path": "/api/v1/verified/",
+     "method": "POST",
+     "eval": false,
+     "http_status": 400,
+     "kind": "eval_deny_http_pass",
+     "error_code": "validation_error"
+    }
+   ]
+  },
+  "staff": {
+   "compared": 199,
+   "mismatch": []
+  },
+  "superuser": {
+   "compared": 199,
+   "mismatch": []
+  }
+ }
+}

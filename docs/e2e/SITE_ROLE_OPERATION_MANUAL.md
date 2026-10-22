@@ -1,9 +1,22 @@
 # SciReAgent 全站角色与功能操作说明书
 
-**版本** V1.1 · **生成日期** 2026-10-22 · **对应代码** `cc4e8f2`
+**版本** V1.2 · **生成日期** 2026-10-22 · **对应代码** `cc4e8f2`
 **性质** 操作说明书（不是设计草案、不是改造建议）。每一条都对应现有代码。
 **配套** `ROLE_CAPABILITY_MATRIX.md`（权限事实基线）、`ROLE_TEST_PLAN.md`（测试方案）、`PAGE_API_MAP.json`（页面↔API 机读表）
 
+> **V1.2 修订（2026-10-22，实测层接入）**
+> 在这一版之前，本文所有结论都是**读代码 + 权限类求值**得来，没有一条在真实浏览器/真实 HTTP 里验过。
+> V1.2 补上了实测：起独立 DB 副本 + 独立后端(8011) + 独立前端(5174)，用 7 个构造账号做
+> **8 身份 × 199 端点的真实 HTTP 探测** 与 **Playwright 真实点击**，证据全部落在
+> `MANUAL_FACTS_MEASURED.md`（下称「实测清单」），正文以 `[M-nn]` 引用。
+>
+> 实测**推翻/修正了 8 处**表述，最要紧的三条：
+> 1. procurement 打开订单管理页**不是白屏**，而是"0 行 + 错误横幅 + `No orders found` 空态"并列 —— 后者会让人误以为全库真没订单 `[M-10]`
+> 2. `POST /api/v1/verified/` **不是 staff 专属**，任何登录用户都能建 review 草稿（201 实测建成功） `[M-15]`
+> 3. 未验证用户**根本拿不到 token**，"API 权限与 researcher 相同"只在权限类层面成立，HTTP 层不可达 `[M-04]`
+>
+> 另新发现一条缺陷：`Assign Rep` 填用户名（非数字 ID）⇒ **500 + HTML 错误页** `[M-21]`
+>
 > **V1.1 修订（2026-10-22，同日二次审计）**
 > V1.0 有 **8 处**事实错误 / 表述不精确 / 遗漏，已全部修正，明细见**附录 D**。其中影响最大的一条：
 > V1.0 把"页面没写 try/catch"写成"用户看不到任何反馈"——**错**。
@@ -49,6 +62,17 @@
 **前提二：「角色」不是一个字段，是四个维度的组合**
 `role`（researcher/procurement/editor/admin）、`is_org_admin`、`is_staff`、`email_verified`。
 其中**只有 `role` 和 `is_staff` 影响权限**；`is_org_admin` 与 `email_verified` 实测对 API 权限**零影响**（第 13 节有证据）。
+
+### 证据等级（每条结论都标了，请按等级采信）
+
+| 标记 | 含义 | 可信度 | 本章分布 |
+|---|---|---|---|
+| **`[M-nn]`** | **实测**：真实 HTTP 请求 / 真实浏览器点击观测到，出处在 `MANUAL_FACTS_MEASURED.md` | 高 | 权限矩阵、页面可用性、关键缺陷 |
+| **`[E]`** | **求值**：实例化真实权限类调 `has_permission`，未发请求 | 中高（已用 HTTP 校核，一致度 99.7%） | 端点级权限归属 |
+| **`[S]`** | **静态读码**：读源码/模板得出，未运行 | 中（可能漏掉运行时条件） | 字段、文案、状态机、条件渲染 |
+
+> **一句话**：`[M]` 可以直接拿去决策；`[E]` 可以当事实用（已交叉验证）；`[S]` 请当成"待验证的线索"。
+> 尚未实测的清单见实测清单 §4（共 7 项，含"生产环境完全未测"）。
 
 **前提三：前端只有 2 级守卫，后端有 8 类判据**
 ⇒ 会出现"页面能进、按钮点了 403"。这不是 bug 的偶发表现，而是两层粒度不匹配的**结构性后果**。
@@ -141,7 +165,7 @@
 | **`IsAdminOrReadOnly`** | 读=任何人；**写=`is_staff`** | **209** | 写只看 `is_staff` |
 | `IsAdminUser`（DRF 内置） | `is_staff` | 15 | 只看 `is_staff` |
 | `IsProcurementOrAdmin` | `is_staff` **或** `role∈(procurement, admin)` | 16 | 内部人 |
-| `IsStaffUser` | `is_staff` | 7 | 只看 `is_staff` |
+| `IsStaffUser` | `is_staff` | **6**（原记 7）| 只看 `is_staff`。★ 实测修正：`GET /verified/` 是它，但 **`POST /verified/` 只要登录**（`get_permissions()` 按方法分权）`[M-15]` |
 | `AddressPermission` | 登录即可（机构隔离靠 queryset） | 6 | 登录即可 |
 | `IsSuperUser` | `is_superuser` | 2 | 超管 |
 | `IsAdmin` | `is_staff` **或** `role=='admin'` | 1 | `assign-rep` |
@@ -525,9 +549,15 @@ router.beforeEach（router/index.js:299）
 | `email_verified` | `false` |
 | 能否登录 | **不能**。`LoginView` 校验 `email_verified`，返回 403 |
 | 能进页面 | 与匿名相同（无 token） |
-| **API 权限** | 与 researcher **逐项完全相同**（实测：读 123/132、写 43/203） |
+| **认证层** | **登录直接 403，拿不到 token** ⇒ API 实际不可达 `[M-04]` |
+| **权限层** | 权限类不看 `email_verified` ⇒ 若已持有 token（如登录后邮箱被置否），不受限 `[E]` |
 
-> 🔎 **这是一个必须说清的事实**：`email_verified` **不是权限维度**，它只是登录闸门。
+> 🔎 **必须分两层说**（旧版把两层混成一句"与 researcher 相同"，实测已拆开）：
+> - **认证层**：未验证用户 `POST /auth/login` 返回 **403**，`meta.error.detail` =
+>   `Email address is not verified. ...`，**根本拿不到 token** ⇒ API 不可达 `[M-04 实测]`
+> - **权限层**：没有任何权限类检查 `email_verified` ⇒ 若 token 已存在，权限不受影响 `[E 求值]`
+>
+> 换句话说：**"未验证"不是权限收紧，是登录被拒**。它只是登录闸门。
 > 一个已登录用户如果 `email_verified` 事后被置为 `false`，**其现有 token 依然全权可用**——
 > 因为没有任何权限类检查这个字段。若业务上要求"未验证即不得操作"，当前实现并不满足。
 
@@ -880,7 +910,8 @@ router.beforeEach（router/index.js:299）
 
 ## 4.1 核心结论（先说最重要的一句）
 
-> **`is_org_admin` 对权限零影响。** 该身份的**页面可达性、API 权限、可用写操作**与第 3 章的普通 researcher **逐项完全相同**（实测：读 123/132、写 43/203，一模一样）。
+> **`is_org_admin` 对权限零影响。** 该身份与普通 researcher 在**真实 HTTP 探测**里逐项相同：
+> 读 **75/84**、写 **31/115**、被拒 **93**，三个数字完全一致 `[M-01 实测]`。
 
 **唯一可见的差别**：`/settings` → `Account` 面板多显示一个 `Admin` 徽章（`SettingsPage.vue:564` 的 `v-if="authStore.isOrgAdmin"`）。
 
@@ -944,14 +975,14 @@ router.beforeEach（router/index.js:299）
 |---|---|---|
 | ✅ **正常** | **7** | 全部请求不会被 403 挡 |
 | ⚠️ **只读**（能看不能改） | **9** | 页面能打开、数据能加载，但写操作 403 |
-| ❌ **空白**（进去就没数据） | **3** | 首屏读请求即 403 |
+| ❌ **不可用**（首屏读即 403） | **3** | 首屏读请求 403；**注意不是白屏**——见下表实测形态 |
 
 | 页面 | 判定 | 具体表现 |
 |---|---|---|
-| `/ops/orders`（订单管理） | ❌ **空白** | `GET /admin/orders/` ← `IsAdminUser` ⇒ 403。列表 0 行 |
-| `/ops/orders/:id`（订单详情） | ❌ **空白** | `GET /admin/orders/:id/` ⇒ 403 |
-| `/workspace/verified`（审核台） | ❌ **空白** | `GET /verified/` ← `IsStaffUser` ⇒ 403 |
-| `/workspace`（首页统计） | ⚠️ 只读 | `GET /admin/dashboard-stats/` ⇒ 403，统计卡无数据；「最近更新」表正常 |
+| `/ops/orders`（订单管理） | ❌ **不可用** | `GET /admin/orders/` ← `IsAdminUser` ⇒ 403。实测：**0 行 + 错误横幅 `Couldn't load orders.` + 空态 `No orders found` 并列**（后者会让人误判"全库没订单"）`[M-10]` |
+| `/ops/orders/:id`（订单详情） | ❌ **不可用** | `GET /admin/orders/:id/` ⇒ 403。实测文案 `Couldn't load this order.` `[M-11]` |
+| `/workspace/verified`（审核台） | ❌ **不可用** | `GET /verified/` ← `IsStaffUser` ⇒ 403。实测文案 `Failed to load review queue.`（**无**误导性空态）`[M-12]` |
+| `/workspace`（首页统计） | ⚠️ 只读 | `GET /admin/dashboard-stats/` ⇒ 403。实测页面显示 `Failed to load dashboard data`；「最近更新」表正常 `[M-13]` |
 | `/workspace/products` | ⚠️ 只读 | 读 5/5 正常；**写 0/7**（归档/恢复/停用/删除/批量全 403） |
 | `/workspace/products/*/edit` | ⚠️ 只读 | 读 10/10 正常；**写 0/21**（保存/新建/Word 解析/SEO/AI/COA/SDS 全 403） |
 | `/workspace/goals` | ⚠️ 只读 | 写 0/2 |
@@ -1074,8 +1105,9 @@ router.beforeEach（router/index.js:299）
 
 | 想做的事 | 结果 | 原因 |
 |---|---|---|
-| 打开订单管理页看全库订单 | ❌ 空白（403） | `/admin/orders/` 是 `IsAdminUser` |
-| 审核 COA/SDS / verified | ❌ 空白（403） | `IsStaffUser` |
+| 打开订单管理页看全库订单 | ❌ 不可用（403 + 空态误导）`[M-10]` | `/admin/orders/` 是 `IsAdminUser` |
+| 审核 verified（**看**队列） | ❌ 403（`GET /verified/`）`[M-12]` | `IsStaffUser` |
+| **提交** verified 草稿 | ✅ **可以**（任何登录用户）`[M-15]` | `POST /verified/` 只要 `IsAuthenticated` |
 | 新建/编辑产品、知识实体 | ❌ 403 | `IsAdminOrReadOnly` 写要 `is_staff` |
 | 指派销售 | ❌ 403（按钮却在） | `IsAdmin` |
 | 用 AI 批量校验/批量文献 | ❌ 按钮根本不渲染 | `canBatchAi = Boolean(auth.isStaff)` |
@@ -1712,16 +1744,26 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 
 ## 10.2 端点级计数
 
-| 身份 | 读通过 | 写通过 |
-|---|---|---|
-| 匿名 | 117/132 | 7/203 |
-| 未验证 | 123/132 | 43/203 |
-| researcher | 123/132 | 43/203 |
-| org_admin | 123/132 | 43/203 |
-| procurement | 128/132 | 54/203 |
-| admin(role) | 128/132 | 55/203 |
-| staff | **132/132** | 201/203 |
-| superuser | **132/132** | **203/203** |
+**两套口径，别混用**：`[E]` 是权限类求值（全量 335 端点，含格式变体）；
+`[M]` 是真实 HTTP 探测（剔除外呼/格式变体后 199 端点，写方法用空 body）。
+
+| 身份 | 读通过 `[E 求值]` | 写通过 `[E 求值]` | 读通过 **`[M 实测]`** | 写通过 **`[M 实测]`** |
+|---|---|---|---|---|
+| 匿名 | 117/132 | 7/203 | **69/84** | **7/115** |
+| 未验证 | 123/132 | 43/203 | **登录 403，无 token** | **—** |
+| researcher | 123/132 | 43/203 | **75/84** | **31/115** |
+| org_admin | 123/132 | 43/203 | **75/84** | **31/115** |
+| procurement | 128/132 | 54/203 | **80/84** | **42/115** |
+| admin(role) | 128/132 | 55/203 | **80/84** | **43/115** |
+| staff | **132/132** | 201/203 | **84/84** | **114/115** |
+| superuser | **132/132** | **203/203** | **84/84** | **115/115** |
+
+**实测数字的三条自检**（说明它不是噪声）：
+1. **单调**：读通过的端点集合逐级包含，身份越高压过的越多 —— 反向出现就说明实验有 bug（第一版就踩过，见实测清单 §5）
+2. **差值可解释**：`admin_role` 比 `procurement` 写多 **1**（assign-rep）；`staff` 被拒 **1**（hard-delete）
+3. **与求值同向**：每一行的相对大小与 `[E]` 列一致 ⇒ 两套方法互证
+
+出处与复跑命令：`MANUAL_FACTS_MEASURED.md` §1（M-01）
 
 ---
 
@@ -1737,6 +1779,7 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | 2 | **前端只有 2 级守卫，后端 8 类判据** | `router/index.js:322` | 19 个内部页里 3 个空白、9 个只读，用户无解释 |
 | 3 | **`is_org_admin` 零影响** | 全仓无权限引用 + 探针数字相同 | 机构管理员没有任何管理能力 |
 | 4 | **`email_verified` 只在登录处校验** | 探针 unverified == researcher | 已登录用户邮箱被置否后 token 仍全权可用 |
+| 5a | **`get_permissions()` 按方法分权，静态读类属性会读错** | `bridges/api/v1/views.py:79-82` | 探针把 `POST /verified/` 判成 `IsStaffUser`，实测是 `IsAuthenticated`（一致度 99.7% 里唯一的一类偏差）`[M-02][M-15]` |
 | 5 | **同一动作两套端点、两套权限** | `/admin/orders/{id}/invoice/`(`IsAdminUser`) vs `/orders/{id}/invoice/`(`IsProcurementOrAdmin`) | 采购在订单详情页开不了票，在开票台却能 |
 
 ## 11.2 死按钮 / 假成功 / 反馈缺失（运营最常撞的）
@@ -1767,6 +1810,7 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | 16 | `PoArReport` 加载失败 | 无 catch、无空态，页面只剩头部（**有 toast 但无重试入口**）| `PoArReport.vue:16-24` |
 | 17 | `PoOrgManagement` 副标题 | 声称 "their addresses"，模板无地址字段 | `PoOrgManagement.vue:44` |
 | 18 | 完整性条缺失项 | 纯文本，不可点击跳转到缺失字段 | `ProductEditPage.vue:1666-1667` |
+| 19 | `/ops/po/review` → `Assign Rep` 填**用户名** | **500 + HTML 错误页**（不是 JSON 信封）。`except` 只捕获 `User.DoesNotExist`，非数字 `rep_id` 抛 `ValueError`。实测：填 `probe_staff`→500，填数字 `26`→200 成功 `[M-21]` | `transactions/api/v1/po_views.py:130` |
 
 ## 11.3 能力缺口（有需求、无实现）
 
@@ -1932,7 +1976,8 @@ ProductEditPage **1211**、ProductsPage **287**、ProductDetail **145**、Wishli
 | **知识实体** | `/research-goals/`、`/applications/`、`/methods/`、`/protocols/`、`/references/` 各自 CRUD | 读 `AllowAny`；写 `IsAdminOrReadOnly` |
 | **收敛类** | `GET /convergence-classes/?group=ap\|rg`、`GET /convergence-classes/{id}/` | `AllowAny` |
 | **知识录入** | `POST /knowledge-intake/` | `IsAdminUser` |
-| **verified 关系** | `GET/POST /verified/`、`PATCH /verified/{id}/`、`POST /verified/{id}/approve\|reject/` | `IsStaffUser` |
+| **verified 关系** | `GET /verified/`（审核队列）、`PATCH /verified/{id}/`、`POST /verified/{id}/approve\|reject/` | `IsStaffUser` |
+| **verified 草稿** | `POST /verified/` ← **注意：只要登录**，实测客户可建 review 草稿 `[M-15]` | `IsAuthenticated` |
 | **订单** | `GET /orders/`（按用户收窄）、`GET /orders/{id}/`、`POST /checkout/`、`POST /orders/po/`、`POST /orders/{id}/approve\|reject\|assign-rep\|cancel\|shipments\|invoice/`、`POST /orders/{id}/confirm-quote/` | 混合：`IsAuthenticated` / `IsProcurementOrAdmin` / `IsAdmin` |
 | **订单（admin 套）** | `GET /admin/orders/`、`GET /admin/orders/{id}/`、`POST /admin/orders/{id}/complete\|quote\|confirm\|invoice/` | `IsAdminUser` |
 | **发货** | `POST /shipments/{id}/mark-shipped\|mark-delivered/` | `IsProcurementOrAdmin` |
@@ -2004,6 +2049,16 @@ cd backend && DB_ENGINE=sqlite venv/Scripts/python.exe ../scripts/role_capabilit
 ---
 
 **文档版本** V1.1 · 2026-10-22 · 对应代码 `cc4e8f2` · 覆盖 8 身份 / 335 端点 / 52 页面
+
+---
+
+# 附录 E 实测证据索引
+
+本文所有 `[M-nn]` 标记的出处，以及完整实验环境、复跑命令、以及**尚未实测的 7 项**，都在：
+
+**`docs/e2e/MANUAL_FACTS_MEASURED.md`**
+
+该文件同时记录了「实测推翻了旧版哪 8 句话」的逐条对照表 —— 读它可以知道本文哪些结论曾经不可靠。
 
 ---
 

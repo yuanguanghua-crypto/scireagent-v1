@@ -82,16 +82,31 @@ python scripts/page_role_matrix.py --json docs/e2e/PAGE_ROLE_MATRIX.json
 |---|---|---|---|
 | `AllowAny` | — | **42** | 所有人（含匿名） |
 | （未声明，落 DRF 默认 AllowAny） | — | **1** | `POST /quote-requests/`（匿名可提交询价，设计如此） |
-| `IsAuthenticated` | 已登录 | **36** | 任何已验证用户 |
+| `IsAuthenticated` | 已登录 | **37** | 任何已验证用户。★ 含 `POST /verified/`（实测修正，见下） |
 | **`IsAdminOrReadOnly`** | 读=任何人；**写=`is_staff`** | **209**（62%） | 写：**只看 `is_staff`** |
 | `IsAdminUser`（DRF 内置） | `is_staff` | **15** | 只看 `is_staff` |
 | `IsProcurementOrAdmin` | `is_staff` **OR** `role∈(procurement,admin)` | **16** | 内部人 |
-| `IsStaffUser` | `is_staff` | **7** | 只看 `is_staff` |
+| `IsStaffUser` | `is_staff` | **6** | 只看 `is_staff`。★ 原记 7，HTTP 实测修正 −1 |
 | `AddressPermission` | 登录即可（机构隔离靠 queryset） | **6** | 登录即可 |
 | `IsSuperUser` | `is_superuser` | **2** | 超管（产品 hard-delete） |
 | `IsAdmin` | `is_staff` **OR** `role=='admin'` | **1** | `assign-rep` |
 
-**合计 335 个 path×method。**
+**合计 335 个 path×method。**（为 `IsStaffUser` −1 / `IsAuthenticated` +1 所调整，总数不变）
+
+### ★ 已用真实 HTTP 校核（2026-10-22）
+
+本表的"谁能过"来自权限类求值 `[E]`。2026-10-22 用**真实账号登录 + 真发请求**
+（8 身份 × 199 端点）做了交叉验证，结论：
+
+| 项 | 结果 |
+|---|---|
+| 判定一致度 | **1389 / 1393 = 99.7%** |
+| 求值说 PASS、真打被拒 | **0 条**（静态没有低估限制） |
+| 求值说 DENY、真打通过 | **4 条**，全是 `POST /api/v1/verified/` |
+| 偏差根因 | `VerifiedCreateView.get_permissions()` **按请求方法分权**（GET→IsStaffUser，POST→IsAuthenticated），而求值按类属性读，读错了 |
+
+⇒ 因此本表 `IsStaffUser` 由 7 改为 6、`IsAuthenticated` 由 36 改为 37。
+证据与复跑命令见 `MANUAL_FACTS_MEASURED.md` §1（M-01 / M-02 / M-15）。
 
 ### 2.1 判据不一致（同一句话三种写法）
 
