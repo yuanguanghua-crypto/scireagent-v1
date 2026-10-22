@@ -69,7 +69,7 @@ scripts/seed_volume.py --apps 286000 --products 1270    # 10x（增量补到目�
 | # | 问题 | 修法 | 成本 |
 |---|---|---|---|
 | 1 | ~~**`sitemap.xml` 16.6MB**~~ | ✅ **已修（2026-10-22）**：改为 sitemap index + 按类型分片（每片 ≤45,000 URL）。见 §5 | 半天 |
-| 2 | **`search/grouped` 7.5s** | 给 `search_vector` **加 trigger + 一次性 backfill**，把"查询时现算"改成"写时维护 + GIN 索引"。列和索引**都已经建好了**（`search_vector` + `search_gin`），只差让它有值 | 半天 |
+| 2 | ~~**`search/grouped` 7.5s**~~ | ✅ **已修（2026-10-22）**：`0024_search_vector_triggers` 建 5 张表的 trigger + 回填 `search_vector`，查询改为查列。见 §6 | 半天 |
 
 > 第 2 项尤其讽刺：schema 层面**早就准备好了**索引，但因为列从来没人填过，
 > 代码只好每次现场算。这也是"迁移只建结构、没填数据"留下的债。
@@ -128,3 +128,47 @@ scripts/seed_volume.py --apps 286000 --products 1270    # 10x（增量补到目�
 改 sitemap 契约时，我只改了 `test_site_api.py`，**没有全仓 grep 谁在测 sitemap**
 ⇒ 漏了 `test_seo.py`（2 条）和 `test_seo_api.py`（1 条），跑全量才暴露。
 正是「改/删/放开既有东西前，必全仓 grep 调用点」这条 —— **自己立的规矩自己没遵守**。
+
+## 6. `search/grouped` 修复记录（2026-10-22）
+
+### 先测了一件事，优先级被抬高
+这个端点**真被前端使用**（`SearchPage.vue:64`），而且**生产实测 4.87 秒**
+（普通 `/search` 只要 0.126 秒）。4.87 秒的搜索是用户能直接感知的慢。
+
+### 根因：不是"数据变多"，是"索引建好了但从未有数据"
+`search_grouped_views.py` 在**查询时**用 `SearchVector(...)` 现场算 tsvector ——
+因为 `search_vector` 列虽然存在、GIN 索引也建好了，但**列里从来没填过值**
+（`0008_*` 迁移只建结构，没有 trigger、没有 backfill）。⇒ 索引完全用不上。
+
+### 为什么不用表达式索引
+表达式索引要求查询表达式与索引表达式**逐字匹配**，而 Django 生成的表达式带
+双重 `COALESCE((COALESCE(col,''))::text,'')`，手工对齐极脆弱。
+**列和索引都已存在** ⇒ 只需填列 + trigger 维护，查询退化成最简单的
+`filter(search_vector=...)`，没有匹配风险。
+
+> 另外：`to_tsvector(text)` 单参数版本依赖会话变量 `default_text_search_config`，
+> PG 判定它**不是 IMMUTABLE**，**拒绝为它建索引**。必须用两参数
+> `to_tsvector('english', ...)`。这也是表达式索引路线的额外障碍。
+
+### 实测（28,600 行 application）
+| 方式 | 耗时 | 执行计划 |
+|---|---|---|
+| 现场算 `to_tsvector(...)` | **205.8ms** | Seq Scan + 每行算向量 |
+| 查列（全命中，如 `nucleotide`） | **5.96ms** | Seq Scan（但不算向量） |
+| 查列（选择性，如 `VOLAPP-000123`） | **0.059ms** | **Bitmap Index Scan on `application_search_gin`** |
+
+### 端到端（`/api/v1/search/grouped`，28,600 app）
+| 查询 | 修复前 | 修复后 |
+|---|---|---|
+| `q=a` | 1203ms | **364ms** |
+| `q=nucleotide` | 1203ms | **130ms** |
+| `q=Volume` | 1203ms | **58ms** |
+
+### 实现要点
+- `0024_search_vector_triggers`：5 张表（product/application/method/protocol/reference）
+  各一个 trigger 函数 + trigger，**并在同一 migration 里回填**（28,600 行约 2 秒）
+- **回填必须和 trigger 在同一 migration**：只建 trigger 不回填 ⇒ 新查询查空列
+  ⇒ **搜索直接返回空**（比慢更糟）
+- 回填后 `ANALYZE`（不更新统计，planner 可能不用索引）
+- 只在 PostgreSQL 下执行（sqlite 无 `to_tsvector`）；sqlite 走 `icontains` 分支不受影响
+- 回滚只摘 trigger/函数，**不清空 `search_vector` 列**（清空会让"回滚后仍跑新代码"的中间态搜索变空）
