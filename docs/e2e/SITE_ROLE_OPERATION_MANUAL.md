@@ -1,8 +1,14 @@
 # SciReAgent 全站角色与功能操作说明书
 
-**版本** V1.0 · **生成日期** 2026-10-22 · **对应代码** `cc4e8f2`
+**版本** V1.1 · **生成日期** 2026-10-22 · **对应代码** `cc4e8f2`
 **性质** 操作说明书（不是设计草案、不是改造建议）。每一条都对应现有代码。
 **配套** `ROLE_CAPABILITY_MATRIX.md`（权限事实基线）、`ROLE_TEST_PLAN.md`（测试方案）、`PAGE_API_MAP.json`（页面↔API 机读表）
+
+> **V1.1 修订（2026-10-22，同日二次审计）**
+> V1.0 有 **8 处**事实错误 / 表述不精确 / 遗漏，已全部修正，明细见**附录 D**。其中影响最大的一条：
+> V1.0 把"页面没写 try/catch"写成"用户看不到任何反馈"——**错**。
+> 前端有全局错误拦截器，403/404/5xx 都会弹 toast，401 还会强制整页跳转。
+> 真正静默的只有"请求根本没发出"的前端早退。修正涉及 §0.6（新增）、§5.2、§7.8.3、§11.2 共 19 处。
 
 ---
 
@@ -51,7 +57,7 @@
 
 # 第 0 章 系统总览
 
-## 0.1 页面总表（56 条路由声明 → 52 个实际页面 + 404）
+## 0.1 页面总表（52 个不同 URL 的页面 + 404；路由 name 声明 54 条）
 
 | 分区 | 守卫 | 页面数 | 路径清单 |
 |---|---|---|---|
@@ -60,10 +66,17 @@
 | **内部台** | `requiresAdmin` | **19** | 见 0.2 |
 | 兜底 | — | 1 | `/:pathMatch(.*)*` → 404 |
 
-📄 依据 `frontend/src/router/index.js`（`path:` 声明 56 处；`/workspace` 为父级壳，10 个子页继承守卫）
-⚠️ **易错点**：只数带 `meta.requiresAdmin` 的路由块会得到 9，实际页面是 19（8 个 `/ops` + `/workspace` 壳 + 10 个子页）。
+📄 依据 `frontend/src/router/index.js`。**三组数字必须分清**（口径不同，别互相加减）：
 
-## 0.2 内部台 19 页
+| 计数口径 | 值 | 为什么是这个数 |
+|---|---|---|
+| `path:` 声明 | **56** | 含 `/login` 等重定向声明 |
+| 路由 `name` 声明 | **54** | `/workspace` 同时挂了父级 `Workspace` 与子级 `Dashboard` 两个 name（同一 URL） |
+| **不同 URL 的页面** | **52** | 23 公开 + 10 客户 + 19 内部；另加 1 个 404 兜底 |
+
+⚠️ **易错点**：只数带 `meta.requiresAdmin` 的路由块会得到 **9**（8 个 `/ops` + `/workspace` 父级），实际是 **19** 个页面 —— 因为 `/workspace` 下有 **11 个页面**（`Dashboard` 本身 + 10 个子页），子页自身没有 meta、继承父级守卫。
+
+## 0.2 内部台 19 页（8 个 `/ops` + 11 个 `/workspace` 页面）
 
 | # | 页面名 | 路径 | 组件 | 业务域 |
 |---|---|---|---|---|
@@ -151,15 +164,24 @@ router.beforeEach（router/index.js:299）
 └─ meta.requiresAdmin && !isInternal(auth) → /
 ```
 `isInternal(auth) = Boolean(auth.isStaff) || ['procurement','admin'].includes(auth.role)`
-📄 `frontend/src/utils/internalAccess.js:37-43`
+📄 `frontend/src/utils/internalAccess.js:32-36`（`isInternal` 函数体；文件共 37 行）
 
 **页面内还有第二道**：9 个 workspace 页面在 `setup` 里各自 `if (!isInternal(auth)) router.replace('/')`。
 （2026-10-14 曾出现"路由放行但页面踢回"的分裂，现已统一调用同一函数。）
 
-⚠️ **除守卫外，前端没有任何"按角色隐藏按钮"的机制**。19 个内部页逐文件检查，`isStaff` 只出现 **1 处**：`ProductsPage.vue:547` 的 `canBatchAi`，控制两个批量 AI 按钮。其余全部按钮对所有能进页面的人一视同仁。（`views/po/*` 6 个页面 grep `role|authStore|isStaff|isInternal` **零命中**。）
+⚠️ **必须区分"能不能进页面"和"能点什么"——前端只有前者有机制，后者几乎没有。**
+
+| 层次 | 机制 | 实测规模 |
+|---|---|---|
+| ① 能不能进页面 | `isInternal(auth)` 二次守卫写在每个页面 `setup` 里 | 9 个 workspace 页 + `AdminLayout` 各一份（共 10 处） |
+| ② 页面内按角色显示/隐藏元素 | 只有 `ProductsPage.vue:666` 的 `v-if="canBatchAi"`（定义 `:547`） | **全站仅 1 处**，控制 2 个批量 AI 按钮 |
+| ③ 其余所有按钮 | 无任何角色判断 | **全部按钮对所有能进页面的人一视同仁** |
+
+补充：`views/po/*` 6 个客户侧页面 grep `role\|authStore\|isStaff\|isInternal` **零命中**。
+
+> 所以采购进 `/workspace/products` 会看到「批量校验」「批量文献」两个按钮**根本不渲染**（②生效），但同页的归档/恢复/删除按钮**照常显示**、点了才 403（③的后果）。
 
 ## 0.5 端到端数据链路
-
 ```
 知识侧（内容运营维护）
   ResearchGoal ──1:N──▶ Application ──N:M──▶ Method ──1:N──▶ Protocol
@@ -182,6 +204,90 @@ router.beforeEach（router/index.js:299）
 ```
 
 **六个业务状态机**（完整转换表见附录 A）：Order、Coa、SdsRevision、VerifiedRelation、Quote、Document(Batch)。
+
+## 0.6 全局请求与错误机制（所有角色共用，判断"为什么没反应"的前提）
+
+前端**只有一个** axios 实例（`frontend/src/utils/http.js:9-10`，`baseURL = '/api/v1'`），
+所有 `@/api/*` 都复用它（`api/http.js` 仅再导出）。⇒ **错误处理是全局的**：
+**页面写不写 try/catch 并不决定"用户能不能看到提示"**，只决定"页面自己要不要额外处理"。
+
+### 成功响应信封
+```
+{ success: true, data: {...}, meta: {...} }      // 常规
+{ success: true }                                // 204 No Content（DELETE 等）
+<裸 DRF 2xx>                                     // 无信封但 2xx，原样透传
+```
+
+### 错误响应信封（后端 `backend/core/exceptions.py:6-23` 统一包装）
+```json
+{"success": false, "data": null,
+ "meta": {"error": {"code": "forbidden", "message": "...", "details": {...}}}}
+```
+
+| `code` | HTTP | 含义 |
+|---|---|---|
+| `validation_error` | 400 | 字段校验失败（`details` 里逐字段列出） |
+| `unauthorized` | 401 | 未登录 / token 失效 |
+| `forbidden` | 403 | 已登录但无权限 |
+| `not_found` | 404 | 对象不存在（**也用于"无权限查看该对象"**，见下） |
+| `conflict` | 409 | 冲突（如 PO 号唯一） |
+| `rate_limited` | 429 | 触发限流（登录 5 次/分） |
+| `server_error` | 500 | 服务端异常 |
+| `error` | 其他 | 兜底 |
+
+### 前端三段式处理（`frontend/src/utils/http.js:74-102`）
+
+| 情形 | 前端行为 | 用户看到 |
+|---|---|---|
+| 2xx 但 `success:false` | 取 `meta.error.message` | 红色 toast |
+| **401** | **清 `localStorage.token` + `window.location.href = '/login'`** | toast `Session expired, please sign in again`，随即**整页跳转** |
+| 403 / 404 / 5xx / 网络错误 | `ElMessage.error(message \|\| 'Action failed')` | 红色 toast |
+
+### 四条运营必须知道的推论
+
+| # | 推论 | 依据 |
+|---|---|---|
+| 1 | **401 是整页跳转，未保存的表单会全部丢失**。产品编辑页这类长表单，token 一过期就等于白填 | `utils/http.js:88-95` |
+| 2 | **401 跳转不带 `redirect` 参数** ⇒ 重新登录后回首页，不是回原页 | 同上（硬编码 `/login`） |
+| 3 | **403 的文案是后端英文技术话术**（`You do not have permission to perform this action.`），不说明缺哪个权限、也不提示该找谁 | `core/exceptions.py` + DRF 默认文案 |
+| 4 | **404 有时其实是"无权查看"**：对象级隔离靠 `get_queryset` 收窄，查不到就 404 ⇒ 客户看到"订单不存在"，真实原因可能是"不是你的订单" | `AddressPermission` 等类的设计 |
+
+### 错误文案的提取与展开
+
+- 消息提取降级顺序（`utils/http.js:40-63`）：`meta.error.message` → `meta.error` 里任一字符串 → `data.detail` → `data.message` → `Action failed`
+- **字段级校验错误会被展开成人话**（后端 `core/exceptions.py:39-60`）：
+  `{'catalog_no': ['该字段已存在']}` → `catalog_no: 该字段已存在`，不会把 Python repr 泄漏到弹窗
+
+### 三种"没反应"必须分清（第 11.2 节据此分类）
+
+| 类型 | 现象 | 有无 toast | 典型 |
+|---|---|---|---|
+| ① **前端早退** | 请求根本没发出 | **无** | Rep ID 为空、收款金额为空、库存数量为空 |
+| ② **请求被拒** | 后端返回 4xx/5xx | **有**（401 还会跳页） | 采购点产品保存、`Assign Rep` 被 `IsAdmin` 挡 |
+| ③ **成功但没体现** | 后端 200，界面没变 | 无（明明是成功） | 改密码假成功、`Internal Notes` 不落库 |
+
+## 0.7 全角色通用动作：登出与会话失效
+
+### 登出
+
+| 步 | 操作 | 入口在哪（原文文案） | 请求 |
+|---|---|---|---|
+| 1 | 展开用户下拉 | 前台页：`PublicNav` 右上角；客户门户与 `/ops/*`：`AppHeader` 右上角头像（`.user-avatar`） | — |
+| 2 | 点 `Sign Out` | `AppHeader.vue:174-180`、`PublicNav.vue:148` | `POST /auth/logout` |
+| 3 | 完成 | — | 清 token + 用户态，跳 `/login` |
+
+**⚠️ 内部台 `/workspace` 没有登出入口**：`AdminLayout.vue` 侧栏底部只有 `Back to Site`（`:101`），没有 `Sign Out`。
+⇒ 在内容运营台里要登出，必须先点 `Back to Site` 回到前台，再从右上角下拉登出。
+
+**接口失败不影响登出**：`stores/auth.js:158-166` 用 `try/catch` 包住，注释 `ignore logout API errors`，本地状态照样清空。
+
+### 会话失效（非用户主动）
+
+| 触发 | 后果 |
+|---|---|
+| 任何请求返回 401（token 过期/被吊销/服务端重启后失效） | 立刻清 token → 弹 `Session expired, please sign in again` → **整页跳 `/login`** |
+| 此时页面有未保存内容 | **全部丢失**（整页跳转，不走路由） |
+| 登录后落点 | 首页（`/login` 硬编码，不带 `redirect`） |
 
 ---
 
@@ -287,7 +393,7 @@ router.beforeEach（router/index.js:299）
 | 3 | 点结果 | 名称 / 副标题 / `Score: N%` | 跳 `/{type}/{id}` |
 
 **空态**：`No results for "{q}"` / `Try different keywords or check spelling.`
-⚠️ 请求失败**只在 console 报错，页面无提示**（`SearchPage.vue:68`）。
+⚠️ 请求失败时**页面无内联错误区**（`SearchPage.vue:68` 只写 console）；用户能看到的只有全局 toast（见 §0.6）。**结果区会停留在上一轮的旧结果**，容易被误读为"这次搜到的"。
 ⚠️ `References` 类型结果**可点击但无跳转目标**（`typeMap.references = null`，`:81`）—— 无 Reference 详情页。
 📄 `SearchPage.vue:14-21,34-58,112-203`
 
@@ -340,7 +446,7 @@ router.beforeEach（router/index.js:299）
 | 5 | 提交 | `Submit Quote Request`（提交中 `Submitting...`） | `POST /quote-requests/` |
 
 **成功态**：`Quote Request Submitted` + `Thank you! Our team will review your request and respond within 1-2 business days.` + `Reference: RFQ #{id}`
-⚠️ **失败只 `console.error`，页面无任何提示**（`:104-105`）—— 用户会以为提交成功了。
+⚠️ 失败时页面**不会切换成功态**（这一点是对的），但也没有内联错误区（`:104-105` 只 `console.error`）；用户看到的仅是全局 toast（§0.6），**填过的内容仍留在表单里**——是否重试全靠用户自己判断。
 
 **从产品详情页带入**：URL 带 `product_id` 时，进入页面会 `GET /products/{id}` 预填一行；否则用购物车数据预填。
 📄 `QuoteRequestPage.vue:29-64,78-106,115-206`
@@ -378,6 +484,24 @@ router.beforeEach（router/index.js:299）
 
 ⚠️ **失败态下 `Resend verification email` 按钮永不显示**（外层 `v-if="email"`，而 `email` 只在成功路径赋值，`:28` 与 `:117`）⇒ 验证链接过期后用户**没有任何自助重发入口**。
 📄 `VerifyEmailPage.vue:17-41,62-127`
+
+### F1-10 静态信息页与 404
+
+这四个页面**没有任何业务动作**（不发请求、不写数据），但它们是公开路由的一部分，运营改文案时会碰：
+
+| 页面 | 路径 | 组件 | 内容来源 | 请求 |
+|---|---|---|---|---|
+| About | `/about` | `AboutPage.vue` | 硬编码在模板里（公司定位、平台说明） | 无 |
+| Privacy Policy | `/privacy` | `PrivacyPolicyPage.vue` | 硬编码 | 无 |
+| Terms of Service | `/terms` | `TermsPage.vue` | 硬编码 | 无 |
+| 404 | 任意未匹配路径 | `NotFound.vue` | 硬编码 | 无 |
+
+**要点**：
+- 三份法务/介绍文案**存在 Vue 组件里，不在数据库、不在 CMS** ⇒ 改一个字就要改代码、重新构建前端、重新部署
+- 三个页面都走 `meta.nav:'public'`，即用前台导航（`PublicNav`），登录状态下也显示
+- 404 兜底路由是 `path: '/:pathMatch(.*)*'`，**排在路由表最后**，所以任何未定义路径都会落到它，而不是白屏
+
+📄 `router/index.js`（`/about`、`/privacy`、`/terms`、`/:pathMatch(.*)*`）
 
 ## 1.3 匿名做不到的事（明确边界）
 
@@ -636,7 +760,7 @@ router.beforeEach（router/index.js:299）
 **服务端行为（`PoSubmissionService.submit`）**：
 1. PO 号去空白；**空 ⇒ 存 `NULL`**（允许"无 PO 号"的多张订单共存，靠 `uniq_order_po_number_nonempty` 条件唯一约束）
 2. 建 `Order`，初始状态 **`po_received`**
-3. 逐行按 **SKU 现价**覆盖客户端单价（`services.py:141`，注释明确"客户端提交不可信"）
+3. 逐行按 **SKU 现价**覆盖客户端单价（`transactions/services.py:141`，注释明确"客户端提交不可信"）
 4. 汇总写 `subtotal` / `grand_total`；`tax_total` 恒 0
 5. 存附件（PDF/PNG/JPEG，≤10MB，双校验）
 6. 写 `StatusLog` + 入队通知邮件
@@ -765,7 +889,7 @@ router.beforeEach（router/index.js:299）
 | 证据 | 内容 |
 |---|---|
 | 1. 探针实测 | 8 身份求值中，`org_admin` 与 `researcher` 的 335 个端点判定**逐格相同** |
-| 2. 后端 grep | `is_org_admin` 全仓仅 4 处，**无一是权限判据**：`models.py:87`（字段定义）、`admin.py:37,38,43`（Django admin 展示/筛选）、`serializers.py:217,237,247,269`（注册/加入机构时写入 + 序列化输出）、`views.py:308`（建机构时置 True） |
+| 2. 后端 grep | `is_org_admin` 全仓仅 4 处，**无一是权限判据**：`accounts/models.py:87`（字段定义）、`accounts/admin.py:37,38,43`（Django admin 展示/筛选）、`accounts/api/v1/serializers.py:217,237,247,269`（注册/加入机构时写入 + 序列化输出）、`accounts/api/v1/views.py:308`（建机构时置 True） |
 | 3. 前端 grep | 仅 `stores/auth.js:26` 取字段 + `SettingsPage.vue:564` 显示徽章，无任何条件渲染用于控制功能 |
 
 ## 4.3 该身份怎么产生
@@ -773,8 +897,8 @@ router.beforeEach（router/index.js:299）
 | 路径 | 行为 | 代码 |
 |---|---|---|
 | 注册时选 `Create New` 建机构 | 创建者 `organization` = 新机构，`is_org_admin = True` | `accounts/api/v1/views.py:305-310` |
-| 注册时 `Join Existing` | 加入者 `is_org_admin = False`（有测试守护：`test_membership_guard.py:120` 断言"join 进来的人不该自动成为机构管理员"） | `serializers.py:237` |
-| Django admin 手改 | 可直接置 true/false | `admin.py:43` |
+| 注册时 `Join Existing` | 加入者 `is_org_admin = False`（有测试守护：`test_membership_guard.py:120` 断言"join 进来的人不该自动成为机构管理员"） | `accounts/api/v1/serializers.py:237` |
+| Django admin 手改 | 可直接置 true/false | `accounts/admin.py:43` |
 
 ## 4.4 机构字段实际影响什么
 
@@ -843,8 +967,8 @@ router.beforeEach（router/index.js:299）
 | `/ops/po/organizations` | ✅ | 机构列表 + 按机构查单可看 |
 | `/ops/inventory` | ✅ | 入库、盘点调整、流水全通 |
 
-> ⚠️ **没有一处 UI 会告诉他"你没权限"**：前端 19 个内部页里只有 1 处角色条件渲染（`ProductsPage.vue:547` 的批量 AI 按钮），
-> 其余按钮对所有能进页面的人都显示。采购点了就静默失败或弹一个通用错误。
+> ⚠️ **几乎没有任何 UI 会提前告诉他"你没权限"**：19 个内部页里元素级角色条件渲染只有 1 处（`ProductsPage.vue:666` 的两个批量 AI 按钮），
+> 其余按钮对所有能进页面的人都显示。采购点了会弹一个**英文技术话术**的全局 toast（403 时是 DRF 原文 `You do not have permission to perform this action.`）——既不说明缺哪个权限，也不告诉他该找谁。详见 §0.6。
 
 ## 5.2 操作流程（能用的那条线）
 
@@ -865,7 +989,7 @@ router.beforeEach（router/index.js:299）
 
 ⚠️ **本页 4 个按钮全部无 try/catch**（`PoReviewDesk.vue:34-58`）⇒ 失败时**没有任何 UI 反馈**：
 - `Assign Rep` 的 rep 为空 ⇒ **静默 return**，看起来像点了没反应
-- 审批失败 ⇒ Promise rejection 未捕获，页面无提示
+- 审批失败 ⇒ 无 try/catch，但**全局 toast 会弹**（403 为 DRF 英文原文）；页面自身既不回滚状态、也无内联错误区
 
 **空态**：`No orders pending review.`
 
@@ -883,7 +1007,7 @@ router.beforeEach（router/index.js:299）
 
 **支持多批发货**：同一订单可建多个发货单（`Shipments` 列表逐个操作）。
 ⚠️ 右侧 `New Shipment` 表单**不区分订单状态**（`confirmed`/`in_production`/`shipped` 都显示同一套表单），无"仅特定状态可建单"判断。
-⚠️ 全部操作无 try/catch，失败静默。
+⚠️ 全部操作无 try/catch。失败由全局 toast 兜底（§0.6），但页面**不会回滚已变化的本地状态**，也不告诉操作员下一步该做什么。
 
 **空态**：`No orders to ship.` / `No shipments yet.`
 
@@ -897,7 +1021,7 @@ router.beforeEach（router/index.js:299）
 | 2 | 开票（未开票时） | 选付款条件（`Net 30`/`Net 45`/`Net 60`，默认 NET30）→ `Issue Invoice` | `POST /orders/{id}/invoice/` body `{payment_terms}` ⇒ 订单 → `invoiced` |
 | 3 | 记录收款（已开票时） | `Amount`（placeholder `0.00`）/ `Method`（`Online`/`Wire Transfer`/`Check`）/ `Reference` → `Record Payment` | `POST /invoices/{id}/pay/` body `{amount, method, reference}` |
 
-⚠️ **`Amount` 必须有值**，否则**静默 return**（`PoInvoicingDesk.vue:53`），无任何提示。
+⚠️ **`Amount` 必须有值**，否则**静默 return**（`PoInvoicingDesk.vue:53`）——请求**根本没发出**，所以连全局 toast 都不会有。这与"接口返回失败"是两种不同的沉默，别混。
 ⚠️ **全站没有"标记已付/核销"按钮**：只有"记录收款"，订单状态不会因为收款自动变 `paid`。
 - `POST /admin/invoices/{id}/verify-payment/` 端点存在（`IsAdminUser`），但**前端 0 引用**
 - `api/orders.js:108` 的 `verifyPayment` **全站无调用点**
@@ -943,7 +1067,7 @@ router.beforeEach（router/index.js:299）
    `ProductEditPage` 的 SKU 表只有 `Code`/`Pack Size`/`Pack Unit`/`Concn`/`Conc Unit`/`Price`/`Curr`/`Default`（`ProductEditPage.vue:2261`），
    保存时原样回传（`inventory_status: s.inventory_status || 'in_stock'`，`:408`）⇒ **新 SKU 恒为 `in_stock`，老 SKU 无法通过产品界改**。
 
-⚠️ 入库/调整的前端必填校验全部是静默 `return`（`:260,282`），无错误文案。
+⚠️ 入库/调整的前端必填校验全部是静默 `return`（`:260,282`）——**请求不发出 ⇒ 无 toast、无红框**。
 ⚠️ `batch_id` 恒为 `null`（`:265`），界面无批次入口。
 
 ## 5.3 procurement 做不到的事
@@ -1615,7 +1739,13 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | 4 | **`email_verified` 只在登录处校验** | 探针 unverified == researcher | 已登录用户邮箱被置否后 token 仍全权可用 |
 | 5 | **同一动作两套端点、两套权限** | `/admin/orders/{id}/invoice/`(`IsAdminUser`) vs `/orders/{id}/invoice/`(`IsProcurementOrAdmin`) | 采购在订单详情页开不了票，在开票台却能 |
 
-## 11.2 死按钮 / 假成功 / 无反馈（运营最常撞的）
+## 11.2 死按钮 / 假成功 / 反馈缺失（运营最常撞的）
+
+> **先分清三种"没反应"**（判断责任方时最关键）：
+> 1. **请求根本没发出**（前端校验早退）⇒ 无 toast、无任何提示，纯靠代码里的 `return`
+> 2. **请求发出但被拒**（401/403/404/5xx）⇒ 有全局 toast；401 还会**清 token + 强制整页跳 `/login`**
+> 3. **请求成功但结果没体现**⇒ 页面状态没刷新（假成功）
+> 下表逐条标注属于哪一种。
 
 | # | 位置 | 现象 | 依据 |
 |---|---|---|---|
@@ -1624,21 +1754,43 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | 3 | `/verify-email` 失败态 | **重发按钮永不显示**（`v-if="email"` 只在成功路径为真） | `VerifyEmailPage.vue:28,117` |
 | 4 | `/ops/orders/:id` → `Internal Notes` | 有输入框，**无保存按钮无 API** ⇒ 输入不落库 | `AdminOrderDetail.vue:267` |
 | 5 | `/ops/orders/:id` → 报价备注 | `quoteForm.notes` 有字段、模板无输入框 ⇒ 永远传空 | `AdminOrderDetail.vue:26,104` |
-| 6 | `/ops/po/review` → `Assign Rep` | 采购点击必 403；rep 为空时静默 return；失败无提示 | `PoReviewDesk.vue:53-58` |
-| 7 | `/ops/po/invoicing` → `Record Payment` | Amount 为空时**静默 return**，无提示 | `PoInvoicingDesk.vue:53` |
-| 8 | `/ops/inventory` 入库/调整 | 必填校验全部静默 `return`，无文案 | `InventoryDesk.vue:260,282` |
-| 9 | `/quote-request` 提交失败 | 只 `console.error`，页面无提示 ⇒ 用户以为成功 | `QuoteRequestPage.vue:104` |
-| 10 | `/search` 失败 | 只 console，页面无提示 | `SearchPage.vue:68` |
+| 6 | `/ops/po/review` → `Assign Rep` | 采购点击必 403（**有 toast**，DRF 英文原文）；rep 为空时**静默 return**（请求不发）；失败无状态回滚 | `PoReviewDesk.vue:53-58` |
+| 7 | `/ops/po/invoicing` → `Record Payment` | Amount 为空时**静默 return**（请求不发，无 toast）| `PoInvoicingDesk.vue:53` |
+| 8 | `/ops/inventory` 入库/调整 | 必填校验全部静默 `return`（请求不发，无 toast、无红框）| `InventoryDesk.vue:260,282` |
+| 9 | `/quote-request` 提交失败 | 页面无内联错误区（只 console），**全局 toast 会弹**；表单内容保留 | `QuoteRequestPage.vue:104` |
+| 10 | `/search` 失败 | 无内联错误区（只 console），**全局 toast 会弹**；结果区停留在旧结果 | `SearchPage.vue:68` |
 | 11 | `/cart` → `Submit for Approval` | 与 `Place Order` 同目标，**无审批接口**；且仅 researcher 可见 | `CartPage.vue:14-19,59` |
 | 12 | `/methods`、`/protocols` 状态 chips | 点击只变高亮，**不筛数据**（未传 `status`） | `MethodIndex.vue:37`、`ProtocolIndex.vue:38` |
 | 13 | 产品列表 `Knowledge Link` 列 | 可排序，但 L3 子分类筛选未进请求参数 | `ProductIndex.vue:43-47` |
 | 14 | `PoReorder` 行选中 | `selectedId` 从未赋值 ⇒ 高亮永不出现 | `PoReorder.vue:12,53` |
 | 15 | `AdminOrdersPage` 加载失败 | 错误横幅与"无订单"空态同时出现 | `AdminOrdersPage.vue:93,130` |
-| 16 | `PoArReport` 加载失败 | 无 catch、无空态，页面只剩头部 | `PoArReport.vue:16-24` |
+| 16 | `PoArReport` 加载失败 | 无 catch、无空态，页面只剩头部（**有 toast 但无重试入口**）| `PoArReport.vue:16-24` |
 | 17 | `PoOrgManagement` 副标题 | 声称 "their addresses"，模板无地址字段 | `PoOrgManagement.vue:44` |
 | 18 | 完整性条缺失项 | 纯文本，不可点击跳转到缺失字段 | `ProductEditPage.vue:1666-1667` |
 
 ## 11.3 能力缺口（有需求、无实现）
+
+### ⚠️ 11.3.0 最严重：**账号自救能力为零**
+
+这是本轮审计新发现的一条，按影响面应该排在所有问题之前：
+
+| 想做的事 | 现状 | 后果 |
+|---|---|---|
+| **改密码** | `/settings` → Security → `Update Password` 校验完直接弹 `Password update feature will be available soon.`，**无任何后端调用** | 用户以为改了，实际没改 |
+| **忘记密码后重置** | **全站不存在**。无端点、无路由、无 api 封装（`grep password-reset\|forgot\|reset-password` 于 urls/views/router/api 全部 0 命中；`accounts` app 里除测试外无 `set_password` 调用） | **永久锁死**，只能内部去 Django admin 重置 |
+| 邮箱验证链接过期后重发 | 登录页的重发按钮**必崩**（读不存在的 `form.email`） | 只能靠注册成功当页那个按钮（已离开就没了） |
+
+**结论**：一个已注册用户，**只要忘了密码或验证链接过期，就无法靠自己恢复账号**。
+唯一出路是运维人员登录 Django admin 手工处理（`/admin/` → Users → 改密码 / 改 `email_verified`）。
+
+**这三条必须在产品层面给结论**：
+1. 补 `POST /auth/password/change`（已登录改密）+ `POST /auth/password/reset-request` / `reset-confirm`（忘记密码）
+2. 修登录页重发按钮（`form` 加 `email` 字段，或在未验证分支复用注册页的输入框）
+3. 在补上之前，**运营手册必须写明"忘记密码请走工单，内部用 Django admin 重置"** —— 否则一线会答"点那个按钮"，而那个按钮是假的
+
+---
+
+### 其余能力缺口
 
 | # | 缺口 | 现状 |
 |---|---|---|
@@ -1658,8 +1810,30 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | # | 风险 | 触发条件 | 依据 |
 |---|---|---|---|
 | 1 | **非 USD 币种订单金额错** | 上架任一 CNY/EUR 的 SKU | `checkout_views.py:93` 硬编码 `currency='USD'`；当前 596 SKU 全 USD |
-| 2 | **`create_order` 信任客户端单价** | 有人把它接上生产调用链 | `services.py:40-52`；当前只有测试调用 |
+| 2 | **`create_order` 信任客户端单价** | 有人把它接上生产调用链 | `transactions/services.py:40-52`；当前只有测试调用 |
 | 3 | **`_sync_method_bridges` 先删后加** | 保存时只传 goal/app 不传 `method_ids` | 原有方法关联被真删 |
+
+---
+
+## 11.5 界面文案语种混杂（直接影响客户）
+
+界面主体是英文，但存在**用户可见的中文**，且集中在最需要引导的地方：
+
+| 位置 | 中文文案（原文） | 谁看得到 |
+|---|---|---|
+| `ProductDetail.vue:266` | `toast.warning('请先登录')` | **客户**（未登录点收藏） |
+| `ProductDetail.vue:286` | `toast.success('已收藏' / '已取消收藏')` | **客户** |
+| `WishlistPage.vue` 整页 | `请先登录后使用收藏夹`、`还没有收藏任何产品`、`清空收藏`、`收藏夹加载失败`、`重试` | **客户** |
+| `InventoryDesk.vue:113-115,135-137` | `Reason *` 标签 + placeholder `e.g. PO-1234 到货 / 盘盈`、`e.g. 盘点差异 -2` | 内部运营（英文按钮 + 中文提示） |
+| `ProductEditPage.vue` | 约 1200 处中文（提示、确认框、错误说明） | 内部运营 |
+
+**中文出现量实测**（`grep -oP '[\x{4e00}-\x{9fa5}]+' | wc -l`）：
+ProductEditPage **1211**、ProductsPage **287**、ProductDetail **145**、WishlistPage **77**、RegisterPage 53。
+
+**判断**：
+- **内部台以中文为主是可接受的**（操作员是中文母语），不算缺陷
+- **客户侧（ProductDetail / WishlistPage）中英混杂是真问题**：英文客户点收藏会看到中文提示，且 `WishlistPage` 整页中文
+- 这与既定目标「官网纯英文本地化（DB 实体 + 前端 UI 文案）」**方向相反**，属于该事项的遗留未清部分
 
 ---
 
@@ -1729,7 +1903,7 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 ## A.8 SKU.inventory_status（`commerce/models.py:233-237`）
 
 `in_stock` / `limited` / `preorder` / `out_of_stock` —— 手工字段，**前端无输入控件**，默认 `in_stock`。
-产品级状态是**派生**的（`models.py:218-228`）：有任一 SKU `in_stock` ⇒ `in_stock`；否则 `limited`；否则 `preorder`；否则 `out_of_stock`。
+产品级状态是**派生**的（`commerce/models.py:218-228`）：有任一 SKU `in_stock` ⇒ `in_stock`；否则 `limited`；否则 `preorder`；否则 `out_of_stock`。
 
 ## A.9 库存数量（`inventory`，与上者无关）
 
@@ -1739,6 +1913,12 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 ---
 
 # 附录 B 端点索引（按业务域）
+
+> ⚠️ **这是"代表端点"，不是全量索引。**
+> 实测（`scripts/audit_manual_coverage.py`）：去掉 `.json` 等格式后缀变体后，
+> 全站 **140 条路径 / 211 个 method**；本附录覆盖 **133 条路径 / 200 个 method（95%）**。
+> 但"路径出现"≠"讲清了"：其中约 9 类 ViewSet 详情路由只在本节末尾"未收录清单"里点了名，正文按 CRUD 概括。
+> 未提及的 7 条全是 `{id}` 详情路由或 `sitemap-{kind}-{page}.xml`。
 
 | 业务域 | 代表端点 | 权限 |
 |---|---|---|
@@ -1763,9 +1943,31 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | **询价** | `POST /quote-requests/`、`GET /quote-requests/{id}/`；`/quotes/` CRUD | 未声明 / `IsAuthenticated` |
 | **愿望清单** | `GET/POST /wishlist/`、`PATCH /wishlist/{id}/` | `IsAuthenticated` |
 | **站点** | `GET /site/home`、`GET /site/navigation`、`/sitemap*.xml`、`/health/` | `AllowAny` |
+| **知识图谱** | `GET /graph`（实体周边子图；`api/graph.js:11`） | `AllowAny` |
+| **结构化数据** | `GET /products/{id}/json-ld/`、`GET /methods/{id}/json-ld/`、`GET /protocols/{id}/json-ld/`（`api/agent.js:10,20,30`） | 读 `AllowAny` |
+| **搜索建议** | `GET /search/suggest?q=`（`api/search.js:8`） | `AllowAny` |
+| **机构创建** | `POST /organizations/create`（注册 Step 3 选 `Create New` 时；`api/organizations.js:18`） | `IsAuthenticated` |
+| **PubChem 补全** | `POST /products/enrich-from-pubchem/`（单条 + 批量；`api/aiTools.js:30,40`） | `IsAdminUser` |
+| **产品附加数据** | `GET /products/{id}/related/`、`GET /products/{id}/faq/`（详情聚合接口已一并返回，前端不单独调） | `AllowAny` |
+| **单条产品恢复** | `POST /products/{id}/restore/`（前端只用批量版 `batch-restore`） | `IsAdminOrReadOnly` 写 |
+| **库存分货** | `POST /orders/{id}/allocate/`（🔒 前端 0 引用） | `IsProcurementOrAdmin` |
+| **兼容性表** | `/compatibility/` CRUD（前端 0 调用；仅出现在 `/products/{id}/detail` 的返回字段注释里） | 读 `AllowAny`；写 `is_staff` |
 
-**合计 335 个 path×method**（含 ViewSet 的 `.json` 等格式后缀变体）。
+**合计 335 个 path×method** —— 注意这是**去重后的 path×method 计数，不是"业务动作"数**：
+每个 ViewSet 在 URL resolver 里还会多一份 `.json` 后缀变体（`\.(?P<None>[a-z0-9]+)`），
+同一业务动作因此常被计 2 次。去格式变体后实际是 **140 条路径 / 211 个 method**。
+
 🔒 = 有端点、前端无入口。
+
+### 仍未收录的（诚实声明，不假装是全量）
+
+| 类别 | 内容 | 为什么不写进正文 |
+|---|---|---|
+| 系统/元信息 | `GET /api/schema`、`GET /api/docs`、`GET /robots.txt`、`GET /sitemap.xml`、`GET /sitemap-static.xml`、`GET /sitemap-{kind}-{page}.xml` | 面向爬虫与开发者，不是业务操作 |
+| ViewSet 详情路由 | `/applications/{id}`、`/protocols/{id}`、`/references/{id}`、`/research-goals/{id}`、`/quotes/{id}`、`/skus/{id}`、`/batches/{id}`、`/documents/{id}`、`/pdf-files/{id}` 的 `GET/PUT/PATCH/DELETE` | 正文各章已按"CRUD"概括；权限与列表路由相同 |
+| 前端 0 引用的内部/工具端点 | `/catalog-groups`、`/pubchem-cache`、`/documents`、`/pdf-files`、`/admin/orders/{id}/confirm`、`/inventory/movements`（`api/inventory.js:28` 有封装，但页面走 `getInventoryDetail`） | 无操作入口，写进说明书会误导操作员 |
+
+**覆盖率实测**：`python scripts/audit_manual_coverage.py` ⇒ 路径 133/140、method 200/211（95%）。明细与剩余局限见 §D.4 / §D.5。
 
 ---
 
@@ -1801,6 +2003,80 @@ cd backend && DB_ENGINE=sqlite venv/Scripts/python.exe ../scripts/role_capabilit
 
 ---
 
-**文档版本** V1.0 · 2026-10-22 · 对应代码 `cc4e8f2` · 覆盖 8 身份 / 335 端点 / 52 页面
+**文档版本** V1.1 · 2026-10-22 · 对应代码 `cc4e8f2` · 覆盖 8 身份 / 335 端点 / 52 页面
+
+---
+
+# 附录 D 本轮审计记录（V1.0 → V1.1）
+
+> 这一节记录的是**我自己上一版写错/漏掉的东西**。写出来是为了让后来者知道哪些结论曾经不可靠、
+> 以及用什么方法才把它变成可靠的 —— 不留审计痕迹的文档，下一轮还会犯同样的错。
+
+## D.1 审计方法（三个脚本，可复跑）
+
+| 脚本 | 解决什么 | 能自动发现的问题 |
+|---|---|---|
+| `scripts/audit_manual_refs.py` | 文档里 83 条 `file:line` 的**文件是否存在、行号是否越界、路径是否有歧义** | 行号溢出、指向不存在的文件、裸文件名无法定位 |
+| `scripts/dump_manual_refs.py` | 把每条引用的**目标行原文**连同文档主张一起打出来 | 引用存在但**内容答非所问**（语义错配） |
+| `scripts/audit_manual_coverage.py` | 路由 name 与 140 条端点路径的**覆盖率** | 漏页、漏端点 |
+| `scripts/audit_manual_numbers.py` | 按守卫规则**重新归类每个路由**，核对 52 = 23 公开 + 10 客户 + 19 内部 | 数字自相矛盾、把壳路由重复计数 |
+
+```bash
+cd src_claude
+python scripts/audit_manual_refs.py
+python scripts/dump_manual_refs.py --grep COA     # 抽样人读
+python scripts/audit_manual_coverage.py
+python scripts/audit_manual_numbers.py
+```
+
+## D.2 已修正的错误（8 处）
+
+| # | V1.0 写的 | 实际是什么 | 影响章节 |
+|---|---|---|---|
+| 1 | "页面无 try/catch ⇒ **失败静默 / 用户以为成功**" | **错**。全局拦截器 `utils/http.js:74-102` 对所有非 401 错误弹 `ElMessage.error(后端 message)`；401 还会**清 token + 整页跳 `/login`**。真正静默的只有**前端早退（请求没发出）** | §5.2、§7.8.3、§11.2 共 14 行 + 新增 §0.6 讲机制 |
+| 2 | 把 `isInternal` 标成 **37–43 行** | **行号越界**（文件仅 37 行）；实际是 **32–36 行** | §0.4 |
+| 3 | 9 处**裸文件名**引用（`models.py` / `services.py` / `admin.py` / `serializers.py` / `views.py` 后直接跟行号） | 仓库里同名文件有 3 个以上，**读者无法定位** | §4.2、§5.2、§7.3.4、§11.4 |
+| 4 | 4 个公开页完全没写（About / Privacy / Terms / 404） | 它们是 23 个公开页的一部分，且文案硬编码在前端 | 新增 §F1-10 |
+| 5 | **登出流程完全缺失** | `POST /auth/logout` 存在（`api/auth.js:19`、`stores/auth.js:158`），且在 2 个布局里有入口 | 新增 §0.7 |
+| 6 | 附录 B 漏了 7 组**有前端封装**的端点 | `/graph`（8 处调用）、`json-ld`×3、`/search/suggest`、`/organizations/create`、`/products/enrich-from-pubchem/`、`related`/`faq`、`restore`、`allocate`、`compatibility` | 附录 B 补 10 行 |
+| 7 | 「哪条路由算一个页面」表述错：写成「8 个 `/ops` + `/workspace` 壳 + 10 个子页」 | 数字 19 是对的，但算式漏了 `Dashboard` 本身（`/workspace` 的子路由 `path:''` 才是真页面，父级只是壳）。已改为「8 个 `/ops` + 11 个 `/workspace` 页面」，并补三套计数口径：`path:` 56 / 路由 `name` 54 / 不同 URL 52 | §0.1、§0.2、§D.4 |
+| 8 | 「`isStaff` 在内部页只出现 **1 处**」 | 不精确。`isInternal` 守卫在 **10 处**（9 个 workspace 页 + AdminLayout，管"能不能进"）；**元素级**角色条件渲染确实只有 1 处（`ProductsPage.vue:666`）。两者性质不同，混为一谈会误导读者 | §0.4、§5.1 |
+
+## D.3 V1.0 完全没写的重大缺口（本轮新发现）
+
+| # | 缺口 | 为什么重要 |
+|---|---|---|
+| 1 | **全站没有"忘记密码/重置密码"**，且改密码是假成功 | 用户忘记密码 = **永久锁死**，只能运维上 Django admin 手工重置。见 §11.3.0 |
+| 2 | **全局错误信封与 401 行为** | 决定"用户看到的错误提示从哪来、为什么会被整页踢出、为什么未保存表单会丢"。见 §0.6 |
+| 3 | **客户侧中英混杂** | `ProductDetail` 点收藏弹中文 `请先登录`、`WishlistPage` 整页中文。见 §11.5 |
+| 4 | **内部台侧栏没有登出入口** | `/workspace` 只有 `Back to Site`，必须先回前台才能登出。见 §0.7 |
+
+## D.4 覆盖率实测（改稿后重算）
+
+| 维度 | 覆盖率 | 说明 |
+|---|---|---|
+| 页面（不同 URL 52 个） | **51/52** | 唯一未单列的是 `NotFound`（已并入 §F1-10 一起说明）。按 name 匹配只有 29/54，是因为多数页面在正文里按**路径**叙述（如 `ApplicationDetail` 写作 `/applications/:id`）|
+| 端点路径（去 `.json` 变体） | **133/140 = 95%** | 未提及的 7 条全是 `{id}` 详情路由或 `sitemap-{kind}-{page}.xml` |
+| 端点"详细描述" | 约 **124/140** | ⚠️ "路径出现"≠"讲清了"：约 9 类 ViewSet 详情路由只在"未收录清单"里点了名，正文按 CRUD 概括 |
+
+## D.5 本说明书仍然存在的局限（不掩盖）
+
+| # | 局限 | 影响 | 怎么才能补上 |
+|---|---|---|---|
+| 1 | **全部是静态推断 + 权限求值，没有一条在真实浏览器里验过** | 文档说的是"代码会怎样"，不是"实测怎样"。**这是最大局限** | 按 `ROLE_TEST_PLAN.md` 的 L3 层跑 Playwright，逐条把断言变成实测 |
+| 2 | `has_object_permission` 未覆盖 | 地址簿的机构隔离、对象级不可见，只写了设计意图未验证 | 需真实对象 + 两机构账号 |
+| 3 | `get_queryset` 收窄未覆盖 | "客户只能看自己的订单"是按代码读出来的，未实证 | 同上 |
+| 4 | 组件**运行时**条件渲染只读到表达式 | 例如某按钮 `v-if` 依赖异步结果，静态只能确认条件存在，不能确认何时为真 | 浏览器实测 |
+| 5 | 未验证服务端错误文案的**实际渲染** | 403 弹的是 DRF 英文原文，这是读 `core/exceptions.py` 推出来的 | 打一次 403 看 toast 文案 |
+
+## D.6 下一轮建议（按投入产出排序）
+
+| 优先 | 做什么 | 产出 |
+|---|---|---|
+| P0 | 给 §11.3.0 三条账号自救问题定方案（补端点 / 修按钮 / 写运营应答口径） | 需求单 |
+| P0 | 用 Playwright 实测 3 个 DEAD 页面（`/ops/orders`、`/ops/orders/:id`、`/workspace/verified` 对 procurement），把 §8.1 的结论从"推断"升级为"实测" | `ROLE_TEST_PLAN.md` L3 |
+| P1 | 把 §0.6 的错误机制做成一次真实抓包验证（故意 403 / 401 各一次，记录 toast 文案与跳转行为） | 附录补实测截图/日志 |
+| P1 | 补 ViewSet 详情路由的字段级说明（当前只按 CRUD 概括） | 附录 B 扩充 |
+| P2 | 把附录 A 状态机做成"当前状态 → 界面出现哪些按钮"的可视化矩阵（现已按页面散落在 §7.8.2） | 单独一页速查 |
 
 
