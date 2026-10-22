@@ -134,7 +134,7 @@
 | 新建知识实体（RG/AP/Method/Protocol/Ref） | 仅 staff | `/workspace/{goals,applications,methods,protocols,references}` | [7.5](#75-知识实体-crud5-个页面) |
 | 审核 verified 适用性 | 仅 staff | `/workspace/verified` | [7.6](#76-verified-适用性审核) |
 | 批量录入知识 | 仅 staff | `/workspace/knowledge-intake` | [7.7](#77-知识录入knowledge-intake) |
-| 分配角色 / 给某人 is_staff | **仅 superuser** | Django admin（无产品界面） | [8.3](#83-f8-2-django-admin角色与权限分配的唯一场所) |
+| 分配角色 / 给某人 is_staff | **仅 superuser** | Django admin → Users | [8.3.1](#831-怎么给一个人授予采购管理员权限分步)（**改完要让对方重登**） |
 | 物理删除产品 | superuser（**但无 UI**） | — | [8.2](#82-f8-1-物理删除产品-有端点无-ui) |
 | 退出登录 | 所有已登录 | 右上角头像下拉 `Sign Out` | [0.7](#07-全角色通用动作登出与会话失效) |
 
@@ -1101,6 +1101,18 @@ router.beforeEach（router/index.js:299）
 
 # 第 4 章 researcher + `is_org_admin`（机构管理员）
 
+## 4.0 身份与边界
+
+| 项 | 值 |
+|---|---|
+| `role` | researcher |
+| **`is_org_admin`** | **true**（本章唯一特殊之处） |
+| `is_staff` | false |
+| 能进页面 | 与第 3 章**完全相同**的 33 页（23 公开 + 10 客户）；内部台一律被踢回首页 |
+| 读写端点 | 与 researcher **逐格相同**（实测 读 75/84、写 31/115） |
+| 唯一可见差别 | `/settings` → `Account` 面板多一个 `Admin` 徽章 |
+| 能不能管机构成员/地址/订单 | **都不能**（没有任何对应端点） |
+
 ## 4.1 核心结论（先说最重要的一句）
 
 > **`is_org_admin` 对权限零影响。** 该身份与普通 researcher 在**真实 HTTP 探测**里逐项相同：
@@ -1326,6 +1338,18 @@ router.beforeEach（router/index.js:299）
 
 # 第 6 章 admin（`role='admin'`，`is_staff=false`）
 
+## 6.0 身份与边界
+
+| 项 | 值 |
+|---|---|
+| `role` | **admin** |
+| `is_staff` | **false** ← 关键：名字叫 admin，但不是 Django staff |
+| 能进页面 | 19 个内部台**全部能进**（`isInternal()` 认 `role`） |
+| 读端点 | 80/84（与采购相同） |
+| 写端点 | **43/115**（比采购多 **1** 个） |
+| 比采购多的唯一能力 | `POST /orders/:id/assign-rep/`（`IsAdmin` = `is_staff` **或** `role=='admin'`） |
+| 与 staff 的差距 | 产品/知识实体/COA·SDS/verified/`/admin/orders/` **全部 403** |
+
 ## 6.1 与第 5 章的差异只有一处
 
 | 项 | procurement | **admin(role)** |
@@ -1386,7 +1410,7 @@ PO 审核 → 发货 → 送达 → 开票 → 记录收款 → 完成（Mark as
 | verified 审核 | `/workspace/verified` | §7.6 |
 | 订单详情推进 | `/ops/orders/:id`（**状态按钮矩阵**） | §7.8.2 |
 | 四个 PO Desk | `/ops/po/*` | §7.8.3 |
-| 库存 | `/ops/inventory` | §5.6 |
+| 库存 | `/ops/inventory` | §F5-6 |
 
 > ⚠️ **staff 也读不到客户地址**（实测）：地址簿按"你所属机构"过滤，内部员工机构与客户不同 ⇒ 404。
 > 要让客户改地址，或把该员工加入该机构。详见 §3.3。
@@ -1842,6 +1866,27 @@ name && catalog_no && cas && smiles && product_class_id && skus.some(is_default)
 
 **admin 列表页提供的筛选**：`role` / `is_org_admin` / `is_staff` / `is_active`（`accounts/admin.py:37-38`）
 
+### 8.3.1 怎么给一个人授予采购/管理员权限（分步）
+
+| 步 | 操作 | 注意 |
+|---|---|---|
+| 1 | 用 **superuser** 打开 `<站点>/admin/` | 生产还要先过 nginx Basic 认证（两层） |
+| 2 | `Users` → 右上角搜索框输入用户名 | 注意别改错同名账号 |
+| 3 | 进入该用户，找到 `Role` 下拉与 `is_staff` / `is_superuser` 勾选 | `role` 决定前端的"内部人"判定 |
+| 4 | 改完点 `Save`（右下角） | — |
+| 5 | **让他退出再登录** | ★ 必做，理由见下 |
+
+> ★ **生效边界（运营最容易踩）**：
+> - **后端权限实时生效** —— 权限类是每个请求重新判断，不用等、不用重启
+> - **前端菜单与守卫要重新登录才变** —— 前端只在**登录那一刻**把 `is_staff` / `role`
+>   写进 localStorage（`stores/auth.js:34-36`、`:65-66`），之后一直读缓存
+> ⇒ 用户报"我改了权限但看不到工作台"，先让他 `Sign Out` 再登录，不要以为是没生效
+>
+> **该给谁什么**（对照第 0.3 节）：
+> - 只想让他处理订单/库存 → 给 `role=procurement`（**不要**勾 `is_staff`）
+> - 要他能编产品/知识实体 → **必须勾 `is_staff`**（`role` 再高也没用）
+> - 要他能进 Django admin 改别人权限 → 必须 `is_superuser`
+
 ---
 
 # 第 9 章 跨角色闭环（同一业务在多个角色间的传递）
@@ -2052,7 +2097,7 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 
 ## 11.3 能力缺口（有需求、无实现）
 
-### ⚠️ 11.3.0 最严重：**账号自救能力为零**
+### 11.3.0 ⚠️ 最严重：**账号自救能力为零**
 
 这是本轮审计新发现的一条，按影响面应该排在所有问题之前：
 
@@ -2204,6 +2249,14 @@ X-Auth-Token: <应用层 token>          ← 过 Django（前端就是这么发�
 | 服务条款 | `/terms` | 纯静态 | — | §F1-10 |
 | 404 | 任意未匹配路径 | 兜底页 | — | §F1-10 |
 
+> **表格里 ✅/⚠️/❌ 的口径**（与 `PAGE_ROLE_MATRIX.json` 一致）：
+> ✅ = 页面所有请求都不会被 403 挡；⚠️ = 能进、绝大多数动作可用，但**至少有一个**动作会 403；
+> ❌ = 进入页面时的首屏读请求就 403（页面不可用）。
+> 所以 ⚠️ 不等于"整页不可用"，只表示"有坑，看详见列"。
+
+> ⚠️ `/login`、`/register`、`/verify-email` 虽无守卫，但带 `meta.guest`：
+> **已登录用户访问会被自动跳走**（内部人 → `/workspace`，其他人 → `/`）。
+
 ## 12.2 客户门户（10 个）
 
 > 守卫：`meta.requiresAuth`。未登录 → `/login?redirect=`。
@@ -2241,7 +2294,7 @@ X-Auth-Token: <应用层 token>          ← 过 Django（前端就是这么发�
 | 知识录入 | `/workspace/knowledge-intake` | ⚠️ **保存必 403** | 按产品填知识、`Copy to Similar Products` | `POST /knowledge-intake/` | §7.7 |
 | 订单管理 | `/ops/orders` | ❌ **不可用**（403 + 误导性空态） | 全库订单、状态筛、搜索、进详情 | `GET /admin/orders/` | §7.8.1 |
 | 订单详情（内部） | `/ops/orders/:id` | ❌ **不可用**（403） | 8 个状态推进按钮，矩阵见 §7.8.2 | `/admin/orders/*`、`/orders/{id}/approve/` 等 | §7.8.2 |
-| PO 审核台 | `/ops/po/review` | ✅ 可用（`Assign Rep` 除外） | 审批 / 拒绝 / 指派 / 看明细与缺货 | `GET /orders/?status=po_received` | §F5-1 |
+| PO 审核台 | `/ops/po/review` | ⚠️ 基本可用（`Assign Rep` 会 403） | 审批 / 拒绝 / 看明细与缺货 | `GET /orders/?status=po_received` | §F5-1 |
 | 发货台 | `/ops/po/shipments` | ✅ 可用 | 建发货单、`Mark Shipped`、`Mark Delivered` | `POST /orders/{id}/shipments/` | §F5-2 |
 | 开票台 | `/ops/po/invoicing` | ✅ 可用 | `Issue Invoice`、`Record Payment` | `POST /orders/{id}/invoice/`、`POST /invoices/{id}/pay/` | §F5-3 |
 | AR 账龄 | `/ops/po/ar` | ✅ 可用 | 看 4 个账龄桶与应收总额 | `GET /ar/aging/` | §F5-4 |
@@ -2431,11 +2484,16 @@ cd backend && DB_ENGINE=sqlite venv/Scripts/python.exe ../scripts/role_capabilit
 
 ---
 
-**文档版本** V1.1 · 2026-10-22 · 对应代码 `cc4e8f2` · 覆盖 8 身份 / 335 端点 / 52 页面
+**文档版本** V2.0 · 2026-10-22 · 对应代码 `cc4e8f2` · 覆盖 8 身份 / 335 端点 / 52 页面 / 19 内部台
 
 ---
 
 # 附录 D 本轮审计记录（V1.0 → V1.1）
+
+> 📋 **交付前审计另见 [`MANUAL_DELIVERY_AUDIT.md`](./MANUAL_DELIVERY_AUDIT.md)**：
+> 2026-10-22 按 14 项交付标准做了 6 类机械检查（引用 106/106、页面 52/52、交叉引用 58/58、
+> 锚点 66/66、表格 141/141、接口抽查 14/14），发现并修复 11 处问题，
+> 结论为"可交付"，并列出 3 条必须随文告知的边界。
 
 > 这一节记录的是**我自己上一版写错/漏掉的东西**。写出来是为了让后来者知道哪些结论曾经不可靠、
 > 以及用什么方法才把它变成可靠的 —— 不留审计痕迹的文档，下一轮还会犯同样的错。
@@ -2483,7 +2541,7 @@ python scripts/audit_manual_numbers.py
 
 | 维度 | 覆盖率 | 说明 |
 |---|---|---|
-| 页面（不同 URL 52 个） | **51/52** | 唯一未单列的是 `NotFound`（已并入 §F1-10 一起说明）。按 name 匹配只有 29/54，是因为多数页面在正文里按**路径**叙述（如 `ApplicationDetail` 写作 `/applications/:id`）|
+| 页面（不同 URL 52 个） | **52/52** | V2.0 起第 12 章逐页覆盖，含 `NotFound`（见 §12.1）；脚本 `audit_manual_delivery.py` 实测 52/52、0 漏 0 编造 |
 | 端点路径（去 `.json` 变体） | **133/140 = 95%** | 未提及的 7 条全是 `{id}` 详情路由或 `sitemap-{kind}-{page}.xml` |
 | 端点"详细描述" | 约 **124/140** | ⚠️ "路径出现"≠"讲清了"：约 9 类 ViewSet 详情路由只在"未收录清单"里点了名，正文按 CRUD 概括 |
 
@@ -2521,6 +2579,11 @@ python scripts/audit_manual_numbers.py
 **`docs/e2e/MANUAL_FACTS_MEASURED.md`**
 
 该文件同时记录了「实测推翻了旧版哪 8 句话」的逐条对照表 —— 读它可以知道本文哪些结论曾经不可靠。
+
+> ⚠️ **一处已知且有意为之的口径差**：`ROLE_CAPABILITY_MATRIX.json`（权限类求值产物）里
+> `IsStaffUser` 仍记 **7**，而正文 §0.4 按 **6** 记。原因：HTTP 实测发现 `POST /verified/`
+> 实际只要登录（`get_permissions()` 按方法分权），求值按类属性读错了。
+> ⇒ **正文以实测为准，JSON 保留原始求值结果**为的是可追溯；这不是笔误。
 
 V1.3 又补齐 5 项（对象级权限、邮件、跨浏览器、视觉响应式、并发），证据编号 `M-30 ~ M-61`；
 生产匿名边界为 `M-70`。**只剩 2 项未覆盖**（生产登录态、PG 并发），阻塞原因写在实测清单 §10。
@@ -2646,7 +2709,10 @@ VITE_API_PROXY=http://127.0.0.1:8011 ./node_modules/.bin/vite --port 5174 --stri
 | 求值 vs 实测比对 | `python scripts/compare_probe_vs_http.py` |
 | 页面 × 角色判定 | `python scripts/page_role_matrix.py` |
 | PG 并发用例 | `cd backend && venv/Scripts/python.exe ../scripts/run_pg_tests.py` |
-| 浏览器实测 | `npx playwright test manual-facts-probe --project=chromium\|firefox\|webkit` |
+| 浏览器实测（关键事实） | `npx playwright test manual-facts-probe --project=chromium\|firefox\|webkit` |
+| 浏览器实测（**52 页加载级**） | `npx playwright test manual-pages-smoke --project=chromium` |
+| 页面覆盖率核算 | `python scripts/check_browser_coverage.py` |
+| 交付审计（6 项机械检查） | `python scripts/audit_manual_delivery.py` |
 | 生产匿名边界 | `python scripts/prod_anon_probe.py` |
 | 生产登录态只读 | `SC_BASIC_USER=… SC_APP_PASS=… python scripts/prod_readonly_probe.py` |
 
