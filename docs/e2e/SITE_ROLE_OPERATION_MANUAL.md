@@ -2,7 +2,8 @@
 
 **版本** V2.0 · **生成日期** 2026-10-22 · **对应代码** `cc4e8f2`
 **性质** 操作说明书（不是设计草案、不是改造建议）。每一条都对应现有代码。
-**配套** `ROLE_CAPABILITY_MATRIX.md`（权限事实基线）、`ROLE_TEST_PLAN.md`（测试方案）、`PAGE_API_MAP.json`（页面↔API 机读表）
+**配套** `ROLE_CAPABILITY_MATRIX.md`（权限事实基线）、`PAGE_API_MAP.json`（页面↔API 机读表）
+**测试方案（本文的下游）** [`GLOBAL_TEST_PLAN_V3.md`](./GLOBAL_TEST_PLAN_V3.md)（以本文为索引的全局覆盖 + 缺口）、[`PERSONA_TEST_PLAN.md`](./PERSONA_TEST_PLAN.md)（8 个角色的拟人化脚本）
 
 > **V2.0 修订（2026-10-22，手册化）——为什么升大版本**
 > V1.x 是"事实与证据文档"：结论可靠，但**当手册用不合格**——没有目录、没有反查入口、
@@ -2309,6 +2310,10 @@ X-Auth-Token: <应用层 token>          ← 过 Django（前端就是这么发�
 | 「订单详情」 | `/ops/orders/:id`（内部） vs `/orders/:id`（客户） | 前者 staff；后者仅本人 | 同上 |
 | 「PO 单」 | `/po/orders`（客户提交的 PO 后自己看） vs `/ops/po/*`（内部处理 PO 的四个台） | 前者客户；后者内部 | `/orders/`（收窄） vs `/orders/`（跨机构） |
 | 「产品」 | `/products`（公开目录，只出 active 且未归档） vs `/workspace/products`（管理台，含回收站） | 前者任何人；后者 staff | 两者 queryset 不同 |
+
+> 本章的 52 行是测试方案的**页面维度索引**：
+> 覆盖核算见 `GLOBAL_TEST_PLAN_V3.md` §4（每条流程标了 🟩FULL/🟨PART/🟦LOAD/🟥NONE），
+> 逐角色真人脚本见 `PERSONA_TEST_PLAN.md`。
 
 **同一个动作在两个页面权限不同**（实测，最容易踩）：
 - 开票：`/ops/po/invoicing` 用 `/orders/{id}/invoice/`（采购**可以**）；
