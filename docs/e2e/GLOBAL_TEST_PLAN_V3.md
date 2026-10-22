@@ -122,6 +122,10 @@
 
 ## 5. 缺口与优先级
 
+> ⚠️ **唯一清单在 [`GAP_REGISTER.md`](./GAP_REGISTER.md)（23 条，去重，机读版 `GAP_REGISTER.json`）。**
+> 本节只是**摘要**，不要在两处各维护一份——第一版就出现过重复登记（F8-1 / F8-3 各被列两次）。
+> 缺口来源：`flow_coverage_matrix.py` 的 `FLOWS` 表里深度 ≠ FULL 的 21 条 + 2 条非流程项（金额快照、邮件）。
+
 ### 5.1 P0：六条零覆盖（🟥 NONE）——按"出事概率 × 不可逆性"排
 
 | 序 | 流程 | 为什么是 P0 | 要补什么 |
@@ -212,8 +216,30 @@ cd src_claude
 python scripts/scan_e2e_coverage.py        # 页面级 E2E 覆盖（52/52？）
 python scripts/flow_coverage_matrix.py     # 流程级覆盖（FULL/PART/LOAD/NONE）
 python scripts/flow_coverage_matrix.py --md > 表格.md   # 生成 §4 的矩阵
+python scripts/gap_register.py             # 重新生成唯一 backlog（GAP_REGISTER.md/.json）
 python scripts/audit_manual_delivery.py    # 说明书自身是否与代码一致
 ```
 
 **维护约定**：新增/改流程时，先改 `flow_coverage_matrix.py` 里的 `FLOWS` 表，再跑一遍看缺口变化；
 **不要手改 §4 的表格**——它是脚本产物。
+
+---
+
+## 10. 统一执行入口（答"能否统一到一个测试任务"）
+
+**已落地** `scripts/run_all_tests.py`，一条命令串起 L1–L5：
+
+```bash
+python scripts/run_all_tests.py --profile fast      # 无需起服务（config + 权限矩阵 + 单测）
+python scripts/run_all_tests.py --profile full      # + HTTP 权限 / 对象级 / 三类 E2E / PG 并发
+python scripts/run_all_tests.py --profile nightly   # + 跨浏览器 / 生产只读
+```
+
+实测（2026-10-22 本机）：`config` 0.6s / `perm-matrix` 2.0s / `perm-http` 15.5s /
+`e2e-smoke` 79.9s（129 用例）全部 PASS；前端停掉时该 suite 报 **SKIP 且退出码 2**（不假装通过）。
+
+> **统一的是入口与报告，不是框架**：pytest（Django 测试库）、python 探测（直连 DB 侧证）、
+> playwright（浏览器）、外部只读（线上域名）四类载体无法塞进同一个 Playwright 任务。
+> 设计细节与"为什么不做成一个大 spec"见 [`UNIFIED_TEST_ENTRY.md`](./UNIFIED_TEST_ENTRY.md)。
+
+**当前未接 CI**：CI 仍是 12 个独立 job；把 `--profile full` 接进去是待办。

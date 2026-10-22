@@ -297,6 +297,9 @@ persona: P5 procurement
 
 ## 6. 与既有 spec 的复用关系（别重写）
 
+> ⚠️ 下表"需要新增的"只是**摘要**；唯一 backlog 是 [`GAP_REGISTER.md`](./GAP_REGISTER.md)（23 条，带 P0/P1/P2）。
+> 改这里时请同时看总账，避免两份清单打架。
+
 | persona | 可直接复用 | 需要新增的 |
 |---|---|---|
 | P1 | `public-smoke`、`cart-page-interactions`、`register-wizard` | **询价提交**（P0-1，当前零覆盖） |

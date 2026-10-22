@@ -133,3 +133,7 @@ frontend/.playwright-artifacts-*/
 frontend/playwright-report/
 frontend/e2e-artifacts-*/            # PO E2E 独立输出目录（--output=<dir>）
 e2e_po_fixture.json                  # PO E2E 夹具（backend/seed_e2e_po_fixture.py 生成，含 dev 专属 id）
+
+# 统一测试入口的运行产物（日志 + summary.json）
+_test_runs/
+backend/db_probe.sqlite3
