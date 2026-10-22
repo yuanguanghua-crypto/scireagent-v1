@@ -1,0 +1,314 @@
+{
+  "note": "前端页面 → 实际调用的后端 API（静态提取，2026-10-22）。base_url=/api/v1。on_mount=true 表示进入页面即发；false 表示需用户点击按钮才发。每条都带 api 定义位置，可复核。",
+  "base_url": "/api/v1",
+  "pages": [
+    {
+      "file": "views/admin/AdminOrdersPage.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/admin/orders/", "on_mount": true, "api": "getAdminOrders", "def": "api/orders.js:58-59" }
+      ]
+    },
+    {
+      "file": "views/admin/AdminOrderDetail.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/admin/orders/${id}/", "on_mount": true, "api": "getAdminOrder", "def": "api/orders.js:66-67" },
+        { "method": "POST", "url": "/admin/orders/${id}/complete/", "on_mount": false, "api": "completeOrder", "def": "api/orders.js:90-91" },
+        { "method": "POST", "url": "/admin/orders/${id}/quote/", "on_mount": false, "api": "enterQuote", "def": "api/orders.js:99-100" },
+        { "method": "POST", "url": "/orders/${id}/cancel/", "on_mount": false, "api": "cancelOrder", "def": "api/orders.js:39-40" },
+        { "method": "POST", "url": "/orders/${id}/approve/", "on_mount": false, "api": "approveOrder", "def": "api/adminPo.js:16-17" },
+        { "method": "POST", "url": "/orders/${id}/shipments/", "on_mount": false, "api": "createShipment", "def": "api/adminPo.js:47-53" },
+        { "method": "POST", "url": "/shipments/${sid}/mark-shipped/", "on_mount": false, "api": "markShipped", "def": "api/adminPo.js:57-58" },
+        { "method": "POST", "url": "/shipments/${sid}/mark-delivered/", "on_mount": false, "api": "markDelivered", "def": "api/adminPo.js:62-63" },
+        { "method": "POST", "url": "/orders/${id}/invoice/", "on_mount": false, "api": "issueInvoice", "def": "api/adminPo.js:69-70" },
+        { "method": "POST", "url": "/invoices/${iid}/pay/", "on_mount": false, "api": "payInvoice", "def": "api/adminPo.js:74-75" }
+      ]
+    },
+    {
+      "file": "views/admin/InventoryDesk.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/inventory/", "on_mount": true, "api": "getInventoryList", "def": "api/inventory.js:8-9" },
+        { "method": "GET", "url": "/products", "on_mount": true, "api": "getProducts", "def": "api/products.js:3-4" },
+        { "method": "GET", "url": "/products/${id}/detail", "on_mount": false, "api": "getProductDetail", "def": "api/products.js:45-46" },
+        { "method": "GET", "url": "/inventory/${id}/", "on_mount": false, "api": "getInventoryDetail", "def": "api/inventory.js:13-14" },
+        { "method": "POST", "url": "/inventory/receipt/", "on_mount": false, "api": "receiptStock", "def": "api/inventory.js:18-19" },
+        { "method": "POST", "url": "/inventory/${id}/adjust/", "on_mount": false, "api": "adjustStock", "def": "api/inventory.js:23-24" }
+      ]
+    },
+    {
+      "file": "views/admin/PoArReport.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/ar/aging/", "on_mount": true, "api": "getArAging", "def": "api/adminPo.js:81-82" }
+      ]
+    },
+    {
+      "file": "views/admin/PoInvoicingDesk.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/orders/", "on_mount": true, "api": "getOrders", "def": "api/adminPo.js:33-34" },
+        { "method": "GET", "url": "/orders/${id}/", "on_mount": false, "api": "getOrderDetail", "def": "api/adminPo.js:37-38" },
+        { "method": "POST", "url": "/orders/${id}/invoice/", "on_mount": false, "api": "issueInvoice", "def": "api/adminPo.js:69-70" },
+        { "method": "POST", "url": "/invoices/${iid}/pay/", "on_mount": false, "api": "payInvoice", "def": "api/adminPo.js:74-75" }
+      ]
+    },
+    {
+      "file": "views/admin/PoOrgManagement.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/organizations/manage/", "on_mount": true, "api": "getOrganizations", "def": "api/adminPo.js:95-96" },
+        { "method": "GET", "url": "/orders/", "on_mount": false, "api": "getOrgOrders", "def": "api/adminPo.js:100-101" }
+      ]
+    },
+    {
+      "file": "views/admin/PoReviewDesk.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/orders/", "on_mount": true, "api": "getPendingReviews", "def": "api/adminPo.js:11-12" },
+        { "method": "GET", "url": "/orders/${id}/", "on_mount": false, "api": "getOrderDetail", "def": "api/adminPo.js:37-38" },
+        { "method": "POST", "url": "/orders/${id}/approve/", "on_mount": false, "api": "approveOrder", "def": "api/adminPo.js:16-17" },
+        { "method": "POST", "url": "/orders/${id}/reject/", "on_mount": false, "api": "rejectOrder", "def": "api/adminPo.js:21-22" },
+        { "method": "POST", "url": "/orders/${id}/assign-rep/", "on_mount": false, "api": "assignRep", "def": "api/adminPo.js:26-27" }
+      ]
+    },
+    {
+      "file": "views/admin/PoShipmentDesk.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/orders/", "on_mount": true, "api": "getOrders", "def": "api/adminPo.js:33-34" },
+        { "method": "GET", "url": "/orders/${id}/", "on_mount": false, "api": "getOrderDetail", "def": "api/adminPo.js:37-38" },
+        { "method": "POST", "url": "/orders/${id}/shipments/", "on_mount": false, "api": "createShipment", "def": "api/adminPo.js:47-53" },
+        { "method": "POST", "url": "/shipments/${sid}/mark-shipped/", "on_mount": false, "api": "markShipped", "def": "api/adminPo.js:57-58" },
+        { "method": "POST", "url": "/shipments/${sid}/mark-delivered/", "on_mount": false, "api": "markDelivered", "def": "api/adminPo.js:62-63" }
+      ]
+    },
+    {
+      "file": "views/workspace/DashboardPage.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/admin/dashboard-stats/", "on_mount": true, "api": "(直接 http)", "def": "本文件:37" },
+        { "method": "GET", "url": "/products/", "on_mount": true, "api": "(直接 http)", "def": "本文件:43" }
+      ]
+    },
+    {
+      "file": "views/workspace/ProductsPage.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/products/", "on_mount": true, "api": "getArchivedProducts", "def": "api/workspace/products.js:45-46" },
+        { "method": "GET", "url": "/research-goals/", "on_mount": true, "api": "(直接 http)", "def": "本文件:235" },
+        { "method": "GET", "url": "/applications/", "on_mount": true, "api": "(直接 http)", "def": "本文件:236" },
+        { "method": "GET", "url": "/methods/", "on_mount": true, "api": "(直接 http)", "def": "本文件:237" },
+        { "method": "GET", "url": "/protocols/", "on_mount": true, "api": "(直接 http)", "def": "本文件:238" },
+        { "method": "POST", "url": "/products/${id}/archive/", "on_mount": false, "api": "archiveProduct", "def": "api/workspace/products.js:23-24" },
+        { "method": "PATCH", "url": "/products/${id}/", "on_mount": false, "api": "reactivateProduct/discontinueProduct", "def": "api/workspace/products.js:27-36" },
+        { "method": "PATCH", "url": "/products/${pid}/", "on_mount": false, "api": "(直接 http, 知识链接)", "def": "本文件:303" },
+        { "method": "DELETE", "url": "/products/${id}/", "on_mount": false, "api": "deleteProduct", "def": "api/workspace/products.js:39-40" },
+        { "method": "POST", "url": "/products/batch-restore/", "on_mount": false, "api": "batchRestoreProducts", "def": "api/workspace/products.js:60-61" },
+        { "method": "POST", "url": "/products/batch-recommend-literature/", "on_mount": false, "api": "batchRecommendLiterature", "def": "api/aiTools.js:20-21" },
+        { "method": "POST", "url": "/products/batch-validate/", "on_mount": false, "api": "batchValidate", "def": "api/aiTools.js:15-16" }
+      ]
+    },
+    {
+      "file": "views/workspace/ProductEditPage.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/product-classes/", "on_mount": true, "api": "(直接 http)", "def": "本文件:249" },
+        { "method": "GET", "url": "/research-goals/", "on_mount": true, "api": "(直接 http)", "def": "本文件:475" },
+        { "method": "GET", "url": "/applications/", "on_mount": true, "api": "(直接 http)", "def": "本文件:476" },
+        { "method": "GET", "url": "/methods/", "on_mount": true, "api": "(直接 http)", "def": "本文件:482,643" },
+        { "method": "GET", "url": "/protocols/", "on_mount": true, "api": "(直接 http)", "def": "本文件:483,651" },
+        { "method": "GET", "url": "/products/${pid}/", "on_mount": true, "api": "(直接 http)", "def": "本文件:1182" },
+        { "method": "GET", "url": "/applications/${aid}/", "on_mount": false, "api": "(直接 http)", "def": "本文件:856" },
+        { "method": "GET", "url": "/sds-revisions/", "on_mount": true, "api": "documentsApi.getSdsList", "def": "api/documents.js:35-36" },
+        { "method": "GET", "url": "/batches/", "on_mount": true, "api": "documentsApi.getBatches", "def": "api/documents.js:61-62" },
+        { "method": "GET", "url": "/coas/", "on_mount": true, "api": "documentsApi.getCoaList", "def": "api/documents.js:56-57" },
+        { "method": "GET", "url": "/products/${pid}/methods/", "on_mount": true, "api": "bridgesApi.getProductMethods", "def": "api/bridges.js:13-14" },
+        { "method": "PUT", "url": "/products/${pid}/", "on_mount": false, "api": "(直接 http)", "def": "本文件:1585" },
+        { "method": "POST", "url": "/products/", "on_mount": false, "api": "(直接 http)", "def": "本文件:1598" },
+        { "method": "POST", "url": "/products/parse-word/", "on_mount": false, "api": "(直接 http)", "def": "本文件:367" },
+        { "method": "POST", "url": "/products/${pid}/generate-seo/", "on_mount": false, "api": "(直接 http)", "def": "本文件:423" },
+        { "method": "POST", "url": "/research-goals/", "on_mount": false, "api": "(动态 apiEndpoints)", "def": "本文件:688" },
+        { "method": "POST", "url": "/applications/", "on_mount": false, "api": "(动态 apiEndpoints)", "def": "本文件:688" },
+        { "method": "POST", "url": "/methods/", "on_mount": false, "api": "(动态 apiEndpoints)", "def": "本文件:688" },
+        { "method": "POST", "url": "/protocols/", "on_mount": false, "api": "(动态 apiEndpoints / 本文件:1064)", "def": "本文件:688,1064" },
+        { "method": "POST", "url": "/references/", "on_mount": false, "api": "(动态 apiEndpoints / 本文件:1165)", "def": "本文件:688,1165" },
+        { "method": "POST", "url": "/products/import-protocol/", "on_mount": false, "api": "importProtocol", "def": "api/aiTools.js:70-75" },
+        { "method": "POST", "url": "/products/enrich/", "on_mount": false, "api": "enrichProduct", "def": "api/aiTools.js:50-51" },
+        { "method": "POST", "url": "/products/${pid}/adopt-bioz-refs/", "on_mount": false, "api": "adoptBiozRefs", "def": "api/aiTools.js:94-95" },
+        { "method": "POST", "url": "/products/render-structure/", "on_mount": false, "api": "renderStructure(子组件)", "def": "api/aiTools.js:106-107" },
+        { "method": "POST", "url": "/coas/create-coa/", "on_mount": false, "api": "documentsApi.createCoa", "def": "api/documents.js:40-41" },
+        { "method": "POST", "url": "/sds-revisions/generate/", "on_mount": false, "api": "documentsApi.generateSds", "def": "api/documents.js:23-24" },
+        { "method": "POST", "url": "/sds-revisions/${sid}/approve/", "on_mount": false, "api": "documentsApi.approveSds", "def": "api/documents.js:27-28" },
+        { "method": "POST", "url": "/sds-revisions/${sid}/withdraw/", "on_mount": false, "api": "documentsApi.withdrawSds", "def": "api/documents.js:31-32" },
+        { "method": "POST", "url": "/coas/${cid}/approve/", "on_mount": false, "api": "documentsApi.approveCoa", "def": "api/documents.js:48-49" },
+        { "method": "POST", "url": "/coas/${cid}/withdraw/", "on_mount": false, "api": "documentsApi.withdrawCoa", "def": "api/documents.js:52-53" },
+        { "method": "PUT", "url": "/coas/${cid}/qc-results/", "on_mount": false, "api": "documentsApi.updateCoaQc", "def": "api/documents.js:44-45" },
+        { "method": "POST", "url": "/verified/", "on_mount": false, "api": "bridgesApi.createVerified(子组件)", "def": "api/bridges.js:24-25" }
+      ]
+    },
+    {
+      "file": "views/workspace/VerifiedPage.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/verified/", "on_mount": true, "api": "bridgesApi.listVerified", "def": "api/bridges.js:18-19" },
+        { "method": "POST", "url": "/verified/${vid}/approve/", "on_mount": false, "api": "bridgesApi.approveVerified", "def": "api/bridges.js:28-29" },
+        { "method": "POST", "url": "/verified/${vid}/reject/", "on_mount": false, "api": "bridgesApi.rejectVerified", "def": "api/bridges.js:32-33" }
+      ]
+    },
+    {
+      "file": "views/workspace/GoalsPage.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/research-goals/", "on_mount": true, "api": "(直接 http)", "def": "本文件:40" },
+        { "method": "GET", "url": "/protocols/", "on_mount": false, "api": "(直接 http)", "def": "本文件:75" },
+        { "method": "GET", "url": "/research-goals/${id}/", "on_mount": false, "api": "(直接 http)", "def": "本文件:62" },
+        { "method": "POST", "url": "/research-goals/", "on_mount": false, "api": "(直接 http)", "def": "本文件:90" },
+        { "method": "PUT", "url": "/research-goals/${id}/", "on_mount": false, "api": "(直接 http)", "def": "本文件:88" }
+      ]
+    },
+    {
+      "file": "views/workspace/MethodsPage.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/methods/", "on_mount": true, "api": "(直接 http)", "def": "本文件:38" },
+        { "method": "GET", "url": "/applications/", "on_mount": true, "api": "getApplications", "def": "api/applications.js:3-4" },
+        { "method": "GET", "url": "/methods/${id}/", "on_mount": false, "api": "(直接 http)", "def": "本文件:69" },
+        { "method": "POST", "url": "/methods/", "on_mount": false, "api": "(直接 http)", "def": "本文件:84" },
+        { "method": "PUT", "url": "/methods/${id}/", "on_mount": false, "api": "(直接 http)", "def": "本文件:82" }
+      ]
+    },
+    {
+      "file": "views/workspace/ProtocolsPage.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/protocols/", "on_mount": true, "api": "(直接 http)", "def": "本文件:38" },
+        { "method": "GET", "url": "/methods/", "on_mount": true, "api": "getMethods", "def": "api/methods.js:3-4" },
+        { "method": "GET", "url": "/protocols/${id}/", "on_mount": false, "api": "(直接 http)", "def": "本文件:66" },
+        { "method": "POST", "url": "/protocols/", "on_mount": false, "api": "(直接 http)", "def": "本文件:86" },
+        { "method": "PUT", "url": "/protocols/${id}/", "on_mount": false, "api": "(直接 http)", "def": "本文件:84" }
+      ]
+    },
+    {
+      "file": "views/workspace/ReferencesPage.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/references/", "on_mount": true, "api": "(直接 http)", "def": "本文件:36" },
+        { "method": "POST", "url": "/references/", "on_mount": false, "api": "(直接 http)", "def": "本文件:71" },
+        { "method": "PUT", "url": "/references/${id}/", "on_mount": false, "api": "(直接 http)", "def": "本文件:69" }
+      ]
+    },
+    {
+      "file": "views/workspace/AppsPage.vue",
+      "guard": "requiresAdmin",
+      "calls": [
+        { "method": "GET", "url": "/applications/", "on_mount": true, "api": "(直接 http)", "def": "本文件:38" },
+        { "method": "GET", "url": "/research-goals/", "on_mount": true, "api": "getResearchGoals", "def": "api/researchGoals.js:3-4" },
+        { "method": "POST", "url": "/applications/", "on_mount": false, "api": "(直接 http)", "def": "本文件:74" },
+        { "method": "PUT", "url": "/applications/${id}/", "on_mount": false, "api": "(直接 http)", "def": "本文件:72" }
+      ]
+    },
+    {
+      "file": "views/CheckoutPage.vue",
+      "guard": "requiresAuth",
+      "calls": [
+        { "method": "GET", "url": "/basket", "on_mount": true, "api": "getBasket", "def": "api/basket.js:7-8" },
+        { "method": "POST", "url": "/checkout/", "on_mount": false, "api": "checkout", "def": "api/orders.js:15-16" },
+        { "method": "PUT", "url": "/auth/profile", "on_mount": false, "api": "updateProfile", "def": "api/auth.js:27-28" }
+      ]
+    },
+    {
+      "file": "views/OrderListPage.vue",
+      "guard": "requiresAuth",
+      "calls": [
+        { "method": "GET", "url": "/orders/", "on_mount": true, "api": "getOrders", "def": "api/orders.js:23-24" }
+      ]
+    },
+    {
+      "file": "views/OrderDetailPage.vue",
+      "guard": "requiresAuth",
+      "calls": [
+        { "method": "GET", "url": "/orders/${id}/", "on_mount": true, "api": "getOrder", "def": "api/orders.js:31-32" },
+        { "method": "POST", "url": "/orders/${id}/confirm-quote/", "on_mount": false, "api": "respondToQuote", "def": "api/orders.js:48-49" }
+      ]
+    },
+    {
+      "file": "views/SettingsPage.vue",
+      "guard": "requiresAuth",
+      "calls": [
+        { "method": "PUT", "url": "/auth/profile", "on_mount": false, "api": "updateProfile", "def": "api/auth.js:27-28" }
+      ]
+    },
+    {
+      "file": "views/CartPage.vue",
+      "guard": "public",
+      "calls": [
+        { "method": "GET", "url": "/basket", "on_mount": true, "api": "getBasket", "def": "api/basket.js:7-8" },
+        { "method": "PATCH", "url": "/basket/items/${id}", "on_mount": false, "api": "updateBasketItem", "def": "api/basket.js:27-28" },
+        { "method": "DELETE", "url": "/basket/items/${id}/delete", "on_mount": false, "api": "removeBasketItem", "def": "api/basket.js:36-37" }
+      ]
+    },
+    {
+      "file": "views/KnowledgeIntake.vue",
+      "guard": "public",
+      "calls": [
+        { "method": "GET", "url": "/products/", "on_mount": true, "api": "(直接 http)", "def": "本文件:68" },
+        { "method": "POST", "url": "/knowledge-intake/", "on_mount": false, "api": "(直接 http)", "def": "本文件:121,163" }
+      ]
+    },
+    {
+      "file": "views/po/PoSubmit.vue",
+      "guard": "requiresAuth",
+      "calls": [
+        { "method": "GET", "url": "/quotes/", "on_mount": true, "api": "getMyQuotes", "def": "api/poPortal.js:14-15" },
+        { "method": "GET", "url": "/products", "on_mount": false, "api": "getProducts", "def": "api/products.js:3-4" },
+        { "method": "GET", "url": "/products/${id}/detail", "on_mount": false, "api": "getProductDetail", "def": "api/products.js:45-46" },
+        { "method": "GET", "url": "/orders/${id}/", "on_mount": false, "api": "getOrderDetail", "def": "api/poPortal.js:76-77" },
+        { "method": "POST", "url": "/orders/po/", "on_mount": false, "api": "submitPo", "def": "api/poPortal.js:46,59" }
+      ]
+    },
+    {
+      "file": "views/po/PoOrderList.vue",
+      "guard": "requiresAuth",
+      "calls": [
+        { "method": "GET", "url": "/orders/", "on_mount": true, "api": "getMyOrders", "def": "api/poPortal.js:68-69" }
+      ]
+    },
+    {
+      "file": "views/po/PoOrderDetail.vue",
+      "guard": "requiresAuth",
+      "calls": [
+        { "method": "GET", "url": "/orders/${id}/", "on_mount": true, "api": "getOrderDetail", "def": "api/poPortal.js:76-77" },
+        { "method": "GET", "url": "/invoices/${iid}/pdf/", "on_mount": false, "api": "downloadInvoicePdf", "def": "api/poPortal.js:83-88" },
+        { "method": "GET", "url": "/orders/attachments/${aid}/download/", "on_mount": false, "api": "downloadPoAttachment", "def": "api/poPortal.js:90-95" }
+      ]
+    },
+    {
+      "file": "views/po/PoAddressList.vue",
+      "guard": "requiresAuth",
+      "calls": [
+        { "method": "GET", "url": "/addresses/", "on_mount": true, "api": "getAddresses", "def": "api/addresses.js:10-11" },
+        { "method": "POST", "url": "/addresses/", "on_mount": false, "api": "createAddress", "def": "api/addresses.js:14-15" },
+        { "method": "PUT", "url": "/addresses/${id}/", "on_mount": false, "api": "updateAddress", "def": "api/addresses.js:18-19" },
+        { "method": "DELETE", "url": "/addresses/${id}/", "on_mount": false, "api": "deleteAddress", "def": "api/addresses.js:22-23" }
+      ]
+    },
+    {
+      "file": "views/po/PoDownloadCenter.vue",
+      "guard": "requiresAuth",
+      "calls": [
+        { "method": "GET", "url": "/orders/", "on_mount": true, "api": "getMyOrders", "def": "api/poPortal.js:68-69" },
+        { "method": "GET", "url": "/invoices/${iid}/pdf/", "on_mount": false, "api": "downloadInvoicePdf", "def": "api/poPortal.js:83-88" },
+        { "method": "GET", "url": "/orders/attachments/${aid}/download/", "on_mount": false, "api": "downloadPoAttachment", "def": "api/poPortal.js:90-95" }
+      ]
+    },
+    {
+      "file": "views/po/PoReorder.vue",
+      "guard": "requiresAuth",
+      "calls": [
+        { "method": "GET", "url": "/orders/", "on_mount": true, "api": "getMyOrders", "def": "api/poPortal.js:68-69" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,2073 @@
+{
+  "pages": [
+    {
+      "file": "views/admin/AdminOrdersPage.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/orders/ [进入即发] <- IsAdminUser"
+          ]
+        },
+        "unverified": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/orders/ [进入即发] <- IsAdminUser"
+          ]
+        },
+        "researcher": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/orders/ [进入即发] <- IsAdminUser"
+          ]
+        },
+        "org_admin": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/orders/ [进入即发] <- IsAdminUser"
+          ]
+        },
+        "procurement": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/orders/ [进入即发] <- IsAdminUser"
+          ]
+        },
+        "admin_role": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/orders/ [进入即发] <- IsAdminUser"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/admin/AdminOrderDetail.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/9",
+          "denies": [
+            "GET /admin/orders/${id}/ [进入即发] <- IsAdminUser",
+            "POST /admin/orders/${id}/complete/ <- IsAdminUser",
+            "POST /admin/orders/${id}/quote/ <- IsAdminUser",
+            "POST /orders/${id}/cancel/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/approve/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/shipments/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-shipped/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-delivered/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/invoice/ <- IsProcurementOrAdmin",
+            "POST /invoices/${iid}/pay/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "unverified": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/9",
+          "denies": [
+            "GET /admin/orders/${id}/ [进入即发] <- IsAdminUser",
+            "POST /admin/orders/${id}/complete/ <- IsAdminUser",
+            "POST /admin/orders/${id}/quote/ <- IsAdminUser",
+            "POST /orders/${id}/cancel/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/approve/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/shipments/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-shipped/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-delivered/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/invoice/ <- IsProcurementOrAdmin",
+            "POST /invoices/${iid}/pay/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "researcher": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/9",
+          "denies": [
+            "GET /admin/orders/${id}/ [进入即发] <- IsAdminUser",
+            "POST /admin/orders/${id}/complete/ <- IsAdminUser",
+            "POST /admin/orders/${id}/quote/ <- IsAdminUser",
+            "POST /orders/${id}/cancel/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/approve/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/shipments/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-shipped/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-delivered/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/invoice/ <- IsProcurementOrAdmin",
+            "POST /invoices/${iid}/pay/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "org_admin": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/9",
+          "denies": [
+            "GET /admin/orders/${id}/ [进入即发] <- IsAdminUser",
+            "POST /admin/orders/${id}/complete/ <- IsAdminUser",
+            "POST /admin/orders/${id}/quote/ <- IsAdminUser",
+            "POST /orders/${id}/cancel/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/approve/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/shipments/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-shipped/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-delivered/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/invoice/ <- IsProcurementOrAdmin",
+            "POST /invoices/${iid}/pay/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "procurement": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "7/9",
+          "denies": [
+            "GET /admin/orders/${id}/ [进入即发] <- IsAdminUser",
+            "POST /admin/orders/${id}/complete/ <- IsAdminUser",
+            "POST /admin/orders/${id}/quote/ <- IsAdminUser"
+          ]
+        },
+        "admin_role": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "7/9",
+          "denies": [
+            "GET /admin/orders/${id}/ [进入即发] <- IsAdminUser",
+            "POST /admin/orders/${id}/complete/ <- IsAdminUser",
+            "POST /admin/orders/${id}/quote/ <- IsAdminUser"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "9/9",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "9/9",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/admin/InventoryDesk.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "1/2",
+          "write": "0/2",
+          "denies": [
+            "GET /inventory/ [进入即发] <- IsProcurementOrAdmin",
+            "POST /inventory/receipt/ <- IsProcurementOrAdmin",
+            "POST /inventory/${id}/adjust/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "1/2",
+          "write": "0/2",
+          "denies": [
+            "GET /inventory/ [进入即发] <- IsProcurementOrAdmin",
+            "POST /inventory/receipt/ <- IsProcurementOrAdmin",
+            "POST /inventory/${id}/adjust/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "1/2",
+          "write": "0/2",
+          "denies": [
+            "GET /inventory/ [进入即发] <- IsProcurementOrAdmin",
+            "POST /inventory/receipt/ <- IsProcurementOrAdmin",
+            "POST /inventory/${id}/adjust/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "1/2",
+          "write": "0/2",
+          "denies": [
+            "GET /inventory/ [进入即发] <- IsProcurementOrAdmin",
+            "POST /inventory/receipt/ <- IsProcurementOrAdmin",
+            "POST /inventory/${id}/adjust/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "2/2",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "2/2",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "2/2",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "2/2",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/admin/PoArReport.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /ar/aging/ [进入即发] <- IsProcurementOrAdmin"
+          ]
+        },
+        "unverified": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /ar/aging/ [进入即发] <- IsProcurementOrAdmin"
+          ]
+        },
+        "researcher": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /ar/aging/ [进入即发] <- IsProcurementOrAdmin"
+          ]
+        },
+        "org_admin": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /ar/aging/ [进入即发] <- IsProcurementOrAdmin"
+          ]
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/admin/PoInvoicingDesk.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /orders/${id}/invoice/ <- IsProcurementOrAdmin",
+            "POST /invoices/${iid}/pay/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /orders/${id}/invoice/ <- IsProcurementOrAdmin",
+            "POST /invoices/${iid}/pay/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /orders/${id}/invoice/ <- IsProcurementOrAdmin",
+            "POST /invoices/${iid}/pay/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /orders/${id}/invoice/ <- IsProcurementOrAdmin",
+            "POST /invoices/${iid}/pay/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/admin/PoOrgManagement.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /organizations/manage/ [进入即发] <- IsProcurementOrAdmin"
+          ]
+        },
+        "unverified": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /organizations/manage/ [进入即发] <- IsProcurementOrAdmin"
+          ]
+        },
+        "researcher": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /organizations/manage/ [进入即发] <- IsProcurementOrAdmin"
+          ]
+        },
+        "org_admin": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/0",
+          "denies": [
+            "GET /organizations/manage/ [进入即发] <- IsProcurementOrAdmin"
+          ]
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/admin/PoReviewDesk.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/3",
+          "denies": [
+            "POST /orders/${id}/approve/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/reject/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/assign-rep/ <- IsAdmin"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/3",
+          "denies": [
+            "POST /orders/${id}/approve/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/reject/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/assign-rep/ <- IsAdmin"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/3",
+          "denies": [
+            "POST /orders/${id}/approve/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/reject/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/assign-rep/ <- IsAdmin"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/3",
+          "denies": [
+            "POST /orders/${id}/approve/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/reject/ <- IsProcurementOrAdmin",
+            "POST /orders/${id}/assign-rep/ <- IsAdmin"
+          ]
+        },
+        "procurement": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "2/3",
+          "denies": [
+            "POST /orders/${id}/assign-rep/ <- IsAdmin"
+          ]
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/admin/PoShipmentDesk.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/3",
+          "denies": [
+            "POST /orders/${id}/shipments/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-shipped/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-delivered/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/3",
+          "denies": [
+            "POST /orders/${id}/shipments/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-shipped/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-delivered/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/3",
+          "denies": [
+            "POST /orders/${id}/shipments/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-shipped/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-delivered/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/3",
+          "denies": [
+            "POST /orders/${id}/shipments/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-shipped/ <- IsProcurementOrAdmin",
+            "POST /shipments/${sid}/mark-delivered/ <- IsProcurementOrAdmin"
+          ]
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/workspace/DashboardPage.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "1/2",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/dashboard-stats/ [进入即发] <- IsStaffUser"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "1/2",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/dashboard-stats/ [进入即发] <- IsStaffUser"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "1/2",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/dashboard-stats/ [进入即发] <- IsStaffUser"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "1/2",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/dashboard-stats/ [进入即发] <- IsStaffUser"
+          ]
+        },
+        "procurement": {
+          "verdict": "READONLY",
+          "mount": "1/2",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/dashboard-stats/ [进入即发] <- IsStaffUser"
+          ]
+        },
+        "admin_role": {
+          "verdict": "READONLY",
+          "mount": "1/2",
+          "write": "0/0",
+          "denies": [
+            "GET /admin/dashboard-stats/ [进入即发] <- IsStaffUser"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "0/0",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "0/0",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/workspace/ProductsPage.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "5/5",
+          "write": "0/7",
+          "denies": [
+            "POST /products/${id}/archive/ <- IsAdminOrReadOnly",
+            "PATCH /products/${id}/ <- IsAdminOrReadOnly",
+            "PATCH /products/${pid}/ <- IsAdminOrReadOnly",
+            "DELETE /products/${id}/ <- IsAdminOrReadOnly",
+            "POST /products/batch-restore/ <- IsAdminOrReadOnly",
+            "POST /products/batch-recommend-literature/ <- IsAdminUser",
+            "POST /products/batch-validate/ <- IsAdminUser"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "5/5",
+          "write": "0/7",
+          "denies": [
+            "POST /products/${id}/archive/ <- IsAdminOrReadOnly",
+            "PATCH /products/${id}/ <- IsAdminOrReadOnly",
+            "PATCH /products/${pid}/ <- IsAdminOrReadOnly",
+            "DELETE /products/${id}/ <- IsAdminOrReadOnly",
+            "POST /products/batch-restore/ <- IsAdminOrReadOnly",
+            "POST /products/batch-recommend-literature/ <- IsAdminUser",
+            "POST /products/batch-validate/ <- IsAdminUser"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "5/5",
+          "write": "0/7",
+          "denies": [
+            "POST /products/${id}/archive/ <- IsAdminOrReadOnly",
+            "PATCH /products/${id}/ <- IsAdminOrReadOnly",
+            "PATCH /products/${pid}/ <- IsAdminOrReadOnly",
+            "DELETE /products/${id}/ <- IsAdminOrReadOnly",
+            "POST /products/batch-restore/ <- IsAdminOrReadOnly",
+            "POST /products/batch-recommend-literature/ <- IsAdminUser",
+            "POST /products/batch-validate/ <- IsAdminUser"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "5/5",
+          "write": "0/7",
+          "denies": [
+            "POST /products/${id}/archive/ <- IsAdminOrReadOnly",
+            "PATCH /products/${id}/ <- IsAdminOrReadOnly",
+            "PATCH /products/${pid}/ <- IsAdminOrReadOnly",
+            "DELETE /products/${id}/ <- IsAdminOrReadOnly",
+            "POST /products/batch-restore/ <- IsAdminOrReadOnly",
+            "POST /products/batch-recommend-literature/ <- IsAdminUser",
+            "POST /products/batch-validate/ <- IsAdminUser"
+          ]
+        },
+        "procurement": {
+          "verdict": "READONLY",
+          "mount": "5/5",
+          "write": "0/7",
+          "denies": [
+            "POST /products/${id}/archive/ <- IsAdminOrReadOnly",
+            "PATCH /products/${id}/ <- IsAdminOrReadOnly",
+            "PATCH /products/${pid}/ <- IsAdminOrReadOnly",
+            "DELETE /products/${id}/ <- IsAdminOrReadOnly",
+            "POST /products/batch-restore/ <- IsAdminOrReadOnly",
+            "POST /products/batch-recommend-literature/ <- IsAdminUser",
+            "POST /products/batch-validate/ <- IsAdminUser"
+          ]
+        },
+        "admin_role": {
+          "verdict": "READONLY",
+          "mount": "5/5",
+          "write": "0/7",
+          "denies": [
+            "POST /products/${id}/archive/ <- IsAdminOrReadOnly",
+            "PATCH /products/${id}/ <- IsAdminOrReadOnly",
+            "PATCH /products/${pid}/ <- IsAdminOrReadOnly",
+            "DELETE /products/${id}/ <- IsAdminOrReadOnly",
+            "POST /products/batch-restore/ <- IsAdminOrReadOnly",
+            "POST /products/batch-recommend-literature/ <- IsAdminUser",
+            "POST /products/batch-validate/ <- IsAdminUser"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "5/5",
+          "write": "7/7",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "5/5",
+          "write": "7/7",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/workspace/ProductEditPage.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "10/10",
+          "write": "0/21",
+          "denies": [
+            "PUT /products/${pid}/ <- IsAdminOrReadOnly",
+            "POST /products/ <- IsAdminOrReadOnly",
+            "POST /products/parse-word/ <- IsStaffUser",
+            "POST /products/${pid}/generate-seo/ <- IsAdminOrReadOnly",
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "POST /references/ <- IsAdminOrReadOnly",
+            "POST /products/import-protocol/ <- IsAdminUser",
+            "POST /products/enrich/ <- IsAdminUser",
+            "POST /products/${pid}/adopt-bioz-refs/ <- IsAdminUser",
+            "POST /products/render-structure/ <- IsAdminUser",
+            "POST /coas/create-coa/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/generate/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/approve/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/withdraw/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/approve/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/withdraw/ <- IsAdminOrReadOnly",
+            "PUT /coas/${cid}/qc-results/ <- IsAdminOrReadOnly",
+            "POST /verified/ <- IsStaffUser"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "10/10",
+          "write": "0/21",
+          "denies": [
+            "PUT /products/${pid}/ <- IsAdminOrReadOnly",
+            "POST /products/ <- IsAdminOrReadOnly",
+            "POST /products/parse-word/ <- IsStaffUser",
+            "POST /products/${pid}/generate-seo/ <- IsAdminOrReadOnly",
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "POST /references/ <- IsAdminOrReadOnly",
+            "POST /products/import-protocol/ <- IsAdminUser",
+            "POST /products/enrich/ <- IsAdminUser",
+            "POST /products/${pid}/adopt-bioz-refs/ <- IsAdminUser",
+            "POST /products/render-structure/ <- IsAdminUser",
+            "POST /coas/create-coa/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/generate/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/approve/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/withdraw/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/approve/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/withdraw/ <- IsAdminOrReadOnly",
+            "PUT /coas/${cid}/qc-results/ <- IsAdminOrReadOnly",
+            "POST /verified/ <- IsStaffUser"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "10/10",
+          "write": "0/21",
+          "denies": [
+            "PUT /products/${pid}/ <- IsAdminOrReadOnly",
+            "POST /products/ <- IsAdminOrReadOnly",
+            "POST /products/parse-word/ <- IsStaffUser",
+            "POST /products/${pid}/generate-seo/ <- IsAdminOrReadOnly",
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "POST /references/ <- IsAdminOrReadOnly",
+            "POST /products/import-protocol/ <- IsAdminUser",
+            "POST /products/enrich/ <- IsAdminUser",
+            "POST /products/${pid}/adopt-bioz-refs/ <- IsAdminUser",
+            "POST /products/render-structure/ <- IsAdminUser",
+            "POST /coas/create-coa/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/generate/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/approve/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/withdraw/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/approve/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/withdraw/ <- IsAdminOrReadOnly",
+            "PUT /coas/${cid}/qc-results/ <- IsAdminOrReadOnly",
+            "POST /verified/ <- IsStaffUser"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "10/10",
+          "write": "0/21",
+          "denies": [
+            "PUT /products/${pid}/ <- IsAdminOrReadOnly",
+            "POST /products/ <- IsAdminOrReadOnly",
+            "POST /products/parse-word/ <- IsStaffUser",
+            "POST /products/${pid}/generate-seo/ <- IsAdminOrReadOnly",
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "POST /references/ <- IsAdminOrReadOnly",
+            "POST /products/import-protocol/ <- IsAdminUser",
+            "POST /products/enrich/ <- IsAdminUser",
+            "POST /products/${pid}/adopt-bioz-refs/ <- IsAdminUser",
+            "POST /products/render-structure/ <- IsAdminUser",
+            "POST /coas/create-coa/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/generate/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/approve/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/withdraw/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/approve/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/withdraw/ <- IsAdminOrReadOnly",
+            "PUT /coas/${cid}/qc-results/ <- IsAdminOrReadOnly",
+            "POST /verified/ <- IsStaffUser"
+          ]
+        },
+        "procurement": {
+          "verdict": "READONLY",
+          "mount": "10/10",
+          "write": "0/21",
+          "denies": [
+            "PUT /products/${pid}/ <- IsAdminOrReadOnly",
+            "POST /products/ <- IsAdminOrReadOnly",
+            "POST /products/parse-word/ <- IsStaffUser",
+            "POST /products/${pid}/generate-seo/ <- IsAdminOrReadOnly",
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "POST /references/ <- IsAdminOrReadOnly",
+            "POST /products/import-protocol/ <- IsAdminUser",
+            "POST /products/enrich/ <- IsAdminUser",
+            "POST /products/${pid}/adopt-bioz-refs/ <- IsAdminUser",
+            "POST /products/render-structure/ <- IsAdminUser",
+            "POST /coas/create-coa/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/generate/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/approve/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/withdraw/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/approve/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/withdraw/ <- IsAdminOrReadOnly",
+            "PUT /coas/${cid}/qc-results/ <- IsAdminOrReadOnly",
+            "POST /verified/ <- IsStaffUser"
+          ]
+        },
+        "admin_role": {
+          "verdict": "READONLY",
+          "mount": "10/10",
+          "write": "0/21",
+          "denies": [
+            "PUT /products/${pid}/ <- IsAdminOrReadOnly",
+            "POST /products/ <- IsAdminOrReadOnly",
+            "POST /products/parse-word/ <- IsStaffUser",
+            "POST /products/${pid}/generate-seo/ <- IsAdminOrReadOnly",
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "POST /references/ <- IsAdminOrReadOnly",
+            "POST /products/import-protocol/ <- IsAdminUser",
+            "POST /products/enrich/ <- IsAdminUser",
+            "POST /products/${pid}/adopt-bioz-refs/ <- IsAdminUser",
+            "POST /products/render-structure/ <- IsAdminUser",
+            "POST /coas/create-coa/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/generate/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/approve/ <- IsAdminOrReadOnly",
+            "POST /sds-revisions/${sid}/withdraw/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/approve/ <- IsAdminOrReadOnly",
+            "POST /coas/${cid}/withdraw/ <- IsAdminOrReadOnly",
+            "PUT /coas/${cid}/qc-results/ <- IsAdminOrReadOnly",
+            "POST /verified/ <- IsStaffUser"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "10/10",
+          "write": "21/21",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "10/10",
+          "write": "21/21",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/workspace/VerifiedPage.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/2",
+          "denies": [
+            "GET /verified/ [进入即发] <- IsStaffUser",
+            "POST /verified/${vid}/approve/ <- IsStaffUser",
+            "POST /verified/${vid}/reject/ <- IsStaffUser"
+          ]
+        },
+        "unverified": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/2",
+          "denies": [
+            "GET /verified/ [进入即发] <- IsStaffUser",
+            "POST /verified/${vid}/approve/ <- IsStaffUser",
+            "POST /verified/${vid}/reject/ <- IsStaffUser"
+          ]
+        },
+        "researcher": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/2",
+          "denies": [
+            "GET /verified/ [进入即发] <- IsStaffUser",
+            "POST /verified/${vid}/approve/ <- IsStaffUser",
+            "POST /verified/${vid}/reject/ <- IsStaffUser"
+          ]
+        },
+        "org_admin": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/2",
+          "denies": [
+            "GET /verified/ [进入即发] <- IsStaffUser",
+            "POST /verified/${vid}/approve/ <- IsStaffUser",
+            "POST /verified/${vid}/reject/ <- IsStaffUser"
+          ]
+        },
+        "procurement": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/2",
+          "denies": [
+            "GET /verified/ [进入即发] <- IsStaffUser",
+            "POST /verified/${vid}/approve/ <- IsStaffUser",
+            "POST /verified/${vid}/reject/ <- IsStaffUser"
+          ]
+        },
+        "admin_role": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/2",
+          "denies": [
+            "GET /verified/ [进入即发] <- IsStaffUser",
+            "POST /verified/${vid}/approve/ <- IsStaffUser",
+            "POST /verified/${vid}/reject/ <- IsStaffUser"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/workspace/GoalsPage.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "PUT /research-goals/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "PUT /research-goals/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "PUT /research-goals/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "PUT /research-goals/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "procurement": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "PUT /research-goals/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "admin_role": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /research-goals/ <- IsAdminOrReadOnly",
+            "PUT /research-goals/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/workspace/MethodsPage.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "PUT /methods/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "PUT /methods/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "PUT /methods/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "PUT /methods/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "procurement": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "PUT /methods/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "admin_role": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /methods/ <- IsAdminOrReadOnly",
+            "PUT /methods/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "2/2",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "2/2",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/workspace/ProtocolsPage.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "PUT /protocols/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "PUT /protocols/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "PUT /protocols/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "PUT /protocols/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "procurement": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "PUT /protocols/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "admin_role": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /protocols/ <- IsAdminOrReadOnly",
+            "PUT /protocols/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "2/2",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "2/2",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/workspace/ReferencesPage.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /references/ <- IsAdminOrReadOnly",
+            "PUT /references/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /references/ <- IsAdminOrReadOnly",
+            "PUT /references/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /references/ <- IsAdminOrReadOnly",
+            "PUT /references/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /references/ <- IsAdminOrReadOnly",
+            "PUT /references/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "procurement": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /references/ <- IsAdminOrReadOnly",
+            "PUT /references/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "admin_role": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /references/ <- IsAdminOrReadOnly",
+            "PUT /references/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/workspace/AppsPage.vue",
+      "guard": "requiresAdmin",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "PUT /applications/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "PUT /applications/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "PUT /applications/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "PUT /applications/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "procurement": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "PUT /applications/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "admin_role": {
+          "verdict": "READONLY",
+          "mount": "2/2",
+          "write": "0/2",
+          "denies": [
+            "POST /applications/ <- IsAdminOrReadOnly",
+            "PUT /applications/${id}/ <- IsAdminOrReadOnly"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "2/2",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "2/2",
+          "write": "2/2",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/CheckoutPage.vue",
+      "guard": "requiresAuth",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/2",
+          "denies": [
+            "POST /checkout/ <- IsAuthenticated",
+            "PUT /auth/profile <- IsAuthenticated"
+          ]
+        },
+        "unverified": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "researcher": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "org_admin": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/OrderListPage.vue",
+      "guard": "requiresAuth",
+      "roles": {
+        "anon": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "unverified": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "researcher": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "org_admin": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/OrderDetailPage.vue",
+      "guard": "requiresAuth",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/1",
+          "denies": [
+            "POST /orders/${id}/confirm-quote/ <- IsAuthenticated"
+          ]
+        },
+        "unverified": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "researcher": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "org_admin": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/SettingsPage.vue",
+      "guard": "requiresAuth",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "0/0",
+          "write": "0/1",
+          "denies": [
+            "PUT /auth/profile <- IsAuthenticated"
+          ]
+        },
+        "unverified": {
+          "verdict": "OK",
+          "mount": "0/0",
+          "write": "1/1",
+          "denies": []
+        },
+        "researcher": {
+          "verdict": "OK",
+          "mount": "0/0",
+          "write": "1/1",
+          "denies": []
+        },
+        "org_admin": {
+          "verdict": "OK",
+          "mount": "0/0",
+          "write": "1/1",
+          "denies": []
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "0/0",
+          "write": "1/1",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "0/0",
+          "write": "1/1",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "0/0",
+          "write": "1/1",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "0/0",
+          "write": "1/1",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/CartPage.vue",
+      "guard": "public",
+      "roles": {
+        "anon": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "unverified": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "researcher": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "org_admin": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "2/2",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/KnowledgeIntake.vue",
+      "guard": "public",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/1",
+          "denies": [
+            "POST /knowledge-intake/ <- IsAdminUser"
+          ]
+        },
+        "unverified": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/1",
+          "denies": [
+            "POST /knowledge-intake/ <- IsAdminUser"
+          ]
+        },
+        "researcher": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/1",
+          "denies": [
+            "POST /knowledge-intake/ <- IsAdminUser"
+          ]
+        },
+        "org_admin": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/1",
+          "denies": [
+            "POST /knowledge-intake/ <- IsAdminUser"
+          ]
+        },
+        "procurement": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/1",
+          "denies": [
+            "POST /knowledge-intake/ <- IsAdminUser"
+          ]
+        },
+        "admin_role": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/1",
+          "denies": [
+            "POST /knowledge-intake/ <- IsAdminUser"
+          ]
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/po/PoSubmit.vue",
+      "guard": "requiresAuth",
+      "roles": {
+        "anon": {
+          "verdict": "READONLY",
+          "mount": "1/1",
+          "write": "0/1",
+          "denies": [
+            "POST /orders/po/ <- IsAuthenticated"
+          ]
+        },
+        "unverified": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "researcher": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "org_admin": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "1/1",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/po/PoOrderList.vue",
+      "guard": "requiresAuth",
+      "roles": {
+        "anon": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "unverified": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "researcher": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "org_admin": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/po/PoOrderDetail.vue",
+      "guard": "requiresAuth",
+      "roles": {
+        "anon": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "unverified": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "researcher": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "org_admin": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/po/PoAddressList.vue",
+      "guard": "requiresAuth",
+      "roles": {
+        "anon": {
+          "verdict": "DEAD",
+          "mount": "0/1",
+          "write": "0/3",
+          "denies": [
+            "GET /addresses/ [进入即发] <- AddressPermission",
+            "POST /addresses/ <- AddressPermission",
+            "PUT /addresses/${id}/ <- AddressPermission",
+            "DELETE /addresses/${id}/ <- AddressPermission"
+          ]
+        },
+        "unverified": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        },
+        "researcher": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        },
+        "org_admin": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "3/3",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/po/PoDownloadCenter.vue",
+      "guard": "requiresAuth",
+      "roles": {
+        "anon": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "unverified": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "researcher": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "org_admin": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    },
+    {
+      "file": "views/po/PoReorder.vue",
+      "guard": "requiresAuth",
+      "roles": {
+        "anon": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "unverified": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "researcher": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "org_admin": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "procurement": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "admin_role": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "staff": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        },
+        "superuser": {
+          "verdict": "OK",
+          "mount": "1/1",
+          "write": "0/0",
+          "denies": []
+        }
+      },
+      "unmatched": []
+    }
+  ]
+}
