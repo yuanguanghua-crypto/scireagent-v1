@@ -157,6 +157,12 @@ async function handleLogout() {
               </svg>
               Order Management
             </router-link>
+            <router-link v-if="showInternalLinks" to="/ops/rfq" class="dropdown-item" @click="closeDropdown">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M3 8l9 6 9-6M3 6h18a1 1 0 011 1v10a1 1 0 01-1 1H3a1 1 0 01-1-1V7a1 1 0 011-1z" />
+              </svg>
+              RFQ Inbox
+            </router-link>
             <div v-if="showInternalLinks" class="dropdown-divider"></div>
             <router-link to="/settings" class="dropdown-item" @click="closeDropdown">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">

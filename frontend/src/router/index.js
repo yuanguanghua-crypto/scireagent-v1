@@ -259,6 +259,16 @@ const routes = [
     component: () => import('@/views/admin/InventoryDesk.vue'),
     meta: { title: 'Inventory Desk', requiresAuth: true, requiresAdmin: true },
   },
+  {
+    // ★ 2026-10-22：RFQ 收件箱 —— 此前客户提交的询价单**只有创建入口、无任何查询入口**
+    //   （详情按 contact_email 过滤，连 staff 也 404，运营只能进 Django admin）。
+    //   后端新增 GET /quote-requests/manage/（IsProcurementOrAdmin），本页为只读列表+详情。
+    //   ⚠️ requiresAdmin 用 utils/internalAccess.js 的 isInternal，与后端口径对齐。
+    path: '/ops/rfq',
+    name: 'RfqDesk',
+    component: () => import('@/views/admin/RfqDesk.vue'),
+    meta: { title: 'RFQ Inbox', requiresAuth: true, requiresAdmin: true },
+  },
   // ── Workspace routes ──────────────────────────────
   {
     path: '/workspace',

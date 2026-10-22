@@ -60,3 +60,26 @@ class QuoteRequestDetailSerializer(serializers.ModelSerializer):
             'created_at', 'items',
         ]
         read_only_fields = fields
+
+
+class QuoteRequestListSerializer(serializers.ModelSerializer):
+    """运营台「RFQ 收件箱」列表行 —— 只要够判断"要不要点进去"的信息。
+
+    与 Detail 的差别（刻意）：列表**不带 items**（一次拉 100 行 × N 条明细会放大响应），
+    只给 `items_count`。要明细请点进详情（`GET /quote-requests/{id}/`）。
+    """
+
+    items_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = QuoteRequest
+        fields = [
+            'id', 'contact_name', 'contact_email', 'contact_phone',
+            'company_name', 'country', 'status', 'notes',
+            'items_count', 'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_items_count(self, obj):
+        # 已 prefetch 时走缓存；未 prefetch 退化为一次 COUNT
+        return len(obj.items.all())

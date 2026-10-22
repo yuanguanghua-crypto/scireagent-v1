@@ -89,6 +89,7 @@ test('补测：staff 上下文的 12 页', async ({ browser }) => {
     `/research-goals/${ids.goal}`,
     `/research-goals/classes/${ids.cls_rg}`,
     '/ops/inventory',
+    '/ops/rfq',
     `/workspace/products/${ids.product}/edit`,
   ];
   const results = [];

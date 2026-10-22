@@ -81,7 +81,7 @@
 | **[第 11 章](#第-11-章-已知限制与常见故障参考章非操作步骤)** | 已知限制与常见故障 | 死按钮 / 假成功 / 能力缺口 / 生产状态（参考章） |
 | **[第 12 章](#第-12-章-页面索引按页面反查)** | **页面索引（按页面反查）** | **52 个页面逐页：谁能进、能做什么、调什么接口** |
 | [附录 A](#附录-a-状态机全表) | 状态机全表 | Order / CoA / SDS / verified 的合法流转 |
-| [附录 B](#附录-b-端点索引按业务域) | 端点索引 | 按业务域查 335 个端点的权限 |
+| [附录 B](#附录-b-端点索引按业务域) | 端点索引 | 按业务域查 336 个端点的权限 |
 | [附录 C](#附录-c-如何复核本文) | 如何复核 | 每类结论怎么自己重跑一遍 |
 | [附录 D](#附录-d-本轮审计记录v10-v11) | 审计记录 | 我们自己写错过什么、怎么改的 |
 | [附录 E](#附录-e-实测证据索引) | 实测证据索引 | `[M-nn]` 编号去哪查 |
@@ -125,6 +125,7 @@
 | 查应收账款账龄 | staff / procurement | `/ops/po/ar` | [F5-4](#f5-4-看应收账龄opspoar) |
 | 按机构查订单 | staff / procurement | `/ops/po/organizations` | [F5-5](#f5-5-机构管理opspoorganizations) |
 | 入库 / 盘点调整 | staff / procurement | `/ops/inventory` | [F5-6](#f5-6-库存管理opsinventory) |
+| 看客户询价单（RFQ） | staff / procurement / admin(role) | `/ops/rfq` | [F5-7](#f5-7-询价单收件箱opsrfq) |
 | 指派销售 | **staff / admin(role)** | `/ops/po/review` | [F6-1](#62-f6-1-指派销售本角色唯一专属流程) |
 | 新建产品 | **仅 staff** | `/workspace/products/new` | [7.3](#73-产品新建全站最复杂的页面) |
 | 从 Word 导入产品 | 仅 staff | 同上 `Word Import` | [7.3.2](#732-word-文档导入) |
@@ -169,7 +170,7 @@
 
 | 取证手段 | 覆盖 | 落盘文件 |
 |---|---|---|
-| 权限类**实例化求值**（335 端点 × 8 身份） | 谁能调哪个端点 | `ROLE_CAPABILITY_MATRIX.json` |
+| 权限类**实例化求值**（336 端点 × 8 身份） | 谁能调哪个端点 | `ROLE_CAPABILITY_MATRIX.json` |
 | 前端**静态解析**（`@/api/*` 具名导入 + 直接 http） | 哪个页面调哪些端点 | `PAGE_API_MAP.json` |
 | 前端**逐文件读模板**（元素文案、`@click` 处理函数、`v-if` 条件） | 页面上能看见什么、能点什么 | 本文各节 + `file:line` |
 | 后端**状态机与模型字段**读取 | 状态怎么流转、字段含义 | 本文第 9 章与附录 A |
@@ -233,7 +234,7 @@
 |---|---|---|
 | `path:` 声明 | **56** | 含 `/login` 等重定向声明 |
 | 路由 `name` 声明 | **54** | `/workspace` 同时挂了父级 `Workspace` 与子级 `Dashboard` 两个 name（同一 URL） |
-| **不同 URL 的页面** | **52** | 23 公开 + 10 客户 + 19 内部；另加 1 个 404 兜底 |
+| **不同 URL 的页面** | **53** | 23 公开 + 10 客户 + 20 内部；另加 1 个 404 兜底 |
 
 > 逐页的"谁能进 / 能干什么 / 调什么接口"见 **[第 12 章 页面索引](#第-12-章-页面索引按页面反查)**。
 
@@ -262,13 +263,14 @@
 | 17 | AR Aging | `/ops/po/ar` | `admin/PoArReport.vue` | 应收 |
 | 18 | Organization Mgmt | `/ops/po/organizations` | `admin/PoOrgManagement.vue` | 机构 |
 | 19 | Inventory Desk | `/ops/inventory` | `admin/InventoryDesk.vue` | 库存 |
+| 20 | RFQ Inbox | `/ops/rfq` | `admin/RfqDesk.vue` | 询价线索 |
 
 **内部台分为两条业务线，容易被混为一谈：**
 
 | 业务线 | 页面 | 数据来源 | 权限口径 |
 |---|---|---|---|
 | **内容运营线** | 1–11 | `/products`、`/methods`、`/post`… 的 `IsAdminOrReadOnly` 系列 | 写 = `is_staff` |
-| **交易运营线** | 12–19 | 两套并存：`/admin/orders/`（`IsAdminUser`）与 `/orders/`（`IsProcurementOrAdmin`） | 部分只看 `is_staff`，部分收 `role` |
+| **交易运营线** | 12–20 | 两套并存：`/admin/orders/`（`IsAdminUser`）与 `/orders/`、`/quote-requests/manage/`（`IsProcurementOrAdmin`） | 部分只看 `is_staff`，部分收 `role` |
 
 ⚠️ **交易线两套 API 并存**是本书第 11 章列的第一个结构性问题：`AdminOrdersPage` 读 `/admin/orders/`（staff 专属），而四个 PO Desk 读 `/orders/`（采购也可）。**同一业务两种权限口径。**
 
@@ -294,7 +296,7 @@
 
 ## 0.4 权限判定机制
 
-### 后端：8 类判据，335 个 path×method
+### 后端：8 类判据，336 个 path×method
 
 | 权限类 | 判据 | 端点数 | 谁能过 |
 |---|---|---|---|
@@ -303,7 +305,7 @@
 | `IsAuthenticated` | 已登录 | 36 | 任何登录用户 |
 | **`IsAdminOrReadOnly`** | 读=任何人；**写=`is_staff`** | **209** | 写只看 `is_staff` |
 | `IsAdminUser`（DRF 内置） | `is_staff` | 15 | 只看 `is_staff` |
-| `IsProcurementOrAdmin` | `is_staff` **或** `role∈(procurement, admin)` | 16 | 内部人 |
+| `IsProcurementOrAdmin` | `is_staff` **或** `role∈(procurement, admin)` | **17** | 内部人（2026-10-22 +1：`GET /quote-requests/manage/`） |
 | `IsStaffUser` | `is_staff` | **6**（原记 7）| 只看 `is_staff`。★ 实测修正：`GET /verified/` 是它，但 **`POST /verified/` 只要登录**（`get_permissions()` 按方法分权）`[M-15]` |
 | `AddressPermission` | 登录即可（机构隔离靠 queryset） | 6 | 登录即可 |
 | `IsSuperUser` | `is_superuser` | 2 | 超管 |
@@ -316,7 +318,7 @@
 | 口径 | 表达式 | 端点数 |
 |---|---|---|
 | A | `is_staff` | 231 |
-| B | `is_staff` or `role∈(procurement,admin)` | 16 |
+| B | `is_staff` or `role∈(procurement,admin)` | 17 |
 | C | `is_staff` or `role=='admin'` | 1 |
 
 ### 前端：2 级 + 单一真相源
@@ -630,6 +632,10 @@ router.beforeEach（router/index.js:299）
 
 **从产品详情页带入**：URL 带 `product_id` 时，进入页面会 `GET /products/{id}` 预填一行；否则用购物车数据预填。
 📄 `QuoteRequestPage.vue:29-64,78-106,115-206`
+
+> **提交之后运营在哪看？** 见 **§F5-7 询价单收件箱（`/ops/rfq`）**（2026-10-22 新增）。
+> 在此之前这条链路是**断的**：客户提交得到 `RFQ #id`，但内部侧没有任何页面能查，
+> 详情接口也只对提交人可见（连 staff 都 404）—— 详见 §11.2 与 `UNIFIED_TEST_ENTRY.md` §1.4。
 
 ### F1-8 注册（三步向导）
 
@@ -1125,7 +1131,7 @@ router.beforeEach（router/index.js:299）
 
 | 证据 | 内容 |
 |---|---|
-| 1. 探针实测 | 8 身份求值中，`org_admin` 与 `researcher` 的 335 个端点判定**逐格相同** |
+| 1. 探针实测 | 8 身份求值中，`org_admin` 与 `researcher` 的 336 个端点判定**逐格相同** |
 | 2. 后端 grep | `is_org_admin` 全仓仅 4 处，**无一是权限判据**：`accounts/models.py:87`（字段定义）、`accounts/admin.py:37,38,43`（Django admin 展示/筛选）、`accounts/api/v1/serializers.py:217,237,247,269`（注册/加入机构时写入 + 序列化输出）、`accounts/api/v1/views.py:308`（建机构时置 True） |
 | 3. 前端 grep | 仅 `stores/auth.js:26` 取字段 + `SettingsPage.vue:564` 显示徽章，无任何条件渲染用于控制功能 |
 
@@ -1175,6 +1181,7 @@ router.beforeEach（router/index.js:299）
 | 下午 | 记录客户回款 | 同上 | F5-3 |
 | 每周 | 看应收账龄、催款 | `/ops/po/ar` | F5-4 |
 | 按需 | 到货入库、盘点调整 | `/ops/inventory` | F5-6 |
+| 按需 | 看客户提交的询价单（只读） | `/ops/rfq` | F5-7 |
 | 按需 | 查某机构的订货历史 | `/ops/po/organizations` | F5-5 |
 | ⚠️ 别去 | 订单管理页 `/ops/orders`（403 + 误导性空态） | — | 见 5.1 |
 | ⚠️ 别点 | PO 台的 `Assign Rep`（必 403） | — | 见 5.3 |
@@ -1323,6 +1330,42 @@ router.beforeEach（router/index.js:299）
 ⚠️ 入库/调整的前端必填校验全部是静默 `return`（`:260,282`）——**请求不发出 ⇒ 无 toast、无红框**。
 ⚠️ `batch_id` 恒为 `null`（`:265`），界面无批次入口。
 
+### F5-7 询价单收件箱（`/ops/rfq`）
+
+> **2026-10-22 新增。** 在此之前客户提交的 RFQ **只有创建入口、没有任何查询入口** ——
+> 详情 queryset 按 `contact_email == 当前用户邮箱` 过滤，**连 staff 也是 404**，运营只能进 Django admin。
+> 本节记录补上之后的真实能力边界，包括它**做不到**的部分。
+
+**入口**：页头用户下拉 → `RFQ Inbox`（仅 `isInternal` 可见：`is_staff` 或 `role∈(procurement, admin)`）
+**进入即** `GET /quote-requests/manage/`（`IsProcurementOrAdmin`）
+
+| 操作 | 入口 | 参数 | 请求 |
+|---|---|---|---|
+| 看列表 | 进入即 / `Refresh` / `Apply` | `page_size`(默认 100，夹紧 1–500) / `search` / `status` | `GET /quote-requests/manage/` |
+| 搜索 | 输入框（placeholder `Search name, email, company…`，回车或 `Apply`） | 模糊匹配 **`contact_name` / `contact_email` / `company_name` / `notes`** | 同上带 `search` |
+| 按状态筛 | 下拉 `All statuses / Pending / Reviewing / Quoted / Closed`（`change` 即发） | `status`；**非法值被忽略**（不报错，退回全量） | 同上带 `status` |
+| 看明细 | 行内 `View` | — | `GET /quote-requests/{id}/`（内部人员可读**任意** RFQ） |
+
+**列表列**：`ID` / `Received` / `Contact`（姓名 + 邮箱两行）/ `Company` / `Country` / `Items`（`items_count`）/ `Status` / `View`
+**详情区**：联系人 / 邮箱 / 电话 / 公司 / 国家 / 状态 / 收到时间 / 备注 + `Items (N)` 表（`Product` / `SKU` / `Qty` / `Note`）
+
+⚠️ **四条必须知道的事实**：
+
+1. **本页是只读的，且这是刻意的。**
+   `pending → reviewing → quoted → closed` 这条状态机**后端没有更新端点**，前端也不提供任何按钮
+   （已由 `p3-rfq-inbox` 反向断言锁死：页面上出现 `Update Status`/`Save`/`Delete` 类按钮即判红）。
+   要改状态目前只能走 Django admin。**别在 UI 上"假装能改"**。
+2. **列表用 `items_count`，不带明细。** 列表一次最多 100 行 × N 条明细会把响应放大；
+   要明细必须点 `View`（`QuoteRequestListSerializer` 与 Detail 的刻意差别）。
+3. **`search` 搜不到产品名和明细备注。** 只覆盖 RFQ 表头四个字段；
+   想"按询价的产品找单子"目前做不到（`items` 未参与过滤）。
+4. **⚠️ 没有分页组件。** 首次只取 100 条（副标题显示的是**总数** `N quote request(s)`），
+   超过 100 条时**看不到后面的记录，也没有翻页入口**。本地当前 RFQ 数未到 100，故尚未暴露；
+   若运营真要靠它管线索，这是下一个必须补的点（与 F5-4/F5-5 的"行数与 API 一致"断言同性质）。
+
+**为什么不复用 `GET /quote-requests/`**：那个路径只有 `POST`（匿名获客入口），`GET` 返回 **405**（已锁）。
+查询面刻意拆成 `/quote-requests/manage/`，与 `organizations/manage/`、`ar/aging/` 同风格。
+
 ## 5.3 procurement 做不到的事
 
 | 想做的事 | 结果 | 原因 |
@@ -1412,6 +1455,7 @@ PO 审核 → 发货 → 送达 → 开票 → 记录收款 → 完成（Mark as
 | 订单详情推进 | `/ops/orders/:id`（**状态按钮矩阵**） | §7.8.2 |
 | 四个 PO Desk | `/ops/po/*` | §7.8.3 |
 | 库存 | `/ops/inventory` | §F5-6 |
+| 询价单收件箱 | `/ops/rfq` | §F5-7 |
 
 > ⚠️ **staff 也读不到客户地址**（实测）：地址簿按"你所属机构"过滤，内部员工机构与客户不同 ⇒ 404。
 > 要让客户改地址，或把该员工加入该机构。详见 §3.3。
@@ -1422,7 +1466,7 @@ PO 审核 → 发货 → 送达 → 开票 → 记录收款 → 完成（Mark as
 |---|---|
 | `is_staff` | true |
 | 产生方式 | 仅 Django admin 勾选 / `createsuperuser` |
-| 能进页面 | 23 公开 + 10 客户 + **19 内部 = 全部 52 页** |
+| 能进页面 | 23 公开 + 10 客户 + **20 内部 = 全部 53 页** |
 | 读端点 | **132/132（全通）** |
 | 写端点 | **201/203**（只有 2 个 `IsSuperUser` 过不去：产品 hard-delete） |
 | 登录后落点 | `/workspace` |
@@ -1833,7 +1877,7 @@ name && catalog_no && cas && smiles && product_class_id && skus.some(is_default)
 |---|---|
 | `is_superuser` | true（且必然 `is_staff=true`） |
 | 端点 | **203/203 写 + 132/132 读 = 全通** |
-| 页面 | 与 staff 完全相同的 52 页 + **Django admin** |
+| 页面 | 与 staff 完全相同的 53 页 + **Django admin** |
 | 唯一增量能力 | 产品物理删除（`IsSuperUser` 2 个端点） + Django admin 全量 |
 
 ## 8.2 F8-1 物理删除产品（🔒 有端点，无 UI）
@@ -2027,7 +2071,7 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 
 ## 10.2 端点级计数
 
-**两套口径，别混用**：`[E]` 是权限类求值（全量 335 端点，含格式变体）；
+**两套口径，别混用**：`[E]` 是权限类求值（全量 336 端点，含格式变体）；
 `[M]` 是真实 HTTP 探测（剔除外呼/格式变体后 199 端点，写方法用空 body）。
 
 | 身份 | 读通过 `[E 求值]` | 写通过 `[E 求值]` | 读通过 **`[M 实测]`** | 写通过 **`[M 实测]`** |
@@ -2094,7 +2138,7 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | 17 | `PoOrgManagement` 副标题 | 声称 "their addresses"，模板无地址字段 | `PoOrgManagement.vue:44` |
 | 18 | 完整性条缺失项 | 纯文本，不可点击跳转到缺失字段 | `ProductEditPage.vue:1666-1667` |
 | 20 | 并发写（库存入库 / PO 提交） | **仅 SQLite 下出现**：10 并发 → 8~9 个 500，异常 `database is locked`。**PostgreSQL 下同样 10 并发全部成功**（库存 +10、PO 10×201），`run_pg_tests.py` 6/6 通过 ⇒ **这是本地 dev 环境特性，不是应用缺陷** `[M-50 修正]` | — |
-| **22** | **`/verify-email?token=<非UUID>` 返回 500 + HTML 错误页** | `token` 用 `UUIDField` 解析，畸形字符串抛 `ValidationError` 未捕获。合法 UUID 但不存在时才正常返回 400 `Invalid or expired verification token` `[实测]` | 见用例 `p2-auth-verify` 的缺陷锁定 |
+| ~~22~~ | ~~`/verify-email?token=<非UUID>` 返回 500 + HTML 错误页~~ | **✅ 2026-10-22 已修**：现在返回 **400 + `Invalid or expired verification token.`**（JSON 信封），与"合法 UUID 但不存在"同一条文案，不再泄露内部异常。根因：`EmailVerification.token` 是 `UUIDField`，畸形串抛的是 `django.core.exceptions.ValidationError`（不是 `ValueError`），原 `except` 漏捕。回归用例 `apps/accounts/tests/test_verify_email_token_tolerance.py`（5 条）+ `p2-auth-verify` | `accounts/api/v1/views.py` |
 | 19 | `/ops/po/review` → `Assign Rep` 填**用户名** | **500 + HTML 错误页**（不是 JSON 信封）。`except` 只捕获 `User.DoesNotExist`，非数字 `rep_id` 抛 `ValueError`。实测：填 `probe_staff`→500，填数字 `26`→200 成功 `[M-21]` | `transactions/api/v1/po_views.py:130` |
 
 ## 11.3 能力缺口（有需求、无实现）
@@ -2427,7 +2471,7 @@ X-Auth-Token: <应用层 token>          ← 过 Django（前端就是这么发�
 | **应收** | `GET /ar/aging/` | `IsProcurementOrAdmin` |
 | **库存** | `GET /inventory/`、`GET /inventory/{id}/`、`POST /inventory/receipt/`、`POST /inventory/{id}/adjust/` | `IsProcurementOrAdmin` |
 | **合规文档** | `/sds-revisions/`（list/generate/approve/withdraw/download）、`/coas/`（list/create-coa/approve/withdraw/download/qc-results）、`/batches/` | 读 `AllowAny`；写 `IsAdminOrReadOnly` |
-| **询价** | `POST /quote-requests/`、`GET /quote-requests/{id}/`；`/quotes/` CRUD | 未声明 / `IsAuthenticated` |
+| **询价** | `POST /quote-requests/`（匿名获客）、`GET /quote-requests/{id}/`（内部人可读任意 / 客户只读自己的）、**`GET /quote-requests/manage/`**（运营台收件箱，分页 + `search` + `status`）；`/quotes/` CRUD | 未声明 / `IsAuthenticated` / **`IsProcurementOrAdmin`** |
 | **愿望清单** | `GET/POST /wishlist/`、`PATCH /wishlist/{id}/` | `IsAuthenticated` |
 | **站点** | `GET /site/home`、`GET /site/navigation`、`/sitemap*.xml`、`/health/` | `AllowAny` |
 | **知识图谱** | `GET /graph`（实体周边子图；`api/graph.js:11`） | `AllowAny` |
@@ -2440,7 +2484,7 @@ X-Auth-Token: <应用层 token>          ← 过 Django（前端就是这么发�
 | **库存分货** | `POST /orders/{id}/allocate/`（🔒 前端 0 引用） | `IsProcurementOrAdmin` |
 | **兼容性表** | `/compatibility/` CRUD（前端 0 调用；仅出现在 `/products/{id}/detail` 的返回字段注释里） | 读 `AllowAny`；写 `is_staff` |
 
-**合计 335 个 path×method** —— 注意这是**去重后的 path×method 计数，不是"业务动作"数**：
+**合计 336 个 path×method** —— 注意这是**去重后的 path×method 计数，不是"业务动作"数**：
 每个 ViewSet 在 URL resolver 里还会多一份 `.json` 后缀变体（`\.(?P<None>[a-z0-9]+)`），
 同一业务动作因此常被计 2 次。去格式变体后实际是 **140 条路径 / 211 个 method**。
 
@@ -2454,7 +2498,7 @@ X-Auth-Token: <应用层 token>          ← 过 Django（前端就是这么发�
 | ViewSet 详情路由 | `/applications/{id}`、`/protocols/{id}`、`/references/{id}`、`/research-goals/{id}`、`/quotes/{id}`、`/skus/{id}`、`/batches/{id}`、`/documents/{id}`、`/pdf-files/{id}` 的 `GET/PUT/PATCH/DELETE` | 正文各章已按"CRUD"概括；权限与列表路由相同 |
 | 前端 0 引用的内部/工具端点 | `/catalog-groups`、`/pubchem-cache`、`/documents`、`/pdf-files`、`/admin/orders/{id}/confirm`、`/inventory/movements`（`api/inventory.js:28` 有封装，但页面走 `getInventoryDetail`） | 无操作入口，写进说明书会误导操作员 |
 
-**覆盖率实测**：`python scripts/audit_manual_coverage.py` ⇒ 路径 133/140、method 200/211（95%）。明细与剩余局限见 §D.4 / §D.5。
+**覆盖率实测**：`python scripts/audit_manual_coverage.py` ⇒ 路径 **134/141**、method **201/212（94.8%）**。明细与剩余局限见 §D.4 / §D.5。
 
 ---
 
@@ -2463,7 +2507,7 @@ X-Auth-Token: <应用层 token>          ← 过 Django（前端就是这么发�
 ```bash
 cd src_claude
 
-# 1) 权限矩阵（335 端点 × 8 身份，0 次 HTTP）
+# 1) 权限矩阵（336 端点 × 8 身份，0 次 HTTP）
 cd backend && DB_ENGINE=sqlite venv/Scripts/python.exe ../scripts/role_capability_probe.py \
   --json ../docs/e2e/ROLE_CAPABILITY_MATRIX.json && cd ..
 # 输出应复现第 10.2 节的 8 行数字
@@ -2490,7 +2534,7 @@ cd backend && DB_ENGINE=sqlite venv/Scripts/python.exe ../scripts/role_capabilit
 
 ---
 
-**文档版本** V2.0 · 2026-10-22 · 对应代码 `cc4e8f2` · 覆盖 8 身份 / 335 端点 / 52 页面 / 19 内部台
+**文档版本** V2.0 · 2026-10-22 · 对应代码 `cc4e8f2` · 覆盖 8 身份 / 336 端点 / 53 页面 / 20 内部台
 
 ---
 
@@ -2511,7 +2555,7 @@ cd backend && DB_ENGINE=sqlite venv/Scripts/python.exe ../scripts/role_capabilit
 | `scripts/audit_manual_refs.py` | 文档里 83 条 `file:line` 的**文件是否存在、行号是否越界、路径是否有歧义** | 行号溢出、指向不存在的文件、裸文件名无法定位 |
 | `scripts/dump_manual_refs.py` | 把每条引用的**目标行原文**连同文档主张一起打出来 | 引用存在但**内容答非所问**（语义错配） |
 | `scripts/audit_manual_coverage.py` | 路由 name 与 140 条端点路径的**覆盖率** | 漏页、漏端点 |
-| `scripts/audit_manual_numbers.py` | 按守卫规则**重新归类每个路由**，核对 52 = 23 公开 + 10 客户 + 19 内部 | 数字自相矛盾、把壳路由重复计数 |
+| `scripts/audit_manual_numbers.py` | 按守卫规则**重新归类每个路由**，核对 53 = 23 公开 + 10 客户 + 20 内部 | 数字自相矛盾、把壳路由重复计数 |
 
 ```bash
 cd src_claude
@@ -2722,7 +2766,7 @@ VITE_API_PROXY=http://127.0.0.1:8011 ./node_modules/.bin/vite --port 5174 --stri
 | 页面 × 角色判定 | `python scripts/page_role_matrix.py` |
 | PG 并发用例 | `cd backend && venv/Scripts/python.exe ../scripts/run_pg_tests.py` |
 | 浏览器实测（关键事实） | `npx playwright test manual-facts-probe --project=chromium\|firefox\|webkit` |
-| 浏览器实测（**52 页加载级**） | `npx playwright test manual-pages-smoke --project=chromium` |
+| 浏览器实测（**53 页加载级**） | `npx playwright test manual-pages-smoke --project=chromium` |
 | 页面覆盖率核算 | `python scripts/check_browser_coverage.py` |
 | 交付审计（6 项机械检查） | `python scripts/audit_manual_delivery.py` |
 | 生产匿名边界 | `python scripts/prod_anon_probe.py` |

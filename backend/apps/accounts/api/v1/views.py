@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate
+from django.core.exceptions import ValidationError as DjValidationError
 from rest_framework import status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
@@ -121,7 +122,11 @@ class VerifyEmailView(APIView):
             )
         try:
             verification = EmailVerification.objects.get(token=raw_token)
-        except (EmailVerification.DoesNotExist, ValueError):
+        except (EmailVerification.DoesNotExist, ValueError, DjValidationError):
+            # ★ 2026-10-22 修：`token` 是 UUIDField，畸形字符串（如 `probe-invalid-token`）
+            #   抛的是 **django.core.exceptions.ValidationError**，不是 ValueError。
+            #   此前只捕 ValueError ⇒ 未捕获 → 500 + HTML 错误页（实测）。
+            #   现在统一返回 400 + 「链接无效」，与"格式正确但不存在"同一句口径。
             return Response(
                 {'detail': 'Invalid or expired verification token.'},
                 status=status.HTTP_400_BAD_REQUEST,

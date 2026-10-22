@@ -33,10 +33,12 @@ FLOWS = [
     ('F1-6',  '加入购物车',            'FULL', 'cart-button-regression, cart-page-interactions, basket-local-merge-prune, basket-merge-over-limit',
      ''),
     ('F1-7',  '提交询价单（RFQ）',     'FULL',
-     'p0-rfq（匿名提交+响应体侧证 / 必填拦截 / 匿名 401 / 只对提交人可见锁定）', ''),
+     'p0-rfq（匿名提交+响应体侧证 / 必填拦截 / 匿名 401 / 内部人员可读任意 RFQ / researcher 403）'
+     ' + p3-rfq-inbox（运营台列表→详情、三种内部身份准入、search/status 过滤、只读约束）', ''),
     ('F1-8',  '注册（三步向导）',      'FULL', 'register-wizard',
      ''),
-    ('F1-9',  '邮箱验证',              'FULL', 'verify-improvements, p2-auth-verify（无 token / 坏格式 500 锁 / 合法 400）', ''),
+    ('F1-9',  '邮箱验证',              'FULL',
+     'verify-improvements, p2-auth-verify（无 token / 坏格式 ⇒ 400+JSON / 合法但不存在 400）', ''),
     ('F1-10', '静态页与 404',          'FULL', 'p1-public-pages（三页内容断言 + 404 非白屏）', ''),
     # ---- 第 2 章 未验证 ----
     ('F2-1',  '未验证登录被拒 + 重发', 'FULL',
@@ -78,6 +80,9 @@ FLOWS = [
     ('F5-5',  '机构管理',              'FULL', 'ops-po-desk-gaps, p2-ops-desk（organization_id 参数 + 行数与 API 一致）', ''),
     ('F5-6',  '库存管理',              'FULL', 'ops-inventory',
      '并发正确性另由 PG 用例覆盖（run_pg_tests.py）'),
+    ('F5-7',  '询价单收件箱（查看客户 RFQ）', 'FULL',
+     'p3-rfq-inbox + p0-rfq + apps/quotes/tests/test_rfq_inbox.py',
+     '⚠️ 只读：状态流转 done 无产品入口（后端无更新端点），故不测"改状态"'),
     # ---- 第 6 章 ----
     ('F6-1',  '指派销售',              'FULL',
      'p0-assign-rep（数字 id 成功+详情侧证 / 非数字 500 锁定 / 采购 403）', ''),

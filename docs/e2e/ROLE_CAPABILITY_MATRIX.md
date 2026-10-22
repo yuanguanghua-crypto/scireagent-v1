@@ -19,7 +19,7 @@
 |---|---|---|
 | 角色字段 | `backend/apps/accounts/models.py:69-109` | 读 `Role` choices + 4 个布尔/枚举字段 |
 | 权限类判据 | `backend/core/permissions.py:1-56` + `accounts/api/v1/views.py:315` | 逐类读 `has_permission` |
-| 端点 × 权限（335 条） | `scripts/permission_audit.py` | 实例化真实视图读 `get_permissions()` |
+| 端点 × 权限（336 条） | `scripts/permission_audit.py` | 实例化真实视图读 `get_permissions()` |
 | **身份 × 端点判定** | **`scripts/role_capability_probe.py`** | 用伪造 request 调**真实权限类实例**的 `has_permission` |
 | 页面 → 调哪些 API | `docs/e2e/PAGE_API_MAP.json` | 静态解析 `@/api/*` 具名导入 + 直接 http 调用，带 `file:line` |
 | **页面 × 角色判定** | **`scripts/page_role_matrix.py`** | 上面两张表叉乘 |
@@ -85,13 +85,13 @@ python scripts/page_role_matrix.py --json docs/e2e/PAGE_ROLE_MATRIX.json
 | `IsAuthenticated` | 已登录 | **37** | 任何已验证用户。★ 含 `POST /verified/`（实测修正，见下） |
 | **`IsAdminOrReadOnly`** | 读=任何人；**写=`is_staff`** | **209**（62%） | 写：**只看 `is_staff`** |
 | `IsAdminUser`（DRF 内置） | `is_staff` | **15** | 只看 `is_staff` |
-| `IsProcurementOrAdmin` | `is_staff` **OR** `role∈(procurement,admin)` | **16** | 内部人 |
+| `IsProcurementOrAdmin` | `is_staff` **OR** `role∈(procurement,admin)` | **17** | 内部人（+1 = `GET /quote-requests/manage/`，2026-10-22） |
 | `IsStaffUser` | `is_staff` | **6** | 只看 `is_staff`。★ 原记 7，HTTP 实测修正 −1 |
 | `AddressPermission` | 登录即可（机构隔离靠 queryset） | **6** | 登录即可 |
 | `IsSuperUser` | `is_superuser` | **2** | 超管（产品 hard-delete） |
 | `IsAdmin` | `is_staff` **OR** `role=='admin'` | **1** | `assign-rep` |
 
-**合计 335 个 path×method。**（为 `IsStaffUser` −1 / `IsAuthenticated` +1 所调整，总数不变）
+**合计 336 个 path×method。**（为 `IsStaffUser` −1 / `IsAuthenticated` +1 所调整，总数不变）
 
 ### ★ 已用真实 HTTP 校核（2026-10-22）
 
@@ -122,8 +122,8 @@ python scripts/page_role_matrix.py --json docs/e2e/PAGE_ROLE_MATRIX.json
 
 | 身份 | 读通过 | 写通过 | 被拒主因（权限类:端点数） |
 |---|---|---|---|
-| anon | 117/132 | **7/203** | `IsAdminOrReadOnly`:128, `IsAuthenticated`:36, `IsProcurementOrAdmin`:16, `IsAdminUser`:15, `IsStaffUser`:7 |
-| unverified | 123/132 | 43/203 | `IsAdminOrReadOnly`:128, `IsProcurementOrAdmin`:16, `IsAdminUser`:15, `IsStaffUser`:7, `IsSuperUser`:2 |
+| anon | 117/132 | **7/203** | `IsAdminOrReadOnly`:128, `IsAuthenticated`:36, `IsProcurementOrAdmin`:17, `IsAdminUser`:15, `IsStaffUser`:7 |
+| unverified | 123/132 | 43/203 | `IsAdminOrReadOnly`:128, `IsProcurementOrAdmin`:17, `IsAdminUser`:15, `IsStaffUser`:7, `IsSuperUser`:2 |
 | researcher | 123/132 | 43/203 | 同上（**与 unverified 完全相同**） |
 | org_admin | 123/132 | 43/203 | 同上（**与 researcher 完全相同**） |
 | **procurement** | 128/132 | **54/203** | `IsAdminOrReadOnly`:128, `IsAdminUser`:15, `IsStaffUser`:7, `IsSuperUser`:2, `IsAdmin`:1 |

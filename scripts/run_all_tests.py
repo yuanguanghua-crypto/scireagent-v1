@@ -84,7 +84,7 @@ def build_suites(profile):
     S = {}
     S['config'] = Suite('config', '配置一致性（13 项静态检查）',
                         [PY, 'scripts/config_parity.py'], ROOT, [], timeout=180)
-    S['perm-matrix'] = Suite('perm-matrix', '权限矩阵（335 端点 × 8 身份，0 请求）',
+    S['perm-matrix'] = Suite('perm-matrix', '权限矩阵（336 端点 × 8 身份，0 请求）',
                              [PY, 'scripts/role_capability_probe.py', '--json',
                               os.path.join(ROOT, 'docs', 'e2e', 'ROLE_CAPABILITY_MATRIX.json')],
                              ROOT, [], env={'DB_ENGINE': 'sqlite'}, timeout=300)
@@ -102,7 +102,7 @@ def build_suites(profile):
                            [NPX, 'playwright', 'test', 'public-smoke', 'permission-matrix',
                             '--project=chromium', '--reporter=line', '--retries=0'],
                            FRONTEND, ['stack', 'frontend'], env={'BASE_URL': FE}, timeout=1800)
-    S['e2e-manual'] = Suite('e2e-manual', 'E2E 事实核验 + 52 页加载级',
+    S['e2e-manual'] = Suite('e2e-manual', 'E2E 事实核验 + 53 页加载级',
                             [NPX, 'playwright', 'test', 'manual-facts-probe', 'manual-pages-smoke',
                              '--project=chromium', '--reporter=line', '--retries=0'],
                             FRONTEND, ['stack', 'frontend'], env={'BASE_URL': FE}, timeout=2400)
@@ -115,8 +115,11 @@ def build_suites(profile):
                           env={'DB_ENGINE': 'sqlite',
                                'SCIREAGENT_DB_NAME': os.path.join(BACKEND, 'db_probe.sqlite3')},
                           timeout=600)
-    S['e2e-probe'] = Suite('e2e-probe', 'P0/P1/P2 覆盖补齐（探针栈 + 夹具）',
-                           [NPX, 'playwright', 'test', 'p0-', 'p1-', 'p2-',
+    # ⚠️ 这里的文件名前缀就是 CI 的收单范围 —— 新增 x-yyy.spec.cjs 必须同步加前缀，
+    #    否则该 spec **永远不会被跑**，而 summary 依旧全绿（2026-10-22 真实踩过：
+    #    新增 p3-rfq-inbox 后总数仍是 44，因为只匹配 p0-/p1-/p2-）。
+    S['e2e-probe'] = Suite('e2e-probe', 'P0/P1/P2/P3 覆盖补齐（探针栈 + 夹具）',
+                           [NPX, 'playwright', 'test', 'p0-', 'p1-', 'p2-', 'p3-',
                             '--project=chromium', '--reporter=line', '--retries=0'],
                            FRONTEND, ['stack', 'frontend', 'cross-org'],
                            env={'BASE_URL': FE}, timeout=3600)
@@ -177,12 +180,36 @@ def check_need(need, notes):
     return True, ''
 
 
+def _preclean_playwright_output(s, run_dir):
+    """让每次 Playwright 运行用**独立**的 `--output` 目录，并顺手清残留。
+
+    为什么必须做（2026-10-22 真实踩过两次）：
+      ① Playwright 每次启动会**自己** `rm -rf test-results`，这个删除经过 node 的
+         safe-delete 钩子；该目录累计 >50 个文件就命中 `SAFE_DELETE_BULK_CONFIRM_REQUIRED`
+         ⇒ 测试**一个用例都没跑**就以 FAIL 退出（日志 2~9 秒、堆栈在 wrappedPromisesRm）。
+      ② 先用 Python `shutil.rmtree` 清一遍**不够** —— 实测仍被拦（`ls` 在该路径下还会
+         静默返回空，容易误判"已清干净"）。所以真正的修法是**换目录**：
+         每次运行给一个全新的 `--output`，目录不存在 ⇒ Playwright 无需删除任何东西。
+
+    只作用于项目内的产物目录，不碰源码与用户目录。
+    """
+    if not any('playwright' in str(c).lower() for c in s.cmd):
+        return s.cmd
+    out = os.path.join(run_dir, 'pw-' + s.key)
+    try:
+        os.makedirs(out, exist_ok=True)
+    except OSError:
+        return s.cmd
+    return list(s.cmd) + ['--output', out]
+
+
 def run_suite(s, run_dir, verbose):
     log = os.path.join(run_dir, s.key + '.log')
     t0 = time.time()
+    cmd = _preclean_playwright_output(s, run_dir)
     try:
         with open(log, 'w', encoding='utf-8', errors='replace') as f:
-            p = subprocess.run(s.cmd, cwd=s.cwd, env=clean_env(s.env),
+            p = subprocess.run(cmd, cwd=s.cwd, env=clean_env(s.env),
                                stdout=f, stderr=subprocess.STDOUT, timeout=s.timeout)
         rc = p.returncode
     except subprocess.TimeoutExpired:

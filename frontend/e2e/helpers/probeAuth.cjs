@@ -69,4 +69,42 @@ async function bodyText(page) {
   return page.evaluate(() => (document.getElementById('app')?.innerText || '').replace(/\s+/g, ' '));
 }
 
-module.exports = { BASE, PW, ids, login, api, anonApi, bodyText };
+/**
+ * 剥掉 `EnvelopeRenderer` 的 `{success, data, meta}` 外壳。
+ *
+ * 本仓库**所有** DRF 响应都过 envelope（含 `RetrieveAPIView`），
+ * 所以断言字段前必须解包；直接 `res.data.contact_email` 会恒为 undefined ⇒ 假红/假绿。
+ * 未包 envelope 的裸响应原样返回。
+ */
+function unwrap(res) {
+  const body = res?.data;
+  if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
+    return body.data;
+  }
+  return body;
+}
+
+/**
+ * 像前端一样直接 fetch（支持 body + 可选 token），用于构造前置数据。
+ * `inheritToken: true` 时复用当前页已登录的 token，否则匿名。
+ */
+async function fetchApi(page, method, apiPath, body, inheritToken = false) {
+  return page.evaluate(
+    async ({ method, apiPath, body, inheritToken }) => {
+      const headers = {};
+      if (body !== undefined) headers['Content-Type'] = 'application/json';
+      if (inheritToken) headers['X-Auth-Token'] = localStorage.getItem('token') || '';
+      const r = await fetch(apiPath, {
+        method,
+        headers,
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      let data = null;
+      try { data = await r.json(); } catch (_) { data = null; }
+      return { status: r.status, data };
+    },
+    { method, apiPath, body, inheritToken },
+  );
+}
+
+module.exports = { BASE, PW, ids, login, api, anonApi, bodyText, unwrap, fetchApi };

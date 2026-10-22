@@ -1,19 +1,19 @@
 {
-  "generated_at": "2026-10-22T14:40:57",
+  "generated_at": "2026-10-22T15:18:26",
   "note": "has_permission 层求值；不含 has_object_permission / queryset 收窄 / 前端守卫",
-  "endpoint_count": 335,
+  "endpoint_count": 336,
   "identities": {
     "anon": {
-      "total": 335,
+      "total": 336,
       "read_ok": 117,
-      "read_total": 132,
+      "read_total": 133,
       "write_ok": 7,
       "write_total": 203,
       "unknown": 0,
       "blocked_by": {
         "IsAdminOrReadOnly": 128,
         "IsAuthenticated": 36,
-        "IsProcurementOrAdmin": 16,
+        "IsProcurementOrAdmin": 17,
         "IsAdminUser": 15,
         "IsStaffUser": 7,
         "AddressPermission": 6,
@@ -22,15 +22,15 @@
       }
     },
     "unverified": {
-      "total": 335,
+      "total": 336,
       "read_ok": 123,
-      "read_total": 132,
+      "read_total": 133,
       "write_ok": 43,
       "write_total": 203,
       "unknown": 0,
       "blocked_by": {
         "IsAdminOrReadOnly": 128,
-        "IsProcurementOrAdmin": 16,
+        "IsProcurementOrAdmin": 17,
         "IsAdminUser": 15,
         "IsStaffUser": 7,
         "IsSuperUser": 2,
@@ -38,15 +38,15 @@
       }
     },
     "researcher": {
-      "total": 335,
+      "total": 336,
       "read_ok": 123,
-      "read_total": 132,
+      "read_total": 133,
       "write_ok": 43,
       "write_total": 203,
       "unknown": 0,
       "blocked_by": {
         "IsAdminOrReadOnly": 128,
-        "IsProcurementOrAdmin": 16,
+        "IsProcurementOrAdmin": 17,
         "IsAdminUser": 15,
         "IsStaffUser": 7,
         "IsSuperUser": 2,
@@ -54,15 +54,15 @@
       }
     },
     "org_admin": {
-      "total": 335,
+      "total": 336,
       "read_ok": 123,
-      "read_total": 132,
+      "read_total": 133,
       "write_ok": 43,
       "write_total": 203,
       "unknown": 0,
       "blocked_by": {
         "IsAdminOrReadOnly": 128,
-        "IsProcurementOrAdmin": 16,
+        "IsProcurementOrAdmin": 17,
         "IsAdminUser": 15,
         "IsStaffUser": 7,
         "IsSuperUser": 2,
@@ -70,9 +70,9 @@
       }
     },
     "procurement": {
-      "total": 335,
-      "read_ok": 128,
-      "read_total": 132,
+      "total": 336,
+      "read_ok": 129,
+      "read_total": 133,
       "write_ok": 54,
       "write_total": 203,
       "unknown": 0,
@@ -85,9 +85,9 @@
       }
     },
     "admin_role": {
-      "total": 335,
-      "read_ok": 128,
-      "read_total": 132,
+      "total": 336,
+      "read_ok": 129,
+      "read_total": 133,
       "write_ok": 55,
       "write_total": 203,
       "unknown": 0,
@@ -99,9 +99,9 @@
       }
     },
     "staff": {
-      "total": 335,
-      "read_ok": 132,
-      "read_total": 132,
+      "total": 336,
+      "read_ok": 133,
+      "read_total": 133,
       "write_ok": 201,
       "write_total": 203,
       "unknown": 0,
@@ -110,9 +110,9 @@
       }
     },
     "superuser": {
-      "total": 335,
-      "read_ok": 132,
-      "read_total": 132,
+      "total": 336,
+      "read_ok": 133,
+      "read_total": 133,
       "write_ok": 203,
       "write_total": 203,
       "unknown": 0,
@@ -3933,6 +3933,18 @@
         "dynamic": false,
         "allowed": false,
         "blocker": "IsAuthenticated",
+        "write": false
+      },
+      {
+        "path": "/api/v1/quote-requests/manage/",
+        "method": "GET",
+        "view": "apps.quotes.api.v1.views.QuoteRequestManageListView",
+        "permissions": [
+          "IsProcurementOrAdmin"
+        ],
+        "dynamic": false,
+        "allowed": false,
+        "blocker": "IsProcurementOrAdmin",
         "write": false
       },
       {
@@ -7956,6 +7968,18 @@
         "write": false
       },
       {
+        "path": "/api/v1/quote-requests/manage/",
+        "method": "GET",
+        "view": "apps.quotes.api.v1.views.QuoteRequestManageListView",
+        "permissions": [
+          "IsProcurementOrAdmin"
+        ],
+        "dynamic": false,
+        "allowed": false,
+        "blocker": "IsProcurementOrAdmin",
+        "write": false
+      },
+      {
         "path": "/api/v1/search",
         "method": "GET",
         "view": "apps.knowledge.api.v1.search_views.search",
@@ -11973,6 +11997,18 @@
         "dynamic": false,
         "allowed": true,
         "blocker": null,
+        "write": false
+      },
+      {
+        "path": "/api/v1/quote-requests/manage/",
+        "method": "GET",
+        "view": "apps.quotes.api.v1.views.QuoteRequestManageListView",
+        "permissions": [
+          "IsProcurementOrAdmin"
+        ],
+        "dynamic": false,
+        "allowed": false,
+        "blocker": "IsProcurementOrAdmin",
         "write": false
       },
       {
@@ -15996,6 +16032,18 @@
         "write": false
       },
       {
+        "path": "/api/v1/quote-requests/manage/",
+        "method": "GET",
+        "view": "apps.quotes.api.v1.views.QuoteRequestManageListView",
+        "permissions": [
+          "IsProcurementOrAdmin"
+        ],
+        "dynamic": false,
+        "allowed": false,
+        "blocker": "IsProcurementOrAdmin",
+        "write": false
+      },
+      {
         "path": "/api/v1/search",
         "method": "GET",
         "view": "apps.knowledge.api.v1.search_views.search",
@@ -20009,6 +20057,18 @@
         "view": "apps.quotes.api.v1.views.QuoteRequestDetailView",
         "permissions": [
           "IsAuthenticated"
+        ],
+        "dynamic": false,
+        "allowed": true,
+        "blocker": null,
+        "write": false
+      },
+      {
+        "path": "/api/v1/quote-requests/manage/",
+        "method": "GET",
+        "view": "apps.quotes.api.v1.views.QuoteRequestManageListView",
+        "permissions": [
+          "IsProcurementOrAdmin"
         ],
         "dynamic": false,
         "allowed": true,
@@ -24036,6 +24096,18 @@
         "write": false
       },
       {
+        "path": "/api/v1/quote-requests/manage/",
+        "method": "GET",
+        "view": "apps.quotes.api.v1.views.QuoteRequestManageListView",
+        "permissions": [
+          "IsProcurementOrAdmin"
+        ],
+        "dynamic": false,
+        "allowed": true,
+        "blocker": null,
+        "write": false
+      },
+      {
         "path": "/api/v1/search",
         "method": "GET",
         "view": "apps.knowledge.api.v1.search_views.search",
@@ -28056,6 +28128,18 @@
         "write": false
       },
       {
+        "path": "/api/v1/quote-requests/manage/",
+        "method": "GET",
+        "view": "apps.quotes.api.v1.views.QuoteRequestManageListView",
+        "permissions": [
+          "IsProcurementOrAdmin"
+        ],
+        "dynamic": false,
+        "allowed": true,
+        "blocker": null,
+        "write": false
+      },
+      {
         "path": "/api/v1/search",
         "method": "GET",
         "view": "apps.knowledge.api.v1.search_views.search",
@@ -32069,6 +32153,18 @@
         "view": "apps.quotes.api.v1.views.QuoteRequestDetailView",
         "permissions": [
           "IsAuthenticated"
+        ],
+        "dynamic": false,
+        "allowed": true,
+        "blocker": null,
+        "write": false
+      },
+      {
+        "path": "/api/v1/quote-requests/manage/",
+        "method": "GET",
+        "view": "apps.quotes.api.v1.views.QuoteRequestManageListView",
+        "permissions": [
+          "IsProcurementOrAdmin"
         ],
         "dynamic": false,
         "allowed": true,

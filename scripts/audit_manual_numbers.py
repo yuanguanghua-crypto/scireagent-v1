@@ -15,6 +15,7 @@ import re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ROUTER = os.path.join(ROOT, 'frontend', 'src', 'router', 'index.js')
+MANUAL = os.path.join(ROOT, 'docs', 'e2e', 'SITE_ROLE_OPERATION_MANUAL.md')
 
 
 def main():
@@ -66,10 +67,37 @@ def main():
     print(f"\n404 兜底：{len(notfound)}")
     pages = len(internal) + len(customer) + len(public)
     print(f"\n页面合计（不含 404）= {pages}；含 404 = {pages + len(notfound)}")
-    print(f"说明书自述：52 实际页面（23 公开 / 10 客户 / 19 内部）+ 1 个 404")
-    print(f"实测：{len(public)} 公开 / {len(customer)} 客户 / {len(internal)} 内部 = {pages}"
-          f"  {'✅ 一致' if pages == 52 else '❌ 与自述不符'}")
-    return 0
+
+    # ★ 自述数字从说明书里**解析**，不硬编码 —— 硬编码的期望值守不住文档漂移
+    #   （此前写死 52：文档改了、脚本还比 52，等于永远"一致"或永远"不符"，两头都不对）。
+    claimed = read_claimed(MANUAL)
+    if not claimed:
+        print('!! 说明书里找不到 "不同 URL 的页面" 那一行，无法核对')
+        return 3
+    actual = {'total': pages, 'public': len(public),
+              'customer': len(customer), 'internal': len(internal)}
+    ok = actual == claimed
+    print(f"说明书自述：{claimed['total']} 个实际页面"
+          f"（{claimed['public']} 公开 / {claimed['customer']} 客户 / {claimed['internal']} 内部）"
+          f" + {len(notfound)} 个 404")
+    print(f"实测：{actual['public']} 公开 / {actual['customer']} 客户 / {actual['internal']} 内部"
+          f" = {actual['total']}  {'✅ 一致' if ok else '❌ 与自述不符'}")
+    return 0 if ok else 1
+
+
+def read_claimed(path):
+    """从说明书第 0 章的"不同 URL 的页面"行解析四个自述数字。"""
+    if not os.path.exists(path):
+        return None
+    txt = io.open(path, encoding='utf-8').read()
+    m = re.search(
+        r'不同 URL 的页面\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|\s*(\d+)\s*公开\s*\+\s*(\d+)\s*客户\s*\+\s*(\d+)\s*内部',
+        txt,
+    )
+    if not m:
+        return None
+    return {'total': int(m.group(1)), 'public': int(m.group(2)),
+            'customer': int(m.group(3)), 'internal': int(m.group(4))}
 
 
 if __name__ == '__main__':

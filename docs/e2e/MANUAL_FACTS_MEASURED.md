@@ -533,7 +533,7 @@ POST /api/v1/auth/login {"username":"admin","password":"admin123"} → 200
 **仍然只做到"未覆盖"的一条**：跨浏览器只覆盖了 chromium/firefox/webkit 三家的**功能事实**，
 没有做像素级视觉回归（仓库无基线截图机制）。
 
-> 补充（2026-10-22 交付审计时）：**52/52 页**都已补上浏览器**加载级**验证
+> 补充（2026-10-22 交付审计时）：**53/53 页**都已补上浏览器**加载级**验证
 > （`frontend/e2e/manual-pages-smoke.spec.cjs`，13 页 staff 上下文 + 3 页客户上下文）。
 > 判据是"渲染出正文 + 未被踢走 + 无未捕获异常"，**不等于每个按钮都点过**。
 
@@ -551,3 +551,6 @@ POST /api/v1/auth/login {"username":"admin","password":"admin123"} → 200
 | 6 | 换身份必须换 context | 同 context 里 `localStorage.clear()` + 导航 ⇒ `ERR_ABORTED` | 每个身份 `browser.newContext()` |
 | 7 | **脚本用错解释器** | 并发脚本要 ORM，却用托管 python 跑 ⇒ `No module named 'django'` | 需要 ORM 的脚本必须用 `backend/venv/Scripts/python.exe` |
 | 8 | `django.apps` 属性判断写错 | `if not django.apps.apps.ready` ⇒ `AttributeError` | 直接 `django.setup()`（重复调用安全），别探测 `django.apps` |
+| 9 | **删掉产物目录也会被"安全删除"闸门拦住** | Playwright 每次启动要 `rm -rf test-results`；累计 >50 文件就命中 `SAFE_DELETE_BULK_CONFIRM_REQUIRED` ⇒ **一个用例都没跑**就以 FAIL 退出（日志只有 2~9 秒，堆栈在 `wrappedPromisesRm`），看着像"测试挂了" | ① 先看耗时：2 秒就 FAIL ⇒ 几乎一定是启动/清理失败，不是断言失败；② 修法是**换目录**（`--output <每次独立的目录>`），不是"先手动清一遍"——实测先 `shutil.rmtree` 仍被拦，且 `ls` 在该路径下还会**静默返回空**，让人误判已清干净 |
+| 10 | **脚本把"期望值"硬编码，守不住文档漂移** | `audit_manual_numbers.py` 写死 `52`、`audit_manual_coverage.py` 写死 `335`：文档改成 53/336 后，脚本仍报"与自述不符"，且它打印的"文档声明"是**脚本自己编的**，不是真读的 | 期望值必须**从被校验对象里解析**（正则读说明书那一行）；宁可解析失败时明确报"找不到自述行"，也不要拿硬编码冒充文档 |
+| 11 | **CI 收单范围是"文件名前缀"** | `run_all_tests.py` 的 `e2e-probe` 只匹配 `p0- p1- p2-`；新增 `p3-rfq-inbox.spec.cjs` 后总数**仍是 44**，summary 全绿但新 spec 从未执行 | 新增 spec 后必须回头核对套件的收单范围，并**用总数变化**验证（44 → 47 才算真进去了）；只看"PASS"会漏 |

@@ -158,6 +158,8 @@
 | 7 | 填 Amount/Method/Reference → `Record Payment` | 无报错 | `→ GET /invoices/{id}/` 有 PaymentRecord |
 | 8 | `/ops/po/ar` 看账龄 | 该单不再出现在当前桶 | 金额减少 |
 | 9 | `/ops/inventory` 入库 +10 | Available +10 | `→ GET /inventory/{id}/` available 增 10、流水 1 条 |
+| 10 | `/ops/rfq` 看客户询价（**2026-10-22 新增**） | 列表出现客户刚提交的 RFQ | `→ GET /quote-requests/manage/?search=<客户邮箱>` 命中同一条 |
+| 11 | 点 `View` 看明细 | 联系人与 `Items (N)` 明细行正确 | `→ GET /quote-requests/{id}/` items 长度一致 |
 
 **越权探测**：
 
@@ -170,6 +172,10 @@
 | 把订单推到 `paid` | **无入口**（全站没有"标记已付"按钮） | ✗ 做不到 —— 这是**能力缺口**，不是缺陷 case |
 
 **已知坑**：PO 审核台无 try/catch；`Record Payment` 金额为空时**静默 return**（连 toast 都没有）。
+
+**RFQ 收件箱的两条边界（2026-10-22）**：
+1. **只读** —— `pending→reviewing→quoted→closed` 没有更新端点，页面上也没有按钮。想在采购侧推进询价状态，目前只能进 Django admin（`p3-rfq-inbox` 反向断言锁死：出现改状态按钮即判红）。
+2. **没有分页** —— 首次只取 100 条，副标题显示的是总数；超过 100 条时看不到后面的、也无翻页入口。当前数据量未到 100，尚未暴露。
 
 ---
 

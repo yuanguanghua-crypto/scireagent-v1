@@ -2,8 +2,8 @@
 
 **日期** 2026-10-22 · **被问** ① 是否已全部覆盖 ② 能否统一到同一个测试任务
 **结论**（2026-10-22 Batch 1~3 执行后更新）
-① 覆盖：**41 条流程里 39 条 FULL**，缺口从 23 降到 **2 条**（1 条 C 类人工 + 1 条 PART）
-② 统一：`run_all_tests.py` 已落地，`fixtures + e2e-probe` **两次连跑各 42/42 通过**（幂等自证）
+① 覆盖：**42 条流程里 40 条 FULL**，缺口从 23 降到 **2 条**（1 条 C 类人工 + 1 条 PART）
+② 统一：`run_all_tests.py` 已落地，`fixtures + e2e-probe` **两次连跑各 47/47 通过**（幂等自证）
 
 ---
 
@@ -11,7 +11,7 @@
 
 | 问题 | 答案 | 一句话理由 |
 |---|---|---|
-| 全部覆盖了吗？ | **没有** | 页面维度 52/52，但**流程维度只有 20/41 走通**；另有 **23 条缺口**（见 `GAP_REGISTER.md`） |
+| 全部覆盖了吗？ | **没有** | 页面维度 **53/53** 均有浏览器访问；流程维度 **40/42 FULL**；仍有 **2 条缺口**（见 `GAP_REGISTER.md`） |
 | 能统一到一个测试任务吗？ | **能，已实现** | `python scripts/run_all_tests.py --profile full` 一条命令串起 L1–L5；已实测 4 类 suite 跑通 |
 
 ---
@@ -22,16 +22,16 @@
 
 | 维度 | 覆盖 | 脚本 |
 |---|---|---|
-| **页面**（52） | **52/52 有 E2E 访问** | `scan_e2e_coverage.py` |
-| **流程**（41） | **FULL 39 / PART 1 / LOAD 0 / NONE 1** | `flow_coverage_matrix.py` |
+| **页面**（53） | **53/53 有 E2E 访问** | `scan_e2e_coverage.py` |
+| **流程**（42） | **FULL 40 / PART 1 / LOAD 0 / NONE 1** | `flow_coverage_matrix.py` |
 | **缺口**（去重后） | **2 条**：P0 **0** / P1 **0** / P2 2 | `gap_register.py` |
 
-> ⚠️ **只看页面会得出假结论**。52/52 只说明"每个页面至少被打开过一次"，
+> ⚠️ **只看页面会得出假结论**。53/53 只说明"每个页面至少被打开过一次"，
 > 而 `F3-11 下载中心` 就是典型：页面能开（LOAD），但**从来没验证过"能不能真下到发票 PDF"**。
 
-### 1.2 剩余 3 条缺口（唯一清单，不要在别处再列）
+### 1.2 剩余 2 条缺口（唯一清单，不要在别处再列）
 
-见 **[`GAP_REGISTER.md`](./GAP_REGISTER.md)**。前 5 条 P0：
+见 **[`GAP_REGISTER.md`](./GAP_REGISTER.md)**。全部为 P2（P0/P1 已清零）：
 
 | ID | 缺口 | 现状 |
 |---|---|---|
@@ -43,9 +43,9 @@
 
 ### 1.3 现在的准确表述
 
-> **广度铺满、深度基本补齐**：52/52 页有浏览器访问；41 条流程 38 条 FULL。
-> 剩下 3 条不是"忘了测"，而是**有明确原因**：1 条 C 类（人工冒烟承担）、
-> 2 条 PART（一条受页面缺陷阻塞、一条只剩详情页交互）。
+> **广度铺满、深度基本补齐**：53/53 页有浏览器访问；42 条流程 40 条 FULL。
+> 剩下 2 条不是"忘了测"，而是**有明确原因**：1 条 C 类（Django admin，人工冒烟承担）、
+> 1 条 PART（知识实体只剩详情页交互未覆盖）。
 
 ### 1.4 Batch 1~3 执行结果（2026-10-22）
 
@@ -56,11 +56,15 @@
 | **Batch 3** | P2 十二条 | `p2-public-interactions` / `p2-auth-verify` / `p2-customer-flows` / `p2-ops-desk` + P8 人工清单 | **21 passed** |
 | 合计 | 23 条缺口 | 9 个新 spec / 3 个后端测试 / 1 个人工清单 | `fixtures + e2e-probe` **42/42 × 连跑两次** |
 
-**过程中新发现 3 个真缺陷**：
-1. ❌→✅ **已修**：`/po/downloads` 永远空态（列表序列化器缺 `invoice`/`attachments`）
+**过程中新发现 3 个真缺陷（现已全部修复）**：
+1. ✅ **已修**：`/po/downloads` 永远空态（列表序列化器缺 `invoice`/`attachments`）
    —— 修法与回归见说明书 附录 D.5.1
-2. ⏳ 仍存在：`/verify-email?token=<非UUID>` → **500 + HTML 错误页**（应为 400），已用例锁定
-3. ⏳ 仍存在：RFQ 详情只对提交人可见（连 staff 也 404），已用例锁定
+2. ✅ **已修**：`/verify-email?token=<非UUID>` → 原 500 + HTML；现 **400 + `Invalid or expired verification token.`**
+   根因是 `UUIDField` 抛 `django.core.exceptions.ValidationError` 而代码只捕 `ValueError`。
+   回归：`apps/accounts/tests/test_verify_email_token_tolerance.py`（5 条）+ `p2-auth-verify`
+3. ✅ **已修**：RFQ 原只有创建入口、无查询入口（详情按邮箱过滤，连 staff 也 404）。
+   现补 `GET /quote-requests/manage/`（`IsProcurementOrAdmin`）+ 新运营台页面 `/ops/rfq`。
+   回归：`apps/quotes/tests/test_rfq_inbox.py`（10 条）+ `p3-rfq-inbox.spec.cjs`（3 条）
 
 ---
 
@@ -112,14 +116,14 @@ python scripts/run_all_tests.py --only perm-http,e2e-smoke   # 只跑指定
 ## 3. 三份文档怎么咬合（避免各自为政）
 
 ```
-① SITE_ROLE_OPERATION_MANUAL.md   ← 事实底座：8 角色 / 52 页 / 41 流程 / 335 端点
+① SITE_ROLE_OPERATION_MANUAL.md   ← 事实底座：8 角色 / 53 页 / 42 流程 / 336 端点
         │  （提供"该测什么"的坐标）
         ▼
-② GLOBAL_TEST_PLAN_V3.md          ← 全局方案：4 维覆盖模型 + L1–L5 分层 + 41 流程矩阵
+② GLOBAL_TEST_PLAN_V3.md          ← 全局方案：4 维覆盖模型 + L1–L5 分层 + 42 流程矩阵
    PERSONA_TEST_PLAN.md           ← 拟人化：8 个角色的真人任务链
         │  （两份方案的缺口汇总到一处）
         ▼
-③ GAP_REGISTER.md / .json         ← **唯一 backlog**（23 条，去重，带优先级与归属）
+③ GAP_REGISTER.md / .json         ← **唯一 backlog**（现有 2 条；原始 23 条已处置 21 条）
         │  （backlog 的执行载体）
         ▼
 ④ scripts/run_all_tests.py        ← **统一入口**（fast/full/nightly + 统一报告）
@@ -139,7 +143,7 @@ python scripts/run_all_tests.py --only perm-http,e2e-smoke   # 只跑指定
 |---|---|---|
 | 某个功能能不能用？ | 说明书第 12 章 + `GAP_REGISTER` | ✅ 能（且标了证据等级） |
 | 全站测试过不过？ | `run_all_tests.py --profile full` | ✅ 能（一条命令一份报告） |
-| 还差多少？ | `GAP_REGISTER.md` | ✅ 能（23 条，分 P0/P1/P2） |
+| 还差多少？ | `GAP_REGISTER.md` | ✅ 能（2 条，均 P2） |
 | 某个角色能不能完成他的工作？ | `PERSONA_TEST_PLAN.md` 对应 persona | ⚠️ **部分**：脚本还没落地（Batch 1–3） |
 | 生产环境正常吗？ | `--profile nightly` 的 `prod-readonly` | ⚠️ 只能答"匿名边界"（写操作主动不测） |
 
@@ -152,11 +156,12 @@ python scripts/run_all_tests.py --only perm-http,e2e-smoke   # 只跑指定
 | ~~Batch 1~~ | P0 五条 | ✅ 已完成 |
 | ~~Batch 2~~ | P1 七条 | ✅ 已完成 |
 | ~~Batch 3~~ | P2 十二条 | ✅ 已完成 |
+| ✅ | **RFQ 收件箱**（`/ops/rfq`）：新端点 + 新页面 + 后端 10 条 + E2E 3 条 | ✅ 2026-10-22 |
 | ✅ | **CI 已接**：新增 job `e2e-probe`（第 13 个），跑 `run_all_tests.py --only fixtures,e2e-probe` | ✅ 2026-10-22 |
 | ~~待修~~ | ~~`F3-11` 下载中心~~ | ✅ **已修**（序列化器补字段 + 预取） |
 | 待办 | `F1-5` 知识实体详情页交互（PART，仅加载级） | ⬜ 低优先 |
-| 待办 | 两个已锁定的缺陷待产品决定是否修：畸形 token 500、RFQ 详情不可见 | ⬜ 待定 |
+| ~~待办~~ | ~~两个已锁定的缺陷待产品决定是否修~~ | ✅ **均已修**（400 + RFQ 收件箱）|
 
-> **现在的说法**：`GAP_REGISTER` 里 **P0/P1 已清零**，41 条流程 38 条 FULL。
-> 仍不能宣称"100% 覆盖"，因为还有 3 条有明确原因的缺口 —— 但它们都在台账上，
+> **现在的说法**：`GAP_REGISTER` 里 **P0/P1 已清零**，42 条流程 40 条 FULL。
+> 仍不能宣称"100% 覆盖"，因为还有 2 条有明确原因的缺口 —— 但它们都在台账上，
 > 不是"没人知道没测"。这正是 `GLOBAL_TEST_DEFINITION` 要求的终态。

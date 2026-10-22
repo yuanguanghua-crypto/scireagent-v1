@@ -48,17 +48,27 @@ test.describe('@p2 @local-only F1-9 邮箱验证失败态', () => {
     expect(JSON.stringify(r.data || {})).toMatch(/Invalid or expired/i);
   });
 
-  test('★ 缺陷锁定：畸形 token（非 UUID）⇒ 500（应为 400）', async ({ page }) => {
-    // 实测：`verify-email` 用 UUIDField 解析 token，非 UUID 字符串直接抛 ValidationError
-    //   → 未捕获 → **500 + HTML 错误页**（不是 JSON 信封）。
-    //   前端若拼错 URL 或用户手改，就会看到白屏错误页而非"链接无效"。
+  test('★ 畸形 token（非 UUID）⇒ 400 + 链接无效（2026-10-22 已修，原为 500）', async ({ page }) => {
+    // 历史缺陷：`verify-email` 用 UUIDField 解析 token，非 UUID 字符串抛
+    //   `django.core.exceptions.ValidationError`（**不是** ValueError），原 `except` 漏捕
+    //   → 500 + HTML 错误页（不是 JSON 信封），用户看到白屏而不是"链接无效"。
+    //   已改为 400 + 与"合法但不存在"同一条文案。本条锁**修复后**的行为。
     await page.goto(`${H.BASE}/login`, { waitUntil: 'domcontentloaded' });
     const r = await page.evaluate(async ({ base }) => {
       const res = await fetch(`${base}/api/v1/auth/verify-email?token=probe-invalid-token`);
-      return { status: res.status, ctype: res.headers.get('content-type') || '' };
+      let body = null;
+      try { body = await res.json(); } catch (_) { body = null; }
+      return {
+        status: res.status,
+        ctype: res.headers.get('content-type') || '',
+        body,
+      };
     }, { base: H.BASE });
-    expect(r.status, '行为变了：若已修为 400，请更新说明书 §11.2 与本用例').toBe(500);
-    expect(r.ctype, '500 但返回了 JSON —— 与预期不符').toMatch(/html/i);
+
+    expect(r.status, '畸形 token 必须 400（回退到 500 说明 ValidationError 又漏捕了）').toBe(400);
+    expect(r.ctype, '错误响应必须是 JSON，不能再回 HTML 错误页').toMatch(/json/i);
+    // 文案不能泄露内部异常类型；与"合法但不存在"保持一致
+    expect(JSON.stringify(r.body || {})).toMatch(/Invalid or expired/i);
   });
 });
 

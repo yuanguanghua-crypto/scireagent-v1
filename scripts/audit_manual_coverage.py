@@ -4,8 +4,9 @@
 
 只做可机械判定的事：
   A. 路由表里的每个 name 是否在文档中出现
-  B. 335 个 path×method 里有多少出现在文档中（附录 B 自称"代表端点"，要量化到底多少）
-  C. 文档自己声明的数字（52 页 / 23 公开 / 19 内部 / 10 客户 / 335 端点 / 8 身份）与实际比对
+  B. 每个 path×method 有多少出现在文档中（附录 B 自称"代表端点"，要量化到底多少）
+  C. 文档**自己声明**的数字（页数分组、端点总数）与实际比对
+     —— 自述值从说明书解析，不硬编码（硬编码守不住文档漂移）
 """
 import io
 import os
@@ -16,6 +17,36 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOC = os.path.join(ROOT, 'docs', 'e2e', 'SITE_ROLE_OPERATION_MANUAL.md')
 ROUTER = os.path.join(ROOT, 'frontend', 'src', 'router', 'index.js')
 MATRIX = os.path.join(ROOT, 'docs', 'e2e', 'ROLE_CAPABILITY_MATRIX.json')
+
+# 页面分组自述：「| **不同 URL 的页面** | **53** | 23 公开 + 10 客户 + 20 内部；… |」
+_RE_PAGES = re.compile(
+    r'不同 URL 的页面\*\*\s*\|\s*\*\*(\d+)\*\*\s*\|\s*(\d+)\s*公开\s*\+\s*(\d+)\s*客户\s*\+\s*(\d+)\s*内部')
+# 端点总数自述：「N 个 path×method」
+_RE_EP = re.compile(r'(\d+)\s*个\s*path×method')
+
+
+def _read_claimed_pages():
+    try:
+        txt = io.open(DOC, encoding='utf-8').read()
+    except OSError:
+        return None
+    m = _RE_PAGES.search(txt)
+    if not m:
+        return None
+    return {'total': int(m.group(1)), 'public': int(m.group(2)),
+            'customer': int(m.group(3)), 'internal': int(m.group(4))}
+
+
+def _read_claimed_endpoints():
+    try:
+        txt = io.open(DOC, encoding='utf-8').read()
+    except OSError:
+        return None
+    hits = [int(x) for x in _RE_EP.findall(txt)]
+    if not hits:
+        return None
+    # 多处声明应完全一致；取出现最多的那个（容忍正文里偶发的其他数字）
+    return max(set(hits), key=hits.count)
 
 
 def main():
@@ -80,15 +111,26 @@ def main():
 
     # ---------- C. 数字自洽 ----------
     print('\n=== C. 文档自述数字 vs 实际 ===')
-    # 页面分组
-    adm = len(re.findall(r'requiresAdmin', 'x'))  # 占位
-    print('文档声明：52 实际页面 / 23 公开 / 10 客户 / 19 内部（8 ops + /workspace + 10 子页）')
+    # ★ 自述数字一律**从说明书解析**，不硬编码。
+    #   硬编码的期望值（此前写死 52 页 / 335 端点）守不住文档漂移：
+    #   文档改了脚本还在比旧数，输出的"不一致"其实是脚本自己在说谎。
+    claimed = _read_claimed_pages()
+    if claimed:
+        print('文档声明：%d 实际页面 / %d 公开 / %d 客户 / %d 内部'
+              % (claimed['total'], claimed['public'], claimed['customer'], claimed['internal']))
+    else:
+        print('!! 说明书里找不到"不同 URL 的页面"行，跳过页面自述核对')
     ws_children = re.findall(r"path:\s*'([^']*)',\s*name:", router[router.index("path: '/workspace'"):])
     print(f'实测 /workspace 子路由块：{len([c for c in ws_children if c != "/workspace"])}（含空 path 的 Dashboard）')
 
     # 端点总数与矩阵一致性
     n_ep = len(data['detail']['staff'])
-    print(f'矩阵中 staff 端点行数：{n_ep}（文档称 335）')
+    claimed_ep = _read_claimed_endpoints()
+    if claimed_ep is None:
+        print(f'矩阵中 staff 端点行数：{n_ep}（说明书里找不到端点总数自述）')
+    else:
+        print(f'矩阵中 staff 端点行数：{n_ep}（文档称 {claimed_ep}）'
+              + ('  ✅ 一致' if claimed_ep == n_ep else '  ❌ 不一致'))
     print(f'矩阵 identities：{list(data["identities"].keys())}')
     for k, v in data['identities'].items():
         print(f'   {k:<12} 读 {v["read_ok"]}/{v["read_total"]}  写 {v["write_ok"]}/{v["write_total"]}')
