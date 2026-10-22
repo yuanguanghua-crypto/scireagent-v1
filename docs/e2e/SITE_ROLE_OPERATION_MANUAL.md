@@ -1,9 +1,19 @@
 # SciReAgent 全站角色与功能操作说明书
 
-**版本** V1.3 · **生成日期** 2026-10-22 · **对应代码** `cc4e8f2`
+**版本** V1.4 · **生成日期** 2026-10-22 · **对应代码** `cc4e8f2`
 **性质** 操作说明书（不是设计草案、不是改造建议）。每一条都对应现有代码。
 **配套** `ROLE_CAPABILITY_MATRIX.md`（权限事实基线）、`ROLE_TEST_PLAN.md`（测试方案）、`PAGE_API_MAP.json`（页面↔API 机读表）
 
+> **V1.4 修订（2026-10-22，凭据到位后补完最后两项 + 修正一处错结论）**
+> 1. **生产登录态只读**已实测（`Authorization: Basic` + `X-Auth-Token` 两层头）：
+>    生产**公开产品 0 条 / 回收站 125 / 库存 0 / 订单 16 / COA 33 / SDS 12**；
+>    `site/navigation` **18.6 KB**、`sitemap.xml` **511 字节** ⇒ 之前两处性能修复在生产确已生效 `[M-71~M-75]`
+> 2. ★ **`admin / admin123` 在生产可登录**（`is_staff=true`+`is_superuser=true`）—— 默认口令未改，安全缺陷 `[M-72]`
+> 3. ★ **修正 V1.3 的错结论**：V1.3 写"并发写会 500"，那是**只测了 SQLite**。
+>    换到项目已有的 PG（`pgdata-l4:5433`）重测：**库存 10 并发全部成功、总量 +10；PO 10/10 建成**，
+>    `run_pg_tests.py` **6/6 通过零 skip** ⇒ **500 是本地 SQLite 特性，不是应用缺陷** `[M-50 修正]`
+> 4. 现只剩 **1 项**未测：生产环境的**写**操作（主动不做，会污染真实数据）
+>
 > **V1.3 修订（2026-10-22，第二轮实测：把 V1.2 §D.5 列的"未覆盖 7 项"补掉 5 项）**
 > 本轮新做的实测与结论：
 > 1. **对象级权限 / queryset 收窄**（上轮最大的空白）：造真实跨机构对象后打，隔离全部生效；
@@ -1849,7 +1859,7 @@ COA：draft ──Approve&Publish──▶ published ──Withdraw──▶ dra
 | 16 | `PoArReport` 加载失败 | 无 catch、无空态，页面只剩头部（**有 toast 但无重试入口**）| `PoArReport.vue:16-24` |
 | 17 | `PoOrgManagement` 副标题 | 声称 "their addresses"，模板无地址字段 | `PoOrgManagement.vue:44` |
 | 18 | 完整性条缺失项 | 纯文本，不可点击跳转到缺失字段 | `ProductEditPage.vue:1666-1667` |
-| 20 | **并发写**（库存入库 / PO 提交） | SQLite 下 10 并发 → **8~9 个 500**，后端异常 `database is locked`。`core/db_retry.py` 只重试 PG 的 `40P01/40001`，不覆盖 sqlite `[M-50][M-51]` | — |
+| 20 | 并发写（库存入库 / PO 提交） | **仅 SQLite 下出现**：10 并发 → 8~9 个 500，异常 `database is locked`。**PostgreSQL 下同样 10 并发全部成功**（库存 +10、PO 10×201），`run_pg_tests.py` 6/6 通过 ⇒ **这是本地 dev 环境特性，不是应用缺陷** `[M-50 修正]` | — |
 | 19 | `/ops/po/review` → `Assign Rep` 填**用户名** | **500 + HTML 错误页**（不是 JSON 信封）。`except` 只捕获 `User.DoesNotExist`，非数字 `rep_id` 抛 `ValueError`。实测：填 `probe_staff`→500，填数字 `26`→200 成功 `[M-21]` | `transactions/api/v1/po_views.py:130` |
 
 ## 11.3 能力缺口（有需求、无实现）
@@ -1939,6 +1949,34 @@ ProductEditPage **1211**、ProductsPage **287**、ProductDetail **145**、Wishli
 3. **sitemap 与 SEO 优化当前对搜索引擎无效**（爬虫同样吃 401）
 
 ⇒ 任何对外汇报必须用"**开发测试态 + 种子数据**"，不得写"能用了/已上线/已交付"。
+
+### 11.6.1 登录态实测（2026-10-22，凭据由用户提供）
+
+**两层认证的正确组合**（实测）：
+```
+Authorization: Basic <nginx 账号>    ← 过 nginx
+X-Auth-Token: <应用层 token>          ← 过 Django（前端就是这么发的）
+```
+只用 `Authorization: Token xxx` 会被 nginx 拦（401）。
+
+| 资源 | 生产实际数量 |
+|---|---|
+| 公开产品 | **0** |
+| 产品（回收站） | **125** |
+| 库存行 | **0** |
+| 内部订单 | **16** |
+| COA | **33** |
+| SDS 版本 | **12** |
+| verified 待审 | **0** |
+
+**体积验证（证明之前的修复在生产生效）**：
+- `site/navigation` = **18.6 KB**（曾 2.78 MB）✅
+- `sitemap.xml` = **511 字节**（分片 index 生效）✅
+
+⚠️ **安全缺陷**：生产 `admin / admin123` **能登录**（`is_staff=true`、`is_superuser=true`）。
+对外前必须改口令，或把 Basic 层撤掉时同步收紧账号。
+
+> 生产**只做了 GET**；唯一写动作是回收自己刚拿到的 token（logout）。凭据未落盘、未入仓库。
 
 ---
 

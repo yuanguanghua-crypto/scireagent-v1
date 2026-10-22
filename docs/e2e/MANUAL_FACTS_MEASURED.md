@@ -398,25 +398,39 @@ npx playwright test visual-tokens responsive --project=chromium → 72 passed (3
 > **诚实边界**：既有用例断言的是"**加载不崩**"与"令牌一致"，**不是像素级视觉回归**。
 > 真正的视觉回归需要基线截图比对，本仓库目前没有。
 
-## 8. 并发（§4 原第 4 项）：SQLite 下并发写大面积 500；PG 未能测
+## 8. 并发：**SQLite 会 500，PostgreSQL 完全正常**（同一套代码，两次实测）
 
-**先说不确定性**：`SQLite` 的 `select_for_update()` 是 **no-op**，所以本实验**证明不了行级锁互斥**。
-它证明的是"应用层在 SQLite 下的真实行为"。
+> ★ 这一节在 V1.2 写下过一个错结论：当时只测 SQLite，就写成"并发写会 500"。
+> 后来发现**项目已有的 PG 集群一直在跑**（`pgdata-l4`，端口 5433），换成 PG 重测后结论反转。
+> **教训：说"某环境有缺陷"之前，先确认你测的是不是目标环境。**
 
-### M-50 库存入库并发 N=10（每次 +1，同一 sku+location）
+### 对比表（同一天、同一套代码、同样 N=10 并发）
+
+| 实验 | SQLite（`db_probe.sqlite3`） | PostgreSQL 17.11（`scireagent_l4`） |
+|---|---|---|
+| **E1 库存入库**（同 sku+location，每次 +1） | 200 × **2**、500 × **8**；available 增量 **+2**（期望 +10）❌ | 200 × **10**；available 增量 **+10** ✅ |
+| **E2 PO 提交**（空 body） | 201 × 1、500 × **9** | **201 × 10**（全部建成）✅ |
+| 后端异常 | `django.db.utils.OperationalError: database is locked` | 无异常 |
+
+证据：`CONCURRENCY_PROBE_SQLITE.json`、`CONCURRENCY_PROBE_PG.json`
+
+### 项目自带 PG 并发用例：**6 passed，零 skip**
+
 ```
-初始 available=1000 → 结束 available=1000   实际增量 0（期望 10）
-响应码：500 × 8、200 × 2
-后端日志：django.db.utils.OperationalError: database is locked
+cd backend && venv/Scripts/python.exe ../scripts/run_pg_tests.py
+→ ✅ PG 可连：127.0.0.1:5433 / db=scireagent_l4 / user=scireagent
+→ 目标：inventory, order_no, invoice_no      6 passed
+→ ✅ 通过（无「需 Postgres」跳过项）
 ```
-### M-51 PO 提交并发 N=10（空 body）
-```
-响应码：201 × 1（真的建成一张订单）、500 × 9
-同上：database is locked
-```
-**判读**：SQLite 写锁争用 → `OperationalError` → **直接冒泡成 500**。
-`core/db_retry.py` 只重试 PG 的 `40P01`/`40001`，**不覆盖** sqlite 的 `database is locked`。
-⇒ 本地/dev 并发写会 500；**生产 PG 的行为本轮未测**（见 §9 阻塞说明）。
+覆盖：库存超卖、订单号并发唯一且连号、发票号并发唯一。
+
+### 结论（修正后）
+- **PostgreSQL 下并发写是正确的**：无丢失更新、无 500、单号唯一
+- **SQLite 的 500 / 丢失更新是本地 dev 环境特性**：`database is locked`，
+  且 `core/db_retry.py` 只重试 PG 的 `40P01/40001`、不覆盖 sqlite
+- **影响面仅限"本地用 sqlite 做并发/压测"，不影响生产**
+- ⚠️ 但必须记住：`select_for_update` 在 sqlite 是 no-op ⇒
+  **本地用 sqlite 跑任何并发断言，结论都不可信** —— 这正是项目已有 `run_pg_tests.py` 的原因
 
 ## 9. 生产环境（§4 原第 3 项）：**全站 401，匿名不可达**
 
@@ -444,15 +458,77 @@ npx playwright test visual-tokens responsive --project=chromium → 72 passed (3
 
 ---
 
-## 10. 本次实测**仍未覆盖**的（只剩 2 项，且都写明阻塞原因）
+## 9b. 生产环境 · **登录态只读**实测（2026-10-22，凭据由用户提供）
+
+### M-71 两层认证的正确组合（实测确认）
+
+```
+Authorization: Basic <nginx 账号>   ← nginx 第 1 层（deploy/nginx.conf:84-85）
+X-Auth-Token: <应用层 token>         ← Django 第 2 层（accounts/authentication.py:20，
+                                       是 DEFAULT_AUTHENTICATION_CLASSES 第一项）
+```
+- 只用 `Authorization: Token xxx` ⇒ **被 nginx 拦**（401，Basic realm）
+- 两个头同时带 ⇒ 通过（`/auth/me` → 200）
+- 设计依据：`frontend/src/utils/http.js:20-26` 注释写明"用 X-Auth-Token 以避免与 nginx Basic 冲突"
+
+### M-72 ★ 生产上 `admin / admin123` 登录成功（默认口令仍有效）
+
+```
+POST /api/v1/auth/login {"username":"admin","password":"admin123"} → 200
+身份：{"username":"admin","role":"researcher","is_staff":true,"is_superuser":true,
+      "is_org_admin":false,"email_verified":true,"organization":null}
+```
+三条事实：
+1. **仓库默认口令在生产可用** —— 安全缺陷，对外前必须改
+2. 该账号 `role=researcher` 但 `is_staff=true`+`is_superuser=true`
+   ⇒ 再次印证"实际权限由 `is_staff` 决定，`role` 名有误导性"
+3. `organization=null` ⇒ 该账号读不到任何机构地址（与 M-32 同一过滤逻辑）
+
+### M-73 生产数据量现状（`page_size=1` 取 count，全部 200）
+
+| 资源 | 生产 count | 说明 |
+|---|---|---|
+| `products`（公开） | **0** | 前台商品列表为空 |
+| `products?archived=1` | **125** | 125 个产品**全在回收站**（与既有结论一致） |
+| `inventory` | **0** | 库存表空 |
+| `admin/orders` | **16** | 内部订单 |
+| `coas` | **33** | 合规文档有真实数据 |
+| `sds-revisions` | **12** | 同上 |
+| `verified?status=review` | **0** | 审核队列空（36 字节空列表） |
+
+> ⚠️ 这解释了本地为何测不了 COA 门控：**本地 `Coa` 表 0 条，生产 33 条**。
+> 生产不做写测试 ⇒ COA 门控仍只有 SDS 的同构实测。
+
+### M-74 生产体积（单次采样；**只用于判体积，不用于判性能**）
+
+| 端点 | 字节 | 单次耗时 |
+|---|---|---|
+| `/site/home` | 11,813 | 5,421 ms |
+| `/site/navigation` | **18,658** | 4,638 ms |
+| `/sitemap.xml` | **511** | 1,240 ms |
+| `/search/grouped?q=a` | 132 | 1,192 ms |
+| `/auth/me` | 517 | 3,562 ms |
+
+**可下结论**：`site/navigation` **18.6 KB** ⇒ 2.78 MB 问题在生产确已修复 ✅；
+`sitemap.xml` **511 字节** ⇒ 分片 index 在生产生效 ✅（本地 506，差异来自域名长度）。
+**不可下结论**：耗时。本机到生产经 VPN/代理（用户自述网络抖动），单次采样不足以判性能。
+
+### M-75 生产仍全站 Basic 认证
+
+登录态探测全程必须带 Basic 头才能过 nginx ⇒ 与 M-70（匿名 10/10 401）互相印证：
+**没有 Basic 凭据的人连首页都打不开**。
+
+---
+
+## 10. 本次实测**仍未覆盖**的（只剩 1 项，且是主动选择）
 
 | # | 未覆盖项 | 阻塞原因（实测确认，不是偷懒） | 解锁条件 |
 |---|---|---|---|
-| 1 | **生产环境登录态 / 写操作 / 内部台** | 生产全站挂 nginx Basic 认证（`realm="SciReAgent Internal Test"`，10/10 路径 401）。本地**没有** `deploy/CREDENTIALS.txt`。不猜口令、不试弱口令 | 提供 nginx basic-auth 账号 + 一个生产应用层账号；且需明确授权在生产做**读**操作（写操作不建议在生产验） |
-| 2 | **PostgreSQL 下的并发互斥** | `initdb.exe` / `postgres.exe` 被本机安全策略拦截（实测报"命令被安全策略拦截"），无法起 PG 集群；`pgdata-l4` 目录已不存在 | 用户手动启动 PG（或允许 `initdb`），然后跑 `scripts/run_pg_tests.py` + 本文件的并发脚本改指 PG |
+| 1 | **生产环境的写操作** | 已测到"登录态只读"（§9b）。**写操作不在生产做**——会污染真实数据且无回滚保证。这是主动选择 | 若确需验证生产写，须先建生产测试租户 + 数据清理方案 |
+| 2 | ~~PostgreSQL 并发互斥~~ | **已完成**（§8）：集群 `pgdata-l4` 一直在 5433 运行，无需 initdb；`run_pg_tests.py` 6/6 通过、HTTP 并发 10/10 成功 | — |
 
-**以下原列各项本轮已全部补齐**：对象级权限 / queryset 收窄（§4）、邮件链路（§5）、
-跨浏览器（§6）、视觉响应式（§7）、并发行为（§8）、生产匿名边界（§9）。
+**已完成实测**：对象级权限 / queryset 收窄（§4）、邮件链路（§5）、跨浏览器（§6）、
+视觉响应式（§7）、**并发（§8，含 PG 对比）**、生产匿名边界（§9）、**生产登录态只读（§9b）**。
 
 **仍然只做到"未覆盖"的一条**：跨浏览器只覆盖了 chromium/firefox/webkit 三家的**功能事实**，
 没有做像素级视觉回归（仓库无基线截图机制）。

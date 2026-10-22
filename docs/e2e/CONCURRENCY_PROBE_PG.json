@@ -1,0 +1,26 @@
+{
+ "generated_at": "2026-10-22 12:25:55",
+ "engine": "PostgreSQL 17.11（scireagent_l4，端口 5433）",
+ "n": 10,
+ "e1_inventory_receipt": {
+  "before": {
+   "id": 1,
+   "available": 1000,
+   "allocated": 0
+  },
+  "after": {
+   "id": 1,
+   "available": 1010,
+   "allocated": 0
+  },
+  "delta": 10,
+  "codes": {
+   "200": 10
+  }
+ },
+ "e2_po_submit": {
+  "codes": {
+   "201": 10
+  }
+ }
+}

@@ -1,0 +1,108 @@
+{
+ "generated_at": "2026-10-22 12:23:46",
+ "base": "https://scireagent.com",
+ "auth": "Authorization: Basic (nginx) + X-Auth-Token (Django)",
+ "note": "GET only；末尾 logout 回收 token；凭据来自环境变量，未落盘",
+ "identity": {
+  "username": "admin",
+  "role": "researcher",
+  "is_staff": true,
+  "is_superuser": true,
+  "is_org_admin": false,
+  "email_verified": true,
+  "organization": null
+ },
+ "rows": [
+  {
+   "path": "/api/v1/auth/me",
+   "status": 200,
+   "bytes": 517,
+   "ms": 3562,
+   "note": ""
+  },
+  {
+   "path": "/api/v1/products/?page_size=1",
+   "status": 200,
+   "bytes": 88,
+   "ms": 1166,
+   "note": "count=0"
+  },
+  {
+   "path": "/api/v1/site/home",
+   "status": 200,
+   "bytes": 11813,
+   "ms": 5421,
+   "note": ""
+  },
+  {
+   "path": "/api/v1/site/navigation",
+   "status": 200,
+   "bytes": 18658,
+   "ms": 4638,
+   "note": ""
+  },
+  {
+   "path": "/api/v1/sitemap.xml",
+   "status": 200,
+   "bytes": 511,
+   "ms": 1240,
+   "note": ""
+  },
+  {
+   "path": "/api/v1/search/grouped?q=a",
+   "status": 200,
+   "bytes": 132,
+   "ms": 1192,
+   "note": ""
+  },
+  {
+   "path": "/api/v1/admin/dashboard-stats/",
+   "status": 200,
+   "bytes": 447,
+   "ms": 2573,
+   "note": ""
+  },
+  {
+   "path": "/api/v1/admin/orders/?page_size=1",
+   "status": 200,
+   "bytes": 289,
+   "ms": 2208,
+   "note": "count=16"
+  },
+  {
+   "path": "/api/v1/verified/?status=review",
+   "status": 200,
+   "bytes": 36,
+   "ms": 3058,
+   "note": ""
+  },
+  {
+   "path": "/api/v1/inventory/?page_size=1",
+   "status": 200,
+   "bytes": 88,
+   "ms": 880,
+   "note": "count=0"
+  },
+  {
+   "path": "/api/v1/coas/?page_size=1",
+   "status": 200,
+   "bytes": 1080,
+   "ms": 2254,
+   "note": "count=33"
+  },
+  {
+   "path": "/api/v1/sds-revisions/?page_size=1",
+   "status": 200,
+   "bytes": 9430,
+   "ms": 1575,
+   "note": "count=12"
+  },
+  {
+   "path": "/api/v1/products/?archived=1&page_size=1",
+   "status": 200,
+   "bytes": 1019,
+   "ms": 1642,
+   "note": "count=125"
+  }
+ ]
+}

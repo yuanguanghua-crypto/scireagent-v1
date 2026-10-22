@@ -63,6 +63,8 @@ def inv_snapshot():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--n', type=int, default=10)
+    ap.add_argument('--out', default='docs/e2e/CONCURRENCY_PROBE.json')
+    ap.add_argument('--label', default='sqlite')
     args = ap.parse_args()
     n = args.n
 
@@ -132,10 +134,11 @@ def main():
     print('  响应码分布 = %s' % dict(Counter(e2_codes)))
     print('  （400 = 权限通过、校验失败；500 = 服务端异常；0 = 连接失败/超时）')
 
-    out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                       'docs', 'e2e', 'CONCURRENCY_PROBE.json')
+    out = args.out
+    if not os.path.isabs(out):
+        out = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), out)
     json.dump({'generated_at': P.time.strftime('%Y-%m-%d %H:%M:%S'),
-               'engine': 'sqlite（select_for_update 为 no-op，不能代表 PostgreSQL）',
+               'engine': args.label,
                'n': n,
                'e1_inventory_receipt': {'before': before, 'after': after, 'delta': delta,
                                         'codes': dict(Counter(e1_codes))},
