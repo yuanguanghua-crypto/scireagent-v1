@@ -6,11 +6,12 @@
  * 详情按 `contact_email == 当前用户邮箱` 过滤，连 staff 也 404，运营只能进 Django admin。
  * 本页对接 `GET /quote-requests/manage/`（`IsProcurementOrAdmin`）。
  *
- * ⚠️ 本页是**只读**：RFQ 的状态流转（pending→reviewing→quoted→closed）目前没有产品入口，
- *    后端也没提供状态更新端点。要改状态只能走 Django admin。这一点别在 UI 上"假装能改"。
+ * 2026-10-23 起**不再是只读**：详情页可填写报价并通知客户，
+ * 对接 `POST /quote-requests/:id/quote/`。后端会把状态推进到 `quoted`。
+ * （此前 `QUOTED` 只在枚举里定义、全仓没有代码会写它 —— 运营点得到"已报价"状态但永远走不到。）
  */
 import { onMounted, ref, computed } from 'vue'
-import { getQuoteRequests, getQuoteRequestDetail } from '@/api/rfq'
+import { getQuoteRequests, getQuoteRequestDetail, saveQuote } from '@/api/rfq'
 import { extractErrorMessage } from '@/utils/http'
 import ErrorBanner from '@/components/common/ErrorBanner.vue'
 
@@ -62,9 +63,20 @@ async function openRow(r) {
   detail.value = null
   detailError.value = ''
   detailLoading.value = true
+  resetQuoteForm()
   try {
     const res = await getQuoteRequestDetail(r.id)
-    detail.value = res.data ?? res
+    const d = res.data ?? res
+    detail.value = d
+    // 回显已有报价：否则重新打开详情时表单是空的，容易重复报价
+    if (d.quoted_total != null || d.quoted_note) {
+      quoteForm.value = {
+        quoted_total: d.quoted_total != null ? String(d.quoted_total) : '',
+        quoted_currency: d.quoted_currency || 'USD',
+        quoted_valid_until: d.quoted_valid_until || '',
+        quoted_note: d.quoted_note || '',
+      }
+    }
   } catch (e) {
     detailError.value = extractErrorMessage(e?.response?.data ?? e, "Couldn't load this quote request.")
   } finally {
@@ -91,6 +103,63 @@ function itemProductLabel(it) {
   return '—'
 }
 
+// ── 报价表单 ──────────────────────────────────────────────────────────
+// 设计取舍：
+//  - 金额允许留空：可以只回执"请联系我们"，不必为了走完流程编一个数字
+//  - 默认勾选"通知客户"：填了报价本来就是要发出去的，默认关反而要人多点一下
+//  - 提交成功后重新拉详情+列表，而不是本地改状态 —— 以后端为准，避免 UI 与库不一致
+const CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'CNY', 'JPY', 'AUD']
+
+function emptyQuoteForm() {
+  return {
+    quoted_total: '',
+    quoted_currency: 'USD',
+    quoted_valid_until: '',
+    quoted_note: '',
+  }
+}
+
+const quoteForm = ref(emptyQuoteForm())
+const quoting = ref(false)
+const quoteError = ref('')
+const quoteResult = ref(null)
+
+function resetQuoteForm() {
+  quoteForm.value = emptyQuoteForm()
+  quoteError.value = ''
+  quoteResult.value = null
+}
+
+async function submitQuote() {
+  if (!detail.value) return
+  quoteError.value = ''
+  quoteResult.value = null
+  quoting.value = true
+  try {
+    const raw = quoteForm.value
+    const payload = {
+      quoted_currency: raw.quoted_currency || 'USD',
+      quoted_note: (raw.quoted_note || '').trim(),
+      // ★ 空串必须转 null：后端 DecimalField 收到 '' 会直接 400
+      quoted_total: raw.quoted_total === '' ? null : raw.quoted_total,
+      // ★ 日期同理：空串会让 Django DateField 报格式错误，必须传 null
+      quoted_valid_until: raw.quoted_valid_until || null,
+      notify_customer: true,
+    }
+    const res = await saveQuote(detail.value.id, payload)
+    quoteResult.value = res.data ?? res
+    const id = detail.value.id
+    await openRow({ id })   // 重新拉详情，状态以后端为准
+    await load()
+  } catch (e) {
+    quoteError.value = extractErrorMessage(
+      e?.response?.data ?? e, "Couldn't save the quotation.",
+    )
+  } finally {
+    quoting.value = false
+  }
+}
+
 onMounted(load)
 </script>
 
@@ -99,7 +168,7 @@ onMounted(load)
     <div class="po-page-header">
       <div>
         <h1 class="po-page-title">RFQ Inbox</h1>
-        <p class="po-page-subtitle">{{ subtitle }} · customer quote requests (read-only)</p>
+        <p class="po-page-subtitle">{{ subtitle }} · customer quote requests</p>
       </div>
       <button class="po-btn po-btn-outline" @click="load" :disabled="loading">Refresh</button>
     </div>
@@ -189,9 +258,70 @@ onMounted(load)
           </table>
           <div v-else class="po-empty">No items.</div>
 
-          <p class="po-muted rfq-hint">
-            只读：状态流转目前没有产品入口（后端未提供更新端点）。
-          </p>
+          <!-- 报价：填完即推进状态到 quoted 并给客户发邮件 -->
+          <div class="rfq-quote">
+            <h3 class="rfq-items-title">
+              {{ detail.status === 'quoted' ? 'Quotation' : 'Send a quotation' }}
+            </h3>
+            <p v-if="detail.quoted_at" class="po-muted rfq-quote-meta">
+              Quoted on {{ fmtDate(detail.quoted_at) }}
+            </p>
+
+            <ErrorBanner
+              v-if="quoteError"
+              :message="quoteError"
+              title="Couldn't save the quotation"
+              kind="load"
+            />
+
+            <div class="rfq-quote-grid">
+              <label class="rfq-field">
+                <span>Total amount</span>
+                <input
+                  v-model="quoteForm.quoted_total"
+                  class="po-input"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Leave empty to reply without a price"
+                />
+              </label>
+              <label class="rfq-field">
+                <span>Currency</span>
+                <select v-model="quoteForm.quoted_currency" class="po-input">
+                  <option v-for="c in CURRENCY_OPTIONS" :key="c" :value="c">{{ c }}</option>
+                </select>
+              </label>
+              <label class="rfq-field">
+                <span>Valid until</span>
+                <input v-model="quoteForm.quoted_valid_until" class="po-input" type="date" />
+              </label>
+            </div>
+
+            <label class="rfq-field rfq-field--full">
+              <span>Note to customer</span>
+              <textarea
+                v-model="quoteForm.quoted_note"
+                class="po-input"
+                rows="3"
+                placeholder="Lead time, shipping terms, minimum order quantity…"
+              ></textarea>
+            </label>
+
+            <div class="rfq-quote-actions">
+              <button class="po-btn po-btn-primary" :disabled="quoting" @click="submitQuote">
+                {{ quoting
+                  ? 'Saving…'
+                  : (detail.status === 'quoted' ? 'Update quotation' : 'Save & notify customer') }}
+              </button>
+              <span v-if="quoteResult && quoteResult.customer_notified" class="rfq-quote-ok">
+                ✓ Saved and emailed to {{ detail.contact_email }}
+              </span>
+              <span v-else-if="quoteResult" class="rfq-quote-ok">
+                ✓ Saved
+              </span>
+            </div>
+          </div>
         </template>
       </div>
     </div>
@@ -230,6 +360,40 @@ onMounted(load)
 .rfq-detail-list dt { color: var(--color-text-tertiary); font-size: 12px; }
 .rfq-detail-list dd { margin: 0; font-size: 13px; word-break: break-word; }
 .rfq-hint { font-size: 12px; margin-top: 12px; }
+
+/* ── 报价表单 ── */
+.rfq-quote {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+.rfq-quote-meta { font-size: 12px; margin: 0 0 10px; }
+.rfq-quote-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 140px;
+  gap: 10px;
+}
+.rfq-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 10px;
+  min-width: 0;
+}
+.rfq-field--full { width: 100%; }
+.rfq-field textarea { resize: vertical; font-family: inherit; }
+.rfq-quote-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.rfq-quote-ok { font-size: 12px; color: var(--color-success, #16a34a); }
+@media (max-width: 1024px) {
+  .rfq-quote-grid { grid-template-columns: 1fr; }
+}
 @media (max-width: 1024px) {
   .rfq-grid { grid-template-columns: 1fr; }
 }

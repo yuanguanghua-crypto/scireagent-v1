@@ -58,6 +58,10 @@ class QuoteRequestDetailSerializer(serializers.ModelSerializer):
             'id', 'contact_name', 'contact_email', 'contact_phone',
             'company_name', 'country', 'status', 'notes',
             'created_at', 'items',
+            # 报价结果 —— 运营台要能回显"这单已经报过多少、什么时候报的"，
+            # 否则重新打开详情时表单是空的，容易重复报价。
+            'quoted_total', 'quoted_currency', 'quoted_valid_until',
+            'quoted_note', 'quoted_at',
         ]
         read_only_fields = fields
 
