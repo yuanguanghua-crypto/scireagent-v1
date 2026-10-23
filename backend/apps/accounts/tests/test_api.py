@@ -463,13 +463,73 @@ class EmailVerificationAPITest(TestCase):
         self.assertEqual(len(mail.outbox), 0)
 
     def test_login_blocked_when_unverified(self):
+        """真实发信通道在位时，未验证账号必须 403（严格口径不能被降级逻辑吃掉）。"""
         self._register_unverified('blockedguy')
-        resp = self.client.post(self.login_url, {
-            'username': 'blockedguy',
-            'password': 'testpass123',
-        }, format='json')
+        # 只在登录这一步切到真实 backend：注册仍走 locmem，否则 send_mail 会试图真发。
+        with override_settings(EMAIL_BACKEND='anymail.backends.mailgun.EmailBackend'):
+            resp = self.client.post(self.login_url, {
+                'username': 'blockedguy',
+                'password': 'testpass123',
+            }, format='json')
         self.assertEqual(resp.status_code, 403)
         self.assertFalse(Token.objects.filter(user__username='blockedguy').exists())
+
+    def test_login_allowed_when_email_unreachable(self):
+        """邮件通道投递不到用户时，不能把人锁死。
+
+        2026-10-23 生产事故回归：生产 EMAIL_BACKEND=console ⇒ 验证邮件只打日志
+        ⇒ 注册 201 后登录恒 403 ⇒ 账号永久不可用（实测已产生 2 个僵尸账号）。
+        """
+        self._register_unverified('degradedguy')
+        user = User.objects.get(username='degradedguy')
+        self.assertFalse(user.email_verified)
+
+        with override_settings(EMAIL_BACKEND='django.core.mail.backends.console.EmailBackend'):
+            resp = self.client.post(self.login_url, {
+                'username': 'degradedguy',
+                'password': 'testpass123',
+            }, format='json')
+
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('token', resp.data)
+        user.refresh_from_db()
+        self.assertTrue(user.email_verified, '降级放行后应自动标记已验证')
+
+    def test_login_degrades_for_each_unreachable_backend(self):
+        """locmem / dummy / filebased 与 console 同等处理 —— 都不投递到用户。"""
+        for i, backend in enumerate([
+            'django.core.mail.backends.console.EmailBackend',
+            'django.core.mail.backends.dummy.EmailBackend',
+            'django.core.mail.backends.filebased.EmailBackend',
+        ]):
+            username = f'degraded{i}'
+            self._register_unverified(username)
+            with override_settings(EMAIL_BACKEND=backend):
+                resp = self.client.post(self.login_url, {
+                    'username': username, 'password': 'testpass123',
+                }, format='json')
+            self.assertEqual(resp.status_code, 200, f'{backend} 应放行，实际 {resp.status_code}')
+
+    def test_email_delivery_flag_matches_backend(self):
+        """单判据自检：避免登录放行与后端配置各写一份而漂移。"""
+        from apps.accounts.api.v1.views import email_delivery_is_unavailable
+
+        for backend in (
+            'django.core.mail.backends.console.EmailBackend',
+            'django.core.mail.backends.dummy.EmailBackend',
+            'django.core.mail.backends.filebased.EmailBackend',
+        ):
+            with override_settings(EMAIL_BACKEND=backend):
+                self.assertTrue(email_delivery_is_unavailable(), backend)
+
+        for backend in (
+            'anymail.backends.mailgun.EmailBackend',
+            'django.core.mail.backends.smtp.EmailBackend',
+            # locmem 是测试专用且 mail.outbox 可读，不视为「不可达」
+            'django.core.mail.backends.locmem.EmailBackend',
+        ):
+            with override_settings(EMAIL_BACKEND=backend):
+                self.assertFalse(email_delivery_is_unavailable(), backend)
 
     def test_login_allowed_after_verification(self):
         self._register_unverified('laterverified')

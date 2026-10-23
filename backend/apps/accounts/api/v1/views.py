@@ -1,3 +1,6 @@
+import logging
+
+from django.conf import settings
 from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError as DjValidationError
 from rest_framework import status, viewsets
@@ -20,6 +23,32 @@ from apps.accounts.api.v1.serializers import (
 from apps.accounts.email import send_verification_email
 from apps.accounts.models import EmailVerification, Organization, Address, User
 
+logger = logging.getLogger(__name__)
+
+# 这些后端发出去的信 **到不了任何用户**（控制台日志 / 直接丢弃 / 落地成文件）。
+# 若在它们生效时仍强制邮箱验证，会把每一个新注册用户永久锁死：
+#   注册 201 → 收不到验证邮件 → 登录 403 → 无自助恢复路径。
+#
+# ⚠️ 刻意**不**包含 `locmem`：它是 Django 测试专用后端，单元测试正是靠
+#    `mail.outbox` 断言邮件内容的。把它算作「不可达」会让全部邮件测试失效，
+#    而生产环境不会使用 locmem，所以放行的实际必要性为零。
+_UNREACHABLE_EMAIL_BACKENDS = (
+    'console.EmailBackend',
+    'dummy.EmailBackend',
+    'filebased.EmailBackend',
+)
+
+
+def email_delivery_is_unavailable() -> bool:
+    """当前是否处于「邮件发出去也到不了用户」的降级配置。
+
+    单一判据放在这里，登录放行与启动自检共用，避免两处各写一份而漂移。
+    一旦配置了真实发信通道（Mailgun / SMTP），本函数自动返回 False，
+    邮箱验证的强制逻辑随之恢复，不需要再改代码。
+    """
+    backend = getattr(settings, 'EMAIL_BACKEND', '') or ''
+    return any(marker in backend for marker in _UNREACHABLE_EMAIL_BACKENDS)
+
 
 class RegisterView(APIView):
     """POST /api/v1/auth/register — Register a new user and email a verification link.
@@ -38,15 +67,39 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()  # email_verified defaults to False
-        send_verification_email(user)
+
+        # ⚠️ 邮件通道不可达时，不要一边说「请去邮箱验证」一边又让人永远等不到邮件。
+        #    此时直接把账号标为已验证，并在响应里如实告知「可以直接登录」，
+        #    避免用户去收一封永远不会来的信（2026-10-23 生产事故）。
+        mail_ok = not email_delivery_is_unavailable()
+        if mail_ok:
+            send_verification_email(user)
+            detail = (
+                'Registration successful. We have sent a verification link '
+                'to your email address — please verify before signing in.'
+            )
+            verified = False
+        else:
+            logger.warning(
+                '[auth] EMAIL_BACKEND=%s 不可投递，注册时直接放行 username=%s id=%s'
+                '（未发送验证邮件）。请尽快配置真实发信通道。',
+                getattr(settings, 'EMAIL_BACKEND', ''),
+                user.username,
+                user.pk,
+            )
+            user.email_verified = True
+            user.save(update_fields=['email_verified'])
+            detail = (
+                'Registration successful. Email verification is currently '
+                'unavailable, so your account is ready — you can sign in now.'
+            )
+            verified = True
+
         return Response(
             {
-                'detail': (
-                    'Registration successful. We have sent a verification link '
-                    'to your email address — please verify before signing in.'
-                ),
+                'detail': detail,
                 'email': user.email,
-                'email_verified': False,
+                'email_verified': verified,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -80,18 +133,36 @@ class LoginView(APIView):
 
         # Hard-block unverified emails: the account cannot be used until the
         # user clicks the verification link emailed at registration.
+        #
+        # ⚠️ 例外：当邮件通道根本投递不到用户时（console/locmem 等），
+        #    这道硬阻断会把人永久锁死 —— 注册成功、邮件收不到、登录 403、
+        #    无任何自助恢复路径。2026-10-23 生产实测确实发生了（2 个僵尸账号）。
+        #    此时降级放行并自动标记已验证，同时打 warning 让问题可见；
+        #    一旦配置真实发信通道，这个分支自动失效，严格验证恢复。
         if not user.email_verified:
-            return Response(
-                {
-                    'detail': (
-                        'Email address is not verified. Please check your inbox '
-                        'for the verification link (or request a new one from '
-                        'the sign-in page).'
-                    ),
-                    'email_verified': False,
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            if email_delivery_is_unavailable():
+                logger.warning(
+                    '[auth] EMAIL_BACKEND=%s 无法投递验证邮件，降级放行未验证账号 '
+                    'username=%s id=%s 并自动置 email_verified=True。'
+                    '请尽快配置真实发信通道，否则邮箱验证形同虚设。',
+                    getattr(settings, 'EMAIL_BACKEND', ''),
+                    user.username,
+                    user.pk,
+                )
+                user.email_verified = True
+                user.save(update_fields=['email_verified'])
+            else:
+                return Response(
+                    {
+                        'detail': (
+                            'Email address is not verified. Please check your inbox '
+                            'for the verification link (or request a new one from '
+                            'the sign-in page).'
+                        ),
+                        'email_verified': False,
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         token, _ = Token.objects.get_or_create(user=user)
         return Response(
