@@ -34,6 +34,21 @@ const routes = [
     meta: { title: 'Register', guest: true, nav: 'public' },
   },
   {
+    // 密码重置第一步：输入邮箱，后端发一封带 token 的链接
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/views/ForgotPasswordPage.vue'),
+    meta: { title: 'Forgot Password', guest: true, nav: 'public' },
+  },
+  {
+    // 密码重置第二步：邮件链接指向这里，query 里带 ?token=xxx
+    path: '/reset-password',
+    name: 'ResetPassword',
+    component: () => import('@/views/ResetPasswordPage.vue'),
+    // 不加 guest:true —— 已登录用户也可能点邮件里的链接来改密码
+    meta: { title: 'Reset Password', nav: 'public' },
+  },
+  {
     path: '/verify-email',
     name: 'VerifyEmail',
     component: () => import('@/views/VerifyEmailPage.vue'),

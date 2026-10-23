@@ -1,6 +1,6 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { RouterLink, useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { isInternal } from '@/utils/internalAccess'
 
@@ -203,6 +203,11 @@ async function handleResend() {
             autocomplete="current-password"
           />
           <span v-if="errors.password" class="form-error">{{ errors.password }}</span>
+          <div class="form-forgot">
+            <RouterLink to="/forgot-password" class="form-forgot__link">
+              Forgot password?
+            </RouterLink>
+          </div>
         </div>
 
         <button type="submit" class="auth-submit" :disabled="loading">
@@ -400,6 +405,21 @@ async function handleResend() {
 .form-error {
   font-size: var(--text-caption);
   color: var(--color-danger);
+}
+
+/* 忘记密码入口：右对齐、不抢主按钮的视觉重心 */
+.form-forgot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+.form-forgot__link {
+  font-size: var(--text-caption);
+  color: var(--color-primary);
+  text-decoration: none;
+}
+.form-forgot__link:hover {
+  text-decoration: underline;
 }
 
 .auth-submit {

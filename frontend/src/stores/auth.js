@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { login as loginApi, register as registerApi, logout as logoutApi, getMe, updateProfile as updateProfileApi, verifyEmail as verifyEmailApi, resendVerification as resendVerificationApi } from '@/api/auth'
+import { login as loginApi, register as registerApi, logout as logoutApi, getMe, updateProfile as updateProfileApi, verifyEmail as verifyEmailApi, resendVerification as resendVerificationApi, requestPasswordReset as requestPasswordResetApi, resetPassword as resetPasswordApi } from '@/api/auth'
 import { useBasketStore } from '@/stores/basket'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -124,6 +124,17 @@ export const useAuthStore = defineStore('auth', () => {
     return await resendVerificationApi(email)
   }
 
+  // 密码重置：申请（发链接）与确认（设新密码）两步。
+  // ⚠️ 这两个方法都**不碰本地登录态** —— 重置成功后后端已吊销全部 token，
+  //    前端应引导用户重新登录，而不是尝试复用旧 token。
+  async function requestPasswordReset(email) {
+    return await requestPasswordResetApi(email)
+  }
+
+  async function resetPassword(resetToken, newPassword) {
+    return await resetPasswordApi(resetToken, newPassword)
+  }
+
   async function updateProfile(data) {
     const result = await updateProfileApi(data)
     // Merge updated fields into local user object
@@ -193,6 +204,8 @@ export const useAuthStore = defineStore('auth', () => {
     register,
     verifyEmail,
     resendVerification,
+    requestPasswordReset,
+    resetPassword,
     updateProfile,
     updateUser,
     logout,
