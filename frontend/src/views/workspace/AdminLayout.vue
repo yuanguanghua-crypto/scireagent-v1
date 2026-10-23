@@ -102,6 +102,14 @@ if (!isInternal(auth)) {
             </svg>
             System Status
           </router-link>
+          <router-link to="/workspace/users" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+            </svg>
+            Users &amp; Roles
+          </router-link>
           <!-- ⚠️ 机构管理仍在 /ops/po/organizations（独立布局，点进去没有本侧栏）。
                先解决"能到达"，布局统一留到运营台整体重构时一并处理。 -->
           <router-link to="/ops/po/organizations" class="nav-item" active-class="active">

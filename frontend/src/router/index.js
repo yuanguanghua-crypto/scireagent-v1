@@ -305,6 +305,8 @@ const routes = [
       { path: 'knowledge-intake', name: 'WorkspaceKnowledgeIntake', component: () => import('@/views/KnowledgeIntake.vue'), meta: { title: 'Knowledge Intake' } },
       // 系统状态：邮件通道 / 投递队列 / 调度心跳 / DB（内部人员可读）
       { path: 'system', name: 'WorkspaceSystem', component: () => import('@/views/workspace/SystemStatusPage.vue'), meta: { title: 'System Status' } },
+      // 用户与角色：改 role / 启停 / 验证邮箱 / 触发重置（IsAdmin）
+      { path: 'users', name: 'WorkspaceUsers', component: () => import('@/views/workspace/UserManagementPage.vue'), meta: { title: 'Users & Roles' } },
     ],
   },
   {

@@ -10,3 +10,24 @@ import http from '@/utils/http'
 export function getSystemStatus() {
   return http.get('/ops/system-status/')
 }
+
+// ── 用户与角色（IsAdmin）────────────────────────────────────────────────
+// 刻意只开这三条写操作：改 role / 启停 / 验证邮箱 / 触发重置邮件。
+// 没有"直接改密码"——密码只能由本人通过邮件链接设置。
+
+export function getUsers(params = {}) {
+  return http.get('/ops/users/', { params })
+}
+
+/** 只接受 { role, is_active }；传其它字段后端会 400（不静默忽略）。 */
+export function patchUser(id, payload) {
+  return http.patch(`/ops/users/${id}/`, payload)
+}
+
+export function verifyUserEmail(id) {
+  return http.post(`/ops/users/${id}/verify-email/`)
+}
+
+export function sendUserPasswordReset(id) {
+  return http.post(`/ops/users/${id}/send-password-reset/`)
+}

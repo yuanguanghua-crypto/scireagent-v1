@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.accounts.api.v1 import views
+from apps.accounts.api.v1 import ops_users
 
 urlpatterns = [
     path('auth/register', views.RegisterView.as_view(), name='auth-register'),
@@ -14,6 +15,13 @@ urlpatterns = [
          name='auth-request-password-reset'),
     path('auth/reset-password', views.PasswordResetConfirmView.as_view(),
          name='auth-reset-password'),
+    # ── 运营台「用户与角色」（IsAdmin）—— 只开改 role / 启停 / 验证邮箱 / 触发重置 ──
+    path('ops/users/', ops_users.OpsUserListView.as_view(), name='ops-user-list'),
+    path('ops/users/<int:pk>/', ops_users.OpsUserDetailView.as_view(), name='ops-user-detail'),
+    path('ops/users/<int:pk>/verify-email/', ops_users.OpsUserVerifyEmailView.as_view(),
+         name='ops-user-verify-email'),
+    path('ops/users/<int:pk>/send-password-reset/',
+         ops_users.OpsUserSendResetView.as_view(), name='ops-user-send-reset'),
     path('auth/me', views.MeView.as_view(), name='auth-me'),
     path('auth/profile', views.ProfileView.as_view(), name='auth-profile'),
     path('organizations', views.OrganizationSearchView.as_view(), name='org-search'),
