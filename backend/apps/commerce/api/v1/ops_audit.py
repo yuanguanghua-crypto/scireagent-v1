@@ -101,8 +101,13 @@ class AuditLogListView(EnvelopeMixin, APIView):
             'pagination': {'count': total, 'limit': limit},
             # UI 要如实告知覆盖范围，否则会被当成"全局审计"
             'coverage': {
+                # ★ 必须先 order_by() 清空默认排序再 distinct()：
+                #   Meta.ordering = ['-timestamp'] 会让 DISTINCT 变成
+                #   DISTINCT(model, timestamp) ⇒ 每条记录都不同，去重完全失效
+                #   （实测返回了 123 个重复的 'product'）。
                 'models': sorted(
-                    AuditLog.objects.values_list('content_type__model', flat=True).distinct()
+                    set(AuditLog.objects.order_by().values_list(
+                        'content_type__model', flat=True))
                 ),
                 'actions': [c[0] for c in AuditLog.ACTION_CHOICES],
                 'note': '只记录产品变更；订单/用户/报价/邮件不在覆盖范围内',

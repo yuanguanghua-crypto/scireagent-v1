@@ -106,7 +106,9 @@ class AuditLogQueryTest(AuditLogTestBase):
         self._mk(AuditLog.ACTION_DELETE, self.p1)   # models 列表由实际数据推导
         meta = self.client.get(URL).json()['meta']
         self.assertIn('coverage', meta)
-        self.assertIn('product', meta['coverage']['models'])
+        # 必须是去重后的列表 —— 曾经因为 Meta.ordering 干扰 DISTINCT
+        # 返回 123 个重复的 'product'
+        self.assertEqual(meta['coverage']['models'], ['product'])
         self.assertIn('只记录产品', meta['coverage']['note'])
 
 
