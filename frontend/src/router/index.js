@@ -277,7 +277,8 @@ const routes = [
   {
     // ★ 2026-10-22：RFQ 收件箱 —— 此前客户提交的询价单**只有创建入口、无任何查询入口**
     //   （详情按 contact_email 过滤，连 staff 也 404，运营只能进 Django admin）。
-    //   后端新增 GET /quote-requests/manage/（IsProcurementOrAdmin），本页为只读列表+详情。
+    //   后端新增 GET /quote-requests/manage/（IsProcurementOrAdmin），本页为列表 + 详情。
+    //   2026-10-23 起详情可填写报价（POST /quote-requests/:id/quote/），不再只读。
     //   ⚠️ requiresAdmin 用 utils/internalAccess.js 的 isInternal，与后端口径对齐。
     path: '/ops/rfq',
     name: 'RfqDesk',
