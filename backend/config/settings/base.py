@@ -335,22 +335,23 @@ LOGGING = {
 # ── Email / Outbox (django-anymail) ──
 # Secrets (ANYMAIL_API_KEY etc.) are supplied via .env; never committed.
 MAILGUN_API_KEY = os.getenv('ANYMAIL_MAILGUN_API_KEY', '')
-ANYMAIL = {
-    'MAILGUN_API_KEY': MAILGUN_API_KEY,
-}
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@scireagent.com')
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # Email backend selection (no outbound SMTP ports required):
-#   - If a Mailgun API key is configured, send via Mailgun's HTTP API (anymail).
-#     Cloud hosts routinely block outbound 25/465/587, so the API path avoids
-#     that pitfall entirely.
-#   - Otherwise fall back to the console backend: verification emails are printed
-#     to the backend logs, so the full register → verify → login flow works with
-#     ZERO email credentials (dev / staging / demo).
-if MAILGUN_API_KEY:
+#   优先级：Resend → Mailgun → console 降级。
+#   - Resend / Mailgun 都走 HTTP API，云主机常封 25/465/587，API 路径完全绕开。
+#   - 都不可用时退 console：邮件只打日志，此时 `email_delivery_is_unavailable()`
+#     会返回 True，注册流程自动放行、投递任务自动空转（不会伪造 SENT）。
+if RESEND_API_KEY:
+    ANYMAIL = {'RESEND_API_KEY': RESEND_API_KEY}
+    EMAIL_BACKEND = 'anymail.backends.resend.EmailBackend'
+elif MAILGUN_API_KEY:
+    ANYMAIL = {'MAILGUN_API_KEY': MAILGUN_API_KEY}
     EMAIL_BACKEND = 'anymail.backends.mailgun.EmailBackend'
 else:
+    ANYMAIL = {}
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Email verification link lifetime (hours) and the frontend base URL used to
