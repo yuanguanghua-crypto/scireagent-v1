@@ -83,3 +83,21 @@ class QuoteRequestListSerializer(serializers.ModelSerializer):
     def get_items_count(self, obj):
         # 已 prefetch 时走缓存；未 prefetch 退化为一次 COUNT
         return len(obj.items.all())
+
+
+class QuoteResponseSerializer(serializers.Serializer):
+    """运营填写报价 —— 只允许内部人员调用。
+
+    `quoted_total` 可为空：允许只回执"我们已看过，请联系我们"而不给数字，
+    避免为了走流程被迫编一个价格。
+    """
+
+    quoted_total = serializers.DecimalField(
+        max_digits=12, decimal_places=2, required=False, allow_null=True,
+    )
+    quoted_currency = serializers.CharField(max_length=8, required=False, default='USD')
+    quoted_valid_until = serializers.DateField(required=False, allow_null=True)
+    quoted_note = serializers.CharField(
+        required=False, allow_blank=True, default='', max_length=2000,
+    )
+    notify_customer = serializers.BooleanField(required=False, default=True)

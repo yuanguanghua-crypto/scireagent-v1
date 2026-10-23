@@ -371,6 +371,17 @@ except (TypeError, ValueError):
 
 # 运营侧收件人：新询价 / 内部提醒发到这里（逗号分隔，留空则不发内部通知）。
 # 与业务数据解耦，避免把某个人的邮箱硬编码进代码。
+# 文档发布（COA/SDS）是否通知买过该 SKU/产品的客户。
+# 默认关闭：一个 SKU 可能有几十个历史客户，每次修订都群发会变成骚扰、伤发信声誉。
+# 运营确认要发时再开：.env 里设 DOC_NOTIFY_CUSTOMERS=true
+DOC_NOTIFY_CUSTOMERS = os.getenv('DOC_NOTIFY_CUSTOMERS', 'false').strip().lower() in (
+    '1', 'true', 'yes', 'on'
+)
+try:
+    DOC_NOTIFY_WINDOW_DAYS = int(os.getenv('DOC_NOTIFY_WINDOW_DAYS', '365'))
+except (TypeError, ValueError):
+    DOC_NOTIFY_WINDOW_DAYS = 365
+
 RFQ_NOTIFICATION_EMAILS = [
     e.strip() for e in os.getenv('RFQ_NOTIFICATION_EMAILS', '').split(',') if e.strip()
 ]

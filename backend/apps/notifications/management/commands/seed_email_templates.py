@@ -222,6 +222,71 @@ TEMPLATES = [
         '新询价通知（运营内部，P0）',
         'en',
     ),
+    # 10. 报价已就绪（客户，P1）
+    (
+        'quote_ready',
+        'Your quotation for request #{rfq_id} is ready',
+        _h('Your quotation is ready')
+        + _p('Hi {contact_name},')
+        + _p('We have prepared a quotation for your request.')
+        + _box('<table style="border-collapse:collapse">'
+               + _kv('Request', '#{rfq_id}')
+               + _kv('Items', '{items_count}')
+               + _kv('Total', '{quoted_currency} {quoted_total}')
+               + _kv('Valid until', '{quoted_valid_until}')
+               + '</table>')
+        + _p('{quoted_note}')
+        + _p('Please reply to this email to confirm the order or discuss any adjustment.')
+        + _FOOTER_HTML,
+        'Hi {contact_name},\n\n'
+        'Quotation for request #{rfq_id}\n'
+        'Items: {items_count}\nTotal: {quoted_currency} {quoted_total}\n'
+        'Valid until: {quoted_valid_until}\n\n{quoted_note}\n\n'
+        'Reply to this email to confirm or discuss.' + _FOOTER_TEXT,
+        '报价就绪通知（客户，P1）',
+        'en',
+    ),
+    # 11. COA 发布（客户，P1）
+    (
+        'coa_published',
+        'Certificate of Analysis available for {product_name}',
+        _h('Your certificate of analysis is ready')
+        + _p('The Certificate of Analysis for a product you ordered has been published.')
+        + _box('<table style="border-collapse:collapse">'
+               + _kv('Product', '{product_name}')
+               + _kv('Catalog number', '{catalog_number}')
+               + _kv('Batch / Lot', '{lot_number}')
+               + _kv('Document', '{doc_id}')
+               + '</table>')
+        + _p('You can download it from the order detail page in your account.')
+        + _FOOTER_HTML,
+        'Certificate of Analysis published\n'
+        'Product: {product_name}\nCatalog: {catalog_number}\nLot: {lot_number}\n'
+        'Document: {doc_id}\n\nDownload it from your order detail page.' + _FOOTER_TEXT,
+        'COA 发布通知（客户，P1）',
+        'en',
+    ),
+    # 11. SDS 发布（客户，P1）
+    (
+        'sds_published',
+        'Safety Data Sheet updated for {product_name}',
+        _h('A safety data sheet has been published')
+        + _p('A new Safety Data Sheet revision is available for a product you ordered.')
+        + _box('<table style="border-collapse:collapse">'
+               + _kv('Product', '{product_name}')
+               + _kv('Catalog number', '{catalog_number}')
+               + _kv('Revision', '{revision_no}')
+               + _kv('Revised on', '{revised_at}')
+               + '</table>')
+        + _p('You can download it from the product page in your account.')
+        + _FOOTER_HTML,
+        'Safety Data Sheet published\n'
+        'Product: {product_name}\nCatalog: {catalog_number}\n'
+        'Revision: {revision_no} ({revised_at})\n\nDownload it from the product page.'
+        + _FOOTER_TEXT,
+        'SDS 发布通知（客户，P1）',
+        'en',
+    ),
 ]
 
 

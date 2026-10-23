@@ -3,6 +3,8 @@ COA/SDS 工作流服务
 """
 import json
 import datetime
+import logging
+
 from django.utils import timezone
 from django.db import transaction
 
@@ -16,6 +18,8 @@ from .pubchem_fetcher import (
     _build_section_data,
     _GHS_FALLBACK,
 )
+
+logger = logging.getLogger(__name__)
 from .category_sds_templates import get_category_sds_template
 
 
@@ -113,6 +117,14 @@ def approve_coa(coa_id, qc_analyst='', qa_approval=''):
     pdf_rel_path = generate_coa_pdf(coa)
     coa.pdf_path = pdf_rel_path
     coa.save()
+
+    # 客户通知（受 DOC_NOTIFY_CUSTOMERS 开关控制，默认关）。
+    # ★ 必须包住：通知失败绝不能回滚审批 —— 审批是事实，通知是附带动作。
+    try:
+        from apps.documents.services.notify import notify_coa_published
+        notify_coa_published(coa)
+    except Exception:
+        logger.exception('[documents] COA %s 审批成功但客户通知失败（已忽略）', coa.doc_id)
     return coa
 
 
@@ -328,6 +340,14 @@ def approve_sds(revision_id):
     product.save(update_fields=['current_sds'])
 
     compliance = _sds_compliance(product)
+
+    # 客户通知（同 COA：开关控制 + 失败不影响审批）
+    try:
+        from apps.documents.services.notify import notify_sds_published
+        notify_sds_published(sds)
+    except Exception:
+        logger.exception('[documents] SDS r%s 审批成功但客户通知失败（已忽略）', sds.revision_no)
+
     return sds, compliance
 
 

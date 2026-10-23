@@ -15,6 +15,7 @@
   若不放宽，列表看得见、点进去 404。
 """
 from django.conf import settings
+from django.utils import timezone
 from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
@@ -30,6 +31,7 @@ from apps.quotes.api.v1.serializers import (
     QuoteRequestCreateSerializer,
     QuoteRequestDetailSerializer,
     QuoteRequestListSerializer,
+    QuoteResponseSerializer,
 )
 
 import logging
@@ -156,3 +158,76 @@ class QuoteRequestManageListView(EnvelopeMixin, APIView):
             rows,
             meta={'pagination': {'count': total, 'page': 1, 'page_size': page_size}},
         )
+
+
+class QuoteRequestQuoteView(EnvelopeMixin, APIView):
+    """POST /api/v1/quote-requests/:id/quote/ — 运营填写报价并通知客户。
+
+    权限口径与查询面一致（`IsProcurementOrAdmin`）：销售/采购线索归运营侧管，
+    含 `role=procurement` 但 `is_staff=false` 的账号。
+
+    **状态机**：填报价即把状态推进到 `QUOTED`（已报价）。这是唯一会写该状态的入口 ——
+    此前 `QUOTED` 只在枚举里定义、全仓没有任何代码会写入它（报价功能是断的）。
+
+    邮件失败不回滚报价：报价是事实，通知是附带动作，与 COA 审批同一处理方式。
+    """
+
+    permission_classes = [IsProcurementOrAdmin]
+
+    def post(self, request, pk):
+        quote_request = QuoteRequest.objects.filter(pk=pk).first()
+        if not quote_request:
+            return Response(
+                {'detail': 'Quote request not found.'}, status=status.HTTP_404_NOT_FOUND,
+            )
+
+        ser = QuoteResponseSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        data = ser.validated_data
+
+        quote_request.quoted_total = data.get('quoted_total')
+        quote_request.quoted_currency = (data.get('quoted_currency') or 'USD').upper()
+        quote_request.quoted_valid_until = data.get('quoted_valid_until')
+        quote_request.quoted_note = data.get('quoted_note') or ''
+        quote_request.quoted_at = timezone.now()
+        quote_request.status = QuoteRequest.Status.QUOTED
+        quote_request.save(update_fields=[
+            'quoted_total', 'quoted_currency', 'quoted_valid_until',
+            'quoted_note', 'quoted_at', 'status', 'updated_at',
+        ])
+
+        mailed = False
+        if data.get('notify_customer', True) and quote_request.contact_email:
+            try:
+                items_count = quote_request.items.count()
+                total = quote_request.quoted_total
+                EmailService.enqueue(
+                    'quote_ready',
+                    to=[quote_request.contact_email],
+                    ctx={
+                        'rfq_id': quote_request.pk,
+                        'contact_name': quote_request.contact_name or 'there',
+                        'items_count': items_count,
+                        'quoted_total': f'{total:,.2f}' if total is not None else '—',
+                        'quoted_currency': quote_request.quoted_currency,
+                        'quoted_valid_until': (
+                            str(quote_request.quoted_valid_until)
+                            if quote_request.quoted_valid_until else '—'
+                        ),
+                        'quoted_note': quote_request.quoted_note or '',
+                    },
+                )
+                mailed = True
+            except Exception:
+                logger.exception(
+                    '[quotes] RFQ #%s 报价已保存但通知邮件入队失败（报价不回滚）',
+                    quote_request.pk,
+                )
+
+        return self.success_response({
+            'id': quote_request.pk,
+            'status': quote_request.status,
+            'quoted_total': str(quote_request.quoted_total) if quote_request.quoted_total is not None else None,
+            'quoted_currency': quote_request.quoted_currency,
+            'customer_notified': mailed,
+        })

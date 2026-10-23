@@ -28,6 +28,26 @@ class QuoteRequest(TimeStampedModel):
     )
     notes = models.TextField(blank=True, default='', verbose_name='备注')
 
+    # ── 报价结果（运营在 RFQ 工作台填写，填完即通知客户）──────────────
+    #
+    # 为什么不复用 `apps/transactions.Quote`：那套是遗留半成品（前端只做 GET，
+    # 且已登录 POST /quotes/ 会建出 quote_no=null 的空壳单，见 transactions/api/v1/
+    # views.py:72-73 的注释）。客户侧真实入口是本模型的 QuoteRequest，
+    # 报价就直接挂在这里，避免两套单子并存、状态对不上。
+    quoted_total = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True, verbose_name='报价总额',
+        help_text='留空表示只回执不报价',
+    )
+    quoted_currency = models.CharField(
+        max_length=8, default='USD', verbose_name='币种',
+    )
+    quoted_valid_until = models.DateField(
+        null=True, blank=True, verbose_name='报价有效期至',
+    )
+    quoted_note = models.TextField(blank=True, default='', verbose_name='报价说明',
+        help_text='会原样出现在发给客户的邮件里，例如交期、运费、最小起订量')
+    quoted_at = models.DateTimeField(null=True, blank=True, verbose_name='报价时间')
+
     class Meta:
         db_table = 'quote_request'
         verbose_name = '报价请求'
