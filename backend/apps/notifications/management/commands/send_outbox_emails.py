@@ -13,6 +13,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.notifications.models import EmailOutbox
+from apps.notifications.services import email_delivery_is_unavailable
 
 MAX_RETRIES = 5
 # 退避（秒）：1m, 5m, 15m, 1h, 2h
@@ -27,6 +28,20 @@ class Command(BaseCommand):
         parser.add_argument('--force', action='store_true', help='忽略 next_retry_at，投递所有 PENDING')
 
     def handle(self, *args, **options):
+        # ★ 守卫：发信通道不可达时**绝不能投递**。
+        #   否则会把 PENDING 标成 SENT —— 造成"已发送"的假象，而且接上真实通道后
+        #   这些信再也不会重发（状态已经是 SENT 了）。
+        #   保持 PENDING 才是正确语义：等配置好 SPF/DKIM + API key，cron 自动把它们发出去。
+        if email_delivery_is_unavailable():
+            pending = EmailOutbox.objects.filter(status=EmailOutbox.Status.PENDING).count()
+            if pending:
+                self.stdout.write(self.style.WARNING(
+                    f'[跳过投递] EMAIL_BACKEND={getattr(settings, "EMAIL_BACKEND", "")} '
+                    f'无法把信送到用户，{pending} 封保持 PENDING。'
+                    f'配置真实发信通道（Resend/Mailgun/SMTP）后会自动发出。'
+                ))
+            return
+
         now = timezone.now()
         qs = EmailOutbox.objects.filter(status=EmailOutbox.Status.PENDING)
         if not options['force']:

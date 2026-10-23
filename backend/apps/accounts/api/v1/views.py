@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from core.mixins import EnvelopeMixin
 from core.permissions import LoginRateThrottle, IsProcurementOrAdmin
 
-from apps.notifications.services import EmailService
+from apps.notifications.services import EmailService, email_delivery_is_unavailable
 
 from apps.accounts.api.v1.serializers import (
     LoginSerializer,
@@ -33,31 +33,6 @@ from apps.accounts.models import (
 )
 
 logger = logging.getLogger(__name__)
-
-# 这些后端发出去的信 **到不了任何用户**（控制台日志 / 直接丢弃 / 落地成文件）。
-# 若在它们生效时仍强制邮箱验证，会把每一个新注册用户永久锁死：
-#   注册 201 → 收不到验证邮件 → 登录 403 → 无自助恢复路径。
-#
-# ⚠️ 刻意**不**包含 `locmem`：它是 Django 测试专用后端，单元测试正是靠
-#    `mail.outbox` 断言邮件内容的。把它算作「不可达」会让全部邮件测试失效，
-#    而生产环境不会使用 locmem，所以放行的实际必要性为零。
-_UNREACHABLE_EMAIL_BACKENDS = (
-    'console.EmailBackend',
-    'dummy.EmailBackend',
-    'filebased.EmailBackend',
-)
-
-
-def email_delivery_is_unavailable() -> bool:
-    """当前是否处于「邮件发出去也到不了用户」的降级配置。
-
-    单一判据放在这里，登录放行与启动自检共用，避免两处各写一份而漂移。
-    一旦配置了真实发信通道（Mailgun / SMTP），本函数自动返回 False，
-    邮箱验证的强制逻辑随之恢复，不需要再改代码。
-    """
-    backend = getattr(settings, 'EMAIL_BACKEND', '') or ''
-    return any(marker in backend for marker in _UNREACHABLE_EMAIL_BACKENDS)
-
 
 class RegisterView(APIView):
     """POST /api/v1/auth/register — Register a new user and email a verification link.
