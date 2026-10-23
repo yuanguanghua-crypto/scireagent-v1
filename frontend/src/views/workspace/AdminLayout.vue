@@ -123,6 +123,14 @@ if (!isInternal(auth)) {
             </svg>
             Delivery Queue
           </router-link>
+          <router-link to="/workspace/audit-log" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <path d="M8 13h8M8 17h5" />
+            </svg>
+            Audit Log
+          </router-link>
           <!-- ⚠️ 机构管理仍在 /ops/po/organizations（独立布局，点进去没有本侧栏）。
                先解决"能到达"，布局统一留到运营台整体重构时一并处理。 -->
           <router-link to="/ops/po/organizations" class="nav-item" active-class="active">

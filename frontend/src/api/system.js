@@ -72,3 +72,16 @@ export function getEmailOutbox(params = {}) {
 export function emailOutboxAction(id, action) {
   return http.post(`/ops/email-outbox/${id}/${action}/`)
 }
+
+// ── 审计日志（只读）────────────────────────────────────────────────────
+// ⚠️ AuditLog 目前**只记录产品**变更（CREATE/UPDATE/DELETE/RESTORE/HARD_DELETE）。
+//    订单/用户/报价/邮件都不记 —— UI 上必须如实标注，否则会被当成全局审计。
+
+export function getAuditLogs(params = {}) {
+  return http.get('/ops/audit-logs/', { params })
+}
+
+/** 详情含 snapshot（变更前/后的字段值）。 */
+export function getAuditLog(id) {
+  return http.get(`/ops/audit-logs/${id}/`)
+}

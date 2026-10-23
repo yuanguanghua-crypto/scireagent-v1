@@ -310,6 +310,8 @@ const routes = [
       // 邮件模板与投递队列（运营台，替代 Django admin）
       { path: 'email-templates', name: 'WorkspaceEmailTemplates', component: () => import('@/views/workspace/EmailTemplatesPage.vue'), meta: { title: 'Email Templates' } },
       { path: 'email-outbox', name: 'WorkspaceEmailOutbox', component: () => import('@/views/workspace/EmailOutboxPage.vue'), meta: { title: 'Delivery Queue' } },
+      // 审计日志（只读；目前只覆盖产品变更）
+      { path: 'audit-log', name: 'WorkspaceAuditLog', component: () => import('@/views/workspace/AuditLogPage.vue'), meta: { title: 'Audit Log' } },
     ],
   },
   {

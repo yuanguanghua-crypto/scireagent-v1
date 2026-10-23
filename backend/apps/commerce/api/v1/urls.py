@@ -14,6 +14,7 @@ from apps.commerce.api.v1.ai_views import (
     ProductAdoptBiozRefsView,
 )
 from apps.commerce.api.v1.word_views import WordParseView
+from apps.commerce.api.v1 import ops_audit
 
 router = DefaultRouter()
 router.register('products', ProductViewSet, basename='product')
@@ -38,5 +39,9 @@ urlpatterns = [
     path('products/render-structure/', ProductRenderStructureView.as_view(), name='product-render-structure'),
     path('products/import-protocol/', ProductImportProtocolView.as_view(), name='product-import-protocol'),
     path('products/<int:pk>/adopt-bioz-refs/', ProductAdoptBiozRefsView.as_view(), name='product-adopt-bioz-refs'),
+    # 审计日志（只读，IsAdmin）—— AuditLog 此前只写不读
+    path('ops/audit-logs/', ops_audit.AuditLogListView.as_view(), name='ops-audit-log-list'),
+    path('ops/audit-logs/<int:pk>/', ops_audit.AuditLogDetailView.as_view(),
+         name='ops-audit-log-detail'),
     path('', include(router.urls)),
 ]
