@@ -1,10 +1,59 @@
 <script setup>
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useRouter } from 'vue-router'
 import { isInternal } from '@/utils/internalAccess'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
+
+// ── 侧栏分组折叠 ───────────────────────────────────────────────────────
+// 22 项平铺太长（要滚动才看全），所以每组标题可点击折叠。
+// 三条规则：
+//   1. 折叠状态存 localStorage，刷新后保持
+//   2. **当前路由所在分组强制展开** —— 否则会出现"当前页被折叠起来看不见"
+//      的困惑；这条不写入存储，切走再回来仍按用户自己的偏好
+//   3. 默认全部展开（首次访问的人不该看到一堆收起的标题）
+const GROUP_STORAGE_KEY = 'workspace.sidebar.collapsed'
+const GROUP_NAMES = ['Overview', 'Products', 'Knowledge', 'Operations', 'System']
+
+function readCollapsed() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(GROUP_STORAGE_KEY) || '[]')
+    return Array.isArray(raw) ? raw.filter((n) => GROUP_NAMES.includes(n)) : []
+  } catch {
+    return []
+  }
+}
+
+const collapsedGroups = ref(new Set(readCollapsed()))
+
+/** 当前路由属于哪个分组 —— 用于强制展开。 */
+const activeGroup = computed(() => {
+  const p = route.path
+  if (p.startsWith('/ops/')) return 'Operations'
+  if (p === '/workspace' || p === '/workspace/') return 'Overview'
+  if (p.startsWith('/workspace/products')) return 'Products'
+  if (/^\/workspace\/(system|users|email-templates|email-outbox|audit-log)/.test(p)) return 'System'
+  return 'Knowledge'
+})
+
+function isCollapsed(name) {
+  if (name === activeGroup.value) return false   // 当前页所在组永远展开
+  return collapsedGroups.value.has(name)
+}
+
+function toggleGroup(name) {
+  if (name === activeGroup.value) return        // 当前组不允许折叠
+  const next = new Set(collapsedGroups.value)
+  if (next.has(name)) next.delete(name)
+  else next.add(name)
+  collapsedGroups.value = next
+  try {
+    localStorage.setItem(GROUP_STORAGE_KEY, JSON.stringify([...next]))
+  } catch { /* 隐私模式下不可写 —— 折叠仍生效，只是不记忆 */ }
+}
 
 // ★ 内部人员判定收敛到 utils/internalAccess.js（口径= is_staff || role∈(procurement,admin)）
 //   ——与后端 permissions.py IsProcurementOrAdmin 一致；普通注册用户仍被踢回首页。
@@ -24,8 +73,20 @@ if (!isInternal(auth)) {
       </div>
 
       <nav class="sidebar-nav">
-        <div class="nav-group">
-          <div class="nav-group-title">Overview</div>
+        <div class="nav-group" :class="{ 'is-collapsed': isCollapsed('Overview') }">
+          <div
+            class="nav-group-title"
+            :class="{ 'is-locked': 'Overview' === activeGroup }"
+            :title="'Overview' === activeGroup ? '当前所在分组（不可折叠）' : '点击折叠 / 展开'"
+            @click="toggleGroup('Overview')"
+          >
+            <span>Overview</span>
+            <svg
+              class="nav-chev"
+              :class="{ 'is-open': !isCollapsed('Overview') }"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            ><polyline points="9 6 15 12 9 18" /></svg>
+          </div>
           <router-link to="/workspace" class="nav-item" exact-active-class="active">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
               <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
@@ -35,8 +96,20 @@ if (!isInternal(auth)) {
           </router-link>
         </div>
 
-        <div class="nav-group">
-          <div class="nav-group-title">Products</div>
+        <div class="nav-group" :class="{ 'is-collapsed': isCollapsed('Products') }">
+          <div
+            class="nav-group-title"
+            :class="{ 'is-locked': 'Products' === activeGroup }"
+            :title="'Products' === activeGroup ? '当前所在分组（不可折叠）' : '点击折叠 / 展开'"
+            @click="toggleGroup('Products')"
+          >
+            <span>Products</span>
+            <svg
+              class="nav-chev"
+              :class="{ 'is-open': !isCollapsed('Products') }"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            ><polyline points="9 6 15 12 9 18" /></svg>
+          </div>
           <router-link to="/workspace/products" class="nav-item" active-class="active">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
               <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -45,8 +118,20 @@ if (!isInternal(auth)) {
           </router-link>
         </div>
 
-        <div class="nav-group">
-          <div class="nav-group-title">Knowledge</div>
+        <div class="nav-group" :class="{ 'is-collapsed': isCollapsed('Knowledge') }">
+          <div
+            class="nav-group-title"
+            :class="{ 'is-locked': 'Knowledge' === activeGroup }"
+            :title="'Knowledge' === activeGroup ? '当前所在分组（不可折叠）' : '点击折叠 / 展开'"
+            @click="toggleGroup('Knowledge')"
+          >
+            <span>Knowledge</span>
+            <svg
+              class="nav-chev"
+              :class="{ 'is-open': !isCollapsed('Knowledge') }"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            ><polyline points="9 6 15 12 9 18" /></svg>
+          </div>
           <router-link to="/workspace/goals" class="nav-item" active-class="active">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
               <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
@@ -94,8 +179,20 @@ if (!isInternal(auth)) {
 
         <!-- 运营：交易履约。8 个台统一挂在 AdminLayout 下（见 router 里 /ops 父路由），
              点进来仍在本侧栏内，不会再"跳出导航"。 -->
-        <div class="nav-group">
-          <div class="nav-group-title">Operations</div>
+        <div class="nav-group" :class="{ 'is-collapsed': isCollapsed('Operations') }">
+          <div
+            class="nav-group-title"
+            :class="{ 'is-locked': 'Operations' === activeGroup }"
+            :title="'Operations' === activeGroup ? '当前所在分组（不可折叠）' : '点击折叠 / 展开'"
+            @click="toggleGroup('Operations')"
+          >
+            <span>Operations</span>
+            <svg
+              class="nav-chev"
+              :class="{ 'is-open': !isCollapsed('Operations') }"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            ><polyline points="9 6 15 12 9 18" /></svg>
+          </div>
           <router-link to="/ops/orders" class="nav-item" active-class="active">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
               <path d="M6 2h12l2 4v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" /><path d="M4 6h16M9 12h6M9 16h6" />
@@ -150,8 +247,20 @@ if (!isInternal(auth)) {
         </div>
 
         <!-- 系统：排障与配置。组内条目按"是否需要脱离 Django admin"逐步搬过来。 -->
-        <div class="nav-group">
-          <div class="nav-group-title">System</div>
+        <div class="nav-group" :class="{ 'is-collapsed': isCollapsed('System') }">
+          <div
+            class="nav-group-title"
+            :class="{ 'is-locked': 'System' === activeGroup }"
+            :title="'System' === activeGroup ? '当前所在分组（不可折叠）' : '点击折叠 / 展开'"
+            @click="toggleGroup('System')"
+          >
+            <span>System</span>
+            <svg
+              class="nav-chev"
+              :class="{ 'is-open': !isCollapsed('System') }"
+              viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            ><polyline points="9 6 15 12 9 18" /></svg>
+          </div>
           <router-link to="/workspace/system" class="nav-item" active-class="active">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
               <circle cx="12" cy="12" r="3" />
@@ -228,7 +337,23 @@ if (!isInternal(auth)) {
 .brand-text { font-size: 18px; font-weight: 700; color: var(--color-text); }
 .sidebar-nav { flex: 1; padding: 12px 8px; }
 .nav-group { margin-bottom: 8px; }
-.nav-group-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-secondary); padding: 8px 12px 4px; }
+/* 分组标题：可点击折叠。当前所在分组 is-locked —— 不允许收起 */
+.nav-group-title {
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--color-text-secondary); padding: 8px 12px 4px;
+  cursor: pointer; user-select: none;
+}
+.nav-group-title:hover { color: var(--color-text); }
+.nav-group-title.is-locked { cursor: default; }
+.nav-group-title.is-locked:hover { color: var(--color-text-secondary); }
+.nav-chev {
+  width: 12px; height: 12px; flex: 0 0 auto;
+  transition: transform .15s ease; opacity: .6;
+}
+.nav-chev.is-open { transform: rotate(90deg); }
+/* 折叠：整组隐藏。用 class 控制而不改 DOM 结构，22 个链接的模板一行都不动。 */
+.nav-group.is-collapsed .nav-item { display: none; }
 .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; text-decoration: none; font-size: 14px; color: var(--color-text-secondary); transition: background 0.15s, color 0.15s; }
 .nav-item:hover { background: var(--color-bg); color: var(--color-text); }
 .nav-item.active { background: var(--color-primary-light); color: var(--color-primary-active); font-weight: 600; }
