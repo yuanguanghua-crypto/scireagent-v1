@@ -91,6 +91,26 @@ if (!isInternal(auth)) {
             Knowledge Intake
           </router-link>
         </div>
+
+        <!-- 系统：排障与配置。组内条目按"是否需要脱离 Django admin"逐步搬过来。 -->
+        <div class="nav-group">
+          <div class="nav-group-title">System</div>
+          <router-link to="/workspace/system" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 008.6 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 8.6a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" />
+            </svg>
+            System Status
+          </router-link>
+          <!-- ⚠️ 机构管理仍在 /ops/po/organizations（独立布局，点进去没有本侧栏）。
+               先解决"能到达"，布局统一留到运营台整体重构时一并处理。 -->
+          <router-link to="/ops/po/organizations" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
+            </svg>
+            Organizations
+          </router-link>
+        </div>
       </nav>
 
       <div class="sidebar-footer">

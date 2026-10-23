@@ -38,6 +38,8 @@ urlpatterns = [
     path('api/v1/', include('apps.assets.api.v1.urls')),
     path('api/v1/', include('apps.documents.api.v1.urls')),
     path('api/v1/', include('apps.inventory.api.v1.urls')),
+    # 运营台系统状态（邮件通道 / 投递队列 / 调度心跳）
+    path('api/v1/', include('apps.notifications.api.v1.urls')),
     # OpenAPI schema
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),

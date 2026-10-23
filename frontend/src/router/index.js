@@ -303,6 +303,8 @@ const routes = [
       { path: 'references', name: 'WorkspaceRefs', component: () => import('@/views/workspace/ReferencesPage.vue'), meta: { title: 'References' } },
       { path: 'verified', name: 'WorkspaceVerified', component: () => import('@/views/workspace/VerifiedPage.vue'), meta: { title: 'Verified Applicability' } },
       { path: 'knowledge-intake', name: 'WorkspaceKnowledgeIntake', component: () => import('@/views/KnowledgeIntake.vue'), meta: { title: 'Knowledge Intake' } },
+      // 系统状态：邮件通道 / 投递队列 / 调度心跳 / DB（内部人员可读）
+      { path: 'system', name: 'WorkspaceSystem', component: () => import('@/views/workspace/SystemStatusPage.vue'), meta: { title: 'System Status' } },
     ],
   },
   {

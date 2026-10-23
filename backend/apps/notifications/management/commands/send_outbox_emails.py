@@ -13,7 +13,10 @@ from django.db.models import Q
 from django.utils import timezone
 
 from apps.notifications.models import EmailOutbox
-from apps.notifications.services import email_delivery_is_unavailable
+from apps.notifications.services import (
+    email_delivery_is_unavailable,
+    record_dispatch_heartbeat,
+)
 
 MAX_RETRIES = 5
 # 退避（秒）：1m, 5m, 15m, 1h, 2h
@@ -28,6 +31,10 @@ class Command(BaseCommand):
         parser.add_argument('--force', action='store_true', help='忽略 next_retry_at，投递所有 PENDING')
 
     def handle(self, *args, **options):
+        # 心跳：无论后面是否真的投递都要记 —— "cron 有没有在跑"和"邮件发没发出去"
+        # 是两件事，系统状态页需要能分别看到。降级跳过时同样留下痕迹。
+        record_dispatch_heartbeat()
+
         # ★ 守卫：发信通道不可达时**绝不能投递**。
         #   否则会把 PENDING 标成 SENT —— 造成"已发送"的假象，而且接上真实通道后
         #   这些信再也不会重发（状态已经是 SENT 了）。

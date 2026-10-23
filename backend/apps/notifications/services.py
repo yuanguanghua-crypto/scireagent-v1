@@ -1,4 +1,5 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
+from pathlib import Path
 
 from django.conf import settings
 from django.utils import timezone
@@ -16,6 +17,44 @@ _UNREACHABLE_EMAIL_BACKENDS = (
     'dummy.EmailBackend',
     'filebased.EmailBackend',
 )
+
+
+# ── 投递调度心跳 ──────────────────────────────────────────────────────
+# 放 MEDIA_ROOT 下：那里是 named volume，重建容器不丢；容器内可写。
+# 比 /tmp 可靠（重建即丢），比新建一张表轻（不为一行业务造表）。
+HEARTBEAT_DIR = '.health'
+HEARTBEAT_FILE = 'email_dispatch.heartbeat'
+
+
+def _heartbeat_path() -> Path:
+    return Path(settings.MEDIA_ROOT) / HEARTBEAT_DIR / HEARTBEAT_FILE
+
+
+def record_dispatch_heartbeat() -> None:
+    """由 `send_outbox_emails` 每次执行时调用。失败不抛 —— 心跳不能影响投递。"""
+    import logging
+    try:
+        p = _heartbeat_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(datetime.now(dt_timezone.utc).isoformat(), encoding='utf-8')
+    except Exception:
+        logging.getLogger(__name__).warning(
+            '[notifications] 写调度心跳失败（不影响投递）', exc_info=True)
+
+
+def read_dispatch_heartbeat():
+    """返回 (iso_str|None, minutes_ago|None)。文件不存在或损坏都返回 (None, None)。"""
+    p = _heartbeat_path()
+    try:
+        if not p.exists():
+            return None, None
+        raw = p.read_text(encoding='utf-8').strip()
+        dt = datetime.fromisoformat(raw)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=dt_timezone.utc)
+        return raw, round((datetime.now(dt_timezone.utc) - dt).total_seconds() / 60, 1)
+    except Exception:
+        return None, None
 
 
 def email_delivery_is_unavailable() -> bool:
