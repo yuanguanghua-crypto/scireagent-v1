@@ -185,19 +185,6 @@ const routes = [
     component: () => import('@/views/OrderDetailPage.vue'),
     meta: { title: 'Order Detail', requiresAuth: true },
   },
-  {
-    path: '/ops/orders',
-    name: 'AdminOrders',
-    component: () => import('@/views/admin/AdminOrdersPage.vue'),
-    meta: { title: 'Order Management', requiresAuth: true, requiresAdmin: true },
-  },
-  {
-    path: '/ops/orders/:id',
-    name: 'AdminOrderDetail',
-    component: () => import('@/views/admin/AdminOrderDetail.vue'),
-    meta: { title: 'Order Processing', requiresAuth: true, requiresAdmin: true },
-  },
-
   // ── PO 采购门户 — 客户侧（节点 1~6） ──
   {
     path: '/po/submit',
@@ -236,55 +223,86 @@ const routes = [
     meta: { title: 'Download Center', requiresAuth: true },
   },
 
-  // ── PO 采购门户 — 内部台（节点 A~E） ──
+  // ── 运营台（/ops/*）──────────────────────────────────────────────
+  // 2026-10-23：从"8 条扁平路由"收成"1 个父路由 + 8 个 children"。
+  //
+  // ★ 为什么这么做：此前这 8 个页面各自是顶层路由、不套布局 ⇒ 侧栏里点进来
+  //   会变成"只有顶栏的独立页"，用户在那儿找不到回 Workspace 的路。
+  //   现在统一挂在 AdminLayout 下，与 Workspace 共用同一套侧栏。
+  //
+  // ★ 路径刻意保持不变（仍是 /ops/orders、/ops/po/review…）：
+  //   AppHeader 下拉菜单、页面内 router.push、E2E 用例、已有书签全都依赖这些
+  //   字面量路径，改成 /workspace/ops/* 会把这些地方全打一遍。
+  //
+  // ★ meta.bareHeader：AdminLayout 自己有一个 h1 标题栏，而这 8 个页面各自
+  //   带 po-page-header（h1 + 操作按钮）。不关掉 layout 那个标题会双层页头，
+  //   所以给它们标 bareHeader，让页面自己的页头作数。
   {
-    path: '/ops/po/review',
-    name: 'PoReviewDesk',
-    component: () => import('@/views/admin/PoReviewDesk.vue'),
-    meta: { title: 'Order Review Desk', requiresAuth: true, requiresAdmin: true },
+    path: '/ops',
+    component: () => import('@/views/workspace/AdminLayout.vue'),
+    redirect: '/ops/orders',   // 直接访问 /ops 时不能白屏
+    meta: { requiresAuth: true, requiresAdmin: true },
+    children: [
+      {
+        path: 'orders',
+        name: 'AdminOrders',
+        component: () => import('@/views/admin/AdminOrdersPage.vue'),
+        meta: { title: 'Order Management', requiresAuth: true, requiresAdmin: true, bareHeader: true },
+      },
+      {
+        path: 'orders/:id',
+        name: 'AdminOrderDetail',
+        component: () => import('@/views/admin/AdminOrderDetail.vue'),
+        meta: { title: 'Order Processing', requiresAuth: true, requiresAdmin: true, bareHeader: true },
+      },
+      {
+        // ★ 2026-10-22：RFQ 收件箱 —— 此前客户提交的询价单只有创建入口、无查询入口。
+        //   2026-10-23 起详情可填写报价（POST /quote-requests/:id/quote/），不再只读。
+        path: 'rfq',
+        name: 'RfqDesk',
+        component: () => import('@/views/admin/RfqDesk.vue'),
+        meta: { title: 'RFQ Inbox', requiresAuth: true, requiresAdmin: true, bareHeader: true },
+      },
+      {
+        path: 'po/review',
+        name: 'PoReviewDesk',
+        component: () => import('@/views/admin/PoReviewDesk.vue'),
+        meta: { title: 'Order Review Desk', requiresAuth: true, requiresAdmin: true, bareHeader: true },
+      },
+      {
+        path: 'po/shipments',
+        name: 'PoShipmentDesk',
+        component: () => import('@/views/admin/PoShipmentDesk.vue'),
+        meta: { title: 'Shipment Desk', requiresAuth: true, requiresAdmin: true, bareHeader: true },
+      },
+      {
+        path: 'po/invoicing',
+        name: 'PoInvoicingDesk',
+        component: () => import('@/views/admin/PoInvoicingDesk.vue'),
+        meta: { title: 'Invoicing Desk', requiresAuth: true, requiresAdmin: true, bareHeader: true },
+      },
+      {
+        path: 'po/ar',
+        name: 'PoArReport',
+        component: () => import('@/views/admin/PoArReport.vue'),
+        meta: { title: 'AR Aging Report', requiresAuth: true, requiresAdmin: true, bareHeader: true },
+      },
+      {
+        path: 'po/organizations',
+        name: 'PoOrgManagement',
+        component: () => import('@/views/admin/PoOrgManagement.vue'),
+        meta: { title: 'Organization Management', requiresAuth: true, requiresAdmin: true, bareHeader: true },
+      },
+      {
+        // ★ v4.1 DEV-1：库存管理台（入库/盘点调整/变动流水）—— F3 缺口
+        path: 'inventory',
+        name: 'InventoryDesk',
+        component: () => import('@/views/admin/InventoryDesk.vue'),
+        meta: { title: 'Inventory Desk', requiresAuth: true, requiresAdmin: true, bareHeader: true },
+      },
+    ],
   },
-  {
-    path: '/ops/po/shipments',
-    name: 'PoShipmentDesk',
-    component: () => import('@/views/admin/PoShipmentDesk.vue'),
-    meta: { title: 'Shipment Desk', requiresAuth: true, requiresAdmin: true },
-  },
-  {
-    path: '/ops/po/invoicing',
-    name: 'PoInvoicingDesk',
-    component: () => import('@/views/admin/PoInvoicingDesk.vue'),
-    meta: { title: 'Invoicing Desk', requiresAuth: true, requiresAdmin: true },
-  },
-  {
-    path: '/ops/po/ar',
-    name: 'PoArReport',
-    component: () => import('@/views/admin/PoArReport.vue'),
-    meta: { title: 'AR Aging Report', requiresAuth: true, requiresAdmin: true },
-  },
-  {
-    path: '/ops/po/organizations',
-    name: 'PoOrgManagement',
-    component: () => import('@/views/admin/PoOrgManagement.vue'),
-    meta: { title: 'Organization Management', requiresAuth: true, requiresAdmin: true },
-  },
-  {
-    // ★ v4.1 DEV-1：库存管理台（入库/盘点调整/变动流水）—— F3 缺口
-    path: '/ops/inventory',
-    name: 'InventoryDesk',
-    component: () => import('@/views/admin/InventoryDesk.vue'),
-    meta: { title: 'Inventory Desk', requiresAuth: true, requiresAdmin: true },
-  },
-  {
-    // ★ 2026-10-22：RFQ 收件箱 —— 此前客户提交的询价单**只有创建入口、无任何查询入口**
-    //   （详情按 contact_email 过滤，连 staff 也 404，运营只能进 Django admin）。
-    //   后端新增 GET /quote-requests/manage/（IsProcurementOrAdmin），本页为列表 + 详情。
-    //   2026-10-23 起详情可填写报价（POST /quote-requests/:id/quote/），不再只读。
-    //   ⚠️ requiresAdmin 用 utils/internalAccess.js 的 isInternal，与后端口径对齐。
-    path: '/ops/rfq',
-    name: 'RfqDesk',
-    component: () => import('@/views/admin/RfqDesk.vue'),
-    meta: { title: 'RFQ Inbox', requiresAuth: true, requiresAdmin: true },
-  },
+
   // ── Workspace routes ──────────────────────────────
   {
     path: '/workspace',

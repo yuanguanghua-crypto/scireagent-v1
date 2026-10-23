@@ -92,6 +92,63 @@ if (!isInternal(auth)) {
           </router-link>
         </div>
 
+        <!-- 运营：交易履约。8 个台统一挂在 AdminLayout 下（见 router 里 /ops 父路由），
+             点进来仍在本侧栏内，不会再"跳出导航"。 -->
+        <div class="nav-group">
+          <div class="nav-group-title">Operations</div>
+          <router-link to="/ops/orders" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M6 2h12l2 4v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" /><path d="M4 6h16M9 12h6M9 16h6" />
+            </svg>
+            Orders
+          </router-link>
+          <router-link to="/ops/rfq" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+            </svg>
+            RFQ Inbox
+          </router-link>
+          <router-link to="/ops/po/review" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+            </svg>
+            Order Review
+          </router-link>
+          <router-link to="/ops/po/shipments" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M1 3h15v13H1z" /><path d="M16 8h4l3 3v5h-7z" />
+              <circle cx="5.5" cy="18.5" r="2.5" /><circle cx="18.5" cy="18.5" r="2.5" />
+            </svg>
+            Shipments
+          </router-link>
+          <router-link to="/ops/po/invoicing" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+              <polyline points="14 2 14 8 20 8" /><path d="M8 13h8M8 17h5" />
+            </svg>
+            Invoicing
+          </router-link>
+          <router-link to="/ops/po/ar" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M3 3v18h18" /><path d="M7 15l4-5 3 3 5-7" />
+            </svg>
+            AR Aging
+          </router-link>
+          <router-link to="/ops/po/organizations" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
+            </svg>
+            Organizations
+          </router-link>
+          <router-link to="/ops/inventory" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
+            </svg>
+            Inventory
+          </router-link>
+        </div>
+
         <!-- 系统：排障与配置。组内条目按"是否需要脱离 Django admin"逐步搬过来。 -->
         <div class="nav-group">
           <div class="nav-group-title">System</div>
@@ -131,14 +188,6 @@ if (!isInternal(auth)) {
             </svg>
             Audit Log
           </router-link>
-          <!-- ⚠️ 机构管理仍在 /ops/po/organizations（独立布局，点进去没有本侧栏）。
-               先解决"能到达"，布局统一留到运营台整体重构时一并处理。 -->
-          <router-link to="/ops/po/organizations" class="nav-item" active-class="active">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
-              <path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6" />
-            </svg>
-            Organizations
-          </router-link>
         </div>
       </nav>
 
@@ -153,7 +202,9 @@ if (!isInternal(auth)) {
     </aside>
 
     <main class="workspace-main">
-      <header class="workspace-header">
+      <!-- meta.bareHeader：/ops/* 那 8 个运营台各自带 po-page-header（h1 + 操作按钮），
+           不关掉这里会产生双层标题。 -->
+      <header v-if="!$route.meta.bareHeader" class="workspace-header">
         <h1 class="workspace-title">{{ $route.meta.title || 'Workspace' }}</h1>
       </header>
       <div class="workspace-content">
