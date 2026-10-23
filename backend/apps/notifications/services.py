@@ -88,14 +88,20 @@ class EmailService:
 
     @staticmethod
     def enqueue(template_key: str, to, ctx: dict = None, attachments: list = None,
-                subject: str = '', body_html: str = '', body_text: str = '') -> EmailOutbox:
+                subject: str = '', body_html: str = '', body_text: str = '',
+                use_template: bool = True) -> EmailOutbox:
+        """入队一封邮件（不发送，只写 EmailOutbox）。
+
+        `use_template=False` 时**直接使用传入的 subject/body**，不去查模板表。
+        用途：运营台"编辑未保存先试发"——那时要发的是表单里的草稿，不是库里的版本。
+        """
         ctx = ctx or {}
         if isinstance(to, (list, tuple, set)):
             to_emails = ','.join(str(t) for t in to)
         else:
             to_emails = str(to)
 
-        template = EmailTemplate.objects.filter(key=template_key).first()
+        template = EmailTemplate.objects.filter(key=template_key).first() if use_template else None
         if template:
             subject = render_template(template.subject, ctx)
             body_html = render_template(template.body_html, ctx)

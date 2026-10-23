@@ -307,6 +307,9 @@ const routes = [
       { path: 'system', name: 'WorkspaceSystem', component: () => import('@/views/workspace/SystemStatusPage.vue'), meta: { title: 'System Status' } },
       // 用户与角色：改 role / 启停 / 验证邮箱 / 触发重置（IsAdmin）
       { path: 'users', name: 'WorkspaceUsers', component: () => import('@/views/workspace/UserManagementPage.vue'), meta: { title: 'Users & Roles' } },
+      // 邮件模板与投递队列（运营台，替代 Django admin）
+      { path: 'email-templates', name: 'WorkspaceEmailTemplates', component: () => import('@/views/workspace/EmailTemplatesPage.vue'), meta: { title: 'Email Templates' } },
+      { path: 'email-outbox', name: 'WorkspaceEmailOutbox', component: () => import('@/views/workspace/EmailOutboxPage.vue'), meta: { title: 'Delivery Queue' } },
     ],
   },
   {

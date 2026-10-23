@@ -31,3 +31,44 @@ export function verifyUserEmail(id) {
 export function sendUserPasswordReset(id) {
   return http.post(`/ops/users/${id}/send-password-reset/`)
 }
+
+// ── 邮件模板 ──────────────────────────────────────────────────────────
+// 只允许改文案，不能改 key（key 是代码里的契约，改了 enqueue 就找不到模板）。
+
+export function getEmailTemplates() {
+  return http.get('/ops/email-templates/')
+}
+
+export function getEmailTemplate(key) {
+  return http.get(`/ops/email-templates/${key}/`)
+}
+
+export function updateEmailTemplate(key, payload) {
+  return http.patch(`/ops/email-templates/${key}/`, payload)
+}
+
+/**
+ * 试渲染（不写库不发信）。
+ * 不传 ctx 时后端自动用最近一条同模板真实 outbox 记录的 context_json ——
+ * 比手编示例可靠（真实字段名、真实格式）。
+ * 传 overrides 可预览"编辑未保存的草稿"。
+ */
+export function previewEmailTemplate(key, payload = {}) {
+  return http.post(`/ops/email-templates/${key}/preview/`, payload)
+}
+
+/** 发一封测试信给**自己**（后端固定收件人为当前登录邮箱，不接受前端指定）。 */
+export function sendTestEmail(key, payload = {}) {
+  return http.post(`/ops/email-templates/${key}/send-test/`, payload)
+}
+
+// ── 投递队列 ──────────────────────────────────────────────────────────
+
+export function getEmailOutbox(params = {}) {
+  return http.get('/ops/email-outbox/', { params })
+}
+
+/** action: 'retry' | 'discard' */
+export function emailOutboxAction(id, action) {
+  return http.post(`/ops/email-outbox/${id}/${action}/`)
+}

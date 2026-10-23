@@ -110,6 +110,19 @@ if (!isInternal(auth)) {
             </svg>
             Users &amp; Roles
           </router-link>
+          <router-link to="/workspace/email-templates" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M4 4h16v16H4z" /><path d="M4 8h16" />
+            </svg>
+            Email Templates
+          </router-link>
+          <router-link to="/workspace/email-outbox" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+              <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z" />
+            </svg>
+            Delivery Queue
+          </router-link>
           <!-- ⚠️ 机构管理仍在 /ops/po/organizations（独立布局，点进去没有本侧栏）。
                先解决"能到达"，布局统一留到运营台整体重构时一并处理。 -->
           <router-link to="/ops/po/organizations" class="nav-item" active-class="active">
