@@ -52,29 +52,38 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()  # email_verified defaults to False
 
-        # ⚠️ 邮件通道不可达时，不要一边说「请去邮箱验证」一边又让人永远等不到邮件。
-        #    此时直接把账号标为已验证，并在响应里如实告知「可以直接登录」，
-        #    避免用户去收一封永远不会来的信（2026-10-23 生产事故）。
-        mail_ok = not email_delivery_is_unavailable()
-        if mail_ok:
-            send_verification_email(user)
-            detail = (
-                'Registration successful. We have sent a verification link '
-                'to your email address — please verify before signing in.'
-            )
-            verified = False
+        detail = (
+            'Registration successful. We have sent a verification link '
+            'to your email address — please verify before signing in.'
+        )
+        verified = False
+
+        # ⚠️ 两道降级，都是为了防止「注册成功但永远登不进去」：
+        #   ① 静态判据：后端本身就是 console/dummy/filebased（发出去也到不了人）
+        #   ② 动态兜底：后端看起来正常（如 anymail），但**实际发送失败**
+        #      —— 典型场景是 Resend 域名还没验过（403 domain not verified）。
+        #      此时若照常要求验证，用户会卡在一封永远收不到的信上。
+        #   两种降级都只在"确实发不出去"时发生；一旦通道恢复，严格验证自动回来。
+        degrade_reason = None
+        if email_delivery_is_unavailable():
+            degrade_reason = f'EMAIL_BACKEND={getattr(settings, "EMAIL_BACKEND", "")} 不投递'
         else:
+            try:
+                send_verification_email(user)
+            except Exception as exc:                      # noqa: BLE001 - 任何发信异常都要降级
+                degrade_reason = f'验证邮件发送失败: {type(exc).__name__}: {str(exc)[:200]}'
+
+        if degrade_reason:
             logger.warning(
-                '[auth] EMAIL_BACKEND=%s 不可投递，注册时直接放行 username=%s id=%s'
-                '（未发送验证邮件）。请尽快配置真实发信通道。',
-                getattr(settings, 'EMAIL_BACKEND', ''),
-                user.username,
-                user.pk,
+                '[auth] 注册降级放行 username=%s id=%s —— %s。'
+                '账号已直接标记为已验证；请尽快修好发信通道，'
+                '否则邮箱验证形同虚设。',
+                user.username, user.pk, degrade_reason,
             )
             user.email_verified = True
             user.save(update_fields=['email_verified'])
             detail = (
-                'Registration successful. Email verification is currently '
+                'Registration successful. Email verification is temporarily '
                 'unavailable, so your account is ready — you can sign in now.'
             )
             verified = True
