@@ -66,8 +66,9 @@ class OpsUserPatchSerializer(serializers.Serializer):
     is_active = serializers.BooleanField(required=False)
 
     def validate(self, attrs):
-        if not attrs:
-            raise serializers.ValidationError('Nothing to update: provide role or is_active.')
+        # ★ 顺序很重要：先判"不支持的字段"，再判"空 payload"。
+        #   反过来的话，传 {'is_staff': True} 会先命中"Nothing to update"，
+        #   管理员看到的是"什么都没改"，而不是"这个字段不允许改" —— 排查时会走弯路。
         unknown = set(self.initial_data.keys()) - {'role', 'is_active'}
         if unknown:
             raise serializers.ValidationError({
@@ -77,6 +78,8 @@ class OpsUserPatchSerializer(serializers.Serializer):
                     'is_staff / is_superuser / password 必须走 Django admin。'
                 )
             })
+        if not attrs:
+            raise serializers.ValidationError('Nothing to update: provide role or is_active.')
         return attrs
 
 
