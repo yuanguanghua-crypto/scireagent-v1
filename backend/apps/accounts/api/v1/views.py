@@ -1,8 +1,11 @@
 import logging
+import uuid
+from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.core.exceptions import ValidationError as DjValidationError
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import AllowAny, BasePermission, IsAuthenticated
@@ -11,17 +14,23 @@ from rest_framework.views import APIView
 from core.mixins import EnvelopeMixin
 from core.permissions import LoginRateThrottle, IsProcurementOrAdmin
 
+from apps.notifications.services import EmailService
+
 from apps.accounts.api.v1.serializers import (
     LoginSerializer,
     OrganizationSerializer,
     OrganizationSummarySerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     ProfileUpdateSerializer,
     RegisterSerializer,
     UserSerializer,
     AddressSerializer,
 )
 from apps.accounts.email import send_verification_email
-from apps.accounts.models import EmailVerification, Organization, Address, User
+from apps.accounts.models import (
+    Address, EmailVerification, Organization, PasswordReset, User,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -479,3 +488,110 @@ class AddressViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         instance = self.get_object()
         instance.delete()
         return self.success_response(None, status_code=204)
+
+
+class PasswordResetRequestView(APIView):
+    """POST /api/v1/auth/request-password-reset — 申请密码重置链接。
+
+    ★ 安全取舍（改动前务必读）：**无论邮箱是否已注册，响应完全一致**。
+      否则这个匿名端点就成了用户枚举器 —— 攻击者可批量试探哪些邮箱有账号。
+      同理，邮件入队失败也必须返回同样的响应，不能透出"这个邮箱存在"。
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [LoginRateThrottle]
+
+    _ALWAYS = (
+        'If that email address is registered, a reset link is on its way. '
+        'Check your inbox (and spam folder).'
+    )
+
+    def post(self, request):
+        ser = PasswordResetRequestSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        email = ser.validated_data['email'].strip()
+
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if not user:
+            logger.info('[auth] 密码重置请求：邮箱未注册或已停用，按惯例静默忽略')
+            return Response({'detail': self._ALWAYS}, status=status.HTTP_200_OK)
+
+        expires_hours = getattr(settings, 'PASSWORD_RESET_EXPIRE_HOURS', 1)
+        # OneToOne + update_or_create ⇒ 重复申请会让旧 token 立即失效
+        reset, _ = PasswordReset.objects.update_or_create(
+            user=user,
+            defaults={
+                'token': uuid.uuid4(),
+                'expires_at': timezone.now() + timedelta(hours=expires_hours),
+                'requested_ip': (
+                    request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+                    or request.META.get('REMOTE_ADDR')
+                ),
+            },
+        )
+        reset_url = (
+            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?token={reset.token}"
+        )
+
+        try:
+            EmailService.enqueue(
+                'password_reset',
+                to=[user.email],
+                ctx={
+                    'username': user.username,
+                    'reset_url': reset_url,
+                    'expire_hours': expires_hours,
+                },
+            )
+        except Exception:
+            # 不能让调用方从异常/耗时差异推断邮箱是否存在
+            logger.exception('[auth] 密码重置邮件入队失败 user_id=%s', user.pk)
+
+        return Response({'detail': self._ALWAYS}, status=status.HTTP_200_OK)
+
+
+class PasswordResetConfirmView(APIView):
+    """POST /api/v1/auth/reset-password — 用 token 设置新密码。
+
+    三条硬性要求：
+    1. 畸形 token 必须 400，不能 500（`UUIDField` 抛的是 `DjValidationError`，不是 ValueError）
+    2. 用完即删（一次性）
+    3. 重置后**吊销该用户全部 token**，否则旧会话仍然有效
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = [LoginRateThrottle]
+
+    def post(self, request):
+        ser = PasswordResetConfirmSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        raw_token = ser.validated_data['token'].strip()
+        new_password = ser.validated_data['new_password']
+
+        invalid = Response(
+            {'detail': 'This reset link is invalid or has expired. Please request a new one.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+        try:
+            reset = PasswordReset.objects.select_related('user').get(token=raw_token)
+        except (PasswordReset.DoesNotExist, DjValidationError, ValueError):
+            return invalid
+
+        if reset.is_expired() or not reset.user.is_active:
+            reset.delete()
+            return invalid
+
+        user = reset.user
+        user.set_password(new_password)
+        user.save(update_fields=['password'])
+        reset.delete()
+        Token.objects.filter(user=user).delete()
+
+        logger.info('[auth] 密码已重置 user_id=%s，已吊销全部 token', user.pk)
+        return Response(
+            {'detail': 'Password updated. Please sign in with your new password.'},
+            status=status.HTTP_200_OK,
+        )

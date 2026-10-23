@@ -144,6 +144,51 @@ class EmailVerification(models.Model):
         super().save(*args, **kwargs)
 
 
+class PasswordReset(models.Model):
+    """密码重置令牌 —— 一次性、短时效。
+
+    设计取舍：
+    - **OneToOne**（而非一对多流水）：重复请求直接覆盖旧 token，天然实现"旧的立即失效"，
+      无需额外的失效标记或清理任务。
+    - **用完即删**：不保留历史 token，减少泄露面；需要审计就看日志。
+    - **比邮箱验证更短的有效期**（默认 1 小时，见 `PASSWORD_RESET_EXPIRE_HOURS`）：
+      邮件可能被转发/滞留，窗口越长风险越大。
+
+    ⚠️ 与 `EmailVerification` 的区别：那个在验证成功后**置 User.email_verified=True**；
+    这个只改密码，**绝不触碰 email_verified**（否则等于绕过邮箱验证）。
+    """
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name='password_reset'
+    )
+    token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    requested_ip = models.GenericIPAddressField(
+        null=True, blank=True, verbose_name='请求来源 IP',
+        help_text='仅用于排查滥用，不做拦截。',
+    )
+
+    class Meta:
+        db_table = 'password_reset'
+        verbose_name = '密码重置令牌'
+        verbose_name_plural = verbose_name
+
+    def __str__(self):
+        return f'password reset for user {self.user_id}'
+
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            from django.conf import settings
+            self.expires_at = timezone.now() + timedelta(
+                hours=getattr(settings, 'PASSWORD_RESET_EXPIRE_HOURS', 1)
+            )
+        super().save(*args, **kwargs)
+
+
 class Address(TimeStampedModel):
     """机构地址 — 一对多挂在 Organization，billing/shipping 用途标记。"""
 

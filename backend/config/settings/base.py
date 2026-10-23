@@ -361,6 +361,19 @@ except (TypeError, ValueError):
     EMAIL_VERIFICATION_EXPIRE_HOURS = 24
 FRONTEND_BASE_URL = os.getenv('FRONTEND_BASE_URL', 'https://scireagent.com')
 
+# 密码重置链接有效期（小时）。比邮箱验证短得多：重置链接一旦被转发/滞留，
+# 窗口越长风险越大；1 小时足够正常用户操作。
+try:
+    PASSWORD_RESET_EXPIRE_HOURS = int(os.getenv('PASSWORD_RESET_EXPIRE_HOURS', '1'))
+except (TypeError, ValueError):
+    PASSWORD_RESET_EXPIRE_HOURS = 1
+
+# 运营侧收件人：新询价 / 内部提醒发到这里（逗号分隔，留空则不发内部通知）。
+# 与业务数据解耦，避免把某个人的邮箱硬编码进代码。
+RFQ_NOTIFICATION_EMAILS = [
+    e.strip() for e in os.getenv('RFQ_NOTIFICATION_EMAILS', '').split(',') if e.strip()
+]
+
 # ── 数据源健壮性：全局 socket 超时兜底 ──────────────────────────────────────
 # pubchempy 内部 urlopen 未传 timeout，慢响应时 enrich 接口会挂死占满 worker。
 # 此处设全局默认超时兜底，防止任何遗漏的裸 urlopen 调用无限挂起。

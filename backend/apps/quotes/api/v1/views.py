@@ -14,6 +14,7 @@
 为什么详情也要放宽：内部人点开列表某一行时走的是同一个 `QuoteRequestDetailView`。
   若不放宽，列表看得见、点进去 404。
 """
+from django.conf import settings
 from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
@@ -23,12 +24,17 @@ from rest_framework.views import APIView
 from core.mixins import EnvelopeMixin
 from core.permissions import IsProcurementOrAdmin
 
+from apps.notifications.services import EmailService
 from apps.quotes.models import QuoteRequest
 from apps.quotes.api.v1.serializers import (
     QuoteRequestCreateSerializer,
     QuoteRequestDetailSerializer,
     QuoteRequestListSerializer,
 )
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def _is_internal(user) -> bool:
@@ -51,9 +57,42 @@ class QuoteRequestCreateView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         quote_request = serializer.save()
+
+        # 邮件通知（客户回执 + 运营提醒）。
+        # ⚠️ 整段 try/except 包住：RFQ 是**获客入口**，绝不能因为邮件服务异常而丢线索。
+        #    邮件失败只记日志，不影响 201 返回。
+        try:
+            self._notify(quote_request)
+        except Exception:
+            logger.exception(
+                '[quotes] RFQ #%s 创建成功但邮件入队失败（已忽略，不影响提交）',
+                quote_request.pk,
+            )
+
         # Use detail serializer for response (includes items)
         detail = QuoteRequestDetailSerializer(quote_request)
         return Response(detail.data, status=status.HTTP_201_CREATED)
+
+    @staticmethod
+    def _notify(quote_request) -> None:
+        """客户回执 + 运营提醒。收件人拿不到就跳过，不报错。"""
+        items_count = quote_request.items.count() if hasattr(quote_request, 'items') else 0
+        ctx = {
+            'rfq_id': quote_request.pk,
+            'contact_name': quote_request.contact_name or '',
+            'contact_email': quote_request.contact_email or '',
+            'company': quote_request.company_name or '—',
+            'items_count': items_count,
+        }
+
+        # ① 客户回执（客户填了邮箱才发）
+        if quote_request.contact_email:
+            EmailService.enqueue('rfq_submitted', to=[quote_request.contact_email], ctx=ctx)
+
+        # ② 运营提醒（配置了收件人才发；留空表示不通知）
+        internal = getattr(settings, 'RFQ_NOTIFICATION_EMAILS', None) or []
+        if internal:
+            EmailService.enqueue('rfq_received_internal', to=internal, ctx=ctx)
 
 
 class QuoteRequestDetailView(generics.RetrieveAPIView):

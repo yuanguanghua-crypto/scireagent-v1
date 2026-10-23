@@ -257,6 +257,34 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
 
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """申请密码重置 —— 只要一个邮箱。
+
+    注意：**故意不校验邮箱是否已注册**。视图层对"存在/不存在"返回完全相同的响应，
+    否则这个端点就成了用户枚举器（攻击者可批量试探哪些邮箱有账号）。
+    """
+
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """用 token 设置新密码。
+
+    新密码走 Django 的 `validate_password`（与注册同一套强度规则），
+    避免出现"注册要 8 位、重置只认 3 位"的口径分裂。
+    """
+
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        try:
+            django_validate_password(value)
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(list(exc.messages))
+        return value
+
+
 class UserSerializer(serializers.ModelSerializer):
     """Serializer for read-only user information."""
 
