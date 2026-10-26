@@ -2,11 +2,13 @@
 import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useProtocolsStore } from '@/stores/protocols'
+import { useAuthStore } from '@/stores/auth'
 import ProtocolCard from '@/components/cards/ProtocolCard.vue'
 import { AppButton } from '@/components/common'
 
 const router = useRouter()
 const store = useProtocolsStore()
+const auth = useAuthStore()
 const searchQuery = ref('')
 const currentPage = ref(1)
 // ★ 2026-10-26（方案 B）：默认 published —— 对齐首页 "Browse 14121" 的数字。
@@ -86,7 +88,11 @@ const resultCount = computed(() => store.total || store.protocols.length)
         />
         <AppButton variant="primary" @click="handleSearch">Search</AppButton>
       </div>
-      <div class="filter-chips">
+      <!-- ★ 2026-10-26：状态筛选器（All / Published / Draft / Superseded）只对内部人员有意义。
+           访客实测：All 与 Published 结果相同（冗余），Draft / Superseded 都返回 0 条
+           （看起来像网站坏了）—— 因为后端的 include_unpublished 对非 staff 无效。
+           访客侧完全隐藏，只保留搜索框。 -->
+      <div v-if="auth.isStaff" class="filter-chips">
         <button
           v-for="f in filters"
           :key="f.key"

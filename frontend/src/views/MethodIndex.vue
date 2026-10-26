@@ -2,11 +2,13 @@
 import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMethodsStore } from '@/stores/methods'
+import { useAuthStore } from '@/stores/auth'
 import MethodCard from '@/components/cards/MethodCard.vue'
 import { AppButton } from '@/components/common'
 
 const router = useRouter()
 const store = useMethodsStore()
+const auth = useAuthStore()
 const searchQuery = ref('')
 const currentPage = ref(1)
 // ★ 2026-10-26（方案 B）：默认 active —— 对齐首页 "Browse 93" 的数字。
@@ -91,7 +93,11 @@ const resultCount = computed(() => store.total || store.methods.length)
         />
         <AppButton variant="primary" @click="handleSearch">Search</AppButton>
       </div>
-      <div class="filter-chips">
+      <!-- ★ 2026-10-26：状态筛选器（All / Active / Draft）只对内部人员有意义。
+           对访客实测：All 与 Active 结果完全相同（冗余），Draft 返回 0 条
+           （看起来像网站坏了）—— 因为后端的 include_unpublished 对非 staff 无效。
+           所以访客侧完全隐藏，只保留搜索框。 -->
+      <div v-if="auth.isStaff" class="filter-chips">
         <button
           v-for="f in filters"
           :key="f.key"
