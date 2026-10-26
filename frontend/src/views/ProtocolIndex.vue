@@ -5,6 +5,7 @@ import { useProtocolsStore } from '@/stores/protocols'
 import { useAuthStore } from '@/stores/auth'
 import ProtocolCard from '@/components/cards/ProtocolCard.vue'
 import { AppButton } from '@/components/common'
+import { getProtocolFacets } from '@/api/protocols'
 
 const router = useRouter()
 const store = useProtocolsStore()
@@ -14,6 +15,32 @@ const currentPage = ref(1)
 // ★ 2026-10-26（方案 B）：默认 published —— 对齐首页 "Browse 14121" 的数字。
 //   此前默认 'all' 且 handleFilter 没把筛选传给 API ⇒ staff 看到 14,128（含 7 draft）。
 const activeFilter = ref('published')
+
+// ── 分类导航（application 维度受控词表，2026-10-26 P0）───────────────────
+// 14,121 条协议此前零导航，用户除了搜索无法探索。facet 数据早已存在
+// （18 个 application 值覆盖 89.2%），这里只是把它暴露成 chip。
+// ⚠️ 一个协议可挂多个分类 ⇒ 各 chip 数字之和 > 去重覆盖数，UI 上必须说明，
+//    否则会被当成"数字对不上"（首页/列表计数已经踩过两次同类坑）。
+const facets = ref([])
+const facetMeta = ref(null)
+const activeFacet = ref('')
+
+async function loadFacets() {
+  try {
+    const res = await getProtocolFacets()
+    const payload = res.data ?? res
+    facets.value = Array.isArray(payload) ? payload : (payload.data || [])
+    facetMeta.value = res.meta ?? null
+  } catch {
+    facets.value = []   // 导航加载失败不应阻断列表
+  }
+}
+
+function selectFacet(slug) {
+  activeFacet.value = activeFacet.value === slug ? '' : slug   // 再点一次取消
+  currentPage.value = 1
+  store.fetchProtocols(buildParams())
+}
 
 const filters = [
   { key: 'all', label: 'All Protocols' },
@@ -35,10 +62,12 @@ function buildParams(extra = {}) {
     if (activeFilter.value !== 'all') p.status = activeFilter.value
   }
   // 'published'：什么都不传 —— 后端默认只返回公开态
+  if (activeFacet.value) p.facet = activeFacet.value
   return p
 }
 
 onMounted(() => {
+  loadFacets()
   store.fetchProtocols(buildParams())
 })
 
@@ -88,6 +117,34 @@ const resultCount = computed(() => store.total || store.protocols.length)
         />
         <AppButton variant="primary" @click="handleSearch">Search</AppButton>
       </div>
+      <!-- ── 分类导航（application 维度）───────────────────────────────
+           给**所有访客**看的业务维度导航，不是内部状态。
+           此前 14,121 条协议零导航，用户只能靠搜索。
+           ⚠️ 一个协议可属于多个研究领域 ⇒ 各数字之和 > 总数（下方已说明）。 -->
+      <div v-if="facets.length" class="facet-nav">
+        <button
+          class="facet-chip"
+          :class="{ active: !activeFacet }"
+          @click="selectFacet('')"
+        >
+          全部领域
+        </button>
+        <button
+          v-for="f in facets"
+          :key="f.slug"
+          class="facet-chip"
+          :class="{ active: activeFacet === f.slug }"
+          @click="selectFacet(f.slug)"
+        >
+          {{ f.value }}
+          <span class="facet-count">{{ f.count }}</span>
+        </button>
+      </div>
+      <p v-if="facets.length" class="facet-note">
+        一个协议可能属于多个研究领域，因此各分类数字之和大于协议总数
+      </p>
+
+
       <!-- ★ 2026-10-26：状态筛选器（All / Published / Draft / Superseded）只对内部人员有意义。
            访客实测：All 与 Published 结果相同（冗余），Draft / Superseded 都返回 0 条
            （看起来像网站坏了）—— 因为后端的 include_unpublished 对非 staff 无效。
@@ -190,6 +247,102 @@ const resultCount = computed(() => store.total || store.protocols.length)
 
 .search-input {
   max-width: 380px;
+}
+
+/* 分类导航 chip —— 与状态筛选器（filter-chips）视觉区分：这是主导航，更突出 */
+.facet-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.facet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+.facet-chip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.facet-chip.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.facet-chip.active .facet-count {
+  background: rgba(255, 255, 255, .25);
+  color: #fff;
+}
+.facet-count {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.facet-note {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: 0 0 14px;
+}
+
+/* 分类导航 chip —— 与状态筛选器（filter-chips）视觉区分：这是主导航，更突出 */
+.facet-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.facet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+.facet-chip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.facet-chip.active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff;
+}
+.facet-chip.active .facet-count {
+  background: rgba(255, 255, 255, .25);
+  color: #fff;
+}
+.facet-count {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.facet-note {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: 0 0 14px;
 }
 
 .filter-chips {

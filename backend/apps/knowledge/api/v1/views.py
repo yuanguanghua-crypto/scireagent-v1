@@ -1,12 +1,13 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Prefetch
+from django.db.models import Count, Prefetch
 from core.mixins import EnvelopeMixin
 from core.permissions import IsAdminOrReadOnly
 from core.jsonld import build_method_jsonld, build_protocol_jsonld
 from apps.knowledge.models import (
-    ResearchGoal, Application, Method, Protocol, Reference, Compatibility
+    ResearchGoal, Application, Method, Protocol, Reference, Compatibility,
+    ProtocolFacet, FacetValue,
 )
 from apps.knowledge.api.v1.serializers import (
     ResearchGoalListSerializer, ResearchGoalDetailSerializer, ApplicationListSerializer, ApplicationDetailSerializer,
@@ -193,12 +194,60 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             statuses = public_statuses(Protocol)
             if statuses:
                 qs = qs.filter(status__in=statuses)
+
+        # ★ 2026-10-26：按 facet 筛选（`?facet=<slug>`）。当前前端只用 application
+        #   维度做一级导航，但参数不限维度 —— 以后加 method 维度不用改这里。
+        #   用 slug 而不是 value：value 是英文短语带空格，URL 里要编码，slug 是干净的。
+        facet_slug = (self.request.query_params.get('facet') or '').strip()
+        if facet_slug:
+            qs = qs.filter(protocol_facets__facet__slug=facet_slug).distinct()
         return qs
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return ProtocolDetailSerializer
         return ProtocolListSerializer
+
+    @action(detail=False, methods=['get'], url_path='facets')
+    def facets(self, request):
+        """GET /api/v1/protocols/facets/?facet_type=application
+
+        返回该维度下每个受控词表值各挂了**多少条 published protocol**，
+        供前端渲染分类导航（chip 上的数字）。
+
+        ⚠️ 数字语义：这是"该分类下的协议数"，而**一个协议可挂多个分类**
+            ⇒ 各分类之和 > 去重后的协议总数（当前 18 个 application 覆盖
+            12,598 条不重复协议，但计数之和会更大）。这不是 bug，前端要
+            明确告知用户，否则会被当成"数字对不上"。
+        """
+        type_ = (request.query_params.get('facet_type') or 'application').strip()
+        if type_ not in dict(FacetValue.FacetType.choices):
+            return Response(
+                {'detail': f'Unknown facet_type: {type_}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        rows = (
+            ProtocolFacet.objects
+            .filter(facet__facet_type=type_, protocol__status='published')
+            .values('facet__slug', 'facet__value')
+            .annotate(n=Count('protocol', distinct=True))
+            .order_by('-n')
+        )
+        data = [
+            {'slug': r['facet__slug'], 'value': r['facet__value'], 'count': r['n']}
+            for r in rows
+        ]
+        # 顺带给出去重后的覆盖总数，让前端能说清"12,598/14,121 已分类"这件事
+        covered = (
+            ProtocolFacet.objects
+            .filter(facet__facet_type=type_, protocol__status='published')
+            .values('protocol').distinct().count()
+        )
+        return self.success_response(data, meta={
+            'facet_type': type_,
+            'covered_protocols': covered,
+            'note': '一个协议可属于多个分类，故各分类计数之和大于 covered_protocols',
+        })
 
     @action(detail=True, methods=['get'], url_path='json-ld')
     def json_ld(self, request, pk=None):
