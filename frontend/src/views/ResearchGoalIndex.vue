@@ -14,23 +14,12 @@ const store = useResearchGoalsStore()
 // 支持 ?tab=class 查询参数定位聚合 Tab（从收敛类详情页返回时使用）
 const activeTab = ref(route.query.tab === 'class' ? 'class' : 'all')
 
-const statusOptions = [
-  { label: 'All', value: '' },
-  { label: 'Active', value: 'active' },
-  { label: 'Draft', value: 'draft' },
-  { label: 'Completed', value: 'completed' },
-]
-
 onMounted(() => {
   store.fetchGoals()
 })
 
 function handleSearch(value) {
   store.setFilters({ search: value })
-}
-
-function handleStatusChange(value) {
-  store.setFilters({ status: value })
 }
 
 function handleRowClick(row) {
@@ -62,6 +51,10 @@ watch(
           Track and manage your research objectives and milestones.
         </p>
       </div>
+      <!-- ★ 2026-10-26：补上总数徽标。此前本页顶部没有任何计数，
+           首页卡片写 11036、点进来却看不到数字（只有翻到页底的 pagination
+           显示 Total，且仅在总页数 > 1 时才渲染）。 -->
+      <span class="result-badge">{{ store.pagination.total }} items</span>
     </div>
 
     <div class="filter-bar">
@@ -77,23 +70,13 @@ watch(
         </template>
       </el-input>
 
-      <!-- ★ 2026-10-21 修 D7（critical）：EP 的 `el-select` 不把 id 透传到内部
-           `<input role="combobox">`，只认 `aria-label` ⇒ 此前 axe 报 `label` 级 critical -->
-      <el-select
-        v-model="store.filters.status"
-        placeholder="Status"
-        clearable
-        class="status-select"
-        aria-label="Filter research goals by status"
-        @change="handleStatusChange"
-      >
-        <el-option
-          v-for="opt in statusOptions"
-          :key="opt.value"
-          :label="opt.label"
-          :value="opt.value"
-        />
-      </el-select>
+      <!-- ★ 2026-10-26 删除 status 下拉（用户拍板）。
+           它从来就没生效过：ResearchGoalViewSet 没配 filterset_fields，
+           `?status=` 被 DjangoFilterBackend 直接丢弃 —— 实测匿名传
+           active/draft/archived 全部返回 11036，选了等于没选。
+           而且选项里的 `completed` 不是任何模型的合法状态
+           （PublicationStatus 只有 draft/published/superseded/archived）。
+           留着只会让人以为能筛。要恢复必须先在后端加 filterset_fields。 -->
     </div>
 
     <div v-if="store.loading && !store.goals.length" class="loading-state">
@@ -214,9 +197,6 @@ watch(
   max-width: 320px;
 }
 
-.status-select {
-  width: 150px;
-}
 
 .goals-table-card {
   background: var(--color-surface);

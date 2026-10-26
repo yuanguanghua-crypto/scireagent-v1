@@ -62,7 +62,10 @@ watch(
           <h1 class="page-title">Applications</h1>
           <p class="page-subtitle">Browse scientific applications and their associated reagents and methods.</p>
         </div>
-        <span class="result-badge">{{ store.applications.length }} items</span>
+        <!-- ★ 2026-10-26：改为显示**总数**。原先是 store.applications.length（当前页数组，
+             固定 20 条），与首页卡片写的 28564 直接矛盾。统一用 pagination.total，
+             与 Methods / Protocols / Research Goals 三页口径一致。 -->
+        <span class="result-badge">{{ store.pagination.total }} items</span>
       </div>
       <div class="filter-bar">
         <el-input
