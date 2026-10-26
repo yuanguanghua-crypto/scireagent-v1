@@ -18,7 +18,57 @@ from apps.knowledge.api.v1.fixture_visibility import apply_public_visibility
 from apps.knowledge.api.v1.filters import ApplicationFilter
 
 
-class ResearchGoalViewSet(EnvelopeMixin, viewsets.ModelViewSet):
+# 测试夹具命名前缀 —— 与 `manage.py mark_test_fixtures` 的 DEFAULT_PREFIX 保持同一份约定。
+# 任何以 `__` 开头的名称都是测试用的临时实体（`__e2e_goals_<ts>__`、`__curl_test_goal__`）。
+TEST_FIXTURE_NAME_PREFIX = '__'
+
+
+class AutoTagTestFixtureMixin:
+    """API 创建/更新时，按名称前缀自动把 `is_test_fixture` 置 True。
+
+    ## 为什么需要它
+
+    2026-10-26 线上事故的根因链：E2E 通过**生产 API** 建了 9 条 `__e2e_goals_*`，
+    而当时唯一的标记手段是**事后**跑 `mark_test_fixtures` 命令。一旦忘了跑，
+    脏数据就以 `is_test_fixture=False` 的身份混进正常数据，只能靠每个查询自己
+    记得调 `.public()` 过滤 —— 首页就漏了一处，结果测试垃圾占了首屏。
+
+    改为**写入时就标记**：脏数据从诞生那一刻起就是脏的，不再依赖谁记得跑命令，
+    也不再依赖每个查询都写对过滤条件。
+
+    ## 为什么放在 ViewSet 而不是 model.save()
+
+    1. 只覆盖 API 写入路径，不污染导入命令 / 数据修复脚本 / factory。
+    2. `apps/knowledge/tests/test_test_fixture_isolation.py` 明确依赖
+       「factory 创建时 `is_test_fixture` 仍为 False，须跑 mark 命令才变 True」
+       这一前提 —— 改 model 层会让那个契约失效。
+
+    ## 只判 `name`，不看 status
+
+    因为 status 靠不住：现网曾有一批脏实体恰好是 `draft`，靠 status 侥幸挡住了
+    列表端点，但 search 系列端点根本没有 status 过滤。名称前缀是唯一稳定信号。
+    """
+
+    def perform_create(self, serializer):
+        serializer.save(**self._fixture_kwargs(serializer))
+
+    def perform_update(self, serializer):
+        serializer.save(**self._fixture_kwargs(serializer))
+
+    @staticmethod
+    def _fixture_kwargs(serializer):
+        name = serializer.validated_data.get('name')
+        if isinstance(name, str) and name.startswith(TEST_FIXTURE_NAME_PREFIX):
+            # 只往"真"的方向标：真实实体改名为 `__` 开头也算测试数据；
+            # 但把测试实体改名成正常名字时，**不自动取消标记** ——
+            # 取消标记是人工判断（可能还有关联数据挂在上面），不该由一次改名决定。
+            if not serializer.instance or not serializer.instance.is_test_fixture:
+                return {'is_test_fixture': True}
+        return {}
+
+
+
+class ResearchGoalViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSet):
     queryset = selectors.get_research_goals_with_applications()
     serializer_class = ResearchGoalListSerializer
     permission_classes = [IsAdminOrReadOnly]
@@ -45,7 +95,7 @@ class ResearchGoalViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         )
 
 
-class ApplicationViewSet(EnvelopeMixin, viewsets.ModelViewSet):
+class ApplicationViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSet):
     # #P0-1：prefetch M2M 反向（research_goal_collections，按 id 升序）替代 FK
     # select_related，与 API 读取路径（M2M）一致，避免 N+1 且保证读序稳定。
     _rg_prefetch = Prefetch(
@@ -73,7 +123,7 @@ class ApplicationViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         return ApplicationListSerializer
 
 
-class MethodViewSet(EnvelopeMixin, viewsets.ModelViewSet):
+class MethodViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Method.objects.select_related('application').all()
     serializer_class = MethodListSerializer
     permission_classes = [IsAdminOrReadOnly]
