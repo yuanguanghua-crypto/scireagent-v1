@@ -6,6 +6,17 @@ const props = defineProps({
     type: Object,
     required: true,
   },
+  /**
+   * 是否显示 status 标签（默认关）。
+   *
+   * ★ 2026-10-26：访客看到的协议全是 published（draft/superseded 已被后端过滤），
+   *   这个标签对访客**零区分度**，还白占一个视觉位置。只有 staff 在按状态筛选
+   *   （比如看 Draft）时才需要它来区分。所以改为默认不显示、由调用方按身份开启。
+   */
+  showStatus: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const emit = defineEmits(['click'])
@@ -35,7 +46,7 @@ function formatDuration(seconds) {
     <div class="card-accent" aria-hidden="true"></div>
     <div class="card-header">
       <span class="card-version">v{{ protocol.version }}</span>
-      <el-tag :type="getStatusType(protocol.status)" size="small">
+      <el-tag v-if="showStatus" :type="getStatusType(protocol.status)" size="small">
         {{ protocol.status }}
       </el-tag>
     </div>

@@ -251,6 +251,7 @@ const resultCount = computed(() => store.total || store.protocols.length)
           v-for="protocol in store.protocols"
           :key="protocol.id"
           :protocol="protocol"
+          :show-status="auth.isStaff"
           @click="goToDetail(protocol)"
         />
       </div>
