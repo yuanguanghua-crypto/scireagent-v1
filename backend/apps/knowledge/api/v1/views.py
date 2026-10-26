@@ -243,10 +243,15 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             .filter(facet__facet_type=type_, protocol__status='published')
             .values('protocol').distinct().count()
         )
+        total_published = Protocol.objects.filter(status='published').count()
         return self.success_response(data, meta={
             'facet_type': type_,
-            'covered_protocols': covered,
-            'note': '一个协议可属于多个分类，故各分类计数之和大于 covered_protocols',
+            'covered_protocols': covered,                      # 已归类的去重协议数
+            'unclassified': total_published - covered,         # 未挂该维度 facet 的
+            'total_published': total_published,
+            # ⚠️ 这句必须对"多对多"和"1:1"两种数据形态都成立 ——
+            #    不要断言各分类计数之和与 covered_protocols 的关系（那取决于基数）。
+            'note': f'{covered} 条协议已归入该维度分类，另有 {total_published - covered} 条未分类',
         })
 
     @action(detail=True, methods=['get'], url_path='json-ld')

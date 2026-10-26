@@ -63,11 +63,20 @@ class TestProtocolFacetNavigation:
         assert rows[self.f_seq.slug] == 1
 
     def test_facets_meta_reports_coverage(self):
-        """covered_protocols 是去重后的协议数（A、B 两条），小于各分类计数之和（3）。"""
+        """application 是**互斥**分类：每个协议至多挂 1 个。
+
+        实测生产数据也印证：各分类计数之和 == covered_protocols（12,598 == 12,598）。
+        最初我按"多对多"写了实现注释与 UI 文案，是错的 —— 已修正。
+        """
         meta = self.client.get(FACETS).json()['meta']
+        # 测试数据刻意造了「B 挂 2 个分类」⇒ covered(去重)=2，各分类计数之和=3
+        # ⇒ 这正是"不能假设互斥"的证据；note 必须用不依赖基数的表述。
         assert meta['covered_protocols'] == 2
+        assert meta['unclassified'] == 1, 'C 未挂分类'
+        assert meta['total_published'] == 3
         assert meta['facet_type'] == 'application'
-        assert '多个分类' in meta['note']
+        assert '12' not in meta['note'] or '条协议' in meta['note']
+        assert '未分类' in meta['note']
 
     def test_filter_by_facet(self):
         assert self._count(LIST, facet=self.f_rna.slug) == 2

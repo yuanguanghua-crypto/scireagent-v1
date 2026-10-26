@@ -140,8 +140,13 @@ const resultCount = computed(() => store.total || store.protocols.length)
           <span class="facet-count">{{ f.count }}</span>
         </button>
       </div>
-      <p v-if="facets.length" class="facet-note">
-        一个协议可能属于多个研究领域，因此各分类数字之和大于协议总数
+      <!-- ★ 2026-10-26 实测修正：application 维度是**互斥**分类（每协议至多 1 个），
+           各分类计数之和 == covered_protocols。最初我按"多对多"写了文案，是错的。
+           真正要说清的是「已归类 vs 未分类」的差额。 -->
+      <p v-if="facets.length && facetMeta" class="facet-note">
+        已归入 {{ facetMeta.covered_protocols?.toLocaleString() }} 条研究领域分类<template
+          v-if="facetMeta.unclassified > 0"
+        >，另有 {{ facetMeta.unclassified.toLocaleString() }} 条未分类（可从「全部领域」查看）</template>
       </p>
 
 
