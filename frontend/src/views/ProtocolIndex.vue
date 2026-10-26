@@ -14,6 +14,9 @@ const searchQuery = ref('')
 const currentPage = ref(1)
 // ★ 2026-10-26（方案 B）：默认 published —— 对齐首页 "Browse 14121" 的数字。
 //   此前默认 'all' 且 handleFilter 没把筛选传给 API ⇒ staff 看到 14,128（含 7 draft）。
+// 特殊筛选值：未挂 application facet 的协议（后端用 `unclassified=1`）
+const UNCLASSIFIED = 'unclassified'
+
 const activeFilter = ref('published')
 
 // ── 分类导航（application 维度受控词表，2026-10-26 P0）───────────────────
@@ -23,7 +26,12 @@ const activeFilter = ref('published')
 //    否则会被当成"数字对不上"（首页/列表计数已经踩过两次同类坑）。
 const facets = ref([])
 const facetMeta = ref(null)
-const activeFacet = ref('')
+const activeFacet = ref('')        // application slug，或特殊值 'unclassified'
+
+// ── 二级筛选：选中领域后，按该领域内的 method 分布再筛 ──────────────
+// 「未分类」不显示二级（这些协议可能挂了 method，但不存在"未分类领域内的方法分布"）。
+const methodFacets = ref([])
+const activeMethod = ref('')
 
 async function loadFacets() {
   try {
@@ -38,6 +46,28 @@ async function loadFacets() {
 
 function selectFacet(slug) {
   activeFacet.value = activeFacet.value === slug ? '' : slug   // 再点一次取消
+  activeMethod.value = ''          // 切领域必须重置二级，否则会残留上领域的 method
+  methodFacets.value = []
+  currentPage.value = 1
+  if (activeFacet.value && activeFacet.value !== UNCLASSIFIED) {
+    loadMethodFacets(activeFacet.value)
+  }
+  store.fetchProtocols(buildParams())
+}
+
+/** 加载某领域内的 method 分布（`within=<app-slug>`）。失败不影响列表。 */
+async function loadMethodFacets(appSlug) {
+  try {
+    const res = await getProtocolFacets({ facet_type: 'method', within: appSlug })
+    const payload = res.data ?? res
+    methodFacets.value = Array.isArray(payload) ? payload : (payload.data || [])
+  } catch {
+    methodFacets.value = []
+  }
+}
+
+function selectMethod(slug) {
+  activeMethod.value = activeMethod.value === slug ? '' : slug
   currentPage.value = 1
   store.fetchProtocols(buildParams())
 }
@@ -62,7 +92,12 @@ function buildParams(extra = {}) {
     if (activeFilter.value !== 'all') p.status = activeFilter.value
   }
   // 'published'：什么都不传 —— 后端默认只返回公开态
-  if (activeFacet.value) p.facet = activeFacet.value
+  if (activeFacet.value === UNCLASSIFIED) {
+    p.unclassified = 1
+  } else if (activeFacet.value) {
+    p.facet = activeFacet.value
+  }
+  if (activeMethod.value) p.facet_method = activeMethod.value
   return p
 }
 
@@ -138,6 +173,37 @@ const resultCount = computed(() => store.total || store.protocols.length)
         >
           {{ f.value }}
           <span class="facet-count">{{ f.count }}</span>
+        </button>
+        <!-- 未分类：这些协议没挂 application facet，只能从这里进入 -->
+        <button
+          v-if="facetMeta?.unclassified > 0"
+          class="facet-chip facet-chip--muted"
+          :class="{ active: activeFacet === UNCLASSIFIED }"
+          @click="selectFacet(UNCLASSIFIED)"
+        >
+          未分类
+          <span class="facet-count">{{ facetMeta.unclassified.toLocaleString() }}</span>
+        </button>
+      </div>
+
+      <!-- 二级：选定领域内的 method 分布。未分类不显示（无意义）。 -->
+      <div v-if="methodFacets.length" class="facet-nav facet-nav--sub">
+        <button
+          class="facet-chip facet-chip--sm"
+          :class="{ active: !activeMethod }"
+          @click="selectMethod('')"
+        >
+          全部方法
+        </button>
+        <button
+          v-for="m in methodFacets"
+          :key="m.slug"
+          class="facet-chip facet-chip--sm"
+          :class="{ active: activeMethod === m.slug }"
+          @click="selectMethod(m.slug)"
+        >
+          {{ m.value }}
+          <span class="facet-count">{{ m.count }}</span>
         </button>
       </div>
       <!-- ★ 2026-10-26 实测修正：application 维度是**互斥**分类（每协议至多 1 个），
@@ -296,6 +362,23 @@ const resultCount = computed(() => store.total || store.protocols.length)
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
+/* 二级筛选（method）：视觉上更轻，避免与一级抢注意力 */
+.facet-nav--sub {
+  margin-top: -4px;
+  padding-left: 2px;
+}
+.facet-chip--sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.facet-chip--muted {
+  border-style: dashed;
+  color: var(--color-text-secondary);
+}
+.facet-chip--muted.active {
+  border-style: solid;
+}
+
 .facet-note {
   font-size: 12px;
   color: var(--color-text-secondary);

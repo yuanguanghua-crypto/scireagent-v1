@@ -195,12 +195,25 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             if statuses:
                 qs = qs.filter(status__in=statuses)
 
-        # ★ 2026-10-26：按 facet 筛选（`?facet=<slug>`）。当前前端只用 application
-        #   维度做一级导航，但参数不限维度 —— 以后加 method 维度不用改这里。
-        #   用 slug 而不是 value：value 是英文短语带空格，URL 里要编码，slug 是干净的。
-        facet_slug = (self.request.query_params.get('facet') or '').strip()
+        # ★ 2026-10-26：facet 筛选。参数不限维度（用 slug 而非 value —— value 是
+        #   带空格的英文短语，URL 要编码；slug 干净）。
+        #   `facet`        —— 一级（前端用 application）
+        #   `facet_method` —— 二级（在选定领域内按方法再筛）
+        #   两者链式 filter 会生成两个独立 JOIN ⇒ 要求同一 protocol 同时满足，
+        #   这正是"该领域下的该方法"的语义。
+        params = self.request.query_params
+        facet_slug = (params.get('facet') or '').strip()
         if facet_slug:
             qs = qs.filter(protocol_facets__facet__slug=facet_slug).distinct()
+
+        facet_method = (params.get('facet_method') or '').strip()
+        if facet_method:
+            qs = qs.filter(protocol_facets__facet__slug=facet_method).distinct()
+
+        # `unclassified=1` —— 未挂 application facet 的协议（当前 1,523 条）。
+        # 用 exclude 而非 filter(isnull)，因为 M2M 需要 NOT EXISTS 语义。
+        if (params.get('unclassified') or '').lower() in ('1', 'true', 'yes'):
+            qs = qs.exclude(protocol_facets__facet__facet_type='application')
         return qs
 
     def get_serializer_class(self):
@@ -226,10 +239,18 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
                 {'detail': f'Unknown facet_type: {type_}'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        base = ProtocolFacet.objects.filter(
+            facet__facet_type=type_, protocol__status='published',
+        )
+        # `within=<application-slug>` —— 只统计该领域内的协议，用于二级筛选。
+        within = (request.query_params.get('within') or '').strip()
+        if within:
+            sub = (ProtocolFacet.objects
+                   .filter(facet__slug=within, protocol__status='published')
+                   .values('protocol'))
+            base = base.filter(protocol__in=sub)
         rows = (
-            ProtocolFacet.objects
-            .filter(facet__facet_type=type_, protocol__status='published')
-            .values('facet__slug', 'facet__value')
+            base.values('facet__slug', 'facet__value')
             .annotate(n=Count('protocol', distinct=True))
             .order_by('-n')
         )
@@ -238,14 +259,17 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             for r in rows
         ]
         # 顺带给出去重后的覆盖总数，让前端能说清"12,598/14,121 已分类"这件事
-        covered = (
-            ProtocolFacet.objects
-            .filter(facet__facet_type=type_, protocol__status='published')
-            .values('protocol').distinct().count()
-        )
-        total_published = Protocol.objects.filter(status='published').count()
+        covered = base.values('protocol').distinct().count()
+        # within 生效时，"总数"应是该领域内的协议数（否则 unclassified 会算成负数）
+        if within:
+            total_published = (ProtocolFacet.objects
+                               .filter(facet__slug=within, protocol__status='published')
+                               .values('protocol').distinct().count())
+        else:
+            total_published = Protocol.objects.filter(status='published').count()
         return self.success_response(data, meta={
             'facet_type': type_,
+            'within': within or None,
             'covered_protocols': covered,                      # 已归类的去重协议数
             'unclassified': total_published - covered,         # 未挂该维度 facet 的
             'total_published': total_published,

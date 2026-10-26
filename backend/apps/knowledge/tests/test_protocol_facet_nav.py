@@ -52,6 +52,11 @@ class TestProtocolFacetNavigation:
         # 草稿也挂一个，用于验证计数不含草稿
         ProtocolFacet.objects.create(protocol=self.p_draft, facet=self.f_rna)
 
+        # method 维度：二级筛选用
+        self.f_pcr = make_facet('PCR / qPCR', slug='method-pcr-qpcr', facet_type='method')
+        ProtocolFacet.objects.create(protocol=self.p_a, facet=self.f_pcr)
+        ProtocolFacet.objects.create(protocol=self.p_b, facet=self.f_pcr)
+
     def _count(self, path, **params):
         d = self.client.get(path, params).json()
         return (d.get('meta') or {}).get('pagination', {}).get('count')
@@ -106,11 +111,49 @@ class TestProtocolFacetNavigation:
         assert self.client.get(FACETS).status_code == 200
         assert self._count(LIST, facet=self.f_rna.slug) == 2
 
+    def test_unclassified_only_returns_untagged(self):
+        """`unclassified=1` 只返回没挂 application facet 的（当前 C 一条）。"""
+        d = self.client.get(LIST, {'unclassified': 1}).json()
+        names = [r['name'] for r in d['data']]
+        assert names == ['Unclassified C']
+        assert (d.get('meta') or {}).get('pagination', {}).get('count') == 1
+
+    def test_unclassified_excludes_draft(self):
+        """草稿挂了分类，不属于未分类；且本来也不在 published 里。"""
+        d = self.client.get(LIST, {'unclassified': 1}).json()
+        assert 'Draft D' not in [r['name'] for r in d['data']]
+
+    def test_method_second_level_filter(self):
+        """一级 application + 二级 method 同时生效。"""
+        assert self._count(LIST, facet=self.f_rna.slug, facet_method=self.f_pcr.slug) == 2
+        # 单独用 method 也应生效（参数不限维度）
+        assert self._count(LIST, facet_method=self.f_pcr.slug) == 2
+
+    def test_method_filter_narrows_result(self):
+        """method 二级筛选必须能缩小范围，而不是原样返回。"""
+        only_rna = self._count(LIST, facet=self.f_rna.slug)
+        with_method = self._count(LIST, facet=self.f_rna.slug, facet_method=self.f_pcr.slug)
+        assert with_method <= only_rna
+
+    def test_facets_within_application(self):
+        """`within` 只统计该领域内的协议 —— method 分布。"""
+        d = self.client.get(FACETS, {'facet_type': 'method', 'within': self.f_rna.slug}).json()
+        rows = {r['slug']: r['count'] for r in d['data']}
+        assert rows.get(self.f_pcr.slug) == 2, 'RNA 领域下挂 PCR 的有 A、B'
+        meta = d['meta']
+        assert meta['within'] == self.f_rna.slug
+        # within 生效时 total_published 应是该领域内的协议数（A、B = 2），
+        # 而不是全站 3 —— 否则 unclassified 会算成负数
+        assert meta['total_published'] == 2
+        assert meta['unclassified'] == 0
+
     def test_facet_isolation(self):
-        """method 维度的 facet 不应污染 application 导航。"""
-        m = make_facet('PCR / qPCR', slug='method-pcr-qpcr', facet_type='method')
-        ProtocolFacet.objects.create(protocol=self.p_a, facet=m)
+        """method 维度的 facet 不应污染 application 导航。
+
+        （setUp 已在 p_a/p_b 上挂好 self.f_pcr，这里直接复用 —— 原先这里自己
+          再 make_facet 同名 slug 会撞 unique 约束。）
+        """
         rows = {r['slug'] for r in self.client.get(FACETS).json()['data']}
-        assert m.slug not in rows
+        assert self.f_pcr.slug not in rows, 'application 导航不应出现 method 词条'
         # 但用 method slug 筛选仍应生效（参数不限维度）
-        assert self._count(LIST, facet=m.slug) == 1
+        assert self._count(LIST, facet=self.f_pcr.slug) == 2
