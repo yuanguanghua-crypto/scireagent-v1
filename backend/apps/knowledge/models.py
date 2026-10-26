@@ -97,6 +97,12 @@ class ResearchGoal(StatusMixin, TimeStampedModel):
         db_table = 'research_goal'
         verbose_name = '研究目标'
         verbose_name_plural = verbose_name
+        # ⚠️ 已知矛盾（2026-10-26 记录，未改）：本排序是**升序**，而 `priority` 字段的
+        #   help_text 写的是「数字越大越靠前」—— 两者语义相反。全站 11,037/11,045 个
+        #   目标 priority 都是默认 0，所以升序会把精心设过优先级的少数几条挤到最后
+        #   （首页曾因此把 9 条 E2E 测试残留顶到首屏，已在 site_views.py 单独修正）。
+        #   这里**故意没改**：convergence_service / summary_generator 等内部查询吃这个
+        #   默认排序，改动会波及与展示无关的逻辑。要统一时须逐处评估后再改。
         ordering = ['priority', 'id']
 
     def __str__(self):

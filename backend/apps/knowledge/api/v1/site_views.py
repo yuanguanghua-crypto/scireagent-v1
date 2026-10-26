@@ -155,8 +155,18 @@ def site_home(request):
     )
 
     # Research goals
+    #
+    # ★ 2026-10-26 修两处缺陷（用户报「首页分类/产品不一致」，实为测试数据上首屏）：
+    #   1. 此前是 `ResearchGoal.objects` —— **漏了 .public()**，而本文件其它所有对外
+    #      查询（Application/Method/Product）都走 .public()。库里 9 条 E2E 残留
+    #      （__e2e_goals_* / __curl_test_goal__，id 34-42）is_test_fixture 已正确标记，
+    #      只是这里没调用过滤 ⇒ 直接占了首页 6 个位置中的 5 个。
+    #   2. 此前 `order_by('priority', 'id')` 是**升序**，而 priority 字段自己写着
+    #      help_text='数字越大越靠前' ⇒ 语义反了。全站 11,045 个 goal 里 11,037 个是
+    #      默认值 0，精心设过优先级的 8 个（id 23-30，priority 5/10）全被挤到最后。
+    #   修后应取到 id 23-28 那 6 个业务目标。
     research_goals = (
-        ResearchGoal.objects
+        ResearchGoal.objects.public()
         .annotate(
             applications_count=Count(
                 'applications',
@@ -169,7 +179,7 @@ def site_home(request):
                 distinct=True
             ),
         )
-        .order_by('priority', 'id')[:6]
+        .order_by('-priority', 'id')[:6]
     )
 
     # References (recent)
