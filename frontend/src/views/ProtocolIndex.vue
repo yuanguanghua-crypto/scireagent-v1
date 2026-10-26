@@ -9,7 +9,9 @@ const router = useRouter()
 const store = useProtocolsStore()
 const searchQuery = ref('')
 const currentPage = ref(1)
-const activeFilter = ref('all')
+// ★ 2026-10-26（方案 B）：默认 published —— 对齐首页 "Browse 14121" 的数字。
+//   此前默认 'all' 且 handleFilter 没把筛选传给 API ⇒ staff 看到 14,128（含 7 draft）。
+const activeFilter = ref('published')
 
 const filters = [
   { key: 'all', label: 'All Protocols' },
@@ -18,24 +20,40 @@ const filters = [
   { key: 'superseded', label: 'Superseded' },
 ]
 
+/**
+ * 把筛选状态翻译成 API 参数（同 MethodIndex 的处理，见那里的详细注释）：
+ * 看非公开态必须同时带 `include_unpublished=1`，否则会被
+ * `apply_public_visibility` 先筛成公开态、再按 status 筛成空。
+ * 该参数对非 staff 无效，所以匿名访客行为不变。
+ */
+function buildParams(extra = {}) {
+  const p = { search: searchQuery.value, ...extra }
+  if (activeFilter.value !== 'published') {
+    p.include_unpublished = 1
+    if (activeFilter.value !== 'all') p.status = activeFilter.value
+  }
+  // 'published'：什么都不传 —— 后端默认只返回公开态
+  return p
+}
+
 onMounted(() => {
-  store.fetchProtocols()
+  store.fetchProtocols(buildParams())
 })
 
 function handleSearch() {
   currentPage.value = 1
-  store.fetchProtocols({ search: searchQuery.value })
+  store.fetchProtocols(buildParams())
 }
 
 function handlePageChange(page) {
   currentPage.value = page
-  store.fetchProtocols({ page, search: searchQuery.value })
+  store.fetchProtocols(buildParams({ page }))
 }
 
 function handleFilter(filter) {
   activeFilter.value = filter
   currentPage.value = 1
-  store.fetchProtocols({ search: searchQuery.value })
+  store.fetchProtocols(buildParams())
 }
 
 function goToDetail(protocol) {

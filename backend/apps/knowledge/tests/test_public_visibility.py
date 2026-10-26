@@ -123,9 +123,26 @@ class PublicVisibilityProtocolViewSetTest(TestCase):
         self.assertNotIn(self.draft.name, names)
         self.assertNotIn(self.superseded.name, names)
 
-    def test_list_staff_sees_all(self):
+    def test_list_staff_default_only_published(self):
+        """★ 2026-10-26（方案 B）契约变更：staff 在**列表**上也默认只看公开态。
+
+        原用例名 `test_list_staff_sees_all` 断言 staff 能看到 draft/superseded。
+        该行为已废止 —— 它导致首页 "Browse 14121" 与列表 14,128 矛盾。
+        现在默认与访客同口径，显式 ?include_unpublished=1 才看全量（见下一条）。
+        """
         self.client.force_authenticate(user=self.staff)
         names = [r['name'] for r in self.client.get('/api/v1/protocols/').json()['data']]
+        self.assertIn(self.published.name, names)
+        self.assertNotIn(self.draft.name, names, '草稿不应出现在默认列表')
+        self.assertNotIn(self.superseded.name, names, '已废弃不应出现在默认列表')
+
+    def test_list_staff_opt_in_sees_all(self):
+        """管理视角必须显式 opt-in —— 例外动作不能是默认行为。"""
+        self.client.force_authenticate(user=self.staff)
+        names = [
+            r['name'] for r in
+            self.client.get('/api/v1/protocols/', {'include_unpublished': 1}).json()['data']
+        ]
         self.assertIn(self.published.name, names)
         self.assertIn(self.draft.name, names)
         self.assertIn(self.superseded.name, names)

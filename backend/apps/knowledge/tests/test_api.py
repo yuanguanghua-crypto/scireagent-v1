@@ -390,19 +390,24 @@ class ApplicationM2MProtocolUpstreamTest(TestCase):
 
 
 class MethodAPITest(TestCase):
+    """Method 列表/详情 API。
+
+    ⚠️ 2026-10-26（方案 B）：列表端点对 staff **也**默认只返回公开态（active），
+       与首页 "Browse 93" 对齐。所以本类的列表类用例必须造 `status='active'` 的
+       数据 —— factory 的默认 status 是 draft（模型默认值），会被列表过滤掉。
+       详情类用例不受影响（详情不过滤 status，后台要能打开草稿）。"""
     def setUp(self):
         self.client = APIClient()
-        # 同 ResearchGoalAPITest：以 staff 身份查看全量数据。
         self.client.force_authenticate(user=UserFactory(is_staff=True))
 
     def test_list(self):
-        MethodFactory.create_batch(2)
+        MethodFactory.create_batch(2, status='active')
         resp = self.client.get('/api/v1/methods/')
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(len(resp.json()['data']), 2)
 
     def test_list_fields(self):
-        MethodFactory()
+        MethodFactory(status='active')
         resp = self.client.get('/api/v1/methods/')
         data = resp.json()['data'][0]
         self.assertIn('id', data)
@@ -438,8 +443,8 @@ class MethodAPITest(TestCase):
 
     def test_filter_by_application_id(self):
         app = ApplicationFactory()
-        MethodFactory(application=app)
-        MethodFactory()  # different app
+        MethodFactory(application=app, status='active')
+        MethodFactory(status='active')  # different app
         resp = self.client.get(f'/api/v1/methods/?application_id={app.id}')
         self.assertEqual(len(resp.json()['data']), 1)
 
@@ -450,8 +455,8 @@ class MethodAPITest(TestCase):
         self.assertEqual(len(resp.json()['data']), 1)
 
     def test_search(self):
-        MethodFactory(name='Sanger Sequencing')
-        MethodFactory(name='PCR')
+        MethodFactory(name='Sanger Sequencing', status='active')
+        MethodFactory(name='PCR', status='active')
         resp = self.client.get('/api/v1/methods/?search=Sanger')
         self.assertEqual(len(resp.json()['data']), 1)
 

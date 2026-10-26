@@ -178,7 +178,8 @@ class MethodPurposeWriteTest(TestCase):
     def test_list_payload_does_not_include_purpose(self):
         """★ 公开列表**不得**新增 `purpose`：写路径走 Detail 已能让它可读可写，
         列表保持轻量（避免公开载荷膨胀 —— 全库 67k 条 method，purpose 是正文字段）。"""
-        MethodFactory()
+        # 列表端点默认只返回 active（2026-10-26 方案 B），factory 默认是 draft 会被滤掉
+        MethodFactory(status='active')
         resp = self.client.get('/api/v1/methods/', {'page_size': 5})
         self.assertEqual(resp.status_code, 200, resp.content[:300])
         rows = resp.json()['data']

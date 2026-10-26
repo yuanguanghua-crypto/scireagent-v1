@@ -14,7 +14,9 @@ from apps.knowledge.api.v1.serializers import (
     ReferenceSerializer, CompatibilitySerializer,
 )
 from apps.knowledge import selectors
-from apps.knowledge.api.v1.fixture_visibility import apply_public_visibility
+from apps.knowledge.api.v1.fixture_visibility import (
+    apply_public_visibility, include_unpublished, public_statuses,
+)
 from apps.knowledge.api.v1.filters import ApplicationFilter
 
 
@@ -132,12 +134,24 @@ class MethodViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSe
     filterset_fields = ['application_id', 'status', 'origin']
 
     def get_queryset(self):
-        """公开端点仅返回已发布(ACTIVE)记录；staff 可访问全量。
-        S1：测试夹具行默认对所有身份不可见。P0：统一走 apply_public_visibility。"""
-        return apply_public_visibility(
+        """公开端点仅返回已发布(ACTIVE)记录。
+        S1：测试夹具行默认对所有身份不可见。P0：统一走 apply_public_visibility。
+
+        ★ 2026-10-26（方案 B）：**仅列表端点**让 staff 也默认只看公开态。
+          此前 staff 在 list 上拿到 47,927（含 47,834 个 draft），而首页统计写死
+          active 只显示 93 ⇒ 同一个用户点 "Browse 93 →" 进去看到 "Total 47927"。
+          详情/写操作**不过滤**：后台要能打开草稿详情，否则管理功能断裂
+          （实测在共用函数里统一改会挂掉 40+ 用例）。显式 ?include_unpublished=1 看全量。
+        """
+        qs = apply_public_visibility(
             Method.objects.select_related('application').all(),
             Method, self.request,
         )
+        if self.action == 'list' and not include_unpublished(self.request):
+            statuses = public_statuses(Method)
+            if statuses:
+                qs = qs.filter(status__in=statuses)
+        return qs
 
     def get_serializer_class(self):
         # ★ 2026-09-24：**写路径也走 Detail**，对齐 `ResearchGoalViewSet`（`views.py:28-33`）的既有正确模式。
@@ -164,12 +178,22 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     filterset_fields = ['status']
 
     def get_queryset(self):
-        """P0：公开端点仅返回已发布(PUBLISHED)记录；staff 可访问全量。
-        （原实现无任何 get_queryset 过滤，属结构性泄漏点。）"""
-        return apply_public_visibility(
+        """P0：公开端点仅返回已发布(PUBLISHED)记录。
+        （原实现无任何 get_queryset 过滤，属结构性泄漏点。）
+
+        ★ 2026-10-26（方案 B）：**仅列表端点**让 staff 也默认只看公开态，
+          与首页 "Browse 14121" 对齐（此前 staff 看到 14,128，多出 7 条 draft）。
+          详情/写操作不过滤，?include_unpublished=1 看全量。
+        """
+        qs = apply_public_visibility(
             Protocol.objects.prefetch_related('steps').all(),
             Protocol, self.request,
         )
+        if self.action == 'list' and not include_unpublished(self.request):
+            statuses = public_statuses(Protocol)
+            if statuses:
+                qs = qs.filter(status__in=statuses)
+        return qs
 
     def get_serializer_class(self):
         if self.action == 'retrieve':

@@ -9,7 +9,10 @@ const router = useRouter()
 const store = useMethodsStore()
 const searchQuery = ref('')
 const currentPage = ref(1)
-const activeFilter = ref('all')
+// ★ 2026-10-26（方案 B）：默认 active —— 对齐首页 "Browse 93" 的数字。
+//   此前默认 'all' 且 handleFilter 根本没把筛选传给 API ⇒ staff 进来看到 47,927
+//   （含 47,834 个只有名字、零描述的 draft），与首页 93 矛盾。
+const activeFilter = ref('active')
 
 const filters = [
   { key: 'all', label: 'All Methods' },
@@ -17,24 +20,45 @@ const filters = [
   { key: 'draft', label: 'Draft' },
 ]
 
+/**
+ * 把筛选状态翻译成 API 参数。
+ *
+ * 注意后端两段过滤的顺序：`apply_public_visibility` 先按 status 公开态过滤，
+ * DjangoFilterBackend 的 `?status=` 再过滤一次。所以看非公开态必须**同时**
+ * 带 `include_unpublished=1`，否则会被前一段先筛成 active、再按 draft 筛成空。
+ * `include_unpublished` 对非 staff 一律无效（后端先判身份），所以匿名访客
+ * 点 "All" / "Draft" 仍只会看到 active，不需要前端额外判断身份。
+ */
+function buildParams(extra = {}) {
+  const p = { search: searchQuery.value, ...extra }
+  if (activeFilter.value === 'all') {
+    p.include_unpublished = 1
+  } else if (activeFilter.value === 'draft') {
+    p.include_unpublished = 1
+    p.status = 'draft'
+  }
+  // 'active'：什么都不传 —— 后端默认只返回公开态
+  return p
+}
+
 onMounted(() => {
-  store.fetchMethods()
+  store.fetchMethods(buildParams())
 })
 
 function handleSearch() {
   currentPage.value = 1
-  store.fetchMethods({ search: searchQuery.value })
+  store.fetchMethods(buildParams())
 }
 
 function handlePageChange(page) {
   currentPage.value = page
-  store.fetchMethods({ page, search: searchQuery.value })
+  store.fetchMethods(buildParams({ page }))
 }
 
 function handleFilter(filter) {
   activeFilter.value = filter
   currentPage.value = 1
-  store.fetchMethods({ search: searchQuery.value })
+  store.fetchMethods(buildParams())
 }
 
 function goToDetail(method) {
