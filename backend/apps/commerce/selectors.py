@@ -73,21 +73,31 @@ def build_product_class_tree():
     return desc_map, l1_slug_to_id
 
 
+# 产品搜索覆盖的字段。★ 必须与 `ProductViewSet.search_fields` 保持一致 ——
+#   后者是给 DRF `SearchFilter` 看的，但 `ProductViewSet.get_queryset()` 实际走本函数，
+#   所以**真正生效的是这份清单**。两处曾经不一致：
+#     · 2026-10-28 修：`catalog_no` 与 `formula` 只写在 search_fields 里、这里漏了
+#       ⇒ 按货号搜不到产品（实测 `search=SC8023` 返回 0 条，而该产品确实存在）。
+#       货号恰恰是采购/报价/对账时最常用的检索方式，影响 `/po/submit` 明细行搜索、
+#       前台搜索框等所有 `GET /products/?search=` 的调用方。
+PRODUCT_SEARCH_FIELDS = ['name', 'cas', 'smiles', 'inchi', 'catalog_no', 'formula']
+
+
 def filter_products(query: str = '', filters: dict = None, base_qs: QuerySet = None) -> QuerySet:
     """筛选/搜索产品
 
     base_qs：可选的基础 QuerySet。传入时在其之上叠加搜索/过滤，避免覆盖调用方
     已施加的可见性约束（例如视图 queryset 里的 exclude(archived=True)）。
     不传时保持原行为（从全表起）。
+
+    搜索字段见 `PRODUCT_SEARCH_FIELDS`（全部 `icontains` 模糊匹配）。
     """
     qs = base_qs if base_qs is not None else Product.objects.select_related('product_class').all()
     if query:
-        qs = qs.filter(
-            Q(name__icontains=query) |
-            Q(cas__icontains=query) |
-            Q(smiles__icontains=query) |
-            Q(inchi__icontains=query)
-        )
+        cond = Q()
+        for f in PRODUCT_SEARCH_FIELDS:
+            cond |= Q(**{f'{f}__icontains': query})
+        qs = qs.filter(cond)
     if filters:
         if 'product_class_id' in filters:
             pcid = filters['product_class_id']
