@@ -69,28 +69,42 @@ function addItem() {
     unitPrice: '',
     searchResults: [],
     searching: false,
+    // ★ 2026-10-28：每次搜索/选中自增，用于丢弃"迟到的旧响应"（见 searchProducts）
+    searchSeq: 0,
   })
 }
 
 async function searchProducts(row, q) {
   if (!q || q.length < 2) {
+    row.searchSeq += 1          // 作废进行中的请求
     row.searchResults = []
+    row.searching = false
     return
   }
+  // ★ 2026-10-28 修竞态：搜索是逐次键入触发的异步请求，早先发出的响应可能**晚于**
+  //   用户选中产品才到达，把 `searchResults` 重新写回 ⇒ 下拉框在选中后又弹出来，
+  //   浮在明细行上（生产实测截图可见），且可能误点。
+  //   ⇒ 给每行一个自增序号，只接受"最新一次"的响应；selectProduct 也会自增以作废在途请求。
+  const seq = (row.searchSeq += 1)
   row.searching = true
   try {
     const res = await getProducts({ search: q, page_size: 8 })
+    if (seq !== row.searchSeq) return                 // 有更新的输入或已选中 ⇒ 丢弃
     const payload = res.data || res
     row.searchResults = payload.results || payload.data || payload || []
+  } catch {
+    if (seq === row.searchSeq) row.searchResults = []
   } finally {
-    row.searching = false
+    if (seq === row.searchSeq) row.searching = false
   }
 }
 
 async function selectProduct(row, product) {
   row.productId = product.id
   row.productName = product.name
+  row.searchSeq += 1          // 作废在途搜索，避免选中后下拉又被弹回来
   row.searchResults = []
+  row.searching = false
   try {
     const res = await getProductDetail(product.id)
     const detail = res.data || res
@@ -192,6 +206,27 @@ async function handleSubmit() {
   } finally {
     submitting.value = false
   }
+}
+
+/**
+ * 提交成功后重置成"一张空白新单"。
+ *
+ * ★ 2026-10-28：此前成功后表单原样保留、Submit 按钮仍可点 ⇒ 手滑再点一次就会
+ *   **重复提交同一张 PO**（生产实测：成功横幅出现后整张表单内容与按钮都还在）。
+ *   现在成功后按钮禁用并变文案，另给一个显式入口开新单，避免把用户堵死。
+ */
+function resetForNewPo() {
+  successOrderNo.value = ''
+  shortages.value = []
+  shortageMessage.value = ''
+  items.value = []
+  files.value = []
+  Object.assign(form, {
+    po_number: '', quote_id: '', grant_code: '', shipping_method: '',
+    requested_delivery_date: '', shipping_name: '', shipping_address: '',
+    shipping_phone: '', shipping_email: '', billing_name: '',
+    billing_address: '', notes: '',
+  })
 }
 </script>
 
@@ -373,8 +408,15 @@ async function handleSubmit() {
       </div>
 
       <div class="po-row" style="margin-top:16px">
-        <button type="submit" class="po-btn po-btn-accent po-btn-lg" :disabled="submitting">
-          {{ submitting ? 'Submitting…' : 'Submit PO' }}
+        <!-- ★ 成功后禁用，避免重复提交同一张 PO（见 resetForNewPo 注释） -->
+        <button type="submit" class="po-btn po-btn-accent po-btn-lg"
+                :disabled="submitting || !!successOrderNo">
+          {{ submitting ? 'Submitting…' : (successOrderNo ? 'Submitted' : 'Submit PO') }}
+        </button>
+        <button v-if="successOrderNo" type="button"
+                class="po-btn po-btn-outline po-btn-lg" style="margin-left:12px"
+                @click="resetForNewPo">
+          Submit another PO
         </button>
       </div>
     </form>
