@@ -5,7 +5,7 @@ import { getAdminOrders } from '@/api/orders'
 import { formatCurrency } from '@/utils/helpers'
 import { extractErrorMessage } from '@/utils/http'
 import { LoadingSpinner, EmptyState, DataPagination, ErrorBanner } from '@/components/common'
-import { ORDER_STATUS_FILTERS, LEGACY_STATUS_FILTERS, ORDER_STATUS_COLORS } from '@/config/poConstants'
+import { ORDER_STATUS_FILTERS, LEGACY_STATUS_FILTERS, statusBadgeStyle } from '@/config/poConstants'
 
 const router = useRouter()
 const orders = ref([])
@@ -21,7 +21,8 @@ const total = ref(0)
 const error = ref('')
 
 // ★ 2026-10-21 修 D4：状态色表改为引用统一常量（原先内联且缺 3 个状态 ⇒ 徽章 undefined15 无底色）
-const statusColors = ORDER_STATUS_COLORS
+// ★ 2026-10-28：底色也改走统一入口 —— `ORDER_STATUS_COLORS[s] + '15'` 是非法 CSS
+//   （令牌是 var()，拼出 `var(--x)15`），实测底色恒透明。
 
 function getStatusLabel(status) {
   const hit = [...ORDER_STATUS_FILTERS, ...LEGACY_STATUS_FILTERS].find((f) => f.value === status)
@@ -116,7 +117,7 @@ function goToDetail(order) {
             <td>{{ order.user_id }}</td>
             <td class="mono">{{ order.po_number || '—' }}</td>
             <td>
-              <span class="status-badge" :style="{ color: statusColors[order.status], background: statusColors[order.status] + '15' }">
+              <span class="status-badge" :style="statusBadgeStyle(order.status)">
                 {{ getStatusLabel(order.status) }}
               </span>
             </td>

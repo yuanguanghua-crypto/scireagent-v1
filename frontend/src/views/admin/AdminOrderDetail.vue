@@ -8,6 +8,7 @@ import {
 } from '@/api/adminPo'
 import { formatCurrency } from '@/utils/helpers'
 import { extractErrorMessage } from '@/utils/http'
+import { statusBadgeStyle, formatStatus } from '@/config/poConstants'
 import { LoadingSpinner, ErrorBanner } from '@/components/common'
 
 const route = useRoute()
@@ -51,16 +52,10 @@ onMounted(async () => {
   }
 })
 
-const statusColors = {
-  po_received: 'var(--color-warning)', confirmed: 'var(--color-primary)',
-  in_production: 'var(--color-info)', shipped: 'var(--color-warning)',
-  delivered: 'var(--color-info)', invoiced: 'var(--color-info)',
-  paid: 'var(--color-success)', completed: 'var(--color-success)', cancelled: 'var(--color-danger)',
-  quote_pending: 'var(--color-warning)', quoted: 'var(--color-accent)',
-  quote_accepted: 'var(--color-success)', quote_rejected: 'var(--color-danger)',
-}
-
-function getStatusLabel(s) { return s?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || s }
+// ★ 2026-10-28：状态色/文案改取 `@/config/poConstants` 单一真相源。
+//   原内联表 12 态（缺 `completed` 之外的 legacy 项也不一致）且底色
+//   `statusColors[s] + '15'` 是非法 CSS（令牌是 var()）⇒ 底色恒透明。
+function getStatusLabel(s) { return formatStatus(s) }
 
 /* 当前未签收的发货记录（用于 Mark as Delivered） */
 function activeShipment() {
@@ -130,7 +125,7 @@ async function doAction(action) {
         <h1 class="order-title">Order {{ order.order_no }}</h1>
         <p class="order-date">{{ new Date(order.created_at).toLocaleString() }}</p>
       </div>
-      <span class="status-badge" :style="{ color: statusColors[order.status], background: statusColors[order.status] + '15' }">
+      <span class="status-badge" :style="statusBadgeStyle(order.status)">
         {{ getStatusLabel(order.status) }}
       </span>
     </div>

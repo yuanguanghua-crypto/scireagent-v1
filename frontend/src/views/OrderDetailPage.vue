@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
 import { respondToQuote } from '@/api/orders'
+import { statusBadgeStyle, formatStatus } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
 import { LoadingSpinner, ErrorBanner } from '@/components/common'
 
@@ -15,14 +16,11 @@ onUnmounted(() => store.clearCurrent())
 
 const order = computed(() => store.currentOrder)
 
-const statusColors = {
-  draft: 'var(--color-text-tertiary)', confirmed: 'var(--color-primary)', invoiced: 'var(--color-info)', paid: 'var(--color-success)',
-  processing: 'var(--color-info)', shipped: 'var(--color-warning)', completed: 'var(--color-success)', cancelled: 'var(--color-danger)',
-  quote_pending: 'var(--color-warning)', quoted: 'var(--color-accent)', quote_accepted: 'var(--color-success)', quote_rejected: 'var(--color-danger)',
-}
-
+// ★ 2026-10-28：状态色/文案改取 `@/config/poConstants` 单一真相源。
+//   原内联表缺 `po_received`/`in_production`/`delivered`（PO 主流程全缺）⇒ 徽标无颜色；
+//   底色 `statusColors[s] + '15'` 是非法 CSS（令牌是 var()，拼出来 `var(--x)15`）⇒ 恒透明。
 function getStatusLabel(status) {
-  return status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || status
+  return formatStatus(status)
 }
 
 async function handleQuoteAction(action) {
@@ -50,7 +48,7 @@ async function handleQuoteAction(action) {
         <h1 class="order-title">Order {{ order.order_no }}</h1>
         <p class="order-date">Placed on {{ new Date(order.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}</p>
       </div>
-      <span class="status-badge" :style="{ color: statusColors[order.status], background: statusColors[order.status] + '15' }">
+      <span class="status-badge" :style="statusBadgeStyle(order.status)">
         {{ getStatusLabel(order.status) }}
       </span>
     </div>

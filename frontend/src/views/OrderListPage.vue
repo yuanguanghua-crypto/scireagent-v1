@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
+import { statusBadgeStyle, formatStatus } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
 import { LoadingSpinner, EmptyState, DataPagination, ErrorBanner } from '@/components/common'
 
@@ -17,23 +18,13 @@ function onPageChange({ page, pageSize }) {
   store.fetchOrders({ page, page_size: pageSize })
 }
 
-const statusColors = {
-  draft: 'var(--color-text-tertiary)',
-  confirmed: 'var(--color-primary)',
-  invoiced: 'var(--color-info)',
-  paid: 'var(--color-success)',
-  processing: 'var(--color-info)',             /* 蓝色 - 处理中 */
-  shipped: 'var(--color-warning)',
-  completed: 'var(--color-success)',
-  cancelled: 'var(--color-danger)',
-  quote_pending: 'var(--color-warning)',       /* 琥珀色 - 待报价 */
-  quoted: 'var(--color-accent)',               /* 琥珀色 - 已报价 */
-  quote_accepted: 'var(--color-success)',
-  quote_rejected: 'var(--color-danger)',
-}
-
+// ★ 2026-10-28：本页原先内联的 statusColors / getStatusLabel 缺
+//   `po_received` / `in_production` / `delivered` 三态（PO 主流程正好全缺），
+//   且底色用的是 `statusColors[s] + '15'`（非法 CSS，实测恒透明）。
+//   现统一取 `@/config/poConstants` 的单一真相源，与运营台口径一致。
+//   `getStatusLabel` 的旧实现与 `formatStatus` 完全等价，直接换掉。
 function getStatusLabel(status) {
-  return status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || status
+  return formatStatus(status)
 }
 
 function goToDetail(order) {
@@ -81,7 +72,7 @@ function goToDetail(order) {
             <td class="order-no">{{ order.order_no }}</td>
             <td class="order-date">{{ new Date(order.created_at).toLocaleDateString() }}</td>
             <td>
-              <span class="status-badge" :style="{ color: statusColors[order.status], background: statusColors[order.status] + '15' }">
+              <span class="status-badge" :style="statusBadgeStyle(order.status)">
                 {{ getStatusLabel(order.status) }}
               </span>
             </td>
