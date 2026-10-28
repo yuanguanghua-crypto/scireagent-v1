@@ -39,7 +39,7 @@ const rows = computed(() =>
         <tbody>
           <tr v-for="r in rows" :key="r.order.id">
             <td class="po-mono">{{ r.order.order_no }}</td>
-            <td><StatusBadge :status="r.order.status" :label="r.order.status?.replace(/_/g,' ')" /></td>
+            <td><StatusBadge :status="r.order.status" /></td>
             <td>
               <span v-if="r.invoice" class="po-tag">{{ r.invoice.invoice_no }}</span>
               <span v-else class="po-muted">—</span>

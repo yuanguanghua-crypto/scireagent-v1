@@ -73,17 +73,13 @@
   font-weight: 600;
   line-height: 1.5;
   white-space: nowrap;
-  /* ★ 2026-10-28：文案大小写由**组件表现层**统一兜底。
-     背景：调用方口径不一致 —— `PoOrderList.vue` 传 `formatStatus()`（"Po Received"），
-     而 `PoReviewDesk` / `PoShipmentDesk` / `PoInvoicingDesk` / `PoOrgManagement` /
-     `PoOrderDetail` / `PoDownloadCenter` / `PoReorder` 共 11 处直接传
-     `status.replace(/_/g,' ')`（"po received"）⇒ 同一个状态在不同页面大小写不一。
-     为什么选 CSS 而不是改那 11 处：`state-branches-po.spec.cjs:322/476/555/568`
-     已把**小写 textContent** 固化为断言（注释还标着 `:120 label=s.status`），
-     改 DOM 文案会让这 4 条 A 类闸门变红；而 CSS `text-transform` 不影响
-     `textContent`，闸门照常通过、用户看到的一律 Title Case。
-     `text-transform` 不适用于 `:label` 传中文/缩写的场景（无副作用：中文无大小写）。
-     ⚠️ 残留：DOM 文案仍是小写。若日后要把 DOM 也统一，需**同批**改这 4 条断言。 */
+  /* ★ 2026-10-28：文案大小写**已在源头统一** —— 12 处 `StatusBadge` 调用方原本各自
+     传 `status.replace(/_/g,' ')`（小写 "po received"）或 `formatStatus(...)`（"Po Received"），
+     同一个状态在不同页面大小写不一。现已全部去掉 `:label`，由组件默认走 `formatStatus`，
+     DOM 文案与显示一致。
+     这里的 `text-transform: capitalize` 降级为**第二道防线**（防止将来有人再传小写文案），
+     不再承担"纠正"职责。当初先上 CSS 是因为 `state-branches-po.spec.cjs` 把小写
+     textContent 固化成断言；那 4 条断言已在同批改成 Title Case。 */
   text-transform: capitalize;
 }
 .po-badge-dot {

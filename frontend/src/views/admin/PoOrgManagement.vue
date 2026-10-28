@@ -70,7 +70,7 @@ onMounted(load)
           <tbody>
             <tr v-for="o in orgOrders" :key="o.id">
               <td class="po-mono">{{ o.order_no }}</td>
-              <td><StatusBadge :status="o.status" :label="o.status?.replace(/_/g,' ')" /></td>
+              <td><StatusBadge :status="o.status" /></td>
               <td class="po-num">{{ formatCurrency(o.grand_total, o.currency) }}</td>
               <td class="po-muted">{{ new Date(o.created_at).toLocaleDateString() }}</td>
             </tr>

@@ -36,7 +36,7 @@ function reorder(id) {
           <tr v-for="o in orders" :key="o.id" :class="{ 'po-row-selected': selectedId === o.id }">
             <td class="po-mono">{{ o.order_no }}</td>
             <td class="po-mono">{{ o.po_number || '—' }}</td>
-            <td><StatusBadge :status="o.status" :label="o.status?.replace(/_/g,' ')" /></td>
+            <td><StatusBadge :status="o.status" /></td>
             <td>{{ o.items_count }}</td>
             <td class="po-num">{{ formatCurrency(o.grand_total, o.currency) }}</td>
             <td><button class="po-btn po-btn-accent po-btn-sm" @click="reorder(o.id)">Re-order</button></td>

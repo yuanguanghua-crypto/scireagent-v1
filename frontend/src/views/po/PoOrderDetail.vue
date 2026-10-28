@@ -46,7 +46,7 @@ function statusTransition(log) {
           Placed {{ new Date(order.created_at).toLocaleDateString() }}
         </p>
       </div>
-      <StatusBadge :status="order.status" :label="order.status?.replace(/_/g, ' ')" />
+      <StatusBadge :status="order.status" />
     </div>
 
     <!-- Order info -->
@@ -119,7 +119,7 @@ function statusTransition(log) {
       <h2 class="po-section-title">Invoice</h2>
       <div class="po-row">
         <span class="po-tag">{{ invoice.invoice_no }}</span>
-        <StatusBadge :status="invoice.status" :label="invoice.status" />
+        <StatusBadge :status="invoice.status" />
         <span class="po-muted">Due {{ invoice.due_date }}</span>
         <span class="po-num">{{ formatCurrency(invoice.grand_total, invoice.currency) }}</span>
         <button class="po-btn po-btn-primary po-btn-sm" @click="downloadInvoicePdf(invoice.id)">Download PDF</button>
@@ -132,7 +132,7 @@ function statusTransition(log) {
       <div v-for="s in shipments" :key="s.id" class="po-shipment">
         <div class="po-between">
           <div class="po-row">
-            <StatusBadge :status="s.status" :label="s.status" />
+            <StatusBadge :status="s.status" />
             <span class="po-mono">{{ s.tracking_number || '—' }}</span>
           </div>
           <span class="po-muted">{{ s.carrier || '—' }}</span>

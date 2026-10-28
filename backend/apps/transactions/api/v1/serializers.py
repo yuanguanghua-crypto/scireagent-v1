@@ -86,6 +86,14 @@ class OrderListSerializer(BaseModelSerializer):
             'id', 'order_no', 'status', 'payment_method', 'po_number',
             'grand_total', 'currency', 'items_count', 'created_at',
             'invoice', 'attachments',
+            # ★ 2026-10-28：补 4 个运营审核必需字段。
+            #   此前缺失导致 PoReviewDesk 的 Grant Code / Shipping Method / Ship-to
+            #   三格恒为 undefined ⇒ 模板 `|| '—'` 恒显示破折号，把一个**有地址的订单**
+            #   显示成没有地址（实测 ORD-A382B455 真实 Ship-to 是 "test001 — test"）。
+            #   安全面：`OrderViewSet` 自 2026-10-21 F4 起 `http_method_names` 只读
+            #   （views.py:23），本序列化器**没有**任何写入口 ⇒ 加字段只是加读取，
+            #   不引入新的可写字段。
+            'grant_code', 'shipping_method', 'shipping_name', 'shipping_address',
         ]
 
     def get_items_count(self, obj):

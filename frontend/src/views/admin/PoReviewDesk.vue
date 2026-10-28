@@ -20,41 +20,32 @@ const expanded = ref({})
 //   之后一直挂在那儿，避免"点完才想起没备货"。
 const stockSummary = ref({})
 // ★ 2026-10-28：卡片上那三格（Grant Code / Shipping Method / Ship-to）此前恒显示 "—"，
-//   一度以为是"客户没填"。**实际原因是列表接口没返回这些字段** ——
-//   `OrderListSerializer.Meta.fields`（serializers.py:85-89）只有
-//   order_no / status / payment_method / po_number / grand_total / currency /
-//   items_count / created_at / invoice / attachments，**不含** grant_code /
-//   shipping_method / shipping_name / shipping_address。
-//   ⇒ 旧界面把一个"字段缺失"渲染成了"值为空"，会误导运营以为客户没填地址。
-//   现在改成三态：未展开 = "Expand to load"；展开后按真实值显示，真空才说客户没填。
-//   （要免展开就看到，需给 OrderListSerializer 补这 4 个字段并重建后端镜像 —— 见 commit 说明）
-const cardInfo = ref({})
+//   一度以为是"客户没填"。**真实原因是列表接口没返回这些字段** ——
+//   `OrderListSerializer.Meta.fields` 当时不含这 4 个字段，模板 `|| '—'` 就把
+//   undefined 渲染成破折号（实测 ORD-A382B455 真实 Ship-to 是 `test001 — test`）。
+//   现已给序列化器补上 grant_code / shipping_method / shipping_name / shipping_address
+//   ⇒ 列表一进来就有值，**不再需要展开明细**（此前为绕过缺陷临时做成三态
+//   "Expand to load"，现在收敛回两态：有值 / 客户确实没填）。
 
 function isBlank(v) {
   return v === null || v === undefined || String(v).trim() === ''
 }
 
 function disp(o, key) {
-  const c = cardInfo.value[o.id]
-  if (!c) return 'Expand to load'
-  const v = c[key]
-  return isBlank(v) ? 'Not provided by customer' : v
+  return isBlank(o[key]) ? 'Not provided by customer' : o[key]
 }
 
 function isMissing(o, key) {
-  const c = cardInfo.value[o.id]
-  return !!c && isBlank(c[key])
+  return isBlank(o[key])
 }
 
 function shiptoText(o) {
-  const c = cardInfo.value[o.id]
-  if (!c) return 'Expand to load'
-  return c.shipto || 'Not provided by customer'
+  const joined = [o.shipping_name, o.shipping_address].filter((x) => !isBlank(x)).join(' — ')
+  return joined || 'Not provided by customer'
 }
 
 function shipMissing(o) {
-  const c = cardInfo.value[o.id]
-  return !!c && c.shipMissing
+  return isBlank(o.shipping_name) || isBlank(o.shipping_address)
 }
 
 async function toggleItems(o) {
@@ -68,12 +59,6 @@ async function toggleItems(o) {
       const res = await getOrderDetail(o.id)
       const d = res.data || res
       expandedItems.value[o.id] = d.items || []
-      cardInfo.value[o.id] = {
-        grant_code: d.grant_code,
-        shipping_method: d.shipping_method,
-        shipto: [d.shipping_name, d.shipping_address].filter((x) => !isBlank(x)).join(' — '),
-        shipMissing: isBlank(d.shipping_name) || isBlank(d.shipping_address),
-      }
     } catch {
       expandedItems.value[o.id] = []
     }
@@ -128,7 +113,7 @@ onMounted(load)
       <div class="po-between">
         <div class="po-row">
           <span class="po-mono">{{ o.order_no }}</span>
-          <StatusBadge :status="o.status" :label="o.status?.replace(/_/g,' ')" />
+          <StatusBadge :status="o.status" />
           <span class="po-muted" v-if="o.po_number">PO {{ o.po_number }}</span>
           <span class="po-muted">{{ o.items_count }} line(s)</span>
           <!-- 展开过一次就常驻的库存摘要（见 stockSummary 注释） -->

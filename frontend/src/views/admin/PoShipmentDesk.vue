@@ -81,7 +81,7 @@ onMounted(load)
           <tbody>
             <tr v-for="o in orders" :key="o.id" :class="{ 'po-row-selected': selected === o.id }" @click="openOrder(o)" style="cursor:pointer">
               <td class="po-mono">{{ o.order_no }}</td>
-              <td><StatusBadge :status="o.status" :label="o.status?.replace(/_/g,' ')" /></td>
+              <td><StatusBadge :status="o.status" /></td>
               <td>{{ o.items_count }}</td>
             </tr>
           </tbody>
@@ -117,7 +117,7 @@ onMounted(load)
         <div v-for="s in (detail.shipments || [])" :key="s.id" class="po-shipment">
           <div class="po-between">
             <div class="po-row">
-              <StatusBadge :status="s.status" :label="s.status" />
+              <StatusBadge :status="s.status" />
               <span class="po-mono">{{ s.tracking_number || '—' }}</span>
               <span class="po-muted">{{ s.carrier }}</span>
             </div>

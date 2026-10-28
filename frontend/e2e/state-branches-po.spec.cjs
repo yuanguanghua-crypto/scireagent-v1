@@ -319,7 +319,7 @@ test.describe('@po-order-detail PO 详情页的状态分支', { tag: ['@local-on
     await expect(shipTitle).toHaveCount(0)
     await expect(invTitle).toHaveCount(0)
     // 顶部状态徽章 = order.status 原样（下划线换空格，PoOrderDetail.vue:49）
-    await expect(page.locator('.po-page-header .po-badge')).toHaveText('po received')
+    await expect(page.locator('.po-page-header .po-badge')).toHaveText('Po Received')
     // 时间线：至少 1 条（PoOrderDetail.vue:170-181；提交即产生 StatusLog）
     await expect(page.locator('.po-timeline-item').first()).toBeVisible()
 
@@ -473,7 +473,7 @@ test.describe('@po-review 订单审核台的状态分支', { tag: ['@local-only'
     const card = page.locator('.po-card', { hasText: order.order_no }) // :73-122
     await expect(card).toHaveCount(1, { timeout: 30000 })
     // 卡片状态徽章：status.replace(/_/g,' ')（:77）
-    await expect(card.locator('.po-badge').first()).toHaveText('po received')
+    await expect(card.locator('.po-badge').first()).toHaveText('Po Received')
     await expect(card.getByRole('button', { name: 'Approve' })).toBeVisible()
     await expect(card.getByRole('button', { name: 'Reject' })).toBeVisible()
     await expect(card.getByRole('button', { name: 'Assign Rep' })).toBeVisible()
@@ -552,7 +552,7 @@ test.describe('@po-shipments 发货台的状态分支', { tag: ['@local-only'] }
     await expect(box.getByRole('button', { name: 'Mark Delivered' })).toBeVisible({ timeout: 20000 }) // :126-129
     await expect(box.getByRole('button', { name: 'Mark Shipped' })).toHaveCount(0)
     await expect(box.locator('input[placeholder="Received by"]')).toBeVisible()
-    await expect(box.locator('.po-badge').first()).toHaveText('shipped') // :120 label=s.status
+    await expect(box.locator('.po-badge').first()).toHaveText('Shipped') // 2026-10-28: 组件默认 Title Case（已去掉 :label）
 
     // 态 D：标记签收 ⇒ 两条操作按钮都消失（delivered 无可执行动作，:125/:126 条件均为假）
     await box.locator('input[placeholder="Received by"]').fill('E2E')
@@ -565,7 +565,7 @@ test.describe('@po-shipments 发货台的状态分支', { tag: ['@local-only'] }
     ])
     expect(respDeliver.status(), 'Mark Delivered 应 2xx').toBeLessThan(300)
     const box2 = page.locator('.po-shipment')
-    await expect(box2.locator('.po-badge').first()).toHaveText('delivered', { timeout: 20000 })
+    await expect(box2.locator('.po-badge').first()).toHaveText('Delivered', { timeout: 20000 })
     await expect(box2.getByRole('button', { name: 'Mark Shipped' })).toHaveCount(0)
     await expect(box2.getByRole('button', { name: 'Mark Delivered' })).toHaveCount(0)
   })

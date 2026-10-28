@@ -3,7 +3,7 @@ import { onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { usePoPortalStore } from '@/stores/poPortal'
-import { ORDER_STATUS_FILTERS, LEGACY_STATUS_FILTERS, formatStatus } from '@/config/poConstants'
+import { ORDER_STATUS_FILTERS, LEGACY_STATUS_FILTERS } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
 import { StatusBadge, DataPagination } from '@/components/common'
 
@@ -71,7 +71,7 @@ function reorder(id) {
           <tr v-for="o in orders" :key="o.id">
             <td class="po-mono">{{ o.order_no }}</td>
             <td class="po-mono">{{ o.po_number || '—' }}</td>
-            <td><StatusBadge :status="o.status" :label="formatStatus(o.status)" /></td>
+            <td><StatusBadge :status="o.status" /></td>
             <td>{{ o.items_count }}</td>
             <td class="po-num">{{ formatCurrency(o.grand_total, o.currency) }}</td>
             <td class="po-muted">{{ new Date(o.created_at).toLocaleDateString() }}</td>

@@ -80,7 +80,7 @@ onMounted(load)
           <tbody>
             <tr v-for="o in orders" :key="o.id" :class="{ 'po-row-selected': selected === o.id }" @click="openOrder(o)" style="cursor:pointer">
               <td class="po-mono">{{ o.order_no }}</td>
-              <td><StatusBadge :status="o.status" :label="o.status?.replace(/_/g,' ')" /></td>
+              <td><StatusBadge :status="o.status" /></td>
               <td class="po-num">{{ formatCurrency(o.grand_total, o.currency) }}</td>
             </tr>
           </tbody>
@@ -105,7 +105,7 @@ onMounted(load)
         <div v-else>
           <div class="po-row">
             <span class="po-tag">{{ detail.invoice.invoice_no }}</span>
-            <StatusBadge :status="detail.invoice.status" :label="detail.invoice.status" />
+            <StatusBadge :status="detail.invoice.status" />
             <span class="po-muted">Due {{ detail.invoice.due_date }}</span>
             <span class="po-num">{{ formatCurrency(detail.invoice.grand_total, detail.invoice.currency) }}</span>
           </div>
