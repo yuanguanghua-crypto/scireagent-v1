@@ -3,6 +3,7 @@ import json
 import os
 
 from django.conf import settings
+from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
@@ -16,7 +17,7 @@ from apps.transactions.models import (
     Order, Invoice, ShippingRecord, StatusLog, InvalidTransitionError,
     PoAttachment, OrderItem,
 )
-from apps.inventory.models import InsufficientInventoryError
+from apps.inventory.models import Allocation, InsufficientInventoryError
 from apps.inventory.services import InventoryService
 from apps.transactions.api.v1.serializers import (
     OrderDetailSerializer, InvoiceSerializer, ShippingRecordSerializer,
@@ -100,11 +101,19 @@ class ApproveOrderView(EnvelopeMixin, APIView):
     def post(self, request, pk):
         order = get_object_or_404(Order, pk=pk)
         try:
-            OrderStateMachine.transition_to(
-                order, Order.Status.CONFIRMED, actor=request.user, note='Approved'
-            )
+            with transaction.atomic():
+                OrderStateMachine.transition_to(
+                    order, Order.Status.CONFIRMED, actor=request.user, note='Approved'
+                )
+                # ★ 2026-10-28：PO 上传单是**意向单**，下单时不锁库；
+                #   运营点“批准”这一下才是承诺 ⇒ 在这里锁。
+                #   失败整块回滚（状态也不会变成 CONFIRMED）。
+                InventoryService.reserve_for_order(
+                    order, reason=f'approve:{order.order_no}')
         except InvalidTransitionError as e:
             return self.error_response(str(e), code='INVALID_TRANSITION', status_code=400)
+        except InsufficientInventoryError as e:
+            return self.error_response(str(e), code='OUT_OF_STOCK', status_code=400)
         EmailService.enqueue(
             'order_confirmed', to=[order.shipping_email] if order.shipping_email else [],
             ctx={'order_no': order.order_no},
@@ -120,11 +129,16 @@ class RejectOrderView(EnvelopeMixin, APIView):
         order = get_object_or_404(Order, pk=pk)
         reason = request.data.get('reason', '')
         try:
-            OrderStateMachine.transition_to(
-                order, Order.Status.CANCELLED, actor=request.user,
-                action_type=StatusLog.ActionType.REJECTED,
-                note=reason,
-            )
+            with transaction.atomic():
+                OrderStateMachine.transition_to(
+                    order, Order.Status.CANCELLED, actor=request.user,
+                    action_type=StatusLog.ActionType.REJECTED,
+                    note=reason,
+                )
+                # ★ 2026-10-28：必须释放占用。不释放的话，那批货会永久锁死、
+                #   而且**不会报任何错** —— 只是库存慢慢变少。
+                InventoryService.release_for_order(
+                    order, reason=f'cancel:{order.order_no}')
         except InvalidTransitionError as e:
             return self.error_response(str(e), code='INVALID_TRANSITION', status_code=400)
         return self.success_response(OrderDetailSerializer(order, context={'request': request}).data)
@@ -138,11 +152,16 @@ class CancelOrderView(EnvelopeMixin, APIView):
         order = get_object_or_404(Order, pk=pk)
         reason = request.data.get('reason', '')
         try:
-            OrderStateMachine.transition_to(
-                order, Order.Status.CANCELLED, actor=request.user,
-                action_type=StatusLog.ActionType.CANCELLED,
-                note=reason,
-            )
+            with transaction.atomic():
+                OrderStateMachine.transition_to(
+                    order, Order.Status.CANCELLED, actor=request.user,
+                    action_type=StatusLog.ActionType.CANCELLED,
+                    note=reason,
+                )
+                # ★ 2026-10-28：必须释放占用。不释放的话，那批货会永久锁死、
+                #   而且**不会报任何错** —— 只是库存慢慢变少。
+                InventoryService.release_for_order(
+                    order, reason=f'cancel:{order.order_no}')
         except InvalidTransitionError as e:
             return self.error_response(str(e), code='INVALID_TRANSITION', status_code=400)
         return self.success_response(OrderDetailSerializer(order, context={'request': request}).data)
@@ -230,6 +249,16 @@ class AllocateView(EnvelopeMixin, APIView):
             return self.error_response(
                 'Order must be CONFIRMED or IN_PRODUCTION to allocate',
                 code='INVALID_OPERATION', status_code=400,
+            )
+        # ★ 2026-10-28：下单 / 审核已自动锁库时，手点 Allocate 会把同一批货占两次
+        #   ⇒ 先拦。（allocate() 自身不检查是否已占，所以这一层必须在这里。）
+        if Allocation.objects.filter(
+                order_item__order=order,
+                status=Allocation.Status.RESERVED).exists():
+            return self.error_response(
+                'Order already holds reserved stock (locked at checkout/approval); '
+                'manual allocation would double-count it.',
+                code='ALREADY_ALLOCATED', status_code=400,
             )
         lines = request.data.get('lines')
         if not lines:

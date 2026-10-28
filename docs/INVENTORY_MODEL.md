@@ -97,18 +97,39 @@
 这不是 bug，是"还没有库存数据"。等产品上架、SKU + COA/SDS 齐备、盘点完成后录库存，
 拦截才会真正生效。
 
-### 5.1 缺口 A：下单不占用库存 ⇒ 会累计超卖
+### 5.1 缺口 A：累计超卖 —— **已解决（2026-10-28 第二轮）**
 
-**这是当前最大的库存风险，尚未解决。**
+**改造前的样子**：下单全程不碰 `inventory`，只做只读校验 ⇒ 库存 100 件时 A 客户下 100、
+B 客户再下 100，**两单都能通过**，等运营手点 Allocate 才发现不够（那时款可能已付）。
 
-- 下单全程不碰 `inventory`：`PoSubmissionService.submit` / `CheckoutView` 只做**只读**校验；
-- `InventoryService.allocate_for_order` 的**唯一调用点**是运营手点的
-  `POST /orders/{id}/allocate/`（`po_views.py:238`）；
-- ⇒ 库存 100 件时，A 客户下单 100、B 客户再下单 100，**两单都能通过**。
-  等运营去点 Allocate，第二单才会 `InsufficientInventoryError` —— 而那时订单已经收了、款可能已付。
+**现在（承诺即锁库）**：
 
-"下单即预占"需要配套完整的**释放闭环**（取消 / 拒单 / 超时 / 作废），
-漏一个就是库存永久泄漏。该项**未立项**，等库存数据就绪后再评估。
+| 入口 | 时机 | 理由 |
+|---|---|---|
+| 购物车直购（`CheckoutView`） | **下单时**锁 | 初始状态就是 `CONFIRMED`，下单即承诺 |
+| PO 上传（`POSubmitView`） | **不锁** | 初始 `PO_RECEIVED` 是**意向单**；客户一次传 8×99 只是询价，锁了会锁死几百件 |
+| 运营审核通过（`ApproveOrderView`） | **此时锁** | `PO_RECEIVED → CONFIRMED` 才是承诺 |
+| 删除/作废/超时 | 释放 | 见下 |
+
+**释放闭环（缺一就是库存永久泄漏，且不报任何错）**：
+
+| 路径 | 实现 |
+|---|---|
+| 取消订单 | `CancelOrderView` → `release_for_order` |
+| 拒单 | `RejectOrderView` → `release_for_order` |
+| 超时未推进 | `manage.py release_expired_reservations --hours 72`（**只释放占用，不取消订单**；只碰 `po_received`/`confirmed`，绝不碰 `in_production` 与已发货） |
+| 发货 | `mark_shipped` → `release`（**发货语义**：`allocated -= q`，`available` 不变） |
+
+**两个容易搞混的释放语义**（用错会让库存凭空增减且不报错）：
+- `release()` = 发货：货已出库 ⇒ `allocated -= q`
+- `release_reservation()` = 取消：货还在仓 ⇒ `available += q` **且** `allocated -= q`
+
+**并发正确性**：`plan_allocation` 只读规划（按 `available` 从多到少贪心、可跨库位拆行），
+真正扣减在 `allocate()` 里 `select_for_update` 重取复核。中间被抢走 ⇒ 抛
+`InsufficientInventoryError` ⇒ 整单回滚（订单、明细、清空购物车全部撤销）。
+
+**幂等**：`reserve_for_order` 发现该订单已有 RESERVED 占用就直接返回，不重复扣；
+手动 `POST /orders/{id}/allocate/` 在同种情况下返回 **400 `ALREADY_ALLOCATED`**。
 
 ### 5.2 缺口 B：纳管但无库存行的 SKU 会拦掉所有下单
 
@@ -138,3 +159,30 @@
 
 **要改数量（盘点）**
 该行 `Adjust` → 填 `delta`（可正可负）→ 填原因。结果不可为负。
+
+**要释放"客户下了单一直不付款"占用的库存**
+```
+python manage.py release_expired_reservations --dry-run          # 先看会放哪些
+python manage.py release_expired_reservations --hours 72 --dry-run
+python manage.py release_expired_reservations --hours 72
+```
+只释放**占用**，不取消订单；只碰 `po_received` / `confirmed`，不碰 `in_production` 与已发货。
+建议挂 crontab（与 `send_outbox_emails` 同一模式，凌晨跑）：
+```
+0 3 * * * docker exec scireagent-backend-1 python manage.py release_expired_reservations --hours 72
+```
+
+**要灌 / 清「占位库存」（远端测试人员看不到本地库，生产需要可用数据时）**
+```
+python manage.py seed_inventory_placeholder --dry-run            # 先看计划
+python manage.py seed_inventory_placeholder --qty 100            # 灌（只灌上架产品的 SKU）
+python manage.py seed_inventory_placeholder --purge --dry-run
+python manage.py seed_inventory_placeholder --purge              # 清（⚠️ 上线前必做）
+```
+三条硬约束：① 每条都写 `InventoryMovement(reason='PLACEHOLDER:100')` ⇒ 可查；
+② `--purge` 只删「还活着」的占位行（`available` 等于当初灌的量、`allocated=0`、无 `Allocation`），
+被卖过/被占用过的跳过并打印原因；③ 已有真实库存的 SKU 整条跳过，绝不覆盖。
+purge 之后会自动把「不再有任何库存行」的 SKU 脱管。
+
+⚠️ **占位库存是假数据**。一旦开始锁库，假库存会自我遮蔽：100 件卖光后系统显示缺货，
+但没人能区分「真售罄」和「占位数据耗尽」。所以上线前必须 purge，并换成真实盘点数。

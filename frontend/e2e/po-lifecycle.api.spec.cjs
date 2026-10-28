@@ -77,6 +77,13 @@ async function post(ctx, token, pathRel, data = {}) {
   return ctx.post(`${API_BASE}${pathRel}`, { ...H(token), data });
 }
 
+/** 读库存行（用于观察「审核自动锁库」的 allocated 变化）。 */
+async function getInv(ctx, token) {
+  const res = await ctx.get(`${API_BASE}/inventory/${FIXTURE.inventory_id}/`, H(token));
+  expect(res.status(), await res.text()).toBe(200);
+  return (await res.json()).data;
+}
+
 // ───────────────────────── 全流程 ─────────────────────────
 
 test.describe('@po-api PO 全流程', () => {
@@ -85,23 +92,33 @@ test.describe('@po-api PO 全流程', () => {
     const proc = await apiLogin(request, PROC);
     const po = uniquePo();
 
-    // ① 客户提交 → po_received
+    const inv0 = await getInv(request, proc);   // 基线：审核会自动锁库，要能看见扣减
+
+    // ① 客户提交 → po_received（★ 2026-10-28：PO 是意向单，此时**不**锁库）
     await submitPO(request, cust, po, 2);
     let order = await findOrderByPo(request, cust, po);
     expect(order.status).toBe('po_received');
 
-    // ② 销售审核 → confirmed
+    // ② 销售审核 → confirmed（★ 2026-10-28：审核通过这一下**自动锁库**）
     let r = await post(request, proc, `/orders/${order.id}/approve/`);
     expect(r.status(), await r.text()).toBe(200);
     order = await getOrder(request, cust, order.id);
     expect(order.status).toBe('confirmed');
 
-    // ③ 备货锁定（P1-1 allocate）
+    // ②.5 审核已占用：allocated 至少 +2（这正是本轮改动的核心行为）
+    const inv1 = await getInv(request, proc);
+    expect(inv1.allocated - inv0.allocated,
+      '审核通过应自动锁定 2 件库存').toBeGreaterThanOrEqual(2);
+
+    // ③ 备货台：库存已锁时**手点 Allocate 必须被拒**（ALREADY_ALLOCATED）。
+    //    否则同一批货会被占两次 ⇒ 明明有货却少卖，而且完全不报错。
+    //    （2026-10-28 之前这里是"手点成功"——那条假设已随自动锁库失效。）
     const oi = order.items[0];
     r = await post(request, proc, `/orders/${order.id}/allocate/`, {
       lines: [{ order_item_id: oi.id, inventory_id: FIXTURE.inventory_id, quantity: 2 }],
     });
-    expect(r.status(), await r.text()).toBe(200);
+    expect(r.status(), await r.text()).toBe(400);
+    expect((await r.json()).meta.error.code).toBe('ALREADY_ALLOCATED');
 
     // ④ 发货 + Mark Shipped
     r = await post(request, proc, `/orders/${order.id}/shipments/`, {

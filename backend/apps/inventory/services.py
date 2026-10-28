@@ -39,8 +39,14 @@ class InventoryService:
 
     @staticmethod
     @transaction.atomic
-    def allocate(order_item, inventory_id: int, quantity: int) -> Allocation:
-        """锁定指定库存并记录占用（RESERVED）。"""
+    def allocate(order_item, inventory_id: int, quantity: int, *,
+                 reason: str | None = None) -> Allocation:
+        """锁定指定库存并记录占用（RESERVED）。
+
+        `reason`（2026-10-28 新增，可选）：审计流水里的原因文案。不传时沿用
+        `order:<id>`（与改造前逐字节一致）。区分「下单/审核自动锁库」与
+        「运营手点 Allocate」时传它，便于事后对账。
+        """
         inv = InventoryService._lock(inventory_id)
         # ★ P2：`allocated` 同为裸 IntegerField，且是**累加**语义 ——
         #   models.Inventory.allocate 的 `available >= qty` 兜底只管 available，
@@ -62,7 +68,7 @@ class InventoryService:
         InventoryMovement.objects.create(
             inventory=inv, kind=InventoryMovement.Kind.ALLOCATE,
             delta_available=-quantity, delta_allocated=quantity, quantity=quantity,
-            reason=f'order:{order_item.order_id}', order_id=order_item.order_id,
+            reason=reason or f'order:{order_item.order_id}', order_id=order_item.order_id,
         )
         return allocation
 
@@ -78,6 +84,131 @@ class InventoryService:
                 InventoryService.allocate(oi, line['inventory_id'], int(line['quantity']))
             )
         return allocations
+
+    # ── 自动选库位 + 下单锁库（2026-10-28）────────────────────────────────
+    @staticmethod
+    def plan_allocation(sku_id: int, quantity: int) -> list:
+        """把一个 SKU 的需求量摊到具体库存行上（按 available 从多到少贪心，可跨库位）。
+
+        只做**只读规划**，不扣减。真正的扣减在 `allocate()` 里靠 `select_for_update`
+        重取并复核 —— 中间被别人抢走就抛 `InsufficientInventoryError`，调用方整单回滚。
+        为什么不在规划阶段就加锁：那会把行锁持到整个下单流程结束，放大死锁面；
+        「宁可失败重试，也不错配」在这里是划算的。
+
+        返回 `[{'inventory_id': int, 'quantity': int}, ...]`。
+        """
+        qty = int(quantity or 0)
+        if qty <= 0:
+            raise ValueError('quantity must be positive')
+        rows = (Inventory.objects
+                .filter(sku_id=sku_id, available__gt=0)
+                .order_by('-available', 'id')
+                .values('id', 'available'))
+        plan, need = [], qty
+        for r in rows:
+            if need <= 0:
+                break
+            take = min(int(r['available']), need)
+            plan.append({'inventory_id': r['id'], 'quantity': take})
+            need -= take
+        if need > 0:
+            raise InsufficientInventoryError(
+                f'Insufficient available stock: requested {qty}, '
+                f'available {qty - need}')
+        return plan
+
+    @staticmethod
+    @transaction.atomic
+    def reserve_for_order(order, reason: str = '') -> list:
+        """按订单行自动锁库（**下单**与**运营审核通过**两个时机调用）。
+
+        口径（2026-10-28 与产品负责人确认）：
+          · 只锁 `is_stock_tracked=True` 的 SKU；未纳管的按「不限量 / 按需生产」跳过；
+          · 一个 SKU 可能跨多个库位 ⇒ 拆成多条 `Allocation`；
+          · **幂等**：该订单已有 RESERVED 占用时直接返回已有占用，不重复扣减 ——
+            防止「下单已锁 + 运营手点 Allocate」把同一批货占两次（这会静默少卖）。
+
+        可用量不足抛 `InsufficientInventoryError`，由调用方转 400 并整单回滚。
+        """
+        from apps.transactions.models import OrderItem
+
+        existing = list(Allocation.objects.filter(
+            order_item__order=order, status=Allocation.Status.RESERVED))
+        if existing:
+            return existing
+
+        allocations = []
+        items = OrderItem.objects.filter(order=order).select_related('sku')
+        for oi in items:
+            sku = oi.sku
+            if sku is None or not sku.is_stock_tracked:
+                continue
+            try:
+                plan = InventoryService.plan_allocation(sku.id, oi.quantity)
+            except InsufficientInventoryError as exc:
+                # ★ 带上 sku_code：这条 message 会原样出现在前端错误横幅上
+                #   （CheckoutPage 的 serverError），没有编码的话用户只知道
+                #   "库存不够"、不知道是哪个产品。预检通常先拦住并给结构化 details，
+                #   这里只补并发窗口内的兜底可读性。
+                raise InsufficientInventoryError(f'{sku.sku_code}: {exc}') from exc
+            for seg in plan:
+                allocations.append(InventoryService.allocate(
+                    oi, seg['inventory_id'], seg['quantity'],
+                    reason=reason or f'order:{order.order_id}'))
+        return allocations
+
+    @staticmethod
+    @transaction.atomic
+    def release_reservation(allocation: Allocation, reason: str = '') -> int:
+        """取消 / 拒单 / 超时：把**尚未出库**的占用退回可用量。
+
+        ⚠️ 与 `release()` 的区别（极易搞混，用错会让库存凭空增减且不报错）：
+          · `release()`        —— **发货**语义：货已出库 ⇒ `allocated -= q`，`available` **不变**；
+          · `release_reservation()` —— **取消**语义：货还在仓库 ⇒ `available += q` **且**
+            `allocated -= q`。
+
+        只处理 RESERVED 的占用；已 SHIPPED（已出库）或已 RELEASED 的返回 0（幂等）。
+        """
+        allocation = Allocation.objects.select_for_update().get(pk=allocation.pk)
+        if allocation.status != Allocation.Status.RESERVED:
+            return 0
+        qty = allocation.remaining_quantity
+        if qty <= 0:
+            return 0
+        inv = InventoryService._lock(allocation.inventory_id)
+        if inv.allocated < qty:
+            # 账实不符：占用记录说占着 qty，但库存行的 allocated 不够。
+            # 静默「减到 0」会把差异藏起来，必须显式失败让人看见。
+            raise InsufficientInventoryError(
+                f'Allocation {allocation.pk} claims {qty} reserved but inventory '
+                f'{inv.pk} only has {inv.allocated} allocated — data inconsistency')
+        inv.available += qty
+        inv.allocated -= qty
+        inv.save(update_fields=['available', 'allocated', 'updated_at'])
+        allocation.status = Allocation.Status.RELEASED
+        allocation.save(update_fields=['status', 'updated_at'])
+        InventoryMovement.objects.create(
+            inventory=inv, kind=InventoryMovement.Kind.RELEASE,
+            delta_available=qty, delta_allocated=-qty, quantity=qty,
+            reason=reason or f'cancel:{allocation.order_item.order_id}',
+            order_id=allocation.order_item.order_id,
+        )
+        return qty
+
+    @staticmethod
+    @transaction.atomic
+    def release_for_order(order, reason: str = '') -> int:
+        """释放该订单**全部** RESERVED 占用，返回释放件数合计。
+
+        用于取消 / 拒单 / 超时。已发货（SHIPPED）的占用不受影响 —— 货已经出去了，
+        退回来是「入库」而不是「取消占用」，不能在这里做。
+        """
+        rows = list(Allocation.objects.filter(
+            order_item__order=order, status=Allocation.Status.RESERVED))
+        total = 0
+        for a in rows:
+            total += InventoryService.release_reservation(a, reason=reason)
+        return total
 
     @staticmethod
     @transaction.atomic

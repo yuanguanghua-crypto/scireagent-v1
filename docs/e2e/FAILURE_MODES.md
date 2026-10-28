@@ -32,7 +32,7 @@
 | 1.4 | 表单校验被绕过（弱密码、非法枚举） | **A** | 序列化器单测 + 注册密码策略用例 |
 | 1.5 | 计算错（价格/总额/税额） | **A** | 领域单测；`unit_price` 服务端覆盖有专项用例 |
 | 1.6 | **库存纳管口径与判定不一致**（谁算"纳管"、纳管了没库存行算什么） | **A** | `SKU.is_stock_tracked` 显式开关 + `apps/inventory/tests/test_stock_shortage.py` 32 例（含「纳管但无行必须拦」「脱管但有行必须放行」两条新语义）；**3 个变异验证全部变红**（判据改回隐式、`receipt` 不自动纳管、脱管前置校验去掉）；「纳管但无库存行」的可见性由 `/inventory/tracked-gaps/` + 库存台红条承载。口径全文 `docs/INVENTORY_MODEL.md` |
-| 1.7 | **下单不占用库存 ⇒ 累计超卖**（两客户各买光同一批货，两单都能提交） | **B** ⚠️ | 下单全程不碰 `inventory`，`allocate_for_order` 唯一入口是运营手点的 `POST /orders/{id}/allocate/`。**兜底**：运营点 Allocate 时才会 `InsufficientInventoryError`（此时订单已收、款可能已付）。**为什么现在不修**：需要配套完整的释放闭环（取消/拒单/超时/作废），漏一个就是库存永久泄漏；且生产 `inventory=0` 行，改了也是空转。待库存数据就绪后立项。风险与修法见 `docs/INVENTORY_MODEL.md` §5.1 |
+| 1.7 | **累计超卖**（两客户各买光同一批货，两单都能提交） | **A** | 已修（2026-10-28 第二轮）：**承诺即锁库** —— 购物车下单锁、PO 上传不锁（意向单）、运营 Approve 时锁；释放闭环 = 取消/拒单 `release_for_order` + 超时命令 `release_expired_reservations` + 发货 `release`（**发货与取消是两种语义，用错会让库存凭空增减且不报错**）。`apps/inventory/tests/test_stock_reservation.py` 21 例；**6 个变异全部变红**（结账不锁库 / 审核不锁库 / 取消不释放 / 释放用错语义 / 手动 Allocate 不拦 / 超时碰 in_production）。E2E 同步更新：`po-lifecycle.api` 与 `ops-inventory` 原假设「手点 Allocate 成功」已失效，改为验证自动锁库 + `ALREADY_ALLOCATED` 保护。口径全文 `docs/INVENTORY_MODEL.md` §5.1 |
 
 ## 2. 权限与数据隔离
 

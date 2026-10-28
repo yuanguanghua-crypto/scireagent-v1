@@ -230,7 +230,9 @@ test.describe('@inv-desk 库存管理台 · 完整 E2E', () => {
       r = await request.post(`${API_BASE}/orders/${order.id}/approve/`, {
         headers: { 'X-Auth-Token': at } })
       expect(r.status()).toBe(200)
-      // ③ 备货占用夹具库存（MAIN）
+      // ③ 备货：★ 2026-10-28 起「审核通过即自动锁库」（approve 那一步已经扣了），
+      //    所以这里**不再手点 Allocate**，改为验证「重复手点会被拒」——
+      //    顺带钉住 ALREADY_ALLOCATED 保护（防止同一批货占两次）。
       const detail = await (await request.get(`${API_BASE}/orders/${order.id}/`, {
         headers: { 'X-Auth-Token': ct } })).json()
       const item = (detail.data.items || [])[0]
@@ -238,7 +240,7 @@ test.describe('@inv-desk 库存管理台 · 完整 E2E', () => {
         headers: { 'X-Auth-Token': at }, data: {
           lines: [{ order_item_id: item.id, inventory_id: FIXTURE.inventory_id, quantity: 2 }] },
       })
-      expect(r.status(), await r.text()).toBeLessThan(300)
+      expect(r.status(), await r.text()).toBe(400)
       // ④ UI：History（MAIN 行）显示 RESERVED 占用 + allocate 流水
       await injectAuth(page, 'proc')
       await gotoDesk(page)
