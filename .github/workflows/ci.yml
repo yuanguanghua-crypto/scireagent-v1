@@ -22,7 +22,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # 全项目统一：测试走 sqlite，不依赖 PostgreSQL 服务
+  # 默认 sqlite —— **只给「不需要 PG 专属路径」的 job 用**（前端构建、E2E、静态检查、变异检测）。
+  # ⚠️ 2026-10-28：跑业务单测的 `backend-tests` 已单独覆盖为 PostgreSQL 16，原因见该 job 注释。
   DB_ENGINE: sqlite
   SECRET_KEY: ci-only-not-a-real-secret
   PYTHONDONTWRITEBYTECODE: "1"
@@ -30,8 +31,42 @@ env:
 jobs:
   # ── 1. 后端测试 ──────────────────────────────────────────────────────
   backend-tests:
-    name: 后端测试（pytest / sqlite）
+    name: 后端测试（pytest / PostgreSQL 16）
     runs-on: ubuntu-latest
+    # ── 2026-10-28：从 sqlite 切到 PostgreSQL 16 ─────────────────────────
+    # 为什么必须切（全是本机实测，不是推断）：
+    #   ① 模型里 `search_vector` 是 `if _USE_POSTGRES` 条件声明 ⇒ sqlite 下模型没有它，
+    #      生产在用的全文检索那条分支**从未被任何自动化执行过**。
+    #   ② sqlite 下 24 条用例被跳过、PG 下只跳 9 条 ⇒ 15 条只在 PG 跑。实跑后其中
+    #      3 条 FTS 用例立刻暴露为**测试缺陷**（2 条造数据漏 slug 撞唯一约束、
+    #      1 条断言 ORM 缓存缺 refresh_from_db）—— 它们从来没绿过，只是没人跑。
+    #   ③ 另有 2 条「伪并发」用例：`unittest.TestCase` + 线程，子线程看不到未提交的
+    #      fixture ⇒ 一条空转（一次分配都没发生）、一条在 PG 上**必然死锁**
+    #      （10 线程抢同一唯一键，主线程 join() 互等）。已改 TransactionTestCase。
+    #   ④ 耗时：sqlite 7m18s → PG 7m55s（+37s），可接受。
+    # 版本对齐：生产 PostgreSQL **16.14**，此处 `postgres:16` —— 同主版本。
+    # （本机验证用的是 17.11，属小版本超前；这 5 条失败都是结构性原因，不随版本变。）
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ci
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: ci
+      DB_USER: ci
+      DB_PASSWORD: ci
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
     steps:
       - uses: actions/checkout@v4
 
