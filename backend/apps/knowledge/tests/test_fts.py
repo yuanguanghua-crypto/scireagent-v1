@@ -46,17 +46,28 @@ class FTSQueryTest(TestCase):
     """T5-06 ~ T5-09: FTS query tests"""
 
     def test_product_search_vector_populated(self):
-        """T5-06"""
+        """T5-06
+
+        ★ 2026-10-28：必须 `refresh_from_db()`。`search_vector` 由 PG **触发器**
+          在 DB 侧计算，ORM 的 `create()` 拿不到回填值（实测：内存里是 None，
+          refresh 后是 `'-22':5 '-3':6 '1111':4 'audit':1 …`）。
+          此前这条用例断言的是 ORM 缓存，与触发器是否工作无关。
+        """
         from apps.commerce.models import Product
-        p = Product.objects.create(name='RNA Labeling Kit', cas='12345-67-8')
+        p = Product.objects.create(name='RNA Labeling Kit', slug='fts-tsv-kit', cas='12345-67-8')
+        p.refresh_from_db()
         self.assertIsNotNone(p.search_vector)
 
     def test_fts_finds_by_name(self):
-        """T5-07"""
+        """T5-07
+
+        ★ 2026-10-28：`slug` 是 unique，不传就是空串；**造两条就会撞
+          `product_slug_key`**（本条与 test_fts_rank_order 都因此红过）。
+        """
         from apps.commerce.models import Product
         from django.contrib.postgres.search import SearchQuery
-        Product.objects.create(name='RNA Labeling Kit', cas='12345-67-8')
-        Product.objects.create(name='Click Chemistry Reagent', cas='99999-00-0')
+        Product.objects.create(name='RNA Labeling Kit', slug='fts-name-kit', cas='12345-67-8')
+        Product.objects.create(name='Click Chemistry Reagent', slug='fts-name-click', cas='99999-00-0')
         results = Product.objects.filter(search_vector=SearchQuery('rna'))
         self.assertEqual(results.count(), 1)
 
@@ -64,16 +75,19 @@ class FTSQueryTest(TestCase):
         """T5-08"""
         from apps.commerce.models import Product
         from django.contrib.postgres.search import SearchQuery
-        Product.objects.create(name='RNA Kit', cas='12345-67-8')
+        Product.objects.create(name='RNA Kit', slug='fts-cas-kit', cas='12345-67-8')
         results = Product.objects.filter(search_vector=SearchQuery('12345-67-8'))
         self.assertEqual(results.count(), 1)
 
     def test_fts_rank_order(self):
-        """T5-09"""
+        """T5-09
+
+        ★ 2026-10-28：两条产品必须给不同 slug（unique），否则撞唯一约束。
+        """
         from apps.commerce.models import Product
         from django.contrib.postgres.search import SearchQuery, SearchRank
-        Product.objects.create(name='RNA Labeling Kit', cas='11111-11-1')
-        Product.objects.create(name='Advanced RNA Extraction', cas='22222-22-2')
+        Product.objects.create(name='RNA Labeling Kit', slug='fts-rank-labeling', cas='11111-11-1')
+        Product.objects.create(name='Advanced RNA Extraction', slug='fts-rank-extraction', cas='22222-22-2')
         results = Product.objects.annotate(
             rank=SearchRank('search_vector', SearchQuery('rna'))
         ).filter(search_vector=SearchQuery('rna')).order_by('-rank')

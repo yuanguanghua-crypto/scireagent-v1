@@ -9,7 +9,7 @@ P0 后端自测（T30 部分）。
 """
 import threading
 
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from django.db import transaction, connection
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
@@ -98,6 +98,23 @@ class InventoryAtomicTest(TestCase):
         self.assertEqual(inv.available, 2)  # 未改变
         self.assertEqual(inv.allocated, 0)
 
+
+class InventoryConcurrencyOnPostgres(TransactionTestCase):
+    """并发不超卖 —— **必须 TransactionTestCase**。
+
+    ★ 2026-10-28 实测：此前它放在 `InventoryAtomicTest(TestCase)` 里，
+      `TestCase` 把整个用例包在一个未提交事务里 ⇒ 子线程的连接看不到 setUp 建的
+      `Inventory` 行 ⇒ `allocate` 抛 DoesNotExist（只 catch 了 InsufficientInventoryError）
+      ⇒ **一次分配都没发生**，最后 `available` 仍是 5，断言 `5 != 0` 红。
+      也就是说：这条用例在 PG 上从来没真正并发过（sqlite 走顺序分支，所以一直绿）。
+      `TransactionTestCase` 不做事务包裹 ⇒ 子线程可见 ⇒ 才是真并发。
+    """
+
+    def setUp(self):
+        self.sku = _make_sku()
+
+    def _inv(self, available):
+        return Inventory.objects.create(sku=self.sku, available=available, allocated=0)
     def test_concurrent_allocate_no_oversell(self):
         inv = self._inv(5)
         order = Order.objects.create(user=_make_user('inv3'), order_no='ORD-INV3')
@@ -130,8 +147,7 @@ class InventoryAtomicTest(TestCase):
         self.assertEqual(inv.allocated, 5)
         self.assertEqual(Allocation.objects.count(), 5)
 
-
-class InvoiceSequenceConcurrencyTest(TestCase):
+class InvoiceSequenceConcurrencyTest(TransactionTestCase):
     def test_concurrent_numbering_unique(self):
         year = 2026
         # 预建行，避免创建竞态；仅需验证 UPDATE 在 select_for_update 下串行不重复
