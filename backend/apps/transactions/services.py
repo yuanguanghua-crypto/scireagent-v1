@@ -360,10 +360,22 @@ class ShippingService:
         #   异常一路上抛 ⇒ 500（本该是 400）。本方法本就有 @transaction.atomic ⇒ 数据不会残留半成品，
         #                 缺的只是"错误语义"。（实测：前端发的结构恰好正确，所以 UI 不踩；API 消费者/集成方会踩。）
         # ★ v4.1 对抗性自测 Fix 2：发货单创建必须校验订单状态（此前任意状态都能挂 shipment）
-        if order.status not in ('confirmed', 'in_production'):
+        # ★ 2026-10-28 放开 `shipped`（分批发货补发）：
+        #   业务定位已明确为「B 类 —— 客户分批交付 / 物流条件不同 / 供应商分批到货」，
+        #   其本质就是「今天发一批、下周再发一批」，所以订单进入 `shipped` 之后**必须还能补发**。
+        #   此前只允许 confirmed/in_production ⇒ 首批发货后订单变 shipped，第二批直接
+        #   400 INVALID_OPERATION（实测），能力被锁死；而 `PoShipmentDesk` 偏偏把 shipped
+        #   订单也列出来让人点 ⇒ UI 与后端自相矛盾。
+        #   库存侧无需改动：`InventoryService.mark_shipped` 已按
+        #   `min(本批数量, allocation.remaining_quantity)` 部分释放，`Allocation`
+        #   用 `released_quantity` 累计、全部释放才转 SHIPPED（2026-10-16 P0 修复即为此设计）。
+        #   未 allocate 过的订单更简单：找不到 RESERVED 占用 ⇒ 释放 0，不会报错。
+        #   仍禁止：delivered / invoiced / paid（已全部交付或已结算，再挂发货单无意义）、
+        #   cancelled（已取消）。
+        if order.status not in ('confirmed', 'in_production', 'shipped'):
             raise InvalidTransitionError(
                 f'Cannot create shipment for order in status {order.status}; '
-                f'expected confirmed or in_production')
+                f'expected confirmed, in_production or shipped')
         item_ids = [it['order_item_id'] for it in items]
         items_by_id = {
             oi.pk: oi for oi in OrderItem.objects.filter(order=order, pk__in=item_ids)
@@ -373,6 +385,29 @@ class ShippingService:
             raise ValueError(
                 f'order_item(s) {invalid} do not belong to order {order.pk}'
             )
+
+        # ★ 2026-10-28 新增：跨批次**超发守卫**。
+        #   放开 `shipped` 补发后，「同一行反复建发货单」变成可达路径 ⇒ 必须限制
+        #   累计发货量 ≤ 下单量。否则 `_all_items_delivered` 只判 `delivered >= ordered`，
+        #   多出来的部分会被静默放行，客户收到比订购更多的货（对账/仓库都说不清）。
+        #   ⚠️ 统计口径含**已建单但还未发运**的批次（PREPARING）：否则两批各建 4 件
+        #      （合计 8 > 下单 4）也能通过，等到发货才发现账实不符。
+        already = {
+            row['order_item_id']: row['n']
+            for row in (ShippingRecordItem.objects
+                        .filter(order_item__order=order)
+                        .values('order_item_id')
+                        .annotate(n=Sum('quantity')))
+        }
+        for it in items:
+            oi = items_by_id[it['order_item_id']]
+            used = int(already.get(oi.pk, 0) or 0)
+            want = int(it['quantity'])
+            if used + want > oi.quantity:
+                raise ValueError(
+                    f'order_item {oi.pk}: 累计发货量将超出下单量'
+                    f'（已排入 {used} + 本次 {want} > 下单 {oi.quantity}）'
+                )
 
         shipment = ShippingRecord.objects.create(
             order=order,

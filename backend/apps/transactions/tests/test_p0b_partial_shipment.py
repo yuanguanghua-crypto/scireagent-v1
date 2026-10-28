@@ -134,14 +134,39 @@ class PartialShipmentAllocationTest(TestCase):
         self.assertEqual(mv.quantity, 10)
 
     def test_full_shipment_exceeds_allocation_is_bounded(self):
-        """发货数量 > 占用数量时不得把 allocated 减成负数。"""
-        order, oi, alloc = self._make_order_with_allocation(10)
+        """发货数量 > 占用数量时不得把 allocated 减成负数。
+
+        ★ 2026-10-28 调整构造方式：`create_shipment` 现在会拒绝
+          「累计发货量 > 下单量」（跨批次超发守卫，放开 shipped 补发后必须加）。
+          所以不能再靠「下单 10 却发 15」来构造 —— 那种请求已在建单阶段被 400 挡掉。
+          改为 **下单 15、只占用 10、发 15**：释放被 `min(实发量, 剩余占用)` 限到 10。
+          断言意图不变：`InventoryService.release` 的有界性，allocated 不得为负。
+        """
+        order = Order.objects.create(
+            user=self.user, organization=self.org, order_no='P0B-ORD-OVER',
+            po_number='PO-P0B-OVER', status=Order.Status.CONFIRMED)
+        oi = OrderItem.objects.create(
+            order=order, sku=self.sku, quantity=15, unit_price=Decimal('10.00'))
+        InventoryService.allocate(oi, self.inv.id, 10)      # 只占用 10 < 下单 15
+
         shipment = ShippingService.create_shipment(
             order, 'FedEx', [{'order_item_id': oi.id, 'quantity': 15}])
         ShippingService.mark_shipped(shipment.id)
 
         self.inv.refresh_from_db()
         self.assertGreaterEqual(self.inv.allocated, 0, 'allocated 不得为负')
+        self.assertEqual(self.inv.allocated, 0, '占用 10 全被释放后应为 0')
+
+    def test_over_shipment_beyond_ordered_is_rejected(self):
+        """跨批次累计发货量 > 下单量 ⇒ 建单阶段必须拒绝（2026-10-28 新守卫）。"""
+        order, oi, _alloc = self._make_order_with_allocation(10)
+        ShippingService.create_shipment(
+            order, 'FedEx', [{'order_item_id': oi.id, 'quantity': 4}])
+        # 再建 7 件 ⇒ 累计 11 > 下单 10，必须拒
+        with self.assertRaises(ValueError) as ctx:
+            ShippingService.create_shipment(
+                order, 'FedEx', [{'order_item_id': oi.id, 'quantity': 7}])
+        self.assertIn('超出下单量', str(ctx.exception))
 
     def test_release_quantity_service_unchanged(self):
         """回归：InventoryService.release_quantity 直接调用仍按传入量释放。"""
