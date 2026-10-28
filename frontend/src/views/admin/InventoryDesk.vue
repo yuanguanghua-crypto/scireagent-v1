@@ -38,6 +38,23 @@
       </div>
     </div>
 
+    <!-- ★ 2026-10-28（4a）：已纳管、但一行库存都没有的 SKU。
+         它们的可用量为 0 ⇒ 下单会被全部拦下；而库存表只列 Inventory 行，
+         所以它们在下面**根本不会出现** ⇒ 必须单独在这里给可见性。 -->
+    <div v-if="gaps.count" class="po-card" data-testid="inv-tracked-gaps"
+         style="border-left:4px solid var(--color-red-600, #dc2626); background:rgba(220,38,38,.06)">
+      <strong>{{ gaps.count }} SKU(s) tracked but with no stock rows</strong>
+      <p class="po-muted" style="margin:4px 0 8px">
+        These SKUs are marked as stock-managed but have zero available —
+        <b>every order for them will be blocked</b>. They do not appear in the table below
+        (it only lists inventory rows). Add a receipt, or stop tracking them.
+      </p>
+      <div class="po-mono" style="font-size:13px">
+        {{ gaps.items.slice(0, 10).map(i => i.sku_code).join(' · ') }}
+        <span v-if="gaps.items.length > 10"> … +{{ gaps.items.length - 10 }} more</span>
+      </div>
+    </div>
+
     <div class="po-card">
       <table class="po-table" data-testid="inv-table">
         <thead>
@@ -67,6 +84,8 @@
                       @click="openAdjust(r)">Adjust</button>
               <button class="po-btn po-btn-outline po-btn-sm" data-testid="inv-detail-btn"
                       @click="openDetail(r)">History</button>
+              <button class="po-btn po-btn-outline po-btn-sm" data-testid="inv-untrack-btn"
+                      @click="stopTracking(r)">Stop tracking</button>
             </td>
           </tr>
         </tbody>
@@ -185,12 +204,17 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { getProducts, getProductDetail } from '@/api/products'
-import { adjustStock, getInventoryDetail, getInventoryList, receiptStock } from '@/api/inventory'
+import {
+  adjustStock, getInventoryDetail, getInventoryList,
+  getTrackedGaps, receiptStock, setStockTracked,
+} from '@/api/inventory'
 
 const lowStockThreshold = 10
 const loading = ref(false)
 const submitting = ref(false)
 const rows = ref([])
+// ★ 2026-10-28（4a）：已纳管但无库存行的 SKU
+const gaps = ref({ count: 0, items: [] })
 const filters = reactive({ search: '', location: '', lowStock: '' })
 
 async function load() {
@@ -209,7 +233,32 @@ async function load() {
     loading.value = false
   }
 }
-onMounted(load)
+async function loadGaps() {
+  try {
+    const res = await getTrackedGaps()
+    const data = res.data || res
+    gaps.value = { count: data.count || 0, items: data.items || [] }
+  } catch (e) { console.error('[InventoryDesk] tracked-gaps failed:', e) }
+}
+
+/** 脱管：后端要求该 SKU 无库存、无占用，否则 400 STOCK_NOT_EMPTY。 */
+async function stopTracking(row) {
+  const ok = window.confirm(
+    `Stop tracking ${row.sku_code}?\n\n` +
+    'It will no longer be validated against stock on checkout ' +
+    '(treated as made-to-order / unlimited). ' +
+    'Blocked if it still holds stock or allocations.')
+  if (!ok) return
+  try {
+    await setStockTracked(row.sku_id, false)
+    await Promise.all([load(), loadGaps()])
+  } catch (e) {
+    const msg = e?.response?.data?.meta?.error?.message || e?.message || 'Failed'
+    window.alert(msg)
+  }
+}
+
+onMounted(() => { load(); loadGaps() })
 
 /* ── 入库 ── */
 const receipt = reactive({

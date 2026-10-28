@@ -156,6 +156,17 @@ class InventoryService:
             inventory=inv, kind=InventoryMovement.Kind.RECEIPT,
             delta_available=quantity, quantity=quantity, reason=reason, created_by=user,
         )
+        # ★ 2026-10-28（库存数据维护 4a）：**入库即纳管** ——
+        # 这是 `SKU.is_stock_tracked` 唯一的自动置位路径。
+        # 为什么放在这里而不是建 SKU 时：入库是「运营确认实物到仓」这个动作，
+        # 也是唯一能证明"这个 SKU 真的要管库存"的事件。研究员建 SKU 时并不知道
+        # 将来是按需生产还是要备货。
+        # 用 queryset.update() 而非实例 save()：① 幂等、省一次读；
+        # ② 不触发 TimeStampedModel.updated_at 的 auto_now（那是 save() 才有的行为），
+        #    避免"入库把 SKU 行标记成刚改过"。
+        from apps.commerce.models import SKU as _SKU
+        _SKU.objects.filter(
+            pk=sku_id, is_stock_tracked=False).update(is_stock_tracked=True)
         return inv
 
     @staticmethod
@@ -219,7 +230,7 @@ class StockShortageService:
         snap = cls._available(sku.id)
         if sku.inventory_status == SKU.InventoryStatus.OUT_OF_STOCK:
             return (True, snap, StockShortageAlert.Reason.OUT_OF_STOCK)
-        if not cls._is_tracked(sku.id):
+        if not cls._is_tracked(sku):
             return (False, None, '')
         if snap < qty:
             return (True, snap, StockShortageAlert.Reason.INSUFFICIENT)
@@ -230,9 +241,21 @@ class StockShortageService:
         return sum(r.available for r in Inventory.objects.filter(sku_id=sku_id))
 
     @staticmethod
-    def _is_tracked(sku_id):
-        """该 SKU 是否已纳入库存管理（只要有一行库存记录就算）。"""
-        return Inventory.objects.filter(sku_id=sku_id).exists()
+    def _is_tracked(sku):
+        """该 SKU 是否已纳入库存管理 —— **唯一判据是 `SKU.is_stock_tracked`**。
+
+        ★ 2026-10-28 改判据（原来是 `Inventory.objects.filter(sku_id=...).exists()`）：
+        旧判据把「纳管」变成一个**副作用** —— 加一行就纳管、删一行就脱管，
+        误点一次系统行为就变，而且界面上看不见。它还无法区分两件业务含义相反的事：
+        「按需生产、本来不设库存」（应永远不拦）与「忘建库存行」（应视为 0、必须拦）。
+        新字段的完整理由见 `apps/commerce/models.py` 的 `is_stock_tracked` 注释。
+
+        参数接受 `SKU` 实例（首选，零额外查询）或 id（兼容旧调用方，多一次查询）。
+        """
+        if hasattr(sku, 'is_stock_tracked'):
+            return bool(sku.is_stock_tracked)
+        from apps.commerce.models import SKU as _SKU
+        return _SKU.objects.filter(pk=sku, is_stock_tracked=True).exists()
 
     @classmethod
     def check_items(cls, user, items, source, record=True):

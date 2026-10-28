@@ -9,6 +9,12 @@ urlpatterns = [
     path('inventory/receipt/', views.InventoryReceiptView.as_view(), name='inventory-receipt'),
     path('inventory/movements/', views.InventoryMovementListView.as_view({'get': 'list'}),
          name='inventory-movements'),
+    # ★ 2026-10-28（库存数据维护 4a）：显式「纳入库存管理」开关 + 缺口清单。
+    #   字面路径必须排在 `inventory/<int:pk>/` 之前（虽然 int 不匹配字母，
+    #   将来若有人把 pk 改成 <slug> 就会立刻踩坑）。
+    path('inventory/track/', views.InventoryTrackView.as_view(), name='inventory-track'),
+    path('inventory/tracked-gaps/', views.TrackedWithoutStockView.as_view(),
+         name='inventory-tracked-gaps'),
     # ★ 2026-10-28：缺货拦截告警台。字面路径必须排在 `inventory/<int:pk>/` 之前
     #   （虽然 `<int:pk>` 不匹配字母，顺序仍按可读性保持；将来若改成 `<slug>` 会立刻踩坑）。
     path('inventory/shortage-alerts/', views.StockShortageAlertListView.as_view(),

@@ -62,6 +62,15 @@ class ReceiptSerializer(serializers.Serializer):
         return v
 
 
+class TrackSerializer(serializers.Serializer):
+    """纳管开关入参（4a）。
+
+    `tracked=False` 的硬校验在 view 层：要求该 SKU 无库存、无占用才能脱管。
+    """
+    sku_id = serializers.IntegerField()
+    tracked = serializers.BooleanField()
+
+
 class AdjustSerializer(serializers.Serializer):
     """盘点调整入参：available += delta（结果不可为负）。"""
     delta = serializers.IntegerField(min_value=-INT4_MAX, max_value=INT4_MAX)

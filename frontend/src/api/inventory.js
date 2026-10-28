@@ -24,6 +24,18 @@ export function adjustStock(id, data) {
   return http.post(`/inventory/${id}/adjust/`, data)
 }
 
+/** 已纳管、但一行库存都没有的 SKU（4a 缺口清单）。
+ *  这些 SKU 可用量为 0 ⇒ 下单会被全部拦截，而库存表里看不到它们（表里只有库存行）。 */
+export function getTrackedGaps() {
+  return http.get('/inventory/tracked-gaps/')
+}
+
+/** 手工切换「纳入库存管理」开关。
+ *  tracked=false 时后端要求该 SKU 无库存、无占用，否则 400 STOCK_NOT_EMPTY。 */
+export function setStockTracked(skuId, tracked) {
+  return http.post('/inventory/track/', { sku_id: skuId, tracked })
+}
+
 /** 变动流水查询；params: { inventory_id? } */
 export function getMovements(params) {
   return http.get('/inventory/movements/', { params })

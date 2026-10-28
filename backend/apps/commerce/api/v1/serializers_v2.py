@@ -79,6 +79,8 @@ class SKUSerializerV2(serializers.ModelSerializer):
         fields = [
             'id', 'sku_code', 'pack_size', 'concentration', 'price',
             'currency', 'inventory_status', 'lead_time', 'is_default',
+            # ★ 2026-10-28（4a）：显式纳管开关，只读暴露给产品详情/编辑页
+            'is_stock_tracked',
         ]
 
 

@@ -17,7 +17,7 @@ from rest_framework.test import APIClient
 from apps.accounts.models import Organization, User
 from apps.commerce.models import Product, SKU
 from apps.inventory.models import Inventory, StockShortageAlert
-from apps.inventory.services import StockShortageService
+from apps.inventory.services import InventoryService, StockShortageService
 from apps.transactions.models import Order
 
 
@@ -40,9 +40,19 @@ class ShortageBase(TestCase):
     def _auth(self, user):
         self.client.force_authenticate(user=user)
 
-    def _track(self, available):
-        """给 SKU 建一条库存记录（= 纳入库存管理）。"""
-        return Inventory.objects.create(sku=self.sku, location='WH-A', available=available)
+    def _track(self, available, location='WH-A', tracked=True):
+        """建一条库存记录；`tracked=True` 时同时置显式纳管开关。
+
+        ★ 2026-10-28（4a）：纳管判据已从「有没有 Inventory 行」改为
+        `SKU.is_stock_tracked` 显式开关 ⇒ 造「已纳管且有多少货」必须两步都做。
+        `is_short(self.sku, ...)` 读的是内存对象的字段，故必须 refresh。
+        """
+        row = Inventory.objects.create(
+            sku=self.sku, location=location, available=available)
+        if tracked:
+            SKU.objects.filter(pk=self.sku.pk).update(is_stock_tracked=True)
+            self.sku.refresh_from_db(fields=['is_stock_tracked'])
+        return row
 
 
 class IsShortRuleTest(ShortageBase):
@@ -60,6 +70,29 @@ class IsShortRuleTest(ShortageBase):
         """没有任何库存记录 = 尚未纳入库存管理 ⇒ 不判定（否则生产全站无法下单）。"""
         short, available, reason = StockShortageService.is_short(self.sku, 999)
         self.assertFalse(short, '无库存记录不应判缺货')
+        self.assertIsNone(available)
+        self.assertEqual(reason, '')
+
+    def test_tracked_but_no_rows_at_all_blocks(self):
+        """纳管了却一行库存都没有 ⇒ 可用量按 0 算，必须拦。
+
+        ★ 这是 4a 引入的新语义，也是这个字段存在的理由之一：
+        旧判据下「没有库存行」= 「不纳管」= 放行，于是「忘了建库存行」
+        和「按需生产本来就不设库存」被混为一谈 —— 而前者本该拦。
+        """
+        self.sku.is_stock_tracked = True
+        self.sku.save(update_fields=['is_stock_tracked'])
+        short, available, reason = StockShortageService.is_short(self.sku, 1)
+        self.assertTrue(short, '已纳管但无任何库存行 = 可用 0，应拦')
+        self.assertEqual(available, 0)
+        self.assertEqual(reason, StockShortageAlert.Reason.INSUFFICIENT)
+
+    def test_untracked_but_has_rows_passes(self):
+        """显式脱管优先于「有库存行」：按需生产的 SKU 有历史库存行也不该被拦。"""
+        self._track(100, tracked=False)
+        self.assertFalse(self.sku.is_stock_tracked, 'tracked=False 不应被自动置位')
+        short, available, reason = StockShortageService.is_short(self.sku, 999)
+        self.assertFalse(short)
         self.assertIsNone(available)
         self.assertEqual(reason, '')
 
@@ -83,8 +116,8 @@ class IsShortRuleTest(ShortageBase):
         self.assertEqual(available, 0)
 
     def test_multiple_locations_are_summed(self):
-        Inventory.objects.create(sku=self.sku, location='WH-A', available=40)
-        Inventory.objects.create(sku=self.sku, location='WH-B', available=60)
+        self._track(40, location='WH-A')
+        self._track(60, location='WH-B')
         short, available, _ = StockShortageService.is_short(self.sku, 99)
         self.assertFalse(short, '多库位应求和后再比较')
         self.assertEqual(available, 100)
@@ -301,3 +334,89 @@ class OrderListSerializerFieldsTest(ShortageBase):
         self.assertEqual(row['shipping_method'], 'cold_pack')
         self.assertEqual(row['shipping_name'], 'Dr Chen')
         self.assertEqual(row['shipping_address'], '1 Lab Rd, Ningbo')
+
+class StockTrackingApiTest(ShortageBase):
+    """4a：显式「纳入库存管理」开关（`SKU.is_stock_tracked`）+ 缺口清单。
+
+    这个开关的失效方式都是静默的，所以每条都要钉：
+      · 关错了（有货却脱管）⇒ 那批货从所有流程里消失；
+      · 开了但没行（纳管却 0 库存）⇒ 该 SKU 所有下单被拦，而库存台上看不到它。
+    """
+
+    def test_receipt_auto_tracks_sku(self):
+        """入库即纳管 —— 这是开关唯一的自动置位路径。"""
+        self.assertFalse(self.sku.is_stock_tracked)
+        InventoryService.receipt(self.sku.id, 'WH-A', 10, reason='initial')
+        self.sku.refresh_from_db(fields=['is_stock_tracked'])
+        self.assertTrue(self.sku.is_stock_tracked, '入库后必须自动纳管')
+
+    def test_track_on_then_off(self):
+        self._auth(self.proc)
+        r = self.client.post('/api/v1/inventory/track/',
+                             {'sku_id': self.sku.id, 'tracked': True}, format='json')
+        self.assertEqual(r.status_code, 200, r.content[:400])
+        self.assertTrue(r.json()['data']['is_stock_tracked'])
+        self.sku.refresh_from_db(fields=['is_stock_tracked'])
+        self.assertTrue(self.sku.is_stock_tracked)
+
+        r = self.client.post('/api/v1/inventory/track/',
+                             {'sku_id': self.sku.id, 'tracked': False}, format='json')
+        self.assertEqual(r.status_code, 200, r.content[:400])
+        self.sku.refresh_from_db(fields=['is_stock_tracked'])
+        self.assertFalse(self.sku.is_stock_tracked)
+
+    def test_cannot_untrack_while_holding_stock(self):
+        """有货却脱管 ⇒ 货凭空消失。必须 400 且开关不动。"""
+        self._track(10)
+        self._auth(self.proc)
+        r = self.client.post('/api/v1/inventory/track/',
+                             {'sku_id': self.sku.id, 'tracked': False}, format='json')
+        self.assertEqual(r.status_code, 400, r.content[:400])
+        err = r.json()['meta']['error']
+        self.assertEqual(err['code'], 'STOCK_NOT_EMPTY')
+        self.assertEqual(err['details'][0]['available'], 10)
+        self.sku.refresh_from_db(fields=['is_stock_tracked'])
+        self.assertTrue(self.sku.is_stock_tracked, '被拒时开关不得改变')
+
+    def test_cannot_untrack_unknown_sku(self):
+        self._auth(self.proc)
+        r = self.client.post('/api/v1/inventory/track/',
+                             {'sku_id': 999999, 'tracked': True}, format='json')
+        self.assertEqual(r.status_code, 404)
+
+    def test_tracked_gaps_lists_only_tracked_without_rows(self):
+        """纳管 + 无库存行 ⇒ 下单必被拦，必须能在运营侧看见。"""
+        self.sku.is_stock_tracked = True
+        self.sku.save(update_fields=['is_stock_tracked'])
+        SKU.objects.create(product=self.product, sku_code='SC8011-2')  # 未纳管
+        self._auth(self.proc)
+
+        r = self.client.get('/api/v1/inventory/tracked-gaps/')
+        self.assertEqual(r.status_code, 200, r.content[:400])
+        data = r.json()['data']
+        codes = [i['sku_code'] for i in data['items']]
+        self.assertEqual(data['count'], 1)
+        self.assertEqual(codes, ['SC8011-1'])
+
+    def test_tracked_gaps_drops_sku_once_stocked(self):
+        self.sku.is_stock_tracked = True
+        self.sku.save(update_fields=['is_stock_tracked'])
+        self._auth(self.proc)
+        self.assertEqual(self.client.get('/api/v1/inventory/tracked-gaps/')
+                         .json()['data']['count'], 1)
+
+        InventoryService.receipt(self.sku.id, 'WH-A', 5, reason='initial')
+        self.assertEqual(self.client.get('/api/v1/inventory/tracked-gaps/')
+                         .json()['data']['count'], 0, '有库存行后不该再出现在缺口清单')
+
+    def test_customer_forbidden(self):
+        self._auth(self.user)
+        r = self.client.post('/api/v1/inventory/track/',
+                             {'sku_id': self.sku.id, 'tracked': True}, format='json')
+        self.assertEqual(r.status_code, 403)
+
+    def test_anonymous_denied(self):
+        r = self.client.post('/api/v1/inventory/track/',
+                             {'sku_id': self.sku.id, 'tracked': True}, format='json')
+        self.assertIn(r.status_code, (401, 403))
+

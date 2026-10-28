@@ -104,6 +104,101 @@ class InventoryAdjustView(EnvelopeMixin, APIView):
         return self.success_response(srl.InventoryListSerializer(inv).data)
 
 
+class InventoryTrackView(EnvelopeMixin, APIView):
+    """POST /inventory/track/ —— 手工切换某个 SKU 的「纳入库存管理」开关（4a）。
+
+    为什么需要这个端点（`receipt` 只能自动"开"，关不掉）：
+      · SKU 改成按需生产、不囤货 ⇒ 必须脱管，否则缺货拦截会拦掉它的所有订单；
+      · SKU 建错了 / 要停售 ⇒ 先把开关关掉，别让它继续参与下单校验。
+
+    脱管的前置条件（硬校验，否则数据会自相矛盾）：
+      `available == 0` **且** `allocated == 0` **且** 无 RESERVED 占用。
+      有货却脱管 ⇒ 那批货从此不被任何流程看到，等于凭空蒸发；有占用却脱管
+      ⇒ `Allocation` 指向一个"不管库存"的 SKU，发货时的释放逻辑会打空。
+    """
+    permission_classes = [IsProcurementOrAdmin]
+
+    def post(self, request):
+        from apps.commerce.models import SKU
+        from apps.inventory.models import Allocation
+
+        ser = srl.TrackSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        sku_id = ser.validated_data['sku_id']
+        tracked = ser.validated_data['tracked']
+
+        try:
+            sku = SKU.objects.select_related('product').get(pk=sku_id)
+        except SKU.DoesNotExist:
+            from rest_framework.exceptions import NotFound
+            raise NotFound(f'SKU {sku_id} not found')
+
+        if not tracked:
+            rows = list(Inventory.objects.filter(sku_id=sku_id))
+            total_avail = sum(r.available for r in rows)
+            total_alloc = sum(r.allocated for r in rows)
+            reserved = Allocation.objects.filter(
+                inventory__sku_id=sku_id,
+                status=Allocation.Status.RESERVED).count()
+            if total_avail or total_alloc or reserved:
+                return self.error_response(
+                    'Cannot stop tracking: this SKU still holds stock or allocations '
+                    f'(available={total_avail}, allocated={total_alloc}, '
+                    f'reserved_allocations={reserved}). '
+                    'Clear them first (adjust to 0 / release allocations).',
+                    code='STOCK_NOT_EMPTY', status_code=400,
+                    details=[{
+                        'available': total_avail,
+                        'allocated': total_alloc,
+                        'reserved_allocations': reserved,
+                    }],
+                )
+
+        if sku.is_stock_tracked != tracked:
+            # 用 queryset.update()：幂等、不触发 updated_at 的 auto_now（见 receipt 处注释）
+            SKU.objects.filter(pk=sku_id).update(is_stock_tracked=tracked)
+
+        return self.success_response({
+            'sku_id': sku.pk,
+            'sku_code': sku.sku_code,
+            'is_stock_tracked': tracked,
+        })
+
+
+class TrackedWithoutStockView(EnvelopeMixin, APIView):
+    """GET /inventory/tracked-gaps/ —— 「已纳管、但一行库存都没有」的 SKU 清单（4a）。
+
+    为什么必须有这一页/这一项：
+      纳管了却没有任何库存行，`StockShortageService._available()` 返回 0 ⇒
+      **这个 SKU 的所有下单都会被拦**。但它在库存台里根本不出现（库存台列的是
+      `Inventory` 行，没有行就没有行可列）⇒ 运营会觉得"客户莫名其妙下不了单"。
+      这是 4a 引入显式开关后**唯一新增的失效模式**，必须在同一轮里给出可见性，
+      否则就是"装了个闸门，却没人知道闸门关着"。
+    """
+    permission_classes = [IsProcurementOrAdmin]
+
+    def get(self, request):
+        from apps.commerce.models import SKU
+
+        stocked = Inventory.objects.values('sku_id')
+        gaps = (SKU.objects
+                .filter(is_stock_tracked=True)
+                .exclude(id__in=stocked)
+                .select_related('product')
+                .order_by('product__name', 'sku_code'))
+        items = [{
+            'sku_id': s.pk,
+            'sku_code': s.sku_code,
+            'pack_size': s.pack_size,
+            'product_id': s.product_id,
+            'product_name': s.product.name,
+        } for s in gaps]
+        return self.success_response(
+            {'count': len(items), 'items': items},
+            meta={'count': len(items)},
+        )
+
+
 class InventoryMovementListView(EnvelopeMixin, mixins.ListModelMixin, viewsets.GenericViewSet):
     """变动流水查询（可按 inventory_id 过滤）。"""
     permission_classes = [IsProcurementOrAdmin]

@@ -260,6 +260,20 @@ class SKU(TimeStampedModel):
     # ★ v4.1 DEV-10：出口筛查 — hs_code 海关归类 + export_controlled 两用物项标志
     hs_code = models.CharField(max_length=20, blank=True, default='', verbose_name='HS 编码')
     export_controlled = models.BooleanField(default=False, verbose_name='出口受控（两用物项）')
+    # ── ★ 2026-10-28（库存数据维护 4a）：显式「是否纳入库存管理」开关 ──────────
+    # 为什么不用「有没有 Inventory 行」这个隐式判据（原来的 `_is_tracked`）：
+    #   ① 加一行就纳管、删一行就脱管 —— 误点一次行为就变，而且**没人看得见**；
+    #   ② 无法表达「这个 SKU 按需生产、不设库存」这种**有意的**业务状态，
+    #      它和「忘了给这个 SKU 建库存行」在数据上完全一样，但业务含义相反。
+    #      （前者的后果是"永远不会拦截"，后者是"漏拦了"，都很难发现。）
+    # 语义（`StockShortageService.is_short` 的唯一判据）：
+    #   True  ⇒ 下单时按 `Inventory` 可用量校验；**无库存行 = 可用 0 = 拦**；
+    #   False ⇒ 视为不限量 / 按需生产，缺货拦截跳过
+    #           （`inventory_status='out_of_stock'` 这个人工枚举仍然生效，不受本开关影响）。
+    # 自动置 True 的唯一路径：`InventoryService.receipt`（入库即纳管）。
+    # 手工开关：`POST /api/v1/inventory/track/`（procurement/admin）。
+    is_stock_tracked = models.BooleanField(
+        default=False, db_index=True, verbose_name='纳入库存管理')
 
     class Meta:
         db_table = 'sku'
