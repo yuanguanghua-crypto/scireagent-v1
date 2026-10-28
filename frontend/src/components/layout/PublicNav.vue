@@ -144,6 +144,12 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
           </button>
           <div v-if="showUserMenu" class="nav-user-dropdown">
             <router-link v-if="showWorkspaceLink" to="/workspace" class="nav-user-item" @click="closeUserMenu">Workspace</router-link>
+            <!-- ★ 2026-10-28：本菜单原来只有 Workspace / My Wishlist / Sign Out，
+                 登录用户在 public 页（首页、产品页、知识页…）**根本点不到自己的订单**，
+                 也进不去 PO 采购门户（那 6 个 /po/* 页面此前全站零链接）。
+                 与 AppHeader 的菜单补齐同一组入口。 -->
+            <router-link to="/orders" class="nav-user-item" @click="closeUserMenu">My Orders</router-link>
+            <router-link to="/po/orders" class="nav-user-item" @click="closeUserMenu">Purchase Order Portal</router-link>
             <router-link to="/wishlist" class="nav-user-item" @click="closeUserMenu">My Wishlist</router-link>
             <button type="button" class="nav-user-item" @click="handleLogout">Sign Out</button>
           </div>

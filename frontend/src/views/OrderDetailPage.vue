@@ -3,9 +3,10 @@ import { onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
 import { respondToQuote } from '@/api/orders'
+import { downloadInvoicePdf } from '@/api/poPortal'
 import { statusBadgeStyle, formatStatus } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
-import { LoadingSpinner, ErrorBanner } from '@/components/common'
+import { LoadingSpinner, ErrorBanner, StatusBadge } from '@/components/common'
 
 const route = useRoute()
 const router = useRouter()
@@ -21,6 +22,42 @@ const order = computed(() => store.currentOrder)
 //   底色 `statusColors[s] + '15'` 是非法 CSS（令牌是 var()，拼出来 `var(--x)15`）⇒ 恒透明。
 function getStatusLabel(status) {
   return formatStatus(status)
+}
+
+/* ── 发货记录 / 状态时间线（2026-10-28 新增）────────────────────────
+ * ★ 此前本页有一段 `v-if="order.shipping"` 的「Shipping」区块，但
+ *   `OrderDetailSerializer` 返回的是 **`shipments` 数组**（多批次发货），
+ *   从来没有 `shipping` 字段 ⇒ 该区块是**死代码，永远不渲染**。
+ *   实测：GET /orders/32/ 返回 shipments 1 条（DHL / DHL-TEST-… / received_by），
+ *   页面上一个字段都看不到。运营侧走完 approve→ship→deliver 后，客户全程无感。
+ *   现按 shipments 数组渲染全部批次，并补 Status Timeline（status_logs 同样是
+ *   接口已有数据，此前也没渲染）。
+ * ★ 刻意**不用** `.status-badge` 类：state-branches-commerce.spec.cjs:554/567 用
+ *   `page.locator('.status-badge')` 严格模式断言整页只有一个徽标，批次状态改用
+ *   共用组件 StatusBadge（根类 `.po-badge`），互不干扰。
+ */
+const ACTION_LABELS = {
+  status_change: 'Status Change',
+  rep_assigned: 'Rep Assigned',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
+  noted: 'Note',
+  shipment: 'Shipment',
+  invoice: 'Invoice',
+}
+
+const shipments = computed(() => order.value?.shipments || [])
+const timeline = computed(() =>
+  (order.value?.status_logs || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+)
+
+function statusTransition(log) {
+  if (log.from_status && log.to_status) return `${formatStatus(log.from_status)} → ${formatStatus(log.to_status)}`
+  return ACTION_LABELS[log.action_type] || formatStatus(log.action_type) || 'Event'
+}
+
+function fmtDateTime(v) {
+  return v ? new Date(v).toLocaleString('en-US') : '—'
 }
 
 async function handleQuoteAction(action) {
@@ -135,7 +172,7 @@ async function handleQuoteAction(action) {
         </div>
         <div class="info-item">
           <span class="info-label">Status</span>
-          <span class="info-value">{{ order.invoice.status }}</span>
+          <span class="info-value">{{ formatStatus(order.invoice.status) }}</span>
         </div>
         <div class="info-item">
           <span class="info-label">Due Date</span>
@@ -146,25 +183,68 @@ async function handleQuoteAction(action) {
           <span class="info-value">{{ formatCurrency(order.invoice.grand_total, order.currency) }}</span>
         </div>
       </div>
+      <!-- ★ 2026-10-28：后端 `GET /invoices/<id>/pdf/` 对**下单本人**也是 200/application/pdf
+           （实测 2328B），但本页一直没有下载入口，客户只能去 PO 门户（而那个页面 UI 上无入口）。 -->
+      <div class="invoice-actions">
+        <button class="btn-outline" @click="downloadInvoicePdf(order.invoice.id)">Download PDF</button>
+      </div>
     </section>
 
-    <!-- Shipping record -->
-    <section v-if="order.shipping" class="detail-section">
-      <h2 class="section-title">Shipping</h2>
-      <div class="info-grid">
-        <div class="info-item">
-          <span class="info-label">Carrier</span>
-          <span class="info-value">{{ order.shipping.carrier }}</span>
+    <!-- Shipments（多批次） -->
+    <section v-if="shipments.length" class="detail-section">
+      <h2 class="section-title">Shipments ({{ shipments.length }})</h2>
+      <div v-for="s in shipments" :key="s.id" class="shipment-card">
+        <div class="shipment-head">
+          <StatusBadge :status="s.status" :label="formatStatus(s.status)" />
+          <span class="mono">{{ s.tracking_number || '—' }}</span>
+          <span class="shipment-carrier">{{ s.carrier || '—' }}</span>
         </div>
-        <div class="info-item">
-          <span class="info-label">Tracking #</span>
-          <span class="info-value mono">{{ order.shipping.tracking_number }}</span>
+        <div class="info-grid shipment-meta">
+          <div class="info-item">
+            <span class="info-label">Shipped</span>
+            <span class="info-value">{{ fmtDateTime(s.shipped_at) }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Est. Delivery</span>
+            <span class="info-value">{{ s.estimated_delivery || '—' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Delivered</span>
+            <span class="info-value">{{ fmtDateTime(s.delivered_at) }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Received By</span>
+            <span class="info-value">{{ s.received_by || '—' }}</span>
+          </div>
         </div>
-        <div v-if="order.shipping.shipped_at" class="info-item">
-          <span class="info-label">Shipped</span>
-          <span class="info-value">{{ new Date(order.shipping.shipped_at).toLocaleDateString() }}</span>
-        </div>
+        <table v-if="s.items && s.items.length" class="items-table shipment-items">
+          <thead><tr><th>SKU</th><th>Qty Shipped</th></tr></thead>
+          <tbody>
+            <tr v-for="si in s.items" :key="si.id">
+              <td class="mono">{{ si.sku_code || si.order_item_id }}</td>
+              <td>{{ si.quantity }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <a v-if="s.tracking_url" :href="s.tracking_url" target="_blank" rel="noopener" class="btn-outline">
+          Track Package
+        </a>
       </div>
+    </section>
+
+    <!-- Status timeline -->
+    <section v-if="timeline.length" class="detail-section">
+      <h2 class="section-title">Status Timeline</h2>
+      <ol class="timeline">
+        <li v-for="log in timeline" :key="log.id" class="timeline-item">
+          <span class="timeline-dot" aria-hidden="true"></span>
+          <div>
+            <p class="timeline-title">{{ statusTransition(log) }}</p>
+            <p class="timeline-time">{{ fmtDateTime(log.created_at) }}</p>
+            <p v-if="log.note" class="timeline-note">{{ log.note }}</p>
+          </div>
+        </li>
+      </ol>
     </section>
 
     <!-- Notes -->
@@ -223,4 +303,42 @@ async function handleQuoteAction(action) {
 .address-block strong { color: var(--color-text); }
 
 .notes-text { font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; }
+
+/* ── 发货批次 / 状态时间线（2026-10-28 新增） ── */
+.invoice-actions { margin-top: 12px; }
+
+.btn-outline {
+  display: inline-block; padding: 8px 16px; background: white; color: var(--color-primary);
+  border: 1px solid var(--color-primary); border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 600; font-family: var(--font-sans);
+  text-decoration: none; cursor: pointer;
+}
+.btn-outline:hover { background: var(--color-primary-light); }
+
+.shipment-card {
+  border: 1px solid var(--color-border-light); border-radius: var(--radius-md);
+  padding: 16px; margin-bottom: 12px;
+}
+.shipment-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.shipment-carrier { font-size: 13px; color: var(--color-text-secondary); }
+.shipment-meta { margin-top: 12px; }
+.shipment-items { margin-top: 12px; }
+.shipment-items th, .shipment-items td { padding: 6px 12px; font-size: 13px; }
+
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline-item {
+  position: relative; display: flex; gap: 12px;
+  padding: 0 0 16px 4px; margin-left: 3px;
+  border-left: 1px solid var(--color-border);
+}
+.timeline-item:last-child { border-left-color: transparent; padding-bottom: 0; }
+.timeline-dot {
+  position: absolute; left: -4px; top: 4px;
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--color-primary); flex-shrink: 0;
+}
+.timeline-item > div { padding-left: 10px; }
+.timeline-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--color-text); }
+.timeline-time { margin: 2px 0 0; font-size: 12px; color: var(--color-text-tertiary); }
+.timeline-note { margin: 4px 0 0; font-size: 13px; color: var(--color-text-secondary); }
 </style>

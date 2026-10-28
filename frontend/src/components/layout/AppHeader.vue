@@ -177,6 +177,20 @@ async function handleLogout() {
               </svg>
               My Orders
             </router-link>
+            <!-- ★ 2026-10-28：PO 采购门户的**唯一常驻入口**。
+                 此前 `/po/submit`、`/po/orders`、`/po/orders/:id`、`/po/addresses`
+                 `/po/downloads`、`/po/reorder` 六个页面**全站零链接**：
+                 顶栏只有 My Orders→`/orders`，而 `/po/orders` 里那个「+ New PO」
+                 只有先进到 `/po/orders` 才能点。⇒ 客户只能靠手敲 URL 才能提交 PO，
+                 提交完也没有任何地方能看到运单信息（那个页面藏在 PO 门户里）。
+                 实测：`grep -rn "PoSubmit|PoOrders|po/downloads"` 在 views/po/ 之外 0 命中。 -->
+            <router-link to="/po/orders" class="dropdown-item" @click="closeDropdown">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                <polyline points="9 14 11 16 15 12" />
+              </svg>
+              Purchase Order Portal
+            </router-link>
             <button class="dropdown-item dropdown-item--danger" @click="handleLogout">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                 <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
