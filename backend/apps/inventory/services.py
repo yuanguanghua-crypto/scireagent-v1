@@ -1,5 +1,10 @@
+from datetime import timedelta
+
 from django.db import transaction
-from apps.inventory.models import Inventory, Allocation, InsufficientInventoryError, InventoryMovement
+from apps.inventory.models import (
+    Inventory, Allocation, InsufficientInventoryError, InventoryMovement,
+    StockShortageAlert,
+)
 
 # ★ P2：`available`/`allocated` 是裸 IntegerField，Postgres 侧为 int4（上限 2147483647）。
 # 本模块的 quantity/delta 都是**增量**语义（available += x）⇒ 单字段合法 ≠ 累加后合法：
@@ -180,3 +185,158 @@ class InventoryService:
             'allocated': sum(r.allocated for r in rows),
             'on_hand': sum(r.on_hand for r in rows),
         }
+
+
+class StockShortageService:
+    """下单前的库存校验 + 缺货留痕（2026-10-28 新增）。
+
+    ── 判定口径（用户 2026-10-28 拍板，写死在这里避免各入口各判一套）──
+      ① `SKU.inventory_status == 'out_of_stock'` ⇒ 拦（运营显式标记缺货）
+      ② 该 SKU **已建库存记录**（`inventory` 有行）且 `sum(available) < 下单量` ⇒ 拦
+      ③ 没有任何库存记录的 SKU = 尚未纳入库存管理 ⇒ **不判定**
+
+    ★ 为什么 ③ 必须放过（否则就是事故）：
+      生产 `inventory` 表实测 **0 行**、36 个 SKU 全部 `in_stock`、`sum(available)=0`。
+      若把"没建账"当成"没货"，上线当天 **全部下单（PO 提交 + 购物车结账）都会被拒**，
+      整站无法成交。运营之后在库存台入库（`/inventory/receipt/`）自然会进入口径 ②。
+
+    ★ 本服务是**UX 闸门，不是最后一道防线**：并发下两个用户可能同时通过校验（读的是
+      快照）。真正的超卖保护是 `InventoryService.allocate` 的 `select_for_update` 与
+      `InsufficientInventoryError`，这一层只负责"提前、清楚地把话说给用户和运营听"。
+    """
+
+    #: 同 (用户, SKU, 来源) 的重复拦截在这个窗口内合并为一条（occurrences += 1）
+    DEDUPE_WINDOW = timedelta(hours=24)
+
+    @classmethod
+    def is_short(cls, sku, quantity):
+        """返回 (是否缺货, 当时可用量, 原因)。sku 为 None 时视为不缺货（交给上层报错）。"""
+        from apps.commerce.models import SKU
+
+        if sku is None:
+            return (False, None, '')
+        qty = int(quantity or 0)
+        snap = cls._available(sku.id)
+        if sku.inventory_status == SKU.InventoryStatus.OUT_OF_STOCK:
+            return (True, snap, StockShortageAlert.Reason.OUT_OF_STOCK)
+        if not cls._is_tracked(sku.id):
+            return (False, None, '')
+        if snap < qty:
+            return (True, snap, StockShortageAlert.Reason.INSUFFICIENT)
+        return (False, snap, '')
+
+    @staticmethod
+    def _available(sku_id):
+        return sum(r.available for r in Inventory.objects.filter(sku_id=sku_id))
+
+    @staticmethod
+    def _is_tracked(sku_id):
+        """该 SKU 是否已纳入库存管理（只要有一行库存记录就算）。"""
+        return Inventory.objects.filter(sku_id=sku_id).exists()
+
+    @classmethod
+    def check_items(cls, user, items, source, record=True):
+        """批量校验下单明细。返回缺货清单（空列表 = 全部可下单）。
+
+        `items` 形如 `[{'sku_id': 12, 'quantity': 3}, ...]`。
+        **不抛异常** —— 由调用方决定返回 400 还是继续。
+        """
+        from apps.commerce.models import SKU
+
+        sku_ids = []
+        for it in items or []:
+            sid = it.get('sku_id')
+            if sid:
+                try:
+                    sku_ids.append(int(sid))
+                except (TypeError, ValueError):
+                    continue
+        skus = {s.id: s for s in SKU.objects.select_related('product').filter(id__in=sku_ids)}
+
+        shortages = []
+        for it in items or []:
+            try:
+                sid = int(it.get('sku_id'))
+            except (TypeError, ValueError):
+                continue
+            sku = skus.get(sid)
+            if sku is None:
+                continue          # 不存在的 SKU 由序列化器/服务各自报错，这里不重复报
+            qty = int(it.get('quantity') or 0)
+            short, available, reason = cls.is_short(sku, qty)
+            if not short:
+                continue
+            shortages.append({
+                'sku': sku,
+                'sku_id': sku.id,
+                'sku_code': sku.sku_code,
+                'product_name': getattr(sku.product, 'name', '') or '',
+                'requested_quantity': qty,
+                'available_quantity': int(available or 0),
+                'reason': reason,
+            })
+
+        if shortages and record:
+            cls.record_alerts(user, shortages, source)
+        return shortages
+
+    @classmethod
+    def record_alerts(cls, user, shortages, source):
+        """把缺货留痕写库。**任何失败都不能影响主流程** ⇒ 全捕获 + 记日志。"""
+        import logging
+        logger = logging.getLogger(__name__)
+        from django.utils import timezone
+
+        since = timezone.now() - cls.DEDUPE_WINDOW
+        for sh in shortages:
+            try:
+                existing = (StockShortageAlert.objects
+                            .filter(user=user, sku_id=sh['sku_id'], source=source,
+                                    status=StockShortageAlert.Status.NEW,
+                                    created_at__gte=since)
+                            .order_by('-created_at')
+                            .first())
+                if existing:
+                    existing.occurrences += 1
+                    existing.requested_quantity = sh['requested_quantity']
+                    existing.available_quantity = sh['available_quantity']
+                    existing.save(update_fields=[
+                        'occurrences', 'requested_quantity', 'available_quantity', 'updated_at',
+                    ])
+                    continue
+                StockShortageAlert.objects.create(
+                    user=user,
+                    user_email=getattr(user, 'email', '') or '',
+                    user_name=getattr(user, 'username', '') or '',
+                    sku_id=sh['sku_id'],
+                    sku_code=sh['sku_code'],
+                    product_name=sh['product_name'],
+                    requested_quantity=sh['requested_quantity'],
+                    available_quantity=sh['available_quantity'],
+                    reason=sh['reason'],
+                    source=source,
+                )
+            except Exception:                     # noqa: BLE001 — 留痕失败不得阻断下单拦截
+                logger.exception('记录缺货告警失败：sku=%s user=%s',
+                                 sh.get('sku_code'), getattr(user, 'id', None))
+
+    @classmethod
+    def shortage_message(cls, shortages):
+        """给客户看的一句话（英文，与站点语言一致）。
+
+        ★ 2026-10-28 实测修正：`out_of_stock` 是**运营手动标记**的商品状态，可以与账面
+          可用量矛盾（实测某 SKU 被标记缺货但 `available=1014`）。此时若照抄可用量会
+          输出 "requested 3, available 1014" —— 客户一看就是系统在自相矛盾。
+          故只有 `insufficient`（真的数量不够）才报可用量，`out_of_stock` 只说 unavailable。
+        """
+        parts = []
+        for s in shortages:
+            if s['reason'] == StockShortageAlert.Reason.OUT_OF_STOCK:
+                parts.append(f"{s['sku_code']} (requested {s['requested_quantity']}, "
+                             f"currently unavailable)")
+            else:
+                parts.append(f"{s['sku_code']} (requested {s['requested_quantity']}, "
+                             f"available {s['available_quantity']})")
+        return ('The following item(s) are out of stock and cannot be ordered: '
+                + '; '.join(parts)
+                + '. Our team has been notified and will contact you about restocking or alternatives.')

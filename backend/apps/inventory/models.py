@@ -172,3 +172,83 @@ class InventoryMovement(TimeStampedModel):
     def __str__(self):
         return (f'{self.kind} inv={self.inventory_id} '
                 f'dA={self.delta_available} dAl={self.delta_allocated}')
+
+
+class StockShortageAlert(TimeStampedModel):
+    """缺货下单拦截记录 — 客户想买但库存不够时留痕，供运营跟进。
+
+    ★ 2026-10-28 新增。为什么需要独立表而不是复用 StatusLog：
+      StatusLog 挂在 Order 上，而被拦截的下单**根本没有订单**（订单在库存校验
+      之前就被拒），所以必须有一张与订单无关的表来承载"谁想要什么、被拦了几次"。
+      运营据此判断：补库存 / 联系客户换货。
+
+    口径（与 `StockShortageService.is_short` 同一份实现）：
+      · SKU.inventory_status == out_of_stock ⇒ 拦
+      · 该 SKU 已建库存记录（inventory 有行）且 sum(available) < 下单量 ⇒ 拦
+      · 没有任何库存记录的 SKU（= 尚未纳入库存管理）不判定，避免把"没建账"
+        误当成"没货"。
+
+    字段里同时存 FK 与**快照**（user_email / sku_code / product_name）：
+    用户或 SKU 之后被删/改名，运营看到的仍是拦截当时的原始信息。
+    """
+
+    class Reason(models.TextChoices):
+        OUT_OF_STOCK = 'out_of_stock', 'SKU 标记缺货'
+        INSUFFICIENT = 'insufficient', '可用量不足'
+
+    class Source(models.TextChoices):
+        PO_SUBMIT = 'po_submit', 'PO 提交'
+        CHECKOUT = 'checkout', '购物车结账'
+
+    class Status(models.TextChoices):
+        NEW = 'new', '待处理'
+        RESTOCKED = 'restocked', '已补库存'
+        CONTACTED = 'contacted', '已联系客户'
+        DISMISSED = 'dismissed', '已忽略'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='stock_shortage_alerts', verbose_name='下单用户'
+    )
+    user_email = models.CharField(max_length=254, blank=True, default='', verbose_name='用户邮箱（快照）')
+    user_name = models.CharField(max_length=150, blank=True, default='', verbose_name='用户名（快照）')
+    sku = models.ForeignKey(
+        'commerce.SKU', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='shortage_alerts', verbose_name='SKU'
+    )
+    sku_code = models.CharField(max_length=100, blank=True, default='', db_index=True,
+                                verbose_name='SKU 编码（快照）')
+    product_name = models.CharField(max_length=500, blank=True, default='', verbose_name='产品名（快照）')
+    requested_quantity = models.IntegerField(default=0, verbose_name='客户下单数量')
+    available_quantity = models.IntegerField(default=0, verbose_name='当时可用量')
+    occurrences = models.IntegerField(
+        default=1,
+        verbose_name='重复次数',
+        help_text='同一用户对同一 SKU 的连续拦截次数（24h 内合并，避免刷屏）',
+    )
+    reason = models.CharField(max_length=20, choices=Reason.choices,
+                              default=Reason.INSUFFICIENT, verbose_name='拦截原因')
+    source = models.CharField(max_length=20, choices=Source.choices,
+                              default=Source.PO_SUBMIT, verbose_name='来源')
+    status = models.CharField(max_length=20, choices=Status.choices,
+                              default=Status.NEW, verbose_name='处理状态', db_index=True)
+    handled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+', verbose_name='处理人'
+    )
+    handled_at = models.DateTimeField(null=True, blank=True, verbose_name='处理时间')
+    note = models.TextField(blank=True, default='', verbose_name='处理备注')
+
+    class Meta:
+        db_table = 'stock_shortage_alert'
+        verbose_name = '缺货下单拦截'
+        verbose_name_plural = verbose_name
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-created_at'], name='idx_ssa_status_time'),
+            models.Index(fields=['user', 'sku'], name='idx_ssa_user_sku'),
+        ]
+
+    def __str__(self):
+        return (f'{self.sku_code or self.sku_id} x{self.requested_quantity} '
+                f'by {self.user_name or self.user_id} [{self.status}]')

@@ -1,12 +1,13 @@
-from django.db.models import Q
+from django.db.models import Q, Count
 
 from rest_framework import mixins, viewsets
 from rest_framework.exceptions import ValidationError as DRFValidationError
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.mixins import EnvelopeMixin
 from core.permissions import IsProcurementOrAdmin
-from apps.inventory.models import Inventory, InventoryMovement
+from apps.inventory.models import Inventory, InventoryMovement, StockShortageAlert
 from apps.inventory.services import InventoryService, InsufficientInventoryError
 from apps.inventory.api.v1 import serializers as srl
 
@@ -114,3 +115,84 @@ class InventoryMovementListView(EnvelopeMixin, mixins.ListModelMixin, viewsets.G
         if inv.isdigit():
             qs = qs.filter(inventory_id=int(inv))
         return qs
+
+
+# ── 缺货拦截告警台（2026-10-28 新增）──────────────────────────────────────────
+class StockShortageAlertListView(EnvelopeMixin, APIView):
+    """GET /api/v1/inventory/shortage-alerts/ — 客户因缺货被拦下的下单记录。
+
+    运营在这里看到「谁 / 什么时候 / 想买什么 SKU / 要多少 / 当时可用多少 / 被拦几次」，
+    据此决定补库存还是联系客户换产品。
+    """
+
+    permission_classes = [IsProcurementOrAdmin]
+
+    def get(self, request):
+        p = request.query_params
+        qs = StockShortageAlert.objects.select_related('user', 'sku', 'handled_by')
+
+        status_filter = (p.get('status') or '').strip()
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+
+        search = (p.get('search') or '').strip()
+        if search:
+            qs = qs.filter(
+                Q(sku_code__icontains=search)
+                | Q(product_name__icontains=search)
+                | Q(user_email__icontains=search)
+                | Q(user_name__icontains=search)
+            )
+
+        try:
+            page = max(1, int(p.get('page') or 1))
+        except (TypeError, ValueError):
+            page = 1
+        try:
+            page_size = min(200, max(1, int(p.get('page_size') or 20)))
+        except (TypeError, ValueError):
+            page_size = 20
+
+        total = qs.count()
+        rows = qs[(page - 1) * page_size: page * page_size]
+
+        # 徽标计数：各状态条数（4 态恒返回，前端不用兜底）
+        raw = dict(StockShortageAlert.objects.values_list('status').annotate(n=Count('id')))
+        counts = {choice: raw.get(choice, 0) for choice in StockShortageAlert.Status.values}
+
+        return Response({
+            'success': True,
+            'data': srl.StockShortageAlertSerializer(rows, many=True).data,
+            'meta': {
+                'pagination': {'page': page, 'pageSize': page_size, 'count': total},
+                'counts': counts,
+            },
+        })
+
+
+class StockShortageResolveView(EnvelopeMixin, APIView):
+    """POST /api/v1/inventory/shortage-alerts/{id}/resolve/ — 标记已补货/已联系/已忽略。"""
+
+    permission_classes = [IsProcurementOrAdmin]
+
+    def post(self, request, pk):
+        from django.utils import timezone
+        from django.shortcuts import get_object_or_404
+
+        obj = get_object_or_404(StockShortageAlert, pk=pk)
+        ser = srl.StockShortageResolveSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        new_status = ser.validated_data['status']
+
+        obj.status = new_status
+        note = (ser.validated_data.get('note') or '').strip()
+        if note:
+            obj.note = note
+        if new_status == StockShortageAlert.Status.NEW:
+            obj.handled_by = None
+            obj.handled_at = None
+        else:
+            obj.handled_by = request.user
+            obj.handled_at = timezone.now()
+        obj.save(update_fields=['status', 'note', 'handled_by', 'handled_at', 'updated_at'])
+        return self.success_response(srl.StockShortageAlertSerializer(obj).data)

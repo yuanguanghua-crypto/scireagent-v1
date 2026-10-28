@@ -300,6 +300,14 @@ const routes = [
         component: () => import('@/views/admin/InventoryDesk.vue'),
         meta: { title: 'Inventory Desk', requiresAuth: true, requiresAdmin: true, bareHeader: true },
       },
+      {
+        // ★ 2026-10-28：缺货拦截告警台。客户因缺货被拦下的下单不会生成订单，
+        //   运营在 Orders/Order Review 里看不到，必须单独一页承载「谁想买什么」。
+        path: 'shortage-alerts',
+        name: 'ShortageAlertsDesk',
+        component: () => import('@/views/admin/ShortageAlertsDesk.vue'),
+        meta: { title: 'Stock Shortage Alerts', requiresAuth: true, requiresAdmin: true, bareHeader: true },
+      },
     ],
   },
 

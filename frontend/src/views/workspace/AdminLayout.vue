@@ -244,6 +244,16 @@ if (!isInternal(auth)) {
             </svg>
             Inventory
           </router-link>
+          <!-- ★ 2026-10-28：缺货拦截告警台。被缺货拦下的下单**不产生订单**，
+               在 Orders / Order Review 里完全看不到，必须单独一个入口，
+               否则「谁想买、该不该补货」这条线彻底断掉。 -->
+          <router-link to="/ops/shortage-alerts" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <path d="M12 9v4M12 17h.01" />
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            Shortage Alerts
+          </router-link>
         </div>
 
         <!-- 系统：排障与配置。组内条目按"是否需要脱离 Django admin"逐步搬过来。 -->

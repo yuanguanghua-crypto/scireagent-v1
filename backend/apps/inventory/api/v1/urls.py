@@ -9,6 +9,12 @@ urlpatterns = [
     path('inventory/receipt/', views.InventoryReceiptView.as_view(), name='inventory-receipt'),
     path('inventory/movements/', views.InventoryMovementListView.as_view({'get': 'list'}),
          name='inventory-movements'),
+    # ★ 2026-10-28：缺货拦截告警台。字面路径必须排在 `inventory/<int:pk>/` 之前
+    #   （虽然 `<int:pk>` 不匹配字母，顺序仍按可读性保持；将来若改成 `<slug>` 会立刻踩坑）。
+    path('inventory/shortage-alerts/', views.StockShortageAlertListView.as_view(),
+         name='inventory-shortage-alerts'),
+    path('inventory/shortage-alerts/<int:pk>/resolve/', views.StockShortageResolveView.as_view(),
+         name='inventory-shortage-resolve'),
     path('inventory/<int:pk>/', views.InventoryViewSet.as_view({'get': 'retrieve'}),
          name='inventory-detail'),
     path('inventory/<int:pk>/adjust/', views.InventoryAdjustView.as_view(), name='inventory-adjust'),

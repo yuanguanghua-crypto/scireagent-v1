@@ -28,6 +28,8 @@ from apps.transactions.services import (
     InvoiceService, PaymentArService, PoNumberConflictError,
 )
 from apps.notifications.services import EmailService
+from apps.inventory.services import StockShortageService
+from apps.inventory.models import StockShortageAlert
 
 User = get_user_model()
 
@@ -48,6 +50,33 @@ class POSubmitView(EnvelopeMixin, APIView):
                 pass
         serializer = PoSubmitSerializer(data=data)
         serializer.is_valid(raise_exception=True)
+
+        # ★ 2026-10-28：缺货拦截（用户要求「缺货的不能下单」）。
+        #   位置刻意放在 `PoSubmissionService.submit` **之前**：该服务是 @transaction.atomic，
+        #   若在里面抛错，连缺货告警行也会被一起回滚 ⇒ 运营什么也看不到。
+        #   口径见 `StockShortageService`：out_of_stock 一律拦；已建库存记录的 SKU 再校验
+        #   available < 下单量；**没有库存记录的 SKU 不判定**（生产 inventory 表 0 行，
+        #   若把"未建账"当成"没货"，上线当天全部下单都会被拒）。
+        shortages = StockShortageService.check_items(
+            request.user,
+            serializer.validated_data.get('items', []),
+            source=StockShortageAlert.Source.PO_SUBMIT,
+        )
+        if shortages:
+            return self.error_response(
+                StockShortageService.shortage_message(shortages),
+                code='OUT_OF_STOCK',
+                status_code=400,
+                details=[{
+                    'sku_id': s['sku_id'],
+                    'sku_code': s['sku_code'],
+                    'product_name': s['product_name'],
+                    'requested_quantity': s['requested_quantity'],
+                    'available_quantity': s['available_quantity'],
+                    'reason': s['reason'],
+                } for s in shortages],
+            )
+
         files = request.FILES.getlist('attachments') or request.FILES.getlist('file')
         try:
             order = PoSubmissionService.submit(

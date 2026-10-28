@@ -1,7 +1,7 @@
 from rest_framework import serializers
 
 from core.serializers import BaseModelSerializer
-from apps.inventory.models import Inventory, InventoryMovement
+from apps.inventory.models import Inventory, InventoryMovement, StockShortageAlert
 from apps.inventory.serializers import AllocationSerializer  # 复用既有占用展示
 
 # ★ P2：`available`/`allocated` 在 Postgres 是 int4，上限 2147483647。
@@ -76,3 +76,40 @@ class AdjustSerializer(serializers.Serializer):
         if not v.strip():
             raise serializers.ValidationError('调整必须填写原因')
         return v
+
+
+class StockShortageAlertSerializer(BaseModelSerializer):
+    """缺货拦截记录（运营告警台列表）。"""
+
+    reason_label = serializers.CharField(source='get_reason_display', read_only=True)
+    source_label = serializers.CharField(source='get_source_display', read_only=True)
+    status_label = serializers.CharField(source='get_status_display', read_only=True)
+    user_display = serializers.SerializerMethodField()
+    handled_by_name = serializers.CharField(source='handled_by.username', read_only=True, default='')
+
+    class Meta:
+        model = StockShortageAlert
+        fields = [
+            'id', 'user_id', 'user_name', 'user_email', 'user_display',
+            'sku_id', 'sku_code', 'product_name',
+            'requested_quantity', 'available_quantity', 'occurrences',
+            'reason', 'reason_label', 'source', 'source_label',
+            'status', 'status_label',
+            'handled_by_id', 'handled_by_name', 'handled_at', 'note',
+            'created_at', 'updated_at',
+        ]
+
+    def get_user_display(self, obj):
+        """优先显示快照（用户可能已被删除/改名），退化到 FK。"""
+        return obj.user_name or getattr(obj.user, 'username', '') or f'user#{obj.user_id}'
+
+
+class StockShortageResolveSerializer(serializers.Serializer):
+    """标记处理：已补货 / 已联系客户 / 已忽略。"""
+    status = serializers.ChoiceField(choices=[
+        StockShortageAlert.Status.RESTOCKED,
+        StockShortageAlert.Status.CONTACTED,
+        StockShortageAlert.Status.DISMISSED,
+        StockShortageAlert.Status.NEW,      # 允许撤回（误点）
+    ])
+    note = serializers.CharField(required=False, allow_blank=True, default='', max_length=2000)

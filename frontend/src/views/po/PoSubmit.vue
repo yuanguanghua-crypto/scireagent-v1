@@ -10,6 +10,9 @@ const router = useRouter()
 const route = useRoute()
 const submitting = ref(false)
 const successOrderNo = ref('')
+// ★ 2026-10-28：缺货拦截的结构化结果（后端 meta.error.details）
+const shortages = ref([])
+const shortageMessage = ref('')
 const reorderSourceId = ref('')
 // 交付日期下限：本地时区的今天（YYYY-MM-DD）。
 // 用 toLocaleDateString('en-CA') 取本地时区日期，规避 toISOString() 的 UTC 偏移导致少一天。
@@ -174,7 +177,17 @@ async function handleSubmit() {
     const data = res.data || res
     successOrderNo.value = data.order_no || 'submitted'
   } catch (err) {
-    // 拦截器已 toast；此处静默
+    // 拦截器已 toast（一句话）；这里再把「哪几行缺货、要多少、只剩多少」结构化落页，
+    // 因为 toast 4 秒就没了，而客户需要照着这张表去改数量或换产品。
+    // ★ 2026-10-28：后端缺货拦截返回 code=OUT_OF_STOCK + meta.error.details[]。
+    const e = err?.response?.data?.meta?.error || err?.data?.meta?.error
+    if (e?.code === 'OUT_OF_STOCK' && Array.isArray(e.details)) {
+      shortages.value = e.details
+      shortageMessage.value = e.message || ''
+    } else {
+      shortages.value = []
+      shortageMessage.value = ''
+    }
     console.error('[PoSubmit] submit failed:', err)
   } finally {
     submitting.value = false
@@ -200,6 +213,32 @@ async function handleSubmit() {
       <router-link :to="{ name: 'PoOrders' }" class="po-btn po-btn-primary po-btn-sm" style="margin-left:12px">
         View My Orders
       </router-link>
+    </div>
+
+    <!-- ★ 2026-10-28：缺货拦截。后端 code=OUT_OF_STOCK 时把被拦的行逐条列出来 ——
+         toast 4 秒就消失，客户需要照着这张表去改数量或换产品。
+         为什么不做成"自动删掉缺货行继续下单"：那会静默改变客户的订单内容。 -->
+    <div v-if="shortages.length" class="po-callout danger" style="margin-bottom:24px">
+      <strong>These item(s) are out of stock — the order was NOT submitted.</strong>
+      <p class="po-muted" style="margin:6px 0 10px; font-size:13px">
+        Our team has been notified and will contact you about restocking or an alternative product.
+      </p>
+      <table class="po-table">
+        <thead><tr><th>SKU</th><th>Product</th><th>Requested</th><th>Available</th></tr></thead>
+        <tbody>
+          <tr v-for="s in shortages" :key="s.sku_id">
+            <td class="po-mono">{{ s.sku_code }}</td>
+            <td>{{ s.product_name || '—' }}</td>
+            <td>{{ s.requested_quantity }}</td>
+            <!-- ★ out_of_stock 是运营手动标记，可能与账面库存矛盾（实测标记缺货但账面 1014）。
+                 此时照抄数字会让客户觉得系统在自相矛盾 ⇒ 只报"不可订"。 -->
+            <td>
+              <strong v-if="s.reason === 'insufficient'">{{ s.available_quantity }}</strong>
+              <span v-else class="po-muted">Unavailable</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
     <form class="po-card" @submit.prevent="handleSubmit">

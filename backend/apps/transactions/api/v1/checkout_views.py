@@ -13,6 +13,8 @@ from apps.transactions.models import Order, OrderItem, Basket, Invoice
 from apps.transactions.services import OrderNoService
 from apps.transactions.api.v1.serializers import CheckoutSerializer, OrderDetailSerializer
 from core.db_retry import retry_on_deadlock
+from apps.inventory.services import StockShortageService
+from apps.inventory.models import StockShortageAlert
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +39,34 @@ class CheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate SKUs are in stock
-        for item in basket_items:
-            if item.sku and item.sku.inventory_status == 'out_of_stock':
-                return Response(
-                    {'success': False, 'meta': {'error': {
-                        'code': 'OUT_OF_STOCK',
-                        'message': f'SKU {item.sku.sku_code} is out of stock',
-                    }}},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        # ★ 2026-10-28：缺货拦截统一到 `StockShortageService`。
+        #   此前这里只查 `sku.inventory_status == 'out_of_stock'` 这个枚举
+        #   —— 完全不看真实可用量（`inventory` 表的 available），也**不给运营留痕**。
+        #   现在两条下单路径（购物车结账 / PO 提交）共用同一份口径，被拦时同步写
+        #   `StockShortageAlert`，运营在「缺货告警台」能看到是谁、什么时候、要买什么。
+        #   ⚠️ 必须放在 `with transaction.atomic()` **之前**：万一之后回滚，告警行不该跟着消失。
+        shortages = StockShortageService.check_items(
+            user,
+            [{'sku_id': it.sku_id, 'quantity': it.quantity}
+             for it in basket_items if it.sku_id],
+            source=StockShortageAlert.Source.CHECKOUT,
+        )
+        if shortages:
+            return Response(
+                {'success': False, 'meta': {'error': {
+                    'code': 'OUT_OF_STOCK',
+                    'message': StockShortageService.shortage_message(shortages),
+                    'details': [{
+                        'sku_id': s['sku_id'],
+                        'sku_code': s['sku_code'],
+                        'product_name': s['product_name'],
+                        'requested_quantity': s['requested_quantity'],
+                        'available_quantity': s['available_quantity'],
+                        'reason': s['reason'],
+                    } for s in shortages],
+                }}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         with transaction.atomic():
             # Calculate totals

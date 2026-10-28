@@ -242,4 +242,12 @@
   border: 1px solid var(--color-primary-light);
 }
 .po-callout.warn { background: var(--color-accent-light); border-color: #FDE68A; color: var(--color-accent-hover); }
+/* ★ 2026-10-28：阻塞级（如"缺货，订单未提交"）。用 danger 语义令牌，与 warn 区分。 */
+.po-callout.danger {
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger-light);
+  color: var(--color-danger);
+}
+.po-callout.danger .po-muted { color: var(--color-danger); opacity: .85; }
+.po-callout.danger .po-table { margin-top: 8px; background: #fff; border-radius: 4px; }
 .po-empty { text-align: center; padding: 40px; color: var(--color-text-tertiary); }
