@@ -429,6 +429,20 @@ class ShippingService:
                 action_type=StatusLog.ActionType.SHIPMENT,
                 note=f'Shipment #{shipment.id} marked shipped',
             )
+        else:
+            # ★ 2026-10-28 修：**后续批次**发货时订单已是 shipped，`can_transition` 为假
+            #   ⇒ 原来整段被跳过，「第 2 批已发货」这个动作**在 status_log 里完全丢失**。
+            #   实测（订单 1297，两批）：实际发生 4 个动作（2 发 2 签），日志只留 2 条，
+            #   丢的正是 #548 marked shipped 与 #547 delivered ⇒ 订单详情的 Status Timeline 缺条，
+            #   运营/客服查不到某一批到底什么时候发的。
+            #   与 `create_shipment` 的行为也不一致（建单无条件写 `Shipment #N created`）。
+            #   ⇒ 状态不变的批次动作也必须留痕（from=to=当前状态）。
+            StatusLog.objects.create(
+                order=order, actor=actor,
+                action_type=StatusLog.ActionType.SHIPMENT,
+                from_status=order.status, to_status=order.status,
+                note=f'Shipment #{shipment.id} marked shipped',
+            )
         EmailService.enqueue(
             'shipped',
             to=[order.shipping_email] if order.shipping_email else [],
@@ -440,6 +454,9 @@ class ShippingService:
     @transaction.atomic
     def mark_delivered(cls, shipment_id: int, received_by: str = '', actor=None) -> ShippingRecord:
         shipment = ShippingRecord.objects.select_for_update().get(pk=shipment_id)
+        # ★ 2026-10-28：幂等保护。此前重复调用会重复写时间线（双击/重试即产生重复条目）。
+        if shipment.status == ShippingRecord.Status.DELIVERED:
+            return shipment
         shipment.status = ShippingRecord.Status.DELIVERED
         shipment.received_by = received_by or ''
         shipment.delivered_at = timezone.now()
@@ -456,6 +473,16 @@ class ShippingService:
                 'delivered',
                 to=[order.shipping_email] if order.shipping_email else [],
                 ctx={'order_no': order.order_no},
+            )
+        else:
+            # ★ 2026-10-28 修（同 mark_shipped）：**中间批次**签收时订单还不能转 delivered
+            #   ⇒ 原来不写日志，「第 1 批已签收、还差 1 批」这个事实在时间线上不可见。
+            #   实测订单 1297 丢了 `#547 delivered` 这条。
+            StatusLog.objects.create(
+                order=order, actor=actor,
+                action_type=StatusLog.ActionType.SHIPMENT,
+                from_status=order.status, to_status=order.status,
+                note=f'Shipment #{shipment.id} delivered — awaiting remaining items',
             )
         return shipment
 
