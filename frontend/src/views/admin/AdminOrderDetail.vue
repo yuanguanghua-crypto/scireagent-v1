@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getAdminOrder, completeOrder, enterQuote, cancelOrder } from '@/api/orders'
 import {
@@ -9,7 +9,7 @@ import {
 import { formatCurrency } from '@/utils/helpers'
 import { extractErrorMessage } from '@/utils/http'
 import { statusBadgeStyle, formatStatus } from '@/config/poConstants'
-import { LoadingSpinner, ErrorBanner } from '@/components/common'
+import { LoadingSpinner, ErrorBanner, StatusBadge } from '@/components/common'
 
 const route = useRoute()
 const router = useRouter()
@@ -61,6 +61,38 @@ function getStatusLabel(s) { return formatStatus(s) }
 function activeShipment() {
   if (!order.value?.shipments?.length) return null
   return order.value.shipments.find(s => s.status !== 'delivered') || null
+}
+
+/* ★ 2026-10-28 新增：发货记录与状态时间线。
+ *   `AdminOrderDetailView` 用的是 **OrderDetailSerializer**（admin_order_views.py:63），
+ *   该序列化器本来就带 shipments 与 status_logs —— 数据一直在响应里，只是本页
+ *   一个都没渲染。实测 /ops/orders/33 上搜不到运单号 SF-TEST-20261028-001，
+ *   运营想知道"这单到底发了没、谁签收的、状态被谁改过"只能查库。
+ *   ★ 批次状态刻意用 StatusBadge（根类 `.po-badge`）而不是 `.status-badge`：
+ *     order-error-paths.spec.cjs:417 用 `page.locator('.status-badge')` 严格模式
+ *     断言整页只有一个徽标。 */
+const ACTION_LABELS = {
+  status_change: 'Status Change',
+  rep_assigned: 'Rep Assigned',
+  rejected: 'Rejected',
+  cancelled: 'Cancelled',
+  noted: 'Note',
+  shipment: 'Shipment',
+  invoice: 'Invoice',
+}
+
+const shipments = computed(() => order.value?.shipments || [])
+const timeline = computed(() =>
+  (order.value?.status_logs || []).slice().sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+)
+
+function statusTransition(log) {
+  if (log.from_status && log.to_status) return `${formatStatus(log.from_status)} → ${formatStatus(log.to_status)}`
+  return ACTION_LABELS[log.action_type] || formatStatus(log.action_type) || 'Event'
+}
+
+function fmtDateTime(v) {
+  return v ? new Date(v).toLocaleString('en-US') : '—'
 }
 
 async function doAction(action) {
@@ -246,6 +278,34 @@ async function doAction(action) {
       <p v-if="order.shipping_phone">{{ order.shipping_phone }}</p>
     </section>
 
+    <!-- Shipments（多批次） -->
+    <section v-if="shipments.length" class="detail-section">
+      <h2 class="section-title">Shipments ({{ shipments.length }})</h2>
+      <div v-for="s in shipments" :key="s.id" class="shipment-card">
+        <div class="shipment-head">
+          <StatusBadge :status="s.status" :label="formatStatus(s.status)" />
+          <span class="mono">{{ s.tracking_number || '—' }}</span>
+          <span class="shipment-carrier">{{ s.carrier || '—' }}</span>
+          <a v-if="s.tracking_url" :href="s.tracking_url" target="_blank" rel="noopener" class="shipment-track">Track</a>
+        </div>
+        <div class="shipment-meta">
+          <span><b>Shipped</b> {{ fmtDateTime(s.shipped_at) }}</span>
+          <span><b>Est. Delivery</b> {{ s.estimated_delivery || '—' }}</span>
+          <span><b>Delivered</b> {{ fmtDateTime(s.delivered_at) }}</span>
+          <span><b>Received By</b> {{ s.received_by || '—' }}</span>
+        </div>
+        <table v-if="s.items && s.items.length" class="items-table shipment-items">
+          <thead><tr><th>SKU</th><th>Qty Shipped</th></tr></thead>
+          <tbody>
+            <tr v-for="si in s.items" :key="si.id">
+              <td class="mono">{{ si.sku_code || si.order_item_id }}</td>
+              <td>{{ si.quantity }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- Invoice -->
     <section v-if="order.invoice" class="detail-section">
       <h2 class="section-title">Invoice {{ order.invoice.invoice_no }}</h2>
@@ -254,6 +314,24 @@ async function doAction(action) {
         <div class="info-item"><span class="info-label">Due</span><span>{{ order.invoice.due_date }}</span></div>
         <div class="info-item"><span class="info-label">Amount</span><span>{{ formatCurrency(order.invoice.grand_total) }}</span></div>
       </div>
+    </section>
+
+    <!-- Status timeline（谁在什么时候把状态从哪改到哪） -->
+    <section v-if="timeline.length" class="detail-section">
+      <h2 class="section-title">Status Timeline</h2>
+      <ol class="timeline">
+        <li v-for="log in timeline" :key="log.id" class="timeline-item">
+          <span class="timeline-dot" aria-hidden="true"></span>
+          <div>
+            <p class="timeline-title">{{ statusTransition(log) }}</p>
+            <p class="timeline-time">
+              {{ fmtDateTime(log.created_at) }}
+              <span v-if="log.actor_id"> · user #{{ log.actor_id }}</span>
+            </p>
+            <p v-if="log.note" class="timeline-note">{{ log.note }}</p>
+          </div>
+        </li>
+      </ol>
     </section>
 
     <!-- Internal notes -->
@@ -306,5 +384,37 @@ async function doAction(action) {
 .info-grid { display: flex; flex-direction: column; gap: 8px; }
 .info-item { display: flex; gap: 8px; font-size: 14px; }
 .info-label { font-size: 12px; font-weight: 600; color: var(--color-text-tertiary); min-width: 80px; }
+
+/* ── 发货批次 / 状态时间线（2026-10-28 新增） ── */
+.shipment-card {
+  border: 1px solid var(--color-border-light); border-radius: var(--radius-md);
+  padding: 14px; margin-bottom: 12px; background: var(--color-bg);
+}
+.shipment-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.shipment-carrier { font-size: 13px; color: var(--color-text-secondary); }
+.shipment-track { font-size: 13px; font-weight: 600; color: var(--color-primary); text-decoration: none; }
+.shipment-track:hover { text-decoration: underline; }
+.shipment-meta {
+  display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: 10px;
+  font-size: 13px; color: var(--color-text-secondary);
+}
+.shipment-meta b { color: var(--color-text-tertiary); font-weight: 600; margin-right: 4px; }
+.shipment-items { margin-top: 10px; }
+.shipment-items th, .shipment-items td { padding: 6px 8px; font-size: 13px; }
+
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline-item {
+  position: relative; display: flex; padding: 0 0 14px 4px; margin-left: 3px;
+  border-left: 1px solid var(--color-border);
+}
+.timeline-item:last-child { border-left-color: transparent; padding-bottom: 0; }
+.timeline-dot {
+  position: absolute; left: -4px; top: 4px;
+  width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary);
+}
+.timeline-item > div { padding-left: 10px; }
+.timeline-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--color-text); }
+.timeline-time { margin: 2px 0 0; font-size: 12px; color: var(--color-text-tertiary); }
+.timeline-note { margin: 4px 0 0; font-size: 13px; color: var(--color-text-secondary); }
 
 </style>
