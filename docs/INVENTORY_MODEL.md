@@ -117,7 +117,7 @@ B 客户再下 100，**两单都能通过**，等运营手点 Allocate 才发现
 |---|---|
 | 取消订单 | `CancelOrderView` → `release_for_order` |
 | 拒单 | `RejectOrderView` → `release_for_order` |
-| 超时未推进 | `manage.py release_expired_reservations --hours 72`（**只释放占用，不取消订单**；只碰 `po_received`/`confirmed`，绝不碰 `in_production` 与已发货） |
+| 超时未付款 | 先提醒（3 天，`remind_unpaid_orders`），后释放（7 天，`release_expired_reservations --hours 168`）。**只释放占用，不取消订单**；只碰 `po_received`/`confirmed`，绝不碰 `in_production` 与已发货。判定基准是 **`created_at`（下单时刻）**，不是 `updated_at` —— 否则运营改个备注就把时钟重置，"一直没人动但一直没付"的单永远释放不掉 |
 | 发货 | `mark_shipped` → `release`（**发货语义**：`allocated -= q`，`available` 不变） |
 
 **两个容易搞混的释放语义**（用错会让库存凭空增减且不报错）：
@@ -160,16 +160,34 @@ B 客户再下 100，**两单都能通过**，等运营手点 Allocate 才发现
 **要改数量（盘点）**
 该行 `Adjust` → 填 `delta`（可正可负）→ 填原因。结果不可为负。
 
-**要释放"客户下了单一直不付款"占用的库存**
+**客户下单后一直不付款：先催款（3 天）、再释放库存（7 天）**
+
+两个阈值是**独立**的，别写死成一个：催款太晚客户会觉得"货怎么突然没了"，
+释放太早会把还在走流程的单锁死。
+
 ```
-python manage.py release_expired_reservations --dry-run          # 先看会放哪些
-python manage.py release_expired_reservations --hours 72 --dry-run
-python manage.py release_expired_reservations --hours 72
+# ① 催款：下单满 3 天仍未付款 ⇒ 发一封提醒（每单只发一次）
+python manage.py remind_unpaid_orders --dry-run
+python manage.py remind_unpaid_orders --hours 72 --release-hours 168
+
+# ② 释放：下单满 7 天仍未付款 ⇒ 还回占用的库存（只释放，不取消订单）
+python manage.py release_expired_reservations --hours 168 --dry-run
+python manage.py release_expired_reservations --hours 168
 ```
-只释放**占用**，不取消订单；只碰 `po_received` / `confirmed`，不碰 `in_production` 与已发货。
-建议挂 crontab（与 `send_outbox_emails` 同一模式，凌晨跑）：
+
+口径细节：
+- 催款覆盖 `po_received / confirmed / in_production / shipped / delivered / invoiced`
+  —— **货发了但钱没到，正是最该催的时候**；不碰 `paid / completed / cancelled / quote_*`。
+- 释放只碰 `po_received / confirmed`（正在备货的占用是"正在用"的，释放会导致
+  后续发货静默不扣减），且跳过已有发货记录的订单。
+- 两者判定基准都是 **`created_at`**；释放**不取消订单**，状态与明细不动。
+- 催款每个订单只发一次（`Order.unpaid_reminder_sent_at`）；没有收货邮箱的会打印出来，
+  不打标记（下次补发机会）。
+
+crontab（先催后放，错开半小时避免同时抢行锁）：
 ```
-0 3 * * * docker exec scireagent-backend-1 python manage.py release_expired_reservations --hours 72
+0 4 * * *  docker exec scireagent-backend-1 python manage.py remind_unpaid_orders --hours 72 >> /home/admin/scireagent/_alerts/mail.log 2>&1
+30 4 * * * docker exec scireagent-backend-1 python manage.py release_expired_reservations --hours 168 >> /home/admin/scireagent/_alerts/mail.log 2>&1
 ```
 
 **要灌 / 清「占位库存」（远端测试人员看不到本地库，生产需要可用数据时）**

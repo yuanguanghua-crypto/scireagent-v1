@@ -293,8 +293,11 @@ class ExpiredReleaseCommandTest(ReserveBase):
         order = Order.objects.get()
         order.status = status
         order.save(update_fields=['status'])
+        # ★ 2026-10-28 改：释放的判定基准是 `created_at`（下单时刻），不是
+        #   `updated_at`。用 updated_at 的话，运营改个备注就把时钟重置了，
+        #   "一直没人动但一直没付"的单永远释放不掉 —— 而那正是要处理的那批。
         Order.objects.filter(pk=order.pk).update(
-            updated_at=timezone.now() - timedelta(hours=age_hours))
+            created_at=timezone.now() - timedelta(hours=age_hours))
         order.refresh_from_db()
         return Inventory.objects.get(pk=inv.pk), order
 

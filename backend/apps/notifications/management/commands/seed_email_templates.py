@@ -287,6 +287,43 @@ TEMPLATES = [
         'SDS 发布通知（客户，P1）',
         'en',
     ),
+    # 12. 未付款提醒（客户，2026-10-28）
+    #   触发：下单满 {remind_days} 天且仍未付款 ⇒ `manage.py remind_unpaid_orders`。
+    #   与「超时释放占用」是两件事：这封是**催款**，释放是**还库存**，阈值不同
+    #   （默认 3 天提醒 / 7 天释放），所以正文里要明确写出释放阈值，避免客户
+    #   收到提醒后以为没后果。
+    (
+        'order_unpaid_reminder',
+        'Payment reminder: order {order_no}',
+        _h('Your order is awaiting payment')
+        + _p('Hi {contact_name},')
+        + _p('Our records show that the order below has not been paid yet. '
+             'It was placed {days_since} days ago.')
+        + _box('<table style="border-collapse:collapse">'
+               + _kv('Order number', '{order_no}')
+               + _kv('Amount due', '{currency} {amount_due}')
+               + _kv('Status', '{status_label}')
+               + '</table>')
+        + _p('If payment has already been sent, please disregard this message — '
+             'bank transfers can take a few business days to appear on our side.')
+        + _p('Please note: if the order remains unpaid for {release_days} days after it was '
+             'placed, the stock reserved for it will be released and the order may need to '
+             'be confirmed again.')
+        + _p('If you need to adjust or cancel the order, just reply to this email.')
+        + _FOOTER_HTML,
+        'Hi {contact_name},\n\n'
+        'Order {order_no} is still awaiting payment (placed {days_since} days ago).\n'
+        'Amount due: {currency} {amount_due}\n'
+        'Status: {status_label}\n\n'
+        'If you have already paid, please ignore this message — bank transfers can take '
+        'a few business days to appear on our side.\n\n'
+        'If the order remains unpaid for {release_days} days after it was placed, '
+        'the stock reserved for it will be released.\n\n'
+        'To adjust or cancel the order, simply reply to this email.'
+        + _FOOTER_TEXT,
+        '未付款提醒（客户，2026-10-28）',
+        'en',
+    ),
 ]
 
 

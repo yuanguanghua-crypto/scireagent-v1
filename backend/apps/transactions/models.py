@@ -154,6 +154,12 @@ class Order(TimeStampedModel):
     notes = models.TextField(blank=True, default='', verbose_name='客户备注')
     internal_notes = models.TextField(blank=True, default='', verbose_name='内部备注')
     comment = models.TextField(blank=True, default='', verbose_name='备注')  # legacy compat
+    # ★ 2026-10-28：未付款提醒的「已发送」标记。
+    # 为什么不用 StatusLog 的 note 前缀当判据：那是审计表，被清理/改文案后
+    # 会重复给客户发同一封信（客户侧观感很差），而且查起来要扫全表。
+    # 一个 nullable 时间戳既是状态又是证据（"什么时候提醒的"）。
+    unpaid_reminder_sent_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='未付款提醒已发送时间')
 
     class Meta:
         db_table = 'order'

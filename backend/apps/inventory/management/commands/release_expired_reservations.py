@@ -19,12 +19,12 @@
 ## 用法
 
     python manage.py release_expired_reservations --dry-run
-    python manage.py release_expired_reservations --hours 72
-    python manage.py release_expired_reservations --hours 72 --dry-run --limit 20
+    python manage.py release_expired_reservations --hours 168
+    python manage.py release_expired_reservations --hours 168 --dry-run --limit 20
 
 建议挂 crontab（与 `send_outbox_emails` 同一个模式）：
 
-    0 3 * * * docker exec scireagent-backend-1 python manage.py release_expired_reservations --hours 72
+    0 3 * * * docker exec scireagent-backend-1 python manage.py release_expired_reservations --hours 168
 """
 from datetime import timedelta
 
@@ -43,8 +43,8 @@ class Command(BaseCommand):
     help = '释放长期未推进订单的库存占用（不取消订单，只还库存）'
 
     def add_arguments(self, parser):
-        parser.add_argument('--hours', type=int, default=72,
-                            help='超过多少小时未更新视为「没动过」（默认 72）')
+        parser.add_argument('--hours', type=int, default=168,
+                            help='下单后多少小时仍未付款就释放占用（默认 168 = 7 天）')
         parser.add_argument('--dry-run', action='store_true', help='只打印，不改库')
         parser.add_argument('--limit', type=int, default=200,
                             help='单次最多处理多少张订单（默认 200，防一次锁太多行）')
@@ -54,13 +54,17 @@ class Command(BaseCommand):
         cutoff = timezone.now() - timedelta(hours=hours)
         dry = opts['dry_run']
 
-        # 只挑「确实有 RESERVED 占用」的订单，避免全表扫
+        # 只挑「确实有 RESERVED 占用」的订单，避免全表扫。
+        # ★ 判定基准是 `created_at`（下单时刻），不是 `updated_at`（最后更新时间）：
+        #   口径是「下单 N 天还没付款」，而不是「N 天没人碰过」。运营改个备注、
+        #   状态机记一条日志都会刷新 updated_at ⇒ 用它会**永远释放不掉**那些
+        #   "没人动但一直没付"的单（这正是要处理的那批）。
         with_locks = Allocation.objects.filter(
             status=Allocation.Status.RESERVED).values('order_item__order_id')
         orders = (Order.objects
                   .filter(id__in=with_locks,
                           status__in=RELEASABLE_STATUSES,
-                          updated_at__lt=cutoff)
+                          created_at__lt=cutoff)
                   .exclude(id__in=ShippingRecord.objects.values('order_id'))
                   .order_by('updated_at')
                   .distinct()[:opts['limit']])
@@ -72,7 +76,7 @@ class Command(BaseCommand):
                     order_item__order=order, status=Allocation.Status.RESERVED))
                 self.stdout.write(
                     f'  [dry] {order.order_no:16s} status={order.status:12s} '
-                    f'updated={order.updated_at:%Y-%m-%d %H:%M} would release {qty}')
+                    f'placed={order.created_at:%Y-%m-%d %H:%M} would release {qty}')
                 total_qty += qty
                 done += 1
                 continue
@@ -102,6 +106,6 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             f'{"[dry-run] " if dry else ""}{done} order(s), '
             f'{total_qty} unit(s) released '
-            f'(cutoff: updated_at < {cutoff:%Y-%m-%d %H:%M})'))
+            f'(cutoff: created_at < {cutoff:%Y-%m-%d %H:%M})'))
         if dry:
             self.stdout.write('  (dry-run，未改库)')
