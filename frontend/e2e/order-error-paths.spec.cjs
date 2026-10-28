@@ -127,9 +127,19 @@ test.afterEach(async () => {
 });
 
 /** 只读：拿当前会话的 token + 拉一次自己的订单列表，用于定位可点按钮的订单 */
-async function fetchMyOrders() {
+/**
+ * 读当前登录用户自己的订单（只读）。
+ *
+ * ★ 2026-10-28 加 `status` 参数：本条用例需要一张 `quoted` 单，但
+ *   `?page_size=100` 仍可能**取不到**——本地库有 700+ 单，且新造的（cancelled/paid）
+ *   排在前面，老的 quoted 早被挤出首页 ⇒ 断言报「共享库里找不到 quoted 单」，
+ *   看着像功能坏了。改为直接按状态过滤，与服务端口径一致（`filterset_fields` 含 status）。
+ */
+async function fetchMyOrders(status = '') {
   const token = await sharedPage.evaluate(() => localStorage.getItem('token'));
-  const res = await sharedPage.request.get(`${BASE_URL}/api/v1/orders/?page_size=100`, {
+  const qs = new URLSearchParams({ page_size: '100' });
+  if (status) qs.set('status', status);
+  const res = await sharedPage.request.get(`${BASE_URL}/api/v1/orders/?${qs.toString()}`, {
     headers: { 'X-Auth-Token': token },
   });
   expect(res.status(), '读取自己的订单列表失败（只读，不改状态）').toBe(200);
@@ -307,7 +317,7 @@ test.describe('客户侧订单错误路径', () => {
   });
 
   test('/orders/:id 报价动作 500 ⇒ 原生 alert("Action failed")（quoted 单，零写入）', async () => {
-    const rows = await fetchMyOrders();
+    const rows = await fetchMyOrders('quoted');
     const quoted = rows.find((r) => r.status === 'quoted');
     expect(quoted, '共享库里找不到 e2e_customer 名下 status=quoted 的订单，无法触发报价动作错误分支').toBeTruthy();
 

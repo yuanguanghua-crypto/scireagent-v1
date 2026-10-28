@@ -37,6 +37,7 @@
 const { test, expect, request } = require('@playwright/test')
 const { BASE_URL, loginAsStaff } = require('./helpers/auth.cjs')
 const H = require('./helpers/poHelpers.cjs')
+const { dbExec } = require('./helpers/db-write.cjs')
 
 const PATH = '/ops/po/invoicing'
 const TITLE = 'Invoicing Desk'
@@ -93,7 +94,29 @@ async function cleanupOrder(adminToken, custToken, id) {
     await ctx.dispose().catch(() => {})
   }
   const ok = await H.cancelOrder(custToken, adminToken, id).catch(() => false)
-  return ok ? 'cancelled' : 'failed'
+  if (ok) return 'cancelled'
+
+  // ★ 2026-10-28 修（本条用例此前**恒红**的真正原因，与队列语义无关）：
+  //   `DELETE /api/v1/orders/{id}/` 自 2026-10-21 F4 起已**只读化 ⇒ 405**
+  //   （`OrderViewSet.http_method_names = ['get','head','options']`）；
+  //   而**已付清(paid)订单不可 cancel**（`VALID_TRANSITIONS['paid'] = ['completed']`
+  //   ⇒ 400 INVALID_TRANSITION）。两条路都断 ⇒ `finally` 里的「清理必须成功」恒失败，
+  //   表现像"开票队列坏了"，其实是被测订单**没有任何 API 清理路径**。
+  //   ⇒ 改走本地 ORM 硬删（`dbExec` 自带 assertLocalTarget 护栏，非 localhost 直接拒）。
+  try {
+    const r = dbExec(
+      'import json' + '\n' +
+      'from apps.transactions.models import Order' + '\n' +
+      `q = Order.objects.filter(id=${Number(id)})` + '\n' +
+      'n = q.count(); q.delete()' + '\n' +
+      "print('__SNAP__' + json.dumps({'deleted': n}))",
+      'cleanup-paid-order',
+    )
+    if (r.deleted === 1) return 'deleted-orm'
+  } catch {
+    /* 落到 failed */
+  }
+  return 'failed'
 }
 
 test.describe('@local-only /ops/po/invoicing · 开票后仍在队列（D3 回归）', () => {
@@ -156,7 +179,11 @@ test.describe('@local-only /ops/po/invoicing · 开票后仍在队列（D3 回�
       await expect(page.getByRole('button', { name: 'Record Payment' })).toBeVisible({ timeout: 15000 })
     } finally {
       const how = await cleanupOrder(admin, cust, po.id)
-      expect(how, '清理必须成功（删或取消），不能留下残留订单').not.toBe('failed')
+      // 允许三种：HTTP 删（历史路径，现为 405 不再命中）/ cancel / 本地 ORM 硬删
+      expect(
+        ['deleted', 'cancelled', 'deleted-orm'],
+        `清理失败（how=${how}）—— 已付清订单只能靠 ORM 硬删，检查 dbExec 护栏与本地栈`,
+      ).toContain(how)
     }
   })
 
@@ -180,7 +207,11 @@ test.describe('@local-only /ops/po/invoicing · 开票后仍在队列（D3 回�
       ).toHaveCount(0, { timeout: 10000 })
     } finally {
       const how = await cleanupOrder(admin, cust, po.id)
-      expect(how, '清理必须成功（删或取消），不能留下残留订单').not.toBe('failed')
+      // 允许三种：HTTP 删（历史路径，现为 405 不再命中）/ cancel / 本地 ORM 硬删
+      expect(
+        ['deleted', 'cancelled', 'deleted-orm'],
+        `清理失败（how=${how}）—— 已付清订单只能靠 ORM 硬删，检查 dbExec 护栏与本地栈`,
+      ).toContain(how)
     }
   })
 })
