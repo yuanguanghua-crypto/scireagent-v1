@@ -100,9 +100,10 @@
 | # | 失效模式 | 状态 | 载体 / 理由 |
 |---|---|---|---|
 | 8.1 | 迁移无法执行 / 无法回滚 | **A** | `migration_drill.py`（10 app / 74 迁移，CI） |
-| 8.2 | **模型与迁移不一致** | **B** ⚠️ | **当前生产就带着这个问题**（`commerce`/`knowledge` 有未生成迁移的变更）。**兜底**：暂用 `makemigrations --check --dry-run` 人工核对；不可直接生成 |
+| 8.2 | **模型与迁移不一致** | **A** | CI `migration-state-check`（PostgreSQL 下 `makemigrations --check --dry-run`，自动、非人工）。★ 2026-10-28 更正：原写「当前生产就带着这个问题」**已不成立** —— 同日实测 PG 下返回 `No changes detected`，且 2026-10-21 已用 state-only 迁移对齐过。守卫见 8.5 |
 | 8.3 | 数据迁移后数据不对（能跑但结果错） | **B** | 演练只验证"能执行"。**兜底**：数据迁移需人工抽样比对 |
 | 8.4 | 破坏性 API 变更 | **A** | 契约检查（少字段 FAIL） |
+| 8.5 | **迁移删掉生产在用的检索对象**（`search_vector` / 5 GIN / 4 trgm / 5 触发器+函数） | **A** | `scripts/check_migrations_safe.py`：AST 扫所有迁移文件，覆盖 `RemoveField`/`RemoveIndex`/`DeleteModel`/`SeparateDatabaseAndState` 子列表/`RunSQL` 里的 `DROP INDEX\|TRIGGER\|FUNCTION\|COLUMN` + 「地基迁移文件是否还在」；**12 种破坏形态变异验证全部变红**（含位置参数、跨行、侧门）。单测 `backend/core/tests/test_migration_guard.py` 19 例（含「清单完整性」：迁移里每个 `GinIndex` 都必须已登记，防新增索引漏保护）。CI 里是 `migration-state-check` 的**第一步**（纯静态、不装依赖、毫秒级）。⚠️ 为什么 `--check` 抓不到这一类：那是「模型 ↔ 迁移是否漂移」，若有人**有意**下线检索方案并同步改模型，`--check` 会绿 |
 
 ## 9. 可观测性（横切面 B —— 新增）
 
@@ -143,12 +144,14 @@
 | 5.2 发票号重复 | 空白 | **A** | 新增 `TestInvoiceSequenceConcurrencyOnPostgres` |
 | 4.x 契约覆盖 | A（但仅 4 端点） | **A（20 端点）** | 契约扩容 |
 | 1.1 / 2.3 | 空白 | **A** | D3/D6/D13 修复时补的用例 |
+| 8.2 模型与迁移不一致 | B（"当前生产就带着"） | **A** | CI `migration-state-check` 自动执行；同日实测无漂移 |
+| 8.5 迁移删掉检索对象 | 空白（无归属） | **A** | 新增 `scripts/check_migrations_safe.py` + 19 例单测 + 12 形态变异验证 |
 
 ## 12. 按"归属状态"排出的下一步优先级
 
 **B 类里风险最高的三条**（不是条数最多，是后果最重）：
 
-1. **8.2 模型与迁移不一致** —— 唯一"当前生产就带着"的问题，且会在下一次迁移时爆炸
+1. ~~**8.2 模型与迁移不一致**~~ → **2026-10-28 已升级为 A**：CI `migration-state-check` 自动执行（不再靠人工），且同日实测 PG 下 `No changes detected`，原「当前生产就带着这个问题」的描述已不成立
 2. **7.1 依赖失效的降级行为** —— 外部 API 是核心链路（AUTO MATCH / enrich / COA），挂掉的概率不低
 3. **10.2 数据量级** —— 决定架构能否支撑增长，且成本随时增长而上升
 

@@ -17,25 +17,50 @@ if not SECRET_KEY:
 
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
-# ── 破坏性迁移守卫（2026-10-28）──────────────────────────────────────────────
+# ── 破坏性迁移守卫（2026-10-28 立，同日实测校正）────────────────────────────
 # 背景：`commerce`/`knowledge` 的 5 个模型里，`search_vector` 与 GIN/trgm 索引是
-# `if _USE_POSTGRES:` 条件声明的（PG 专属）。迁移 state 里**有**这些对象，sqlite 下
-# 模型里**没有** ⇒ 在 sqlite 环境跑 `makemigrations` 会生成「RemoveField search_vector
-# + RemoveIndex *_search_gin/*_trgm」的破坏性迁移，一旦提交并部署，会连根拔掉
-# 商品/方法/协议/文献的全文检索与相似度索引（生产 5 列 / 5 GIN / 4 trgm / 5 触发器全没了）。
+# `if _USE_POSTGRES:` 条件声明的（PG 专属）。迁移 state 里**有**这些对象（靠
+# state-only 迁移补齐的），sqlite 下模型里**没有** ⇒ 在 sqlite 环境跑
+# `makemigrations` 会生成「RemoveField search_vector + RemoveIndex *_search_gin/
+# *_trgm」的破坏性迁移，一旦提交并部署，会连根拔掉商品/方法/协议/文献的全文检索
+# 与相似度索引（生产 5 列 / 5 GIN / 4 trgm / 5 触发器全没了，且搜索只是"返回空"
+# 不报错 —— 最难发现的失效方式）。
+#
+# ★ 2026-10-28 实测矩阵（`makemigrations --check --dry-run`，别再凭推理猜）：
+#     DB_ENGINE=sqlite                          → 本守卫 RuntimeError（正确）
+#     DB_ENGINE=django.db.backends.postgresql   → No changes detected（安全）
+#     DB_ENGINE=django.db.backends.sqlite3      → No changes detected（makemigrations
+#        安全，但这是**半 sqlite 状态**：`_USE_POSTGRES` 判的是 `!= 'sqlite'`，
+#        所以模型按 PG 加载、连接按 sqlite 建立 ⇒ migrate/搜索会炸。别用这个值，
+#        sqlite 请**恰好**写 `sqlite`。）
+#   ⇒ 结论：会生成破坏性迁移的只有 `DB_ENGINE=sqlite` 这一种。但守卫不能因此写成
+#     「等于 sqlite 才拦」的黑名单 —— 将来 `_USE_POSTGRES` 的判据一改就漏。
+#     所以写成**白名单**：只有确认是 PG 才放行生成迁移。
 #
 # 为什么用"直接拒绝"而不是"提示一下"：这条命令的破坏性产物是**可提交的文件**，
 # 提示会被忽略；而拒绝的代价只是"换个环境再跑一次"。
-# 正确姿势：先 `bash scripts/dev_db.sh start`，并确认 backend/.env 里
-# DB_ENGINE=django.db.backends.postgresql。
-if os.getenv('DB_ENGINE') == 'sqlite' and any(
-    str(a).startswith('makemigrations') for a in sys.argv
-):
+# 配套的第二道闸门：`scripts/check_migrations_safe.py`（静态扫迁移文件里的
+# RemoveField/RemoveIndex/DeleteModel/RunSQL DROP，CI 里是 `migration-state-check`
+# job 的一步）。两道闸门职责不同：本守卫管"生成时"，脚本管"提交的产物里"。
+_PG_ENGINES = frozenset({
+    '',  # 未设 ⇒ base.py:106 默认 django.db.backends.postgresql
+    'postgres',
+    'postgresql',
+    'django.db.backends.postgresql',
+    'django.db.backends.postgresql_psycopg2',
+})
+_GENERATING_MIGRATIONS = any(
+    str(a).startswith('makemigrations') for a in sys.argv)
+if _GENERATING_MIGRATIONS and os.getenv('DB_ENGINE', '').strip().lower() not in _PG_ENGINES:
     raise RuntimeError(
-        '禁止在 sqlite 环境下生成迁移：模型中的 PG 专属字段（search_vector / GinIndex）'
-        '在 sqlite 下不存在，会生成「删列 + 删 GIN/trgm 索引」的破坏性迁移。\n'
+        '禁止在非 PostgreSQL 环境下生成迁移（当前 DB_ENGINE=%r）：模型中的 PG '
+        '专属字段（search_vector / GinIndex）在该环境下不存在，会生成'
+        '「删列 + 删 GIN/trgm 索引」的破坏性迁移，部署后会静默摧毁全文检索。\n'
         '请改为：① bash scripts/dev_db.sh start  ② backend/.env 设 '
-        'DB_ENGINE=django.db.backends.postgresql，然后重跑。'
+        'DB_ENGINE=django.db.backends.postgresql，然后重跑。\n'
+        '（sqlite 保底写法必须是恰好 `sqlite` 三个字母；写成 '
+        'django.db.backends.sqlite3 会进入"模型按 PG 加载、连接按 sqlite"的半瘫状态。）'
+        % (os.getenv('DB_ENGINE'),)
     )
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 

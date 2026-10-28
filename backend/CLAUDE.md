@@ -26,7 +26,13 @@ DB_ENGINE=sqlite PYTHONDONTWRITEBYTECODE=1 venv/Scripts/python.exe -B -m pytest 
 DB_ENGINE=sqlite python manage.py runserver
 
 # Migrations
-python manage.py makemigrations && python manage.py migrate
+# ⚠️ makemigrations **必须**在 PostgreSQL 环境跑。sqlite 下模型里没有 PG 专属的
+#    search_vector/GinIndex ⇒ 会生成「删列 + 删 GIN/trgm 索引」的破坏性迁移，
+#    部署后生产全文检索静默失效。config/settings/base.py 已按白名单硬拦；
+#    另有静态闸门 scripts/check_migrations_safe.py（CI 必跑）。
+bash ../scripts/dev_db.sh start
+DB_ENGINE=django.db.backends.postgresql python manage.py makemigrations
+DB_ENGINE=sqlite python manage.py migrate
 
 # Django shell
 DB_ENGINE=sqlite python manage.py shell
