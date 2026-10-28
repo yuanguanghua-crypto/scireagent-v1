@@ -16,6 +16,27 @@ if not SECRET_KEY:
         raise ValueError('SECRET_KEY environment variable is required')
 
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+
+# ── 破坏性迁移守卫（2026-10-28）──────────────────────────────────────────────
+# 背景：`commerce`/`knowledge` 的 5 个模型里，`search_vector` 与 GIN/trgm 索引是
+# `if _USE_POSTGRES:` 条件声明的（PG 专属）。迁移 state 里**有**这些对象，sqlite 下
+# 模型里**没有** ⇒ 在 sqlite 环境跑 `makemigrations` 会生成「RemoveField search_vector
+# + RemoveIndex *_search_gin/*_trgm」的破坏性迁移，一旦提交并部署，会连根拔掉
+# 商品/方法/协议/文献的全文检索与相似度索引（生产 5 列 / 5 GIN / 4 trgm / 5 触发器全没了）。
+#
+# 为什么用"直接拒绝"而不是"提示一下"：这条命令的破坏性产物是**可提交的文件**，
+# 提示会被忽略；而拒绝的代价只是"换个环境再跑一次"。
+# 正确姿势：先 `bash scripts/dev_db.sh start`，并确认 backend/.env 里
+# DB_ENGINE=django.db.backends.postgresql。
+if os.getenv('DB_ENGINE') == 'sqlite' and any(
+    str(a).startswith('makemigrations') for a in sys.argv
+):
+    raise RuntimeError(
+        '禁止在 sqlite 环境下生成迁移：模型中的 PG 专属字段（search_vector / GinIndex）'
+        '在 sqlite 下不存在，会生成「删列 + 删 GIN/trgm 索引」的破坏性迁移。\n'
+        '请改为：① bash scripts/dev_db.sh start  ② backend/.env 设 '
+        'DB_ENGINE=django.db.backends.postgresql，然后重跑。'
+    )
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 INSTALLED_APPS = [
