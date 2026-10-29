@@ -16,6 +16,12 @@ const route = useRoute()
 const router = useRouter()
 const store = useProtocolsStore()
 const researchCart = useResearchPathStore()
+/** 协议的材料/设备/试剂是否任一有内容（三个全空时不显示 tab 内容，改给空态）。 */
+const hasMaterialsInfo = computed(() => {
+  const p = store.currentProtocol || {}
+  return !!(p.materials || p.equipment || p.reagents)
+})
+
 const activeTab = ref('steps')
 
 const protocol = computed(() => store.currentProtocol)
@@ -176,9 +182,11 @@ function formatDuration(seconds) {
       </section>
 
       <!-- Objective & Principle -->
-      <section class="detail-section">
+      <!-- ★ 2026-10-29：空就整块不显示。实测这批协议的 objective 几乎全空，
+           原来每页都打一行 "No objective specified."，看起来像数据没导入成功。 -->
+      <section v-if="store.currentProtocol.objective" class="detail-section">
         <h2 class="section-title">Objective</h2>
-        <p class="section-content">{{ store.currentProtocol.objective || 'No objective specified.' }}</p>
+        <p class="section-content">{{ store.currentProtocol.objective }}</p>
       </section>
 
       <section v-if="store.currentProtocol.principle" class="detail-section">
@@ -223,21 +231,29 @@ function formatDuration(seconds) {
         </el-tab-pane>
 
         <!-- Materials Tab -->
+        <!-- ★ 2026-10-29：原来三个字段全空时会渲染成三行 "N/A"（实测这批协议
+             materials/equipment/reagents 均为空）⇒ 客户点开这个 tab 看到三个 N/A，以为系统坏了。
+             现在有什么显什么；全空就给一句说人话的提示。 -->
         <el-tab-pane label="Materials" name="materials">
-          <div class="two-column">
-            <section class="detail-section">
-              <h2 class="section-title">Materials</h2>
-              <p class="section-content pre-wrap">{{ store.currentProtocol.materials || 'N/A' }}</p>
+          <template v-if="hasMaterialsInfo">
+            <div v-if="store.currentProtocol.materials || store.currentProtocol.equipment"
+                 class="two-column">
+              <section v-if="store.currentProtocol.materials" class="detail-section">
+                <h2 class="section-title">Materials</h2>
+                <p class="section-content pre-wrap">{{ store.currentProtocol.materials }}</p>
+              </section>
+              <section v-if="store.currentProtocol.equipment" class="detail-section">
+                <h2 class="section-title">Equipment</h2>
+                <p class="section-content pre-wrap">{{ store.currentProtocol.equipment }}</p>
+              </section>
+            </div>
+            <section v-if="store.currentProtocol.reagents" class="detail-section">
+              <h2 class="section-title">Reagents</h2>
+              <p class="section-content pre-wrap">{{ store.currentProtocol.reagents }}</p>
             </section>
-            <section class="detail-section">
-              <h2 class="section-title">Equipment</h2>
-              <p class="section-content pre-wrap">{{ store.currentProtocol.equipment || 'N/A' }}</p>
-            </section>
-          </div>
-          <section class="detail-section">
-            <h2 class="section-title">Reagents</h2>
-            <p class="section-content pre-wrap">{{ store.currentProtocol.reagents || 'N/A' }}</p>
-          </section>
+          </template>
+          <el-empty v-else
+                    description="This protocol does not list materials, equipment or reagents." />
         </el-tab-pane>
 
         <!-- Troubleshooting Tab -->
