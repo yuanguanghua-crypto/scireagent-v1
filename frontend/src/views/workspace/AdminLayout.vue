@@ -254,6 +254,14 @@ if (!isInternal(auth)) {
             </svg>
             Shortage Alerts
           </router-link>
+          <!-- ★ 2026-10-29：销售报表。放在 Operations 组末尾，与库存/缺货并列。 -->
+          <router-link to="/ops/reports" class="nav-item" active-class="active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="nav-icon">
+              <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+            Sales Report
+          </router-link>
         </div>
 
         <!-- 系统：排障与配置。组内条目按"是否需要脱离 Django admin"逐步搬过来。 -->
