@@ -63,14 +63,21 @@ SciReagent 是面向**生物化学领域**的科学试剂平台。当前首批�
 
 ## 3. 关联关系
 
-### 3.1 核心链（纵向，1:N 父子链）
+### 3.1 核心链（纵向）
 
 ```
-ResearchGoal ──1:N──▶ Application ──1:N──▶ Method ──1:N──▶ Protocol ──1:N──▶ ProtocolStep
+ResearchGoal ──1:N──▶ Application ──1:N──▶ Method ──M:N──▶ Protocol ──1:N──▶ ProtocolStep
    研究目标              应用场景           科研方法          实验协议           协议步骤
+                              ⚠️ Method↔Protocol 是 M:N（走 MethodProtocol 桥，生产 15,241 条）
 ```
 
-每级都是 `ForeignKey(on_delete=CASCADE)`，父删则子删。这是知识体系的"骨架"。
+前三级都是 `ForeignKey(on_delete=CASCADE)`，父删则子删。
+
+> **★ 2026-10-29 更正**：本文档 2026-06-27 版把 `Method → Protocol` 写成 **1:N**，是**错的**。
+> 实测代码：`Protocol` 模型**没有** `method` 外键，关系由 `MethodProtocol` 桥表承载（M:N），
+> 生产 14,128 份协议中 12,970 份至少关联一个方法。
+> 「1:N」在业务上也不成立：一份通用标记方案常常同时属于多个方法。
+> 给领域专家的通俗版说明见 `docs/KNOWLEDGE_ENTITIES_BRIEF.md`。
 
 ### 3.2 横向桥接（产品接入知识链）
 
@@ -93,7 +100,7 @@ ResearchGoal ──1:N──▶ Application ──1:N──▶ Method ──1:N�
 |------|------|------|-----------|
 | ResearchGoal → Application | 1:N | 单向 | — |
 | Application → Method | 1:N | 单向 | — |
-| Method → Protocol | 1:N | 单向 | — |
+| Method ↔ Protocol | **M:N** | 双向（走 `MethodProtocol` 桥） | (method, protocol) |
 | Protocol → ProtocolStep | 1:N | 单向 | (protocol, step_no) |
 | Product ↔ Method | M:N | 双向 | (product, method, role) |
 | Method ↔ Protocol | M:N | 双向 | (method, protocol) |
