@@ -1,9 +1,10 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { getOrders, getOrderDetail, issueInvoice, payInvoice } from '@/api/adminPo'
 import { PAYMENT_TERMS, PAYMENT_METHODS } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
 import { StatusBadge } from '@/components/common'
+import { verifyPayment } from '@/api/orders'
 
 const orders = ref([])
 const loading = ref(false)
@@ -59,6 +60,20 @@ async function doPay(invoice) {
   openOrder({ id: selected.value })
 }
 
+/* ── 客户上传的待核验凭证（2026-10-29）────────────────── */
+const pendingPayments = computed(() =>
+  (detail.value?.invoice?.payments || []).filter((p) => p.status === 'pending'))
+
+async function doVerify(p, action) {
+  const notes = action === 'reject'
+    ? (window.prompt('Reject reason (optional)') || '')
+    : ''
+  await verifyPayment(detail.value.invoice.id, {
+    payment_id: p.id, action, notes,
+  })
+  await openOrder({ id: selected.value })
+}
+
 onMounted(load)
 </script>
 
@@ -110,6 +125,22 @@ onMounted(load)
             <span class="po-num">{{ formatCurrency(detail.invoice.grand_total, detail.invoice.currency) }}</span>
           </div>
 
+          <!-- ★ 2026-10-29：客户上传的电汇凭证。没这个区块，客户传了运营也不知道。 -->
+          <div v-if="pendingPayments.length" class="proof-box" data-testid="pending-proofs">
+            <strong>{{ pendingPayments.length }} payment proof(s) awaiting verification</strong>
+            <div v-for="p in pendingPayments" :key="p.id" class="proof-line">
+              <span class="po-num">{{ formatCurrency(p.amount, p.currency) }}</span>
+              <span class="po-mono po-muted">{{ p.reference || '—' }}</span>
+              <a v-if="p.proof_file" :href="p.proof_file" target="_blank" rel="noopener"
+                 class="proof-link" data-testid="proof-download">View proof</a>
+              <span v-else class="po-muted">no file</span>
+              <button class="po-btn po-btn-primary po-btn-sm"
+                      @click="doVerify(p, 'verify')" data-testid="proof-verify">Verify</button>
+              <button class="po-btn po-btn-outline po-btn-sm"
+                      @click="doVerify(p, 'reject')" data-testid="proof-reject">Reject</button>
+            </div>
+          </div>
+
           <h3 class="po-subsection-title" style="margin-top:20px">Record Payment</h3>
           <div class="po-form-grid">
             <div class="po-field"><label class="po-label">Amount</label><input v-model="pay[selected].amount" class="po-input" placeholder="0.00" /></div>
@@ -129,4 +160,12 @@ onMounted(load)
 
 <style scoped>
 .po-row-selected { background: var(--color-primary-subtle); }
+.proof-box {
+  margin-top: 16px; padding: 12px; border-radius: var(--radius-md);
+  border-left: 4px solid var(--color-warning, #d97706);
+  background: rgba(217, 119, 6, .06);
+  display: flex; flex-direction: column; gap: 8px; font-size: 13px;
+}
+.proof-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.proof-link { color: var(--color-primary); font-size: 12px; text-decoration: underline; }
 </style>

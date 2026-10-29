@@ -80,6 +80,23 @@ export function getOrderDetail(id) {
 /**
  * 节点3 — 发票 PDF 下载（best-effort：后端若未实现该端点将 404 提示）。
  */
+/**
+ * 客户上传电汇付款凭证（2026-10-29）。
+ * 后端只建 PENDING（钱到没到账只有财务知道），运营核验后才转 VERIFIED。
+ * @param {number} invoiceId
+ * @param {{amount: string|number, reference?: string, notes?: string, file: File}} payload
+ */
+export function uploadPaymentProof(invoiceId, { amount, reference = '', notes = '', file }) {
+  const fd = new FormData()
+  fd.append('amount', String(amount))
+  if (reference) fd.append('reference', reference)
+  if (notes) fd.append('notes', notes)
+  fd.append('proof_file', file)
+  return http.post(`/invoices/${invoiceId}/payment-proof/`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
 export function downloadInvoicePdf(invoiceId, filename = `invoice-${invoiceId}.pdf`) {
   return http
     .get(`/invoices/${invoiceId}/pdf/`, { responseType: 'blob' })

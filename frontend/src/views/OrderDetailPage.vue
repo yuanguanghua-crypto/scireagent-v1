@@ -1,9 +1,9 @@
 <script setup>
-import { onMounted, onUnmounted, computed } from 'vue'
+import { onMounted, onUnmounted, computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
 import { respondToQuote } from '@/api/orders'
-import { downloadInvoicePdf } from '@/api/poPortal'
+import { downloadInvoicePdf, uploadPaymentProof } from '@/api/poPortal'
 import { statusBadgeStyle, formatStatus } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
 import { LoadingSpinner, ErrorBanner, StatusBadge } from '@/components/common'
@@ -20,6 +20,63 @@ const order = computed(() => store.currentOrder)
 // ★ 2026-10-28：状态色/文案改取 `@/config/poConstants` 单一真相源。
 //   原内联表缺 `po_received`/`in_production`/`delivered`（PO 主流程全缺）⇒ 徽标无颜色；
 //   底色 `statusColors[s] + '15'` 是非法 CSS（令牌是 var()，拼出来 `var(--x)15`）⇒ 恒透明。
+/* ── 付款凭证（2026-10-29）───────────────────────────────────── */
+const PAY_STATUS_TEXT = {
+  pending: 'Awaiting verification',
+  verified: 'Verified',
+  rejected: 'Rejected',
+}
+function payStatusText(s) { return PAY_STATUS_TEXT[s] || s }
+
+const payments = computed(() => order.value?.invoice?.payments || [])
+
+/** 能不能上传：发票已开且未付清，且没有已经在审的凭证。
+ *  已有 pending 时不显示表单（后端也会 409）—— 避免客户反复点导致堆出一串待核验记录。 */
+const canUploadProof = computed(() => {
+  const inv = order.value?.invoice
+  if (!inv) return false
+  if (!['issued', 'overdue'].includes(inv.status)) return false
+  return !payments.value.some((p) => p.status === 'pending')
+})
+
+const proof = ref({ amount: '', reference: '' })
+const proofFile = ref(null)
+const proofUploading = ref(false)
+const proofError = ref('')
+const proofOk = ref('')
+
+function onProofFile(e) {
+  proofFile.value = e.target.files && e.target.files[0] ? e.target.files[0] : null
+}
+
+async function submitProof() {
+  proofError.value = ''
+  proofOk.value = ''
+  const inv = order.value?.invoice
+  if (!inv) return
+  if (!proofFile.value) {
+    proofError.value = 'Please choose a file (PDF or image).'
+    return
+  }
+  proofUploading.value = true
+  try {
+    await uploadPaymentProof(inv.id, {
+      amount: proof.value.amount || inv.balance_due || inv.grand_total,
+      reference: proof.value.reference,
+      file: proofFile.value,
+    })
+    proofOk.value = 'Uploaded. Our team will confirm it shortly.'
+    proofFile.value = null
+    proof.value = { amount: '', reference: '' }
+    await store.fetchOrder(route.params.id)
+  } catch (e) {
+    proofError.value = e?.response?.data?.meta?.error?.message
+      || e?.message || 'Upload failed.'
+  } finally {
+    proofUploading.value = false
+  }
+}
+
 function getStatusLabel(status) {
   return formatStatus(status)
 }
@@ -188,6 +245,36 @@ async function handleQuoteAction(action) {
       <div class="invoice-actions">
         <button class="btn-outline" @click="downloadInvoicePdf(order.invoice.id)">Download PDF</button>
       </div>
+
+      <!-- ★ 2026-10-29：已上传的付款记录（客户只看得到状态，不给凭证 URL） -->
+      <div v-if="payments.length" class="proof-list" data-testid="proof-list">
+        <div v-for="p in payments" :key="p.id" class="proof-row">
+          <span class="mono">{{ formatCurrency(p.amount, p.currency) }}</span>
+          <span class="mono proof-ref">{{ p.reference || '—' }}</span>
+          <span class="proof-status" :class="'is-' + p.status">{{ payStatusText(p.status) }}</span>
+        </div>
+      </div>
+
+      <!-- ★ 上传凭证：只在「已开票且无待核验凭证」时出现 -->
+      <div v-if="canUploadProof" class="proof-upload" data-testid="proof-upload">
+        <p class="proof-hint">
+          Paid by bank transfer? Upload your remittance advice so our team can confirm it.
+        </p>
+        <div class="proof-form">
+          <input v-model="proof.amount" type="number" step="0.01" min="0"
+                 class="proof-input" placeholder="Amount" data-testid="proof-amount" />
+          <input v-model="proof.reference" class="proof-input"
+                 placeholder="Bank reference (optional)" data-testid="proof-reference" />
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" class="proof-file"
+                 @change="onProofFile" data-testid="proof-file" />
+          <button class="btn-outline" :disabled="proofUploading"
+                  @click="submitProof" data-testid="proof-submit">
+            {{ proofUploading ? 'Uploading…' : 'Upload proof' }}
+          </button>
+        </div>
+        <p v-if="proofError" class="proof-error" data-testid="proof-error">{{ proofError }}</p>
+        <p v-if="proofOk" class="proof-ok" data-testid="proof-ok">{{ proofOk }}</p>
+      </div>
     </section>
 
     <!-- Shipments（多批次） -->
@@ -305,6 +392,24 @@ async function handleQuoteAction(action) {
 .notes-text { font-size: 14px; color: var(--color-text-secondary); line-height: 1.6; }
 
 /* ── 发货批次 / 状态时间线（2026-10-28 新增） ── */
+.proof-list { margin: 10px 0 0; display: flex; flex-direction: column; gap: 6px; }
+.proof-row {
+  display: flex; align-items: center; gap: 12px; font-size: 13px;
+  padding: 6px 10px; border-radius: var(--radius-md);
+  background: var(--color-bg-subtle, #f9fafb);
+}
+.proof-ref { color: var(--color-text-secondary); }
+.proof-status { margin-left: auto; font-size: 12px; font-weight: 600; }
+.proof-status.is-pending { color: var(--color-warning, #d97706); }
+.proof-status.is-verified { color: var(--color-success, #059669); }
+.proof-status.is-rejected { color: var(--color-danger, #dc2626); }
+.proof-upload { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--color-border); }
+.proof-hint { font-size: 13px; color: var(--color-text-secondary); margin: 0 0 10px; }
+.proof-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.proof-input { height: 34px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: 13px; width: 150px; }
+.proof-file { font-size: 12px; }
+.proof-error { color: var(--color-danger, #dc2626); font-size: 12px; margin: 8px 0 0; }
+.proof-ok { color: var(--color-success, #059669); font-size: 12px; margin: 8px 0 0; }
 .invoice-actions { margin-top: 12px; }
 
 .btn-outline {

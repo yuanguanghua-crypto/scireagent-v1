@@ -164,7 +164,9 @@ class OrderDetailSerializer(BaseModelSerializer):
 
     def get_invoice(self, obj):
         if hasattr(obj, 'invoice') and obj.invoice:
-            return InvoiceSerializer(obj.invoice).data
+            # ★ 必须传 context：PaymentRecordSerializer 靠 request.user 判定是否暴露凭证 URL，
+            #   不传就会永远当成「外部用户」⇒ 运营在订单详情里也下不到凭证。
+            return InvoiceSerializer(obj.invoice, context=self.context).data
         return None
 
     def get_shipments(self, obj):
@@ -203,9 +205,48 @@ class CheckoutSerializer(serializers.Serializer):
 
 # ── Invoice ──
 
+class PaymentRecordSerializer(BaseModelSerializer):
+    """付款记录。**`proof_file` 按角色区分**（2026-10-29）。
+
+    付款凭证是银行回单/转账截图，含账号、户名、流水号 —— 属于敏感财务信息。
+    而 `MEDIA_URL` 在生产由 nginx 静态直出、不带鉴权 ⇒ 只要拿到 URL 谁都能下。
+    所以：**只有内部人员拿得到 URL，客户只拿到 `has_proof` 布尔**。
+    客户本来也不需要点开自己的回单（他手上就有原件）。
+    """
+    proof_file = serializers.SerializerMethodField()
+    has_proof = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PaymentRecord
+        fields = [
+            'id', 'invoice_id', 'method', 'amount', 'currency',
+            'reference', 'proof_file', 'has_proof', 'status',
+            'verified_by', 'verified_at', 'notes', 'created_at',
+        ]
+        read_only_fields = ['id', 'status', 'verified_by', 'verified_at', 'created_at']
+
+    def _is_internal(self) -> bool:
+        req = self.context.get('request')
+        u = getattr(req, 'user', None)
+        return bool(u and u.is_authenticated
+                    and (u.is_staff or getattr(u, 'role', '') in ('procurement', 'admin')))
+
+    def get_proof_file(self, obj):
+        if not obj.proof_file:
+            return None
+        return obj.proof_file.url if self._is_internal() else None
+
+    def get_has_proof(self, obj):
+        return bool(obj.proof_file)
+
+
 class InvoiceSerializer(BaseModelSerializer):
     amount_paid = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     balance_due = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    # ★ 2026-10-29：暴露付款记录。客户靠它看到「我传的凭证在审」，
+    #   运营靠它看到「有人上传了凭证待核验」。没有这个字段，
+    #   两边都不知道对方做了什么。
+    payments = PaymentRecordSerializer(many=True, read_only=True)
 
     class Meta:
         model = Invoice
@@ -214,22 +255,11 @@ class InvoiceSerializer(BaseModelSerializer):
             'issued_at', 'due_date', 'paid_at',
             'subtotal', 'tax_total', 'grand_total', 'currency',
             'payment_ref', 'notes', 'created_at',
-            'amount_paid', 'balance_due',
+            'amount_paid', 'balance_due', 'payments',
         ]
 
 
 # ── Payment ──
-
-class PaymentRecordSerializer(BaseModelSerializer):
-    class Meta:
-        model = PaymentRecord
-        fields = [
-            'id', 'invoice_id', 'method', 'amount', 'currency',
-            'reference', 'proof_file', 'status',
-            'verified_by', 'verified_at', 'notes', 'created_at',
-        ]
-        read_only_fields = ['id', 'status', 'verified_by', 'verified_at', 'created_at']
-
 
 class PaymentProofSerializer(serializers.Serializer):
     reference = serializers.CharField(max_length=200, required=False, allow_blank=True, default='')

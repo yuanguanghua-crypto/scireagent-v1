@@ -5,6 +5,7 @@ from apps.transactions.api.v1.views import (
 )
 from apps.transactions.api.v1 import basket_views
 from apps.transactions.api.v1.report_views import SalesReportView
+from apps.transactions.api.v1.payment_proof_views import InvoicePaymentProofView
 from apps.transactions.api.v1.checkout_views import CheckoutView
 from apps.transactions.api.v1.admin_order_views import (
     AdminOrderListView, AdminOrderDetailView,
@@ -60,6 +61,10 @@ urlpatterns = [
     path('admin/orders/<int:pk>/complete/', AdminCompleteOrderView.as_view(), name='admin-order-complete'),
     path('admin/orders/<int:pk>/quote/', AdminQuoteOrderView.as_view(), name='admin-order-quote'),
     path('admin/invoices/<int:pk>/verify-payment/', AdminVerifyPaymentView.as_view(), name='admin-verify-payment'),
+
+    # ★ 2026-10-29：客户上传电汇付款凭证（仅本人发票；只能建 PENDING）。
+    path('invoices/<int:pk>/payment-proof/', InvoicePaymentProofView.as_view(),
+         name='invoice-payment-proof'),
 
     # ★ 2026-10-29：销售报表（procurement/admin）。字面路径放在 router 之前。
     path('ops/sales-report/', SalesReportView.as_view(), name='ops-sales-report'),

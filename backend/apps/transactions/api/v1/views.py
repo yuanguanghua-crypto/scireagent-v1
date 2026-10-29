@@ -54,7 +54,7 @@ class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         #   这里必须一并 select_related/prefetch，否则每行多 2 次查询（客户 100 单 = 200 次）。
         base = (Order.objects
                 .select_related('invoice')
-                .prefetch_related('attachments', 'items'))
+                .prefetch_related('attachments', 'items', 'invoice__payments'))
         # ★ 2026-10-14 修：内部人员（is_staff 或 procurement/admin）跨机构可见所有订单（审核台），
         #   客户仍只看自己的。此前仅 is_staff 可见全量 ⇒ procurement（非 staff）审核台空列表。
         if user.is_staff or user.role in ('procurement', 'admin'):
