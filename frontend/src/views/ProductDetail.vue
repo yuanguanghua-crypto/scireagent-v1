@@ -151,7 +151,17 @@ const availableTabs = computed(() => {
   const tabs = []
   if (applications.value.length) tabs.push({ key: 'applications', label: 'Applications' })
   if (displayMethods.value.length || verifiedMethods.value.length) tabs.push({ key: 'methods', label: 'Methods' })
-  if (protocols.value.length) tabs.push({ key: 'protocols', label: 'Protocols' })
+  // ★ 2026-10-29：后端只返回前 20 条（实测该产品关联 233 条，渲染全量会卡住主线程）。
+  //   标签如实写出「20 of 233」，不让人以为只有 20 条。
+  if (protocols.value.length) {
+    const total = detail.value?.protocols_total || protocols.value.length
+    tabs.push({
+      key: 'protocols',
+      label: total > protocols.value.length
+        ? `Protocols (${protocols.value.length} of ${total})`
+        : 'Protocols',
+    })
+  }
   if (references.value.length) tabs.push({ key: 'references', label: 'References' })
   if (faq.value.length) tabs.push({ key: 'faq', label: 'FAQ' })
   return tabs
@@ -332,6 +342,12 @@ function stripCategoryPrefix(text) {
 }
 
 /* ── Load product data ── */
+/** 重试：慢链路下的超时是偶发的，给个按钮比让用户刷新整页强。 */
+function reload() {
+  store.productErrorMsg = ''
+  loadProduct(route.params.id)
+}
+
 async function loadProduct(id) {
   await store.fetchProductDetail(id)
   // 阶段0：详情失败（404 等）时跳过依赖 product 的渲染，避免对空值抛错/空转
@@ -974,6 +990,11 @@ function onSearch(query) {
   <!-- Loading -->
   <LoadingSpinner v-else-if="store.loading" text="Loading..." />
   <!-- 阶段0：#404/失败时明确错误态，不卡 Loading、不白屏 -->
+  <div v-else-if="store.productErrorMsg" class="pd-empty">
+    <p class="pd-error-title">Could not load this product</p>
+    <p class="pd-error-sub">{{ store.productErrorMsg }}</p>
+    <button class="btn-outline" style="margin-top:12px" @click="reload">Retry</button>
+  </div>
   <div v-else-if="unavailable" class="pd-empty">
     <p class="pd-error-title">Product not found or unavailable</p>
     <p class="pd-error-sub">This product may have been removed, archived, or is no longer available.</p>

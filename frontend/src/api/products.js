@@ -43,5 +43,9 @@ export function getCategories() {
  * Returns: product, applications, protocols, references, related_products, faq, compatibility, graph, jsonld
  */
 export function getProductDetail(id) {
-  return http.get(`/products/${id}/detail`)
+  // ⚠️ 尾斜杠不能省：少了它 Django 的 APPEND_SLASH 会回 301，
+  //   浏览器得再走一次完整往返（生产实测白白多花 8 秒）。
+  // ⚠️ 30s：全局默认 15s，而详情响应有几十 KB，在低带宽/高 RTT 链路上
+  //   15s 会被误判为失败（实测已发生）。只放宽这一个请求。
+  return http.get(`/products/${id}/detail/`, { timeout: 30000 })
 }

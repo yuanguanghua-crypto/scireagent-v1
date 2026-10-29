@@ -506,6 +506,14 @@ class ProductDetailAPIView(EnvelopeMixin, APIView):
                       .annotate(_steps_duration=_Sum('steps__duration_seconds')))
         }
         protocols = [proto_by_id[pid] for pid in protocol_ids if pid in proto_by_id]
+        # ★ 2026-10-29：详情页**只返回前 20 条**。
+        #   实测该产品关联 233 条 protocol，全量返回 199KB、
+        #   浏览器渲染 233 条会把主线程卡住（用户实测「一分钟还在 loading」）。
+        #   完整清单走 `/​protocols` 索引页（那里有分页与筛选），
+        #   详情页只需「代表性的几条」。同时返回 total，让前端能如实告知。
+        PROTOCOL_PREVIEW_LIMIT = 20
+        protocols_total = len(protocols)
+        protocols_preview = protocols[:PROTOCOL_PREVIEW_LIMIT]
 
         # References via ProductReference bridge
         references = Reference.objects.filter(
@@ -544,7 +552,8 @@ class ProductDetailAPIView(EnvelopeMixin, APIView):
         return Response({
             'product': product_data,
             'applications': ApplicationBriefSerializer(applications, many=True).data,
-            'protocols': ProtocolBriefSerializer(protocols, many=True).data,
+            'protocols': ProtocolBriefSerializer(protocols_preview, many=True).data,
+            'protocols_total': protocols_total,
             'references': ReferenceBriefSerializer(references, many=True).data,
             'related_products': related,
             'faq': faq,
