@@ -81,11 +81,17 @@ async function handleLogout() {
 <template>
   <header class="app-header">
     <div class="header-left">
-      <button class="sidebar-toggle" @click="handleToggleSidebar" aria-label="Toggle sidebar">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
+      <!-- ★ 2026-10-29：这里原本是一个 `sidebar-toggle` 按钮。
+           但 `AppHeader` 只在「非 workspace」页面出现（见 AppLayout.vue），
+           而侧栏只属于 workspace ⇒ 这个按钮**永远点不出任何东西**，
+           同时这一排也没有任何回首页的入口 ⇒ 用户进了 /checkout、
+           /orders、/settings、/po/* 就回不去了（用户 2026-10-29 实测发现）。
+           现在换成可点的品牌名（回首页）+ 分隔符 + 页面标题。 -->
+      <router-link to="/" class="header-brand" title="Back to SciReAgent home"
+                   data-testid="header-home-link">
+        Sci<span class="brand-accent">ReAgent</span>
+      </router-link>
+      <span class="header-divider" aria-hidden="true"></span>
       <h1 class="page-title">{{ route.meta.title || 'SciReagent' }}</h1>
     </div>
     <div class="header-right">
@@ -227,7 +233,30 @@ async function handleLogout() {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  min-width: 0;
+}
+
+.header-brand {
+  font-family: var(--font-display, var(--font-sans));
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 4px 2px;
+  border-radius: var(--radius-sm, 6px);
+}
+.header-brand:hover,
+.header-brand:focus-visible { color: var(--color-primary); }
+.header-brand .brand-accent { color: var(--color-primary); }
+
+.header-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--color-border);
+  flex: 0 0 auto;
 }
 
 .sidebar-toggle {
