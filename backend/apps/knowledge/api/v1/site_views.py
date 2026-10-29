@@ -105,11 +105,14 @@ def site_home(request):
     )
 
     # Featured products (by display_priority) — prefetch SKUs to avoid N+1
+    # ★ 2026-10-29 修：下面用 `start_price(first_sku)` 取「起价」，它会读 `sku.price_tiers.all()`。
+    #   只 prefetch `skus` 没 prefetch `skus__price_tiers` ⇒ 每个 SKU 一次查询，
+    #   20 个产品就是 20 次额外往返。这是加阶梯价时引入的退化，不是原有代码的问题。
     featured_products = list(
         Product.objects
         .filter(status='active', archived=False)
         .select_related('product_class__parent__parent')
-        .prefetch_related('skus')
+        .prefetch_related('skus', 'skus__price_tiers')
         .order_by('-display_priority', 'name')[:20]
     )
 

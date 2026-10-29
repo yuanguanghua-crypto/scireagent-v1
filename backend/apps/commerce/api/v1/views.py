@@ -493,9 +493,17 @@ class ProductDetailAPIView(EnvelopeMixin, APIView):
         from apps.bridges.services.relevance import build_protocol_links
         protocol_links = build_protocol_links(product)
         protocol_ids = [r['id'] for r in protocol_links]
+        # ★ 2026-10-29 性能修复（生产实测 488 次查询 / 494KB）：
+        #   `ProtocolBriefSerializer.estimated_time_minutes` 对**每条** protocol 做一次
+        #   `steps.aggregate()`；而 protocols 原本被序列化了**两次**（顶层 +
+        #   compatibility）⇒ 查询数直接翻倍。这里一次 annotate 就把
+        #   每条一次聚合变成一条 SQL。
+        from django.db.models import Sum as _Sum
         proto_by_id = {
             p.id: p
-            for p in Protocol.objects.filter(id__in=protocol_ids, status='published')
+            for p in (Protocol.objects
+                      .filter(id__in=protocol_ids, status='published')
+                      .annotate(_steps_duration=_Sum('steps__duration_seconds')))
         }
         protocols = [proto_by_id[pid] for pid in protocol_ids if pid in proto_by_id]
 
@@ -542,7 +550,9 @@ class ProductDetailAPIView(EnvelopeMixin, APIView):
             'faq': faq,
             'compatibility': {
                 'methods': MethodBriefSerializer(methods, many=True).data,
-                'protocols': ProtocolBriefSerializer(protocols, many=True).data,
+                # ★ 2026-10-29 删 ‘protocols’：顶层已有 `protocols`，而前端全仓只用
+                #   `compatibility.methods`（实测 grep）。这里再序列化一遍 = 白跑
+                #   约 200 次查询 + 199KB 响应体。
                 'products': ProductBriefSerializer(
                     Product.objects.filter(id__in=[r['id'] for r in related]) if related else []
                 , many=True).data,

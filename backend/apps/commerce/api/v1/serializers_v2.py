@@ -29,8 +29,12 @@ class ProtocolBriefSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'slug', 'objective', 'estimated_time_minutes']
 
     def get_estimated_time_minutes(self, obj):
-        from django.db.models import Sum
-        total = obj.steps.aggregate(total=Sum('duration_seconds'))['total'] or 0
+        # ★ 优先用调用方 `annotate(_steps_duration=...)` 算好的值；
+        #   没 annotate 才回退到单条聚合（保证其它调用点行为不变）。
+        total = getattr(obj, '_steps_duration', None)
+        if total is None:
+            from django.db.models import Sum
+            total = obj.steps.aggregate(total=Sum('duration_seconds'))['total'] or 0
         return ceil(total / 60)
 
 
