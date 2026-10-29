@@ -8,6 +8,7 @@ from decimal import Decimal
 from rest_framework import serializers
 from apps.transactions.models import Basket
 from apps.commerce.models import SKU
+from apps.commerce.services.pricing import resolve_unit_price
 
 
 class BasketItemSerializer(serializers.ModelSerializer):
@@ -21,9 +22,9 @@ class BasketItemSerializer(serializers.ModelSerializer):
     product_cas = serializers.CharField(source='product.cas', read_only=True)
     sku_code = serializers.CharField(source='sku.sku_code', read_only=True)
     pack_size = serializers.CharField(source='sku.pack_size', read_only=True)
-    unit_price = serializers.DecimalField(
-        source='sku.price', max_digits=12, decimal_places=2, read_only=True
-    )
+    # ★ 2026-10-29：改走唯一取价入口（阶梯价 → 目录价兜底）。
+    #   不能再用 `source='sku.price'` —— 那会让购物车永远显示 1 件价。
+    unit_price = serializers.SerializerMethodField()
     currency = serializers.CharField(source='sku.currency', read_only=True)
     subtotal = serializers.SerializerMethodField()
 
@@ -36,11 +37,14 @@ class BasketItemSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at']
 
+    def get_unit_price(self, obj: Basket) -> Decimal:
+        """该行在当前数量下的单价（阶梯价按**本行数量**取，不跨行合计）。"""
+        return resolve_unit_price(obj.sku, obj.quantity)
+
     def get_subtotal(self, obj: Basket) -> Decimal:
-        """Calculate line-item subtotal: unit_price * quantity."""
-        if obj.sku and obj.sku.price:
-            return obj.sku.price * obj.quantity
-        return Decimal('0')
+        """小计必须与 `get_unit_price` 用同一个数，否则会出现
+        「单价 × 数量 ≠ 小计」这种一眼可见的错。"""
+        return resolve_unit_price(obj.sku, obj.quantity) * obj.quantity
 
 
 class AddToBasketSerializer(serializers.Serializer):

@@ -17,6 +17,7 @@ from apps.inventory.services import (
     InsufficientInventoryError, InventoryService, StockShortageService,
 )
 from apps.inventory.models import StockShortageAlert
+from apps.commerce.services.pricing import resolve_unit_price
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +33,13 @@ class CheckoutView(APIView):
         data = serializer.validated_data
 
         user = request.user
-        basket_items = Basket.objects.filter(user=user).select_related('product', 'sku')
+        basket_qs = (Basket.objects.filter(user=user)
+                    .select_related('product', 'sku')
+                    .prefetch_related('sku__price_tiers'))
+        basket_items = list(basket_qs)
 
         # Validate basket not empty
-        if not basket_items.exists():
+        if not basket_items:
             return Response(
                 {'success': False, 'meta': {'error': {'code': 'EMPTY_BASKET', 'message': 'Basket is empty'}}},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -73,7 +77,18 @@ class CheckoutView(APIView):
         try:
             with transaction.atomic():
                 # Calculate totals
-                subtotal = sum(item.sku.price * item.quantity for item in basket_items if item.sku)
+                # ★ 2026-10-29：统一走 resolve_unit_price（阶梯价 → 目录价兜底）。
+                #   这里算出的单价必须与下面建 OrderItem 用的**同一个数** ——
+                #   否则前端看到的合计与实际落库金额不一致（且两边都不报错）。
+                line_prices = {}
+                subtotal = Decimal('0')
+                for it in basket_items:
+                    if not it.sku:
+                        continue
+                    price = resolve_unit_price(
+                        it.sku, it.quantity, tiers=list(it.sku.price_tiers.all()))
+                    line_prices[it.pk] = price
+                    subtotal += price * it.quantity
                 grand_total = subtotal  # No tax for now
 
                 # Determine initial status
@@ -130,8 +145,8 @@ class CheckoutView(APIView):
                         product=item.product,
                         sku=item.sku,
                         quantity=item.quantity,
-                        unit_price=item.sku.price if item.sku else 0,
-                        subtotal=(item.sku.price * item.quantity) if item.sku else 0,
+                        unit_price=line_prices.get(item.pk, Decimal('0')),
+                        subtotal=line_prices.get(item.pk, Decimal('0')) * item.quantity,
                     )
 
                 # Clear basket
@@ -141,7 +156,7 @@ class CheckoutView(APIView):
                 InventoryService.reserve_for_order(
                     order, reason=f'checkout:{order.order_no}')
 
-                basket_items.delete()
+                basket_qs.delete()
 
         except InsufficientInventoryError as exc:
             # 并发抢空：预检时够、锁库时被别人拿走。

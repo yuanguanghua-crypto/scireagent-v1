@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from apps.commerce.api.v1.views import (
     ProductViewSet, SKUViewSet, ProductClassViewSet, CatalogGroupViewSet,
-    ProductDocumentViewSet, ProductDetailAPIView,
+    ProductDocumentViewSet, ProductDetailAPIView, SkuPriceTierView,
 )
 from apps.commerce.api.v1.faq_views import ProductFAQView
 from apps.commerce.api.v1.related_views import RelatedProductsView
@@ -43,5 +43,9 @@ urlpatterns = [
     path('ops/audit-logs/', ops_audit.AuditLogListView.as_view(), name='ops-audit-log-list'),
     path('ops/audit-logs/<int:pk>/', ops_audit.AuditLogDetailView.as_view(),
          name='ops-audit-log-detail'),
+    # ★ 2026-10-29：阶梯价档位全量替换（IsAdmin）。
+    #   必须排在 include(router.urls) 之前，否则可能被 /skus/<pk>/ 先匹配。
+    path('skus/<int:pk>/price-tiers/', SkuPriceTierView.as_view(),
+         name='sku-price-tiers'),
     path('', include(router.urls)),
 ]

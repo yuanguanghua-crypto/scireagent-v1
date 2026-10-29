@@ -1,9 +1,11 @@
+from decimal import Decimal
 from django.db import IntegrityError, transaction
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException, ValidationError
 from core.serializers import BaseModelSerializer
 from core.svg_sanitizer import sanitize_svg
 from apps.commerce.models import Product, SKU, ProductClass, CatalogGroup, ProductDocument
+from apps.commerce.services.pricing import tier_segments
 from apps.knowledge.models import Method, Protocol
 from apps.commerce.services.commerce_service import CommerceService
 
@@ -21,13 +23,21 @@ class CatalogGroupSerializer(BaseModelSerializer):
 
 
 class SKUSerializer(BaseModelSerializer):
+    # ★ 2026-10-29：分段价目表。由后端算好每档的 max，前端直接渲染，
+    #   避免“列表页一套算法、详情页另一套算法”。
+    price_tiers = serializers.SerializerMethodField()
+
     class Meta:
         model = SKU
         fields = [
             'id', 'product_id', 'sku_code', 'pack_size', 'price', 'currency',
             'inventory_status', 'concentration', 'lead_time', 'is_default', 'is_ruo',
-            'hs_code', 'export_controlled', 'is_stock_tracked', 'created_at',
+            'hs_code', 'export_controlled', 'is_stock_tracked', 'price_tiers',
+            'created_at',
         ]
+
+    def get_price_tiers(self, obj):
+        return tier_segments(obj.price_tiers.all())
 
 
 class SKUCreateSerializer(serializers.ModelSerializer):
@@ -44,6 +54,18 @@ class SKUCreateSerializer(serializers.ModelSerializer):
             'id': {'required': False, 'read_only': False},
             'sku_code': {'validators': []},
         }
+
+
+class SkuTierItemSerializer(serializers.Serializer):
+    """阶梯价单档入参。"""
+    min_qty = serializers.IntegerField(min_value=1)
+    unit_price = serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=Decimal('0'))
+
+
+class SkuTierSetSerializer(serializers.Serializer):
+    """全量替换某 SKU 的档位（空数组 = 清空，回到目录价）。"""
+    tiers = SkuTierItemSerializer(many=True, allow_empty=True)
 
 
 class ProductDocumentSerializer(BaseModelSerializer):
@@ -118,14 +140,23 @@ class ProductListSerializer(BaseModelSerializer):
         return None
 
     def get_sku_summary(self, obj):
-        skus = obj.skus.all()
+        skus = list(obj.skus.all())
+        if not skus:
+            return {'count': 0, 'price_range': None, 'statuses': []}
+        # ★ 2026-10-29：价格区间必须把阶梯价算进来。否则列表页的「$X 起」
+        #   会高于产品详情页的分段价目表，客户点进去发现“并没那么便宜”。
+        prices = []
+        for s in skus:
+            if s.price:
+                prices.append(s.price)
+            prices.extend(t.unit_price for t in s.price_tiers.all())
         return {
-            'count': skus.count(),
+            'count': len(skus),
             'price_range': {
-                'min': str(min((s.price for s in skus), default=0)),
-                'max': str(max((s.price for s in skus), default=0)),
-            } if skus else None,
-            'statuses': list(skus.values_list('inventory_status', flat=True).distinct()),
+                'min': str(min(prices, default=0)),
+                'max': str(max(prices, default=0)),
+            },
+            'statuses': list({s.inventory_status for s in skus}),
         }
 
     def get_is_complete(self, obj):

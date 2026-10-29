@@ -74,6 +74,8 @@ class GraphEdgeSerializer(serializers.Serializer):
 
 
 class SKUSerializerV2(serializers.ModelSerializer):
+    price_tiers = serializers.SerializerMethodField()
+
     class Meta:
         model = SKU
         fields = [
@@ -81,7 +83,12 @@ class SKUSerializerV2(serializers.ModelSerializer):
             'currency', 'inventory_status', 'lead_time', 'is_default',
             # ★ 2026-10-28（4a）：显式纳管开关，只读暴露给产品详情/编辑页
             'is_stock_tracked',
+            'price_tiers',
         ]
+
+    def get_price_tiers(self, obj):
+        from apps.commerce.services.pricing import tier_segments
+        return tier_segments(obj.price_tiers.all())
 
 
 class ProductDocumentSerializerV2(serializers.ModelSerializer):

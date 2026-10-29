@@ -5,6 +5,7 @@ from django.db.models import Count, Q
 from core.svg_sanitizer import sanitize_svg
 from apps.knowledge.models import Application, Method, Protocol, ResearchGoal, Reference
 from apps.commerce.models import Product
+from apps.commerce.services.pricing import start_price
 from apps.bridges.models import ProductMethod
 from apps.knowledge.services.graph_service import build_graph
 
@@ -263,7 +264,7 @@ def site_home(request):
             'formula': p.formula,
             'category_l1': p.category_l1,
             'purity': p.purity,
-            'price': str(first_sku.price) if first_sku else None,
+            'price': str(start_price(first_sku)) if first_sku else None,
             'currency': first_sku.currency if first_sku else 'USD',
             'structure_svg': sanitize_svg(p.structure_svg) if p.structure_svg else None,
             'display_priority': p.display_priority,

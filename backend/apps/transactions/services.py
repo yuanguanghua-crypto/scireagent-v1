@@ -137,8 +137,12 @@ class PoSubmissionService:
         for item in data.get('items', []):
             # ★ v4.1 对抗性自测 Fix：unit_price 服务端按 SKU 现价覆盖（客户端提交不可信）
             from apps.commerce.models import SKU
+            from apps.commerce.services.pricing import resolve_unit_price
             sku = SKU.objects.select_related('product').get(pk=item['sku_id'])
-            unit_price = sku.price or Decimal('0')
+            # ★ 2026-10-29：改走唯一取价入口（阶梯价 → 目录价兜底）。
+            #   ⚠️ 报价单（quote_id）目前只有整单 quoted_total、**无逐行报价**，
+            #   所以这里还接不上「报价单价优先」——等报价单加逐行报价再补。
+            unit_price = resolve_unit_price(sku, int(item['quantity']))
             oi = OrderItem.objects.create(
                 order=order,
                 product_id=item.get('product_id') or sku.product_id,

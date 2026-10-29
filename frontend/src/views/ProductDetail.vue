@@ -4,6 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import { useProductsStore } from '@/stores/products'
 import { useBasketStore } from '@/stores/basket'
 import { formatCurrency } from '@/utils/helpers'
+
+/** 阶梯价档位的数量标签：1-4 / 5-9 / 10+ 。
+ *  max_qty 由后端算好（下一档 min_qty - 1，最后一档为 null）。 */
+function tierLabel(t) {
+  if (t.max_qty === null || t.max_qty === undefined) return `${t.min_qty}+`
+  if (t.min_qty === t.max_qty) return String(t.min_qty)
+  return `${t.min_qty}–${t.max_qty}`
+}
 import { smilesToSvg, rdkitReady, rdkitLoading } from '@/composables/useRdkit'
 import ProductLayout from '@/components/layout/ProductLayout.vue'
 import ExpandableSection from './admin/components/ExpandableSection.vue'
@@ -679,7 +687,14 @@ function onSearch(query) {
             <div v-for="sku in product.skus" :key="sku.id" class="pd-sku-row">
               <span class="pd-mono-sm">{{ sku.sku_code }}</span>
               <span>{{ sku.pack_size }}</span>
-              <span class="pd-price">{{ formatCurrency(sku.price, sku.currency) }}</span>
+              <span class="pd-price">
+                <template v-if="sku.price_tiers && sku.price_tiers.length">
+                  <span v-for="t in sku.price_tiers" :key="t.min_qty" class="pd-tier-line">
+                    {{ tierLabel(t) }} · {{ formatCurrency(t.unit_price, sku.currency) }}
+                  </span>
+                </template>
+                <template v-else>{{ formatCurrency(sku.price, sku.currency) }}</template>
+              </span>
               <span class="pd-badge-sm pd-badge-dot" :class="statusColor(sku.inventory_status)">{{ sku.inventory_status }}</span>
               <!-- COA column -->
               <div class="pd-coa-cell">
@@ -1242,6 +1257,13 @@ function onSearch(query) {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   font-size: 16px;
+}
+.pd-tier-line {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: nowrap;
 }
 .pd-sku-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
 .pd-qty { display: flex; align-items: center; border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; height: 32px; }

@@ -285,6 +285,56 @@ class SKU(TimeStampedModel):
         return f'{self.sku_code} ({self.pack_size})'
 
 
+class SkuPriceTier(TimeStampedModel):
+    """SKU 阶梯价 —— 是**价目表**，不是折扣规则引擎（2026-10-29）。
+
+    ## 为什么是价目表，而不是抄 django-oscar 的 Offer/Condition/Benefit
+
+    我读了 oscar 的 `offer/abstract_models.py`：它的 `AbstractBenefit.value` 是
+    **单一 Decimal**，`MULTIBUY` 的语义是"买 3 送 1"，`FIXED_PRICE` 是"满足条件享某个
+    固定价" —— **它自己也表达不了"1 件 $100 / 5 件 $90 / 10 件 $80"这种分段单价**，
+    要做还得自定义 Benefit 代理类。而试剂行业（阿拉丁、Medchemexpress）实际做法就是
+    一张分段价目表。用四张表 + 优先级互斥去表达三档价，是过度设计。
+
+    ## 取价语义（唯一入口 `apps/commerce/services/pricing.resolve_unit_price`）
+
+    · 按**单个 SKU 的购买数量**匹配（不是订单内所有产品合计）；
+    · 取 `min_qty <= 数量` 中**最大**的那一档；
+    · 一档都不命中 ⇒ 回落 `SKU.price`。
+
+    为什么必须保留 `SKU.price`：它是"1 件基准价"和兜底价。删了它，所有还没配阶梯价的
+    SKU 就没价格了，整站无法下单。
+
+    ## 不会影响历史订单
+
+    `OrderItem.unit_price` 是**下单那一刻的快照**（`subtotal = unit_price * quantity`）。
+    改阶梯价不会让任何已有订单金额变化 —— 这也是敢在线改价的前提。
+    """
+
+    sku = models.ForeignKey(
+        SKU, on_delete=models.CASCADE, related_name='price_tiers', verbose_name='SKU')
+    min_qty = models.PositiveIntegerField(
+        verbose_name='起始数量', help_text='含本数（>=）。第一档通常填 1 或 10。')
+    unit_price = models.DecimalField(
+        max_digits=12, decimal_places=2, verbose_name='该档单价')
+
+    class Meta:
+        db_table = 'sku_price_tier'
+        verbose_name = 'SKU 阶梯价'
+        verbose_name_plural = verbose_name
+        ordering = ['sku_id', 'min_qty']
+        unique_together = [('sku', 'min_qty')]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(min_qty__gte=1), name='ck_spt_min_qty_positive'),
+            models.CheckConstraint(
+                condition=models.Q(unit_price__gte=0), name='ck_spt_unit_price_nonneg'),
+        ]
+
+    def __str__(self):
+        return f'{self.sku.sku_code} ≥{self.min_qty} → {self.unit_price}'
+
+
 class ProductDocument(TimeStampedModel):
     """产品文档"""
     class DocumentType(models.TextChoices):

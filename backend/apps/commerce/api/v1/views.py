@@ -2,6 +2,7 @@ import os
 from django.db import transaction
 from django.db.models.deletion import ProtectedError
 from django.http import Http404
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -9,10 +10,11 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.permissions import BasePermission
 from rest_framework.views import APIView
 from core.mixins import EnvelopeMixin
-from core.permissions import IsAdminOrReadOnly
+from core.permissions import IsAdmin, IsAdminOrReadOnly
 from core.jsonld import build_product_jsonld
 from apps.commerce.models import (
     Product, SKU, ProductClass, CatalogGroup, ProductDocument, AuditLog,
+    SkuPriceTier,
 )
 
 
@@ -28,7 +30,7 @@ class IsSuperUser(BasePermission):
 from apps.commerce.api.v1.serializers import (
     ProductListSerializer, ProductDetailSerializer, ProductCreateUpdateSerializer,
     SKUSerializer, ProductClassSerializer, CatalogGroupSerializer, ProductDocumentSerializer,
-    ProductHasDependents,
+    ProductHasDependents, SkuTierSetSerializer, tier_segments,
 )
 from apps.commerce import selectors
 
@@ -51,7 +53,8 @@ def _validate_uploaded_file(file_obj):
 
 
 class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
-    queryset = Product.objects.select_related('product_class').prefetch_related('skus', 'documents').all()
+    queryset = (Product.objects.select_related('product_class')
+               .prefetch_related('skus', 'documents', 'skus__price_tiers').all())
     serializer_class = ProductListSerializer
     permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'cas', 'smiles', 'inchi', 'catalog_no', 'formula']
@@ -324,6 +327,72 @@ class SKUViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     #   前端对本端点**只有 GET**（写 SKU 走 `/products/{id}/` 的嵌套 skus）；已确认无站外客户端
     #   ⇒ 补 `IsAdminOrReadOnly`（**读对所有人不变，仅封写**），与 `ProductViewSet` 对齐。
     permission_classes = [IsAdminOrReadOnly]
+
+
+class SkuPriceTierView(EnvelopeMixin, APIView):
+    """PUT /api/v1/skus/<id>/price-tiers/ —— 全量替换某 SKU 的阶梯价档位。
+
+    body: {"tiers": [{"min_qty": 1, "unit_price": "100.00"}, ...]}
+    空数组 = 清空（该 SKU 回到单一目录价）。
+
+    为什么是「全量替换」而不是逐条增删：
+      运营在编辑页面对的是「一张小表」，整表保存最直观；逐条写会产生中间态
+      （比如只存在 10+ 档、却没有 1-4 档 ⇒ 1 件时回落目录价，
+      买少了反而比买多贵）。整表替换在一个事务里完成，不会有那个窗口。
+
+    两条业务校验（序列化器只管形状，管不了这些）：
+      ① min_qty 不能重复（DB 唯一约束兜底，但先给出可读的 400）；
+      ② 按 min_qty 升序后，unit_price 必须**递减或持平** ——
+        买得多反而更贵一定是录错了，这条能挡住绝大多数手工失误。
+
+    为什么要写 AuditLog：价格是敏感数据。不留痕就等于「谁把价格改成 1 元」
+    永远查不出来。
+    """
+    permission_classes = [IsAdmin]
+
+    def put(self, request, pk):
+        sku = get_object_or_404(SKU, pk=pk)
+        ser = SkuTierSetSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        rows = list(ser.validated_data['tiers'])
+
+        seen, prev = set(), None
+        for r in sorted(rows, key=lambda x: x['min_qty']):
+            if r['min_qty'] in seen:
+                return self.error_response(
+                    f"duplicate min_qty: {r['min_qty']}",
+                    code='DUPLICATE_TIER', status_code=400)
+            seen.add(r['min_qty'])
+            if prev is not None and r['unit_price'] > prev:
+                return self.error_response(
+                    'unit_price must not increase as quantity grows '
+                    f"(min_qty {r['min_qty']}: {r['unit_price']} > previous {prev})",
+                    code='TIER_PRICE_NOT_DESCENDING', status_code=400)
+            prev = r['unit_price']
+
+        before = [{'min_qty': t.min_qty, 'unit_price': str(t.unit_price)}
+                  for t in sku.price_tiers.all().order_by('min_qty')]
+        with transaction.atomic():
+            SkuPriceTier.objects.filter(sku=sku).delete()
+            if rows:
+                SkuPriceTier.objects.bulk_create([
+                    SkuPriceTier(sku=sku, min_qty=r['min_qty'],
+                                 unit_price=r['unit_price'])
+                    for r in rows
+                ])
+            AuditLog.log(
+                request.user, AuditLog.ACTION_UPDATE, sku,
+                snapshot={'scope': 'price_tiers', 'sku_code': sku.sku_code,
+                          'before': before,
+                          'after': [{'min_qty': r['min_qty'],
+                                     'unit_price': str(r['unit_price'])}
+                                    for r in sorted(rows, key=lambda x: x['min_qty'])]},
+            )
+        return self.success_response({
+            'sku_id': sku.pk,
+            'sku_code': sku.sku_code,
+            'price_tiers': tier_segments(sku.price_tiers.all()),
+        })
 
 
 class ProductClassViewSet(EnvelopeMixin, viewsets.ReadOnlyModelViewSet):

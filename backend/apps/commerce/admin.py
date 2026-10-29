@@ -4,7 +4,7 @@ from django.contrib import admin
 from django import forms
 from django.utils.safestring import mark_safe
 
-from .models import ProductClass, CatalogGroup, Product, SKU, ProductDocument
+from .models import ProductClass, CatalogGroup, Product, SKU, ProductDocument, SkuPriceTier
 from .services.seo_generator import generate_seo
 from apps.bridges.models import ProductMethod, ProductReference, ProductCompatibility, ProductProduct
 
@@ -178,3 +178,26 @@ class ProductDocumentAdmin(ModelAdmin):
     list_filter = ('document_type', 'language')
     search_fields = ('product__name', 'original_filename')
     autocomplete_fields = ('product',)
+
+
+# ── SkuPriceTier（阶梯价）────────────────────────────
+
+@admin.register(SkuPriceTier)
+class SkuPriceTierAdmin(ModelAdmin):
+    """阶梯价维护台（2026-10-29）。
+
+    为什么挂在 admin 而不是产品编辑页：档位是 SKU 的子表，而 Django admin
+    **不支持 inline 里再套 inline**。这里按 `sku_code` 搜、按产品筛，日常维护够用；
+    产品编辑页的内联编辑留作下一步（需要自己写弹窗，不是 admin 能覆盖的形态）。
+
+    ⚠️ 手工在 admin 里逐条增删时，要注意别留下「只有 10+ 档、没有 1-4 档」的中间态
+    —— 那会让 1 件时回落目录价。走 `PUT /api/v1/skus/<id>/price-tiers/` 是整表替换，
+    不会有这个问题。
+    """
+    list_display = ('sku', 'min_qty', 'unit_price', 'updated_at')
+    list_filter = ('sku__product',)
+    search_fields = ('sku__sku_code', 'sku__product__name', 'sku__product__catalog_no')
+    autocomplete_fields = ('sku',)
+    ordering = ('sku__sku_code', 'min_qty')
+    list_select_related = ('sku',)
+    fields = ('sku', 'min_qty', 'unit_price')
