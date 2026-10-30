@@ -9,6 +9,11 @@ import ResearchBreadcrumb from '@/components/navigation/ResearchBreadcrumb.vue'
 import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
 import { useResearchPathStore } from '@/stores/researchPath'
 import { LoadingSpinner } from '@/components/common'
+import {
+  costBandLabel,
+  timelineLabel,
+  splitSpecLines,
+} from '@/utils/methodSpecs'
 import ExpandableSection from './admin/components/ExpandableSection.vue'
 
 const route = useRoute()
@@ -112,23 +117,33 @@ onUnmounted(() => { store.clearCurrent() })
     <div class="specs-row" v-if="method.cost_band || method.timeline">
       <div class="spec" v-if="method.cost_band">
         <span class="spec-label">Cost Band</span>
-        <span class="spec-val">{{ method.cost_band }}</span>
+        <span class="spec-val">{{ costBandLabel(method.cost_band) }}</span>
       </div>
       <div class="spec" v-if="method.timeline">
         <span class="spec-label">Timeline</span>
-        <span class="spec-val">{{ method.timeline }}</span>
+        <span class="spec-val">{{ timelineLabel(method.timeline) }}</span>
       </div>
     </div>
+
+    <!-- ★ 2026-10-31：四字段与 summary 是两批独立生成的内容，各自有审核时间戳。
+         只要 specs_status 是 ai_draft，就必须显式告知 —— 不能让模型常识以「事实」面貌出现。 -->
+    <p v-if="method.specs_status === 'ai_draft'" class="spec-draft-note">
+      Advantages, limitations and timeline are AI-generated drafts · pending expert review
+    </p>
 
     <!-- Advantages / Limitations -->
     <div class="detail-columns" v-if="method.advantages || method.limitations">
       <section class="detail-col" v-if="method.advantages">
         <h3 class="col-title">Advantages</h3>
-        <p class="col-text">{{ method.advantages }}</p>
+        <ul class="col-list">
+          <li v-for="(line, i) in splitSpecLines(method.advantages)" :key="i">{{ line }}</li>
+        </ul>
       </section>
       <section class="detail-col" v-if="method.limitations">
         <h3 class="col-title">Limitations</h3>
-        <p class="col-text">{{ method.limitations }}</p>
+        <ul class="col-list">
+          <li v-for="(line, i) in splitSpecLines(method.limitations)" :key="i">{{ line }}</li>
+        </ul>
       </section>
     </div>
 
@@ -227,13 +242,14 @@ onUnmounted(() => { store.clearCurrent() })
   background: var(--color-bg-subtle, #f3f4f6); border-radius: 10px;
   vertical-align: middle;
 }
-.desc-draft-note {
+.desc-draft-note, .spec-draft-note {
   display: inline-block; margin: 8px 0 0; padding: 2px 8px;
   font-size: 11px; font-weight: 600;
   color: var(--color-text-tertiary);
   background: var(--color-bg-subtle, #f3f4f6);
   border-radius: 4px;
 }
+.spec-draft-note { margin: -14px 0 20px; }
 .specs-row { display: flex; gap: 24px; margin-bottom: 24px; }
 .spec { display: flex; flex-direction: column; gap: 2px; }
 .spec-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-tertiary); }
@@ -242,6 +258,9 @@ onUnmounted(() => { store.clearCurrent() })
 .detail-col { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 16px; }
 .col-title { font-size: 14px; font-weight: 700; margin: 0 0 8px; color: var(--color-text); }
 .col-text { font-size: 13px; color: var(--color-text-secondary); line-height: 1.6; margin: 0; }
+.col-list { margin: 0; padding-left: 18px; font-size: 13px; color: var(--color-text-secondary); line-height: 1.6; }
+.col-list li { margin-bottom: 4px; }
+.col-list li:last-child { margin-bottom: 0; }
 .detail-section { margin-bottom: 28px; }
 .section-title { font-size: 16px; font-weight: 700; color: var(--color-text); margin: 0 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--color-primary); display: inline-block; }
 .card-grid { display: flex; flex-direction: column; gap: 8px; }

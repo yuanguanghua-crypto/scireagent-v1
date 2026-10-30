@@ -532,6 +532,12 @@ class MethodDetailSerializer(BaseModelSerializer):
     # ★ 2026-10-30：描述内容的状态。'' = 无描述；'ai_draft' = AI 初稿未审；
     #   'reviewed' = 领域专家已确认。前端据此在 summary 旁标注，不能把初稿当定论给客户看。
     description_status = serializers.SerializerMethodField()
+    # ★ 2026-10-31：四字段（advantages/limitations/timeline）的状态，与 description_status
+    #   分开。理由：两者是不同批次、不同证据来源的产物（描述来自「方法名 + 协议标题」，
+    #   四字段来自「原文证据 + 正则耗时 + LLM 判档」），专家可能确认了描述但没看四字段。
+    #   合并一个时间戳会让未审的规格以「已审」面貌出现在客户面前。
+    #   '' = 四个字段都空；'ai_draft' = 有内容但未审；'reviewed' = 已确认。
+    specs_status = serializers.SerializerMethodField()
     # ★ 2026-10-30（P2-②）：`application_id/application_name` 是「多对多里挑一个当代表」，
     #   实测 Genomic DNA Extraction 关联 **1,346 个应用**，返回的是 display_order 最小的那个
     #   （A126「复制时序数值分配」）——语义上是**任意的**，页面显示 "PART OF 那个应用"
@@ -544,14 +550,19 @@ class MethodDetailSerializer(BaseModelSerializer):
         fields = [
             'id', 'name', 'slug', 'summary', 'purpose', 'advantages', 'limitations',
             'cost_band', 'timeline', 'status', 'application_id', 'applications_count',
-            'application_name', 'description_status', 'protocols', 'products',
-            'created_at', 'updated_at',
+            'application_name', 'description_status', 'specs_status', 'protocols',
+            'products', 'created_at', 'updated_at',
         ]
 
     def get_description_status(self, obj):
         if not (obj.summary or obj.purpose):
             return ''
         return 'reviewed' if obj.description_reviewed_at else 'ai_draft'
+
+    def get_specs_status(self, obj):
+        if not (obj.advantages or obj.limitations or obj.timeline):
+            return ''
+        return 'reviewed' if obj.specs_reviewed_at else 'ai_draft'
 
     def get_application_id(self, obj):
         from apps.knowledge.services.application_methods import application_of_method

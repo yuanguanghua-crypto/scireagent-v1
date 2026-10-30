@@ -219,6 +219,17 @@ class Method(StatusMixin, TimeStampedModel):
         null=True, blank=True, verbose_name='描述审核时间',
         help_text='为空表示 description 内容是 AI 初稿未经审核；有值表示已由领域专家确认',
     )
+    # ★ 2026-10-31：四字段（advantages/limitations/timeline）单独的审核标记。
+    #   为什么不能复用 description_reviewed_at：summary/purpose 与四字段是两批
+    #   不同来源、不同批次生成的内容（描述来自「方法名 + 协议标题」，四字段来自
+    #   「协议正文证据 + 正则耗时」）。专家可能已确认描述但仍未看四字段，
+    #   合并一个时间戳会让后者以「已审」面貌出现 ⇒ 必须分开。
+    #   cost_band 刻意不填（无任何数据源，详见 generate_method_specs 的说明），
+    #   故本时间戳只覆盖 advantages / limitations / timeline 三项。
+    specs_reviewed_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='规格审核时间',
+        help_text='为空表示 advantages/limitations/timeline 是 AI 初稿未经审核；有值表示已由领域专家确认',
+    )
     display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级')
     is_test_fixture = _test_fixture_field()
     if _USE_POSTGRES:

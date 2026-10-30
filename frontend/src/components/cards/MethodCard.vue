@@ -1,5 +1,7 @@
 <script setup>
 import { formatDate, getStatusType, truncate } from '@/utils/helpers'
+// cost_band / timeline 是枚举，后端回 `low` / `hours` 原始值，卡片用短标签
+import { costBandShort, timelineShort } from '@/utils/methodSpecs'
 
 const props = defineProps({
   method: {
@@ -41,11 +43,11 @@ function handleClick() {
       <div class="card-footer">
         <span v-if="method.cost_band" class="card-tag">
           <span class="card-tag-icon" aria-hidden="true">$</span>
-          {{ method.cost_band }}
+          {{ costBandShort(method.cost_band) }}
         </span>
         <span v-if="method.timeline" class="card-tag">
           <span class="card-tag-icon" aria-hidden="true">⏱</span>
-          {{ method.timeline }}
+          {{ timelineShort(method.timeline) }}
         </span>
         <span class="card-date">{{ formatDate(method.created_at) }}</span>
       </div>
