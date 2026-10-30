@@ -252,6 +252,27 @@ class BackfillProtocolStepsCommandTest(TestCase):
         self.assertEqual(ProtocolStep.objects.count(), 0)
         self.assertIn('dry-run', out.getvalue().lower())
 
+    def test_punctuation_variant_still_matches(self):
+        """★ 2026-10-30 实测漏了 4 条真协议：DB 名与语料 title 有字符级差异。
+        典型 `Quick'n'Dirty`（直引号）vs `Quick-n-Dirty`（连字符），
+        以及 `'Frankenstein'` vs `’Frankenstein’`（弯引号）。
+        严格字符串相等会静默跳过，页面就永远没有步骤。"""
+        _write_corpus(self.src_dir, 'Bio-protocol.json', [
+            _hp_record("Quick-n-Dirty electrocompetent E. coli cells",
+                       [('leaf', '1.1', 'Wash cells twice.'), ('leaf', '1.2', 'Resuspend in cold water.')]),
+        ])
+        p = self._make_proto("Quick'n'Dirty electrocompetent E. coli cells")
+        call_command('backfill_protocol_steps', '--corpus-dir', self.src_dir, '--apply')
+        self.assertEqual(ProtocolStep.objects.filter(protocol=p).count(), 2)
+
+    def test_case_difference_still_matches(self):
+        _write_corpus(self.src_dir, 'Bio-protocol.json', [
+            _hp_record('PROTO ALPHA', [('leaf', '1.1', 'Do it.')]),
+        ])
+        p = self._make_proto('Proto Alpha')
+        call_command('backfill_protocol_steps', '--corpus-dir', self.src_dir, '--apply')
+        self.assertEqual(ProtocolStep.objects.filter(protocol=p).count(), 1)
+
     def test_apply_persists_and_count_correct(self):
         _write_corpus(self.src_dir, 'Bio-protocol.json', [
             _hp_record('Proto A', [

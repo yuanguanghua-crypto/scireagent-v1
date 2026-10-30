@@ -7,7 +7,9 @@ ProtocolStep 行，回填给 source='bioprocorpus' 且尚无 steps 的空壳协�
 铁律：
 - 零 LLM：本次是纯解析，绝无 LLM 调用（项目成本铁律）。
 - 只新增，绝不删改任何已有数据（含 94 条 curated 协议的 steps）。
-- 宁 miss 不错配：title 匹配不到就跳过，不做模糊凑数。
+- 宁 miss 不错配：title 归一化后不相等就跳过，不做模糊凑数。
+- 归一化规则与溯源/材料两个命令共用（protocol_materials_parser.normalize_title），
+  否则同一份语料会在三处匹配出不同结果。
 - 幂等：已有 steps 的协议（curated / 历史残留 / 重复运行）一律跳过。
 
 语料文件：仅 3 个协议语料含 hierarchical_protocol：
@@ -30,6 +32,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from apps.knowledge.models import Protocol, ProtocolStep
 from apps.knowledge.services.protocol_steps_parser import parse_hierarchical_protocol
+from apps.knowledge.services.protocol_materials_parser import normalize_title
 
 DEFAULT_CORPUS_DIR = '/app/backend/data/bioprocorpus'
 # 仅这 3 个文件是协议语料（含 hierarchical_protocol）；其余按白名单排除
@@ -67,7 +70,7 @@ def iter_json_records(path):
 
 
 def _load_title_map(directory):
-    """返回 {title.strip(): [{'step_no','title','body'}, ...]}；仅含可解析出步骤的协议记录。
+    """返回 {归一化title: [{'step_no','title','body'}, ...]}；仅含可解析出步骤的协议记录。
 
     同名多条记录保留叶子步骤更多的（覆盖率更高）。无 hierarchical_protocol / 无步骤的
     记录不进入 map。
@@ -84,7 +87,12 @@ def _load_title_map(directory):
             if not isinstance(rec, dict):
                 continue
             seen += 1
-            title = (rec.get('title') or '').strip()
+            # ★ 2026-10-30：改归一化标题做 key。原来用 title.strip() 严格相等，
+            #   实测会漏掉 4 条真协议 —— 典型是 `Quick'n'Dirty`（DB）vs
+            #   `Quick-n-Dirty`（语料）、以及直引号 `'` vs 弯引号 ’ 的差异。
+            #   归一化后这些差异被折叠，且与 backfill_protocol_provenance /
+            #   import_protocol_materials 共用同一套规则（单一实现）。
+            title = normalize_title(rec.get('title'))
             if not title:
                 continue
             hp = rec.get('hierarchical_protocol')
@@ -184,7 +192,7 @@ class Command(BaseCommand):
             if limit is not None and (matched + unmatched) >= limit:
                 break
             name = proto.name.strip()
-            parsed = title_map.get(name)
+            parsed = title_map.get(normalize_title(name))
             processed_ids.add(proto.id)
             if not parsed:
                 unmatched += 1
