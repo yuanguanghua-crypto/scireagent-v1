@@ -22,8 +22,24 @@ const methodId = computed(() => route.params.id)
 /* ── Navigation data ── */
 const upstreamEntities = computed(() => {
   const items = []
-  if (method.value?.application_id) {
-    items.push({ type: 'application', id: method.value.application_id, name: method.value.application_name || 'Application' })
+  const n = method.value?.applications_count || 0
+  // ★ 2026-10-30（P2）：M:N 下 `application_id/name` 只是「挑一个当代表」——
+  //   实测 Genomic DNA Extraction 关联 1,346 个应用，返回的是 display_order
+  //   最小的那个（「复制时序数值分配」），页面 "PART OF 那个" 是**任意的**。
+  //   83 个方法全部关联 >1 个应用 ⇒ 多应用时改说「被 N 个应用使用」，
+  //   点进去看列表；只有恰好 1 个应用时才显示具体的 PART OF。
+  if (n > 1) {
+    items.push({
+      type: 'applications',
+      name: `${n.toLocaleString('en-US')} applications`,
+      route: '/applications',
+    })
+  } else if (method.value?.application_id) {
+    items.push({
+      type: 'application',
+      id: method.value.application_id,
+      name: method.value.application_name || 'Application',
+    })
   }
   return items
 })
@@ -45,7 +61,8 @@ const researchPath = computed(() => {
   if (method.value?.research_goal_id) {
     path.push({ type: 'research_goal', id: method.value.research_goal_id, name: method.value.research_goal_name || 'Research Goal' })
   }
-  if (method.value?.application_id) {
+  // 同上：多应用时「代表应用」无意义，不写进面包屑，路径降为 Home / Method
+  if ((method.value?.applications_count || 0) <= 1 && method.value?.application_id) {
     path.push({ type: 'application', id: method.value.application_id, name: method.value.application_name || 'Application' })
   }
   if (method.value) path.push({ type: 'method', id: method.value.id, name: method.value.name })
@@ -73,6 +90,7 @@ onUnmounted(() => { store.clearCurrent() })
     <!-- Context Cards -->
     <ContextCards
       :upstream="upstreamEntities"
+      :upstream-label="(method?.applications_count || 0) > 1 ? 'Used in' : 'Part of'"
       :downstream="downstreamEntities"
       downstream-label="Protocols"
       fallback-message="Protocol data is being curated for this method."

@@ -239,7 +239,24 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',
+        # ★ 2026-10-30：`100/hour` 提到 `1000/hour`。
+        #
+        #   实测每页面消耗的 API 请求数（Playwright 拦截网络）：
+        #     首页 2｜方法/协议/应用/研究目标详情 2｜**产品详情 6**
+        #   而且每个页面都会调一次 `/api/v1/basket`（未登录也调）。
+        #   ⇒ 100/hour 实际只够「看 16 个产品页」或「50 个详情页」，
+        #     访客一小时正常浏览就会 429。
+        #
+        #   两个放大因素：
+        #     1. AnonRateThrottle 按 **IP** 计 —— 公司/校园 NAT 后多人共享出口 IP，额度瞬间耗尽
+        #     2. 全站 Basic Auth 在 nginx 层，DRF 侧仍是匿名 ⇒ 内部测试也在消耗这个额度
+        #
+        #   ⚠️ 注意 `development.py` 里 `DISABLE_THROTTLE = True` 且清空了本配置，
+        #   所以**本地永远测不出限流问题**，只有在生产才会暴露。
+        #
+        #   1000/hour ≈ 300+ 页/小时，足够正常浏览；防爬仍由 nginx
+        #   `limit_req zone=api_limit rate=10r/s burst=20` 兜底。
+        'anon': '1000/hour',
     },
 }
 

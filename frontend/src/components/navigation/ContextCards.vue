@@ -13,6 +13,7 @@ import { useRouter } from 'vue-router'
 const props = defineProps({
   upstream: { type: Array, default: () => [] },
   downstream: { type: Array, default: () => [] },
+  upstreamLabel: { type: String, default: 'Part of' },
   downstreamLabel: { type: String, default: 'Explore Next' },
   fallbackMessage: { type: String, default: '' },
   requestSupportLink: { type: Boolean, default: false },
@@ -37,6 +38,9 @@ const TYPE_COLORS = {
 }
 
 function goTo(item) {
+  // ★ 2026-10-30：支持显式 `route`（用于「Used in N applications」这类
+  //   不指向具体实体 id 的聚合项 —— 它要跳到列表页而不是详情页）。
+  if (item.route) { router.push(item.route); return }
   const routeFn = TYPE_ROUTES[item.type]
   if (routeFn && item.id) router.push(routeFn(item.id))
 }
@@ -50,11 +54,11 @@ function requestSupport() {
   <div class="ctx">
     <!-- Upstream -->
     <div class="ctx-section" v-if="upstream.length">
-      <span class="ctx-label">Part of</span>
+      <span class="ctx-label">{{ upstreamLabel }}</span>
       <div class="ctx-chips">
         <button
           v-for="item in upstream"
-          :key="item.type + item.id"
+          :key="item.type + (item.id ?? item.name)"
           class="ctx-chip"
           :style="{ '--chip-color': TYPE_COLORS[item.type] || 'var(--color-text-tertiary)' }"
           @click="goTo(item)"
@@ -71,7 +75,7 @@ function requestSupport() {
       <div class="ctx-chips">
         <button
           v-for="item in downstream"
-          :key="item.type + item.id"
+          :key="item.type + (item.id ?? item.name)"
           class="ctx-chip"
           :style="{ '--chip-color': TYPE_COLORS[item.type] || 'var(--color-text-tertiary)' }"
           @click="goTo(item)"

@@ -532,12 +532,18 @@ class MethodDetailSerializer(BaseModelSerializer):
     # ★ 2026-10-30：描述内容的状态。'' = 无描述；'ai_draft' = AI 初稿未审；
     #   'reviewed' = 领域专家已确认。前端据此在 summary 旁标注，不能把初稿当定论给客户看。
     description_status = serializers.SerializerMethodField()
+    # ★ 2026-10-30（P2-②）：`application_id/application_name` 是「多对多里挑一个当代表」，
+    #   实测 Genomic DNA Extraction 关联 **1,346 个应用**，返回的是 display_order 最小的那个
+    #   （A126「复制时序数值分配」）——语义上是**任意的**，页面显示 "PART OF 那个应用"
+    #   会让用户困惑。所以额外给出真实关联数，前端在 >1 时改显示 "Used in N applications"。
+    #   83 个 active method **全部** 关联 >1 个应用，最多 1,346。
+    applications_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Method
         fields = [
             'id', 'name', 'slug', 'summary', 'purpose', 'advantages', 'limitations',
-            'cost_band', 'timeline', 'status', 'application_id',
+            'cost_band', 'timeline', 'status', 'application_id', 'applications_count',
             'application_name', 'description_status', 'protocols', 'products',
             'created_at', 'updated_at',
         ]
@@ -556,6 +562,17 @@ class MethodDetailSerializer(BaseModelSerializer):
         from apps.knowledge.services.application_methods import application_of_method
         app = application_of_method(obj)
         return app.name if app else None
+
+    def get_applications_count(self, obj):
+        """该方法被多少个应用使用（走 ApplicationMethod 桥，不是 legacy FK）。
+
+        为什么需要：`application_id/name` 是「多对多里挑一个当代表」——
+        实测 Genomic DNA Extraction 关联 **1,346 个应用**、返回的却是
+        `display_order` 最小的那个（A126「复制时序数值分配」），页面
+        "PART OF" 显示谁基本是随机的。前端据此在 >1 时改说 "Used in N applications"。
+        83 个 active method 全部关联 >1 个应用。
+        """
+        return obj.application_methods.count()
 
     def get_protocols(self, obj):
         # ★ 2026-10-30：同上 —— 不过滤 published 会让下架协议"列表有、点进 404"。
