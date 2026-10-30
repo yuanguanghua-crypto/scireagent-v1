@@ -45,7 +45,7 @@ import time
 
 from django.core.management.base import BaseCommand
 from django.db.models import Count, Q
-from django.test import Client
+from rest_framework.test import APIClient
 
 from apps.commerce.models import Product
 from apps.knowledge.models import Application, Method, Protocol, ResearchGoal
@@ -94,20 +94,26 @@ class Command(BaseCommand):
         parser.add_argument('--json', action='store_true', help='机器可读输出')
 
     def handle(self, *args, **opts):
-        client = Client()
+        client = APIClient()
         # ★ 生产配了 `AnonRateThrottle 100/hour`（settings/base.py:238-243），
-        #   审计要打 数百~上千 次详情，匿名必然撞 429（实测 4 类抽样 200 个全部 429）。
-        #   AnonRateThrottle 只对未认证请求生效 ⇒ 用 staff 账号 force_authenticate 绕过。
-        #   副作用：staff 视角会绕过 status 过滤，但本命令抽样的 id 取自 public_qs
-        #   （已按公开态筛过），所以判据不受影响。
-        try:
-            from apps.accounts.models import User
-            u = User.objects.filter(is_staff=True, is_active=True).first()
-            if u is not None:
-                client.force_authenticate(user=u)
-                self.stdout.write(f'（已用 staff 账号 {u.username} 认证，绕过匿名限流）')
-        except Exception:  # noqa: BLE001
-            pass
+        #   审计要打 数百~上千 次详情，匿名必然撞 429（首跑实测 4 类抽样 200 个全部 429）。
+        #   用 staff 账号 force_authenticate 绕过：AnonRateThrottle 只对未认证请求生效。
+        #
+        # ⚠️ 这里必须是 `rest_framework.test.APIClient` —— Django 原生 `Client` **没有**
+        #    `force_authenticate`，用它会在 AttributeError 后被 except 静默吞掉，
+        #    表现为「认证仿佛生效了但仍在撞 429」。（这是第一版踩的坑，勿改成 django.test.Client）
+        #
+        # 副作用：staff 视角绕过 status 过滤，但抽样 id 取自 public_qs（已按公开态筛过）。
+        from apps.accounts.models import User
+        u = User.objects.filter(is_staff=True, is_active=True).first()
+        if u is not None:
+            client.force_authenticate(user=u)
+            self.stdout.write(f'（已用 staff 账号 {u.username} 认证，绕过匿名限流）')
+        else:
+            # 不静默 —— 没有 staff 账号就明确告警，否则会全 429 且看不出原因
+            self.stdout.write(self.style.WARNING(
+                '⚠️ 库内无 is_staff 且 is_active 的用户，将以匿名身份请求，'
+                '可能撞 AnonRateThrottle(100/hour) 而大面积 429'))
         sample_n = opts['sample']
         strict = opts['strict']
         report = {'fails': [], 'warns': [], 'sections': {}}
