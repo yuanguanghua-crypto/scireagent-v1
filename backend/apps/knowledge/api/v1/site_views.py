@@ -195,7 +195,10 @@ def site_home(request):
         total=Count('skus__id', distinct=True)
     )['total'] or 0
     # S1：统计口径必须排除测试夹具残骸，否则首页 areas/goals 会把 e2e 残留计入
-    area_count = ResearchGoal.objects.public().count()
+    # ★ 2026-10-30：再加 status='active' —— 与 /research-goals 列表页口径一致。
+    #   原来只有 public()（= 排除夹具），把 archived 也算进来，
+    #   导致首页 StatsBar 的 "Research Areas" 比列表页 Total 多出 11。
+    area_count = ResearchGoal.objects.public().filter(status='active').count()
     method_count = Method.objects.public().filter(status='active').count()
     protocol_count = Protocol.objects.filter(status='published').count()
     product_count = Product.objects.filter(status__in=['active', 'published'], archived=False).count()
@@ -246,7 +249,11 @@ def site_home(request):
 
     # Knowledge section data — aligned with frontend KnowledgeSection
     knowledge_payload = {
-        'goals': ResearchGoal.objects.public().count(),
+        # ★ 2026-10-30 修：原来只 `public().count()`，**漏了 status='active'**
+        #   ⇒ 首页卡片显示 11,039（含 11 个 archived），而点进 /research-goals
+        #   列表页只放 active ⇒ Total 11,028。同一个数字差 11，用户会以为数据错乱。
+        #   与 applications / methods 保持一致，都加 status='active'。
+        'goals': ResearchGoal.objects.public().filter(status='active').count(),
         'applications': Application.objects.public().filter(status='active').count(),
         'methods': method_count,
         'protocols': protocol_count,
