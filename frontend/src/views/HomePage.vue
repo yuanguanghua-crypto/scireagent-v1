@@ -7,6 +7,9 @@ import HeroSearch from '@/components/home/HeroSearch.vue'
 import CategoryPills from '@/components/home/CategoryPills.vue'
 import FeaturedProducts from '@/components/home/FeaturedProducts.vue'
 import FeaturedEntities from '@/components/home/FeaturedEntities.vue'
+// ★ 2026-10-30：这个组件一直存在但全仓零引用（孤儿），内容完整、有商业价值
+//   （定制修饰核苷酸询价）。接入首页底部，按钮改指真正的 /quote-request。
+import CustomSynthesisCTA from '@/components/home/CustomSynthesisCTA.vue'
 import MeridianDivider from '@/components/common/MeridianDivider.vue'
 
 /* Lazy-loaded components (below fold) */
@@ -108,6 +111,10 @@ onMounted(async () => {
             <div class="loading-skeleton" style="height: 120px;"></div>
           </template>
         </Suspense>
+
+        <MeridianDivider />
+
+        <CustomSynthesisCTA />
       </div>
     </template>
   </div>

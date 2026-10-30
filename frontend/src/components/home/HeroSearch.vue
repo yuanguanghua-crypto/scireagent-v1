@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import ParticleField from '@/components/hero/ParticleField.vue'
 
@@ -7,7 +7,10 @@ const props = defineProps({
   title: { type: String, default: 'SciReagent' },
   subtitle: { type: String, default: '' },
   suggestedSearches: { type: Array, default: () => [] },
-  stats: { type: Object, default: () => ({ products: 118, skus: 293, methods: 10, protocols: 88, areas: 8 }) },
+  // ★ 2026-10-30：默认值原来是硬编码的**假数字**（118/293/10/88/8），
+  //   真实值是 15 产品 / 83 方法 / 13,807 协议。兜底只该在「拿不到数据」时用，
+  //   所以默认全 0，由 fallbackSubtitle 决定是否展示数字。
+  stats: { type: Object, default: () => ({ products: 0, skus: 0, methods: 0, protocols: 0, areas: 0 }) },
 })
 
 const router = useRouter()
@@ -23,6 +26,25 @@ function handleTagSearch(term) {
   searchQuery.value = term
   handleSearch()
 }
+
+/**
+ * Hero 副标题的兜底文案。
+ *
+ * 原来是一句硬编码的「118 high-purity products connected to 10 core methods and
+ * 88 standard protocols」—— 那是很久以前的数据。它只在 API 失败时显示，
+ * 但用户看到的就是错数字。改为按真实 stats 拼；连 stats 都拿不到时，
+ * 退回一句**不含数字**的通用文案（宁可不说，也不编）。
+ */
+const fallbackSubtitle = computed(() => {
+  const s = props.stats || {}
+  const bits = []
+  if (s.products) bits.push(`${s.products.toLocaleString('en-US')} products`)
+  if (s.methods) bits.push(`${s.methods.toLocaleString('en-US')} methods`)
+  if (s.protocols) bits.push(`${s.protocols.toLocaleString('en-US')} protocols`)
+  return bits.length
+    ? `${bits.join(' · ')} — search by product, CAS, or method.`
+    : 'Search reagents by product, CAS, or method — with the methods and protocols behind them.'
+})
 
 const hotTags = ['ATP', 'PCR', 'Click Chemistry', 'Fluorescent Probes', 'Cell Assay']
 const tags = props.suggestedSearches.length ? props.suggestedSearches : hotTags
@@ -41,7 +63,7 @@ const tags = props.suggestedSearches.length ? props.suggestedSearches : hotTags
           From research goal to<br>
           <span class="hero-gradient">precision reagent</span>
         </h1>
-        <p class="hero-subtitle">{{ subtitle || '118 high-purity products connected to 10 core methods and 88 standard protocols. Search by product, CAS, or method.' }}</p>
+        <p class="hero-subtitle">{{ subtitle || fallbackSubtitle }}</p>
 
         <div class="hero-search">
           <div class="search-box">

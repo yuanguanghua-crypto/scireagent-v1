@@ -4,7 +4,9 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 
 function handleRequestQuote() {
-  router.push('/products')
+  // ★ 2026-10-30：原来跳 `/products`（产品列表），与「Request Quote」语义不符。
+  //   站内有真正的报价页 `/quote-request`（meta.nav = 'public'，无需登录）。
+  router.push('/quote-request')
 }
 </script>
 
