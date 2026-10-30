@@ -45,6 +45,31 @@ onUnmounted(() => {
         <p class="section-content">{{ store.currentGoal.summary || 'No summary available.' }}</p>
       </section>
 
+      <!-- ★ 2026-10-30 补：AG→AP 这一段此前在页面上**完全缺失**。
+           序列化器早就返回 `application_collection`（`serializers.py:57/66`，
+           典型一个研究目标挂 3 个技术族），但本页只渲染 Summary 与 Curated Protocols
+           ⇒ 用户从知识图谱顶层点进来后**无路可走**，主链 RG→AP 在 UI 上断掉。
+           位置按链路顺序放在 Summary 之后、Protocols 之前。 -->
+      <section class="detail-section">
+        <h2 class="section-title">
+          Applications
+          <span v-if="store.currentGoal.application_collection?.length" class="count-badge">
+            {{ store.currentGoal.application_collection.length }}
+          </span>
+        </h2>
+        <div v-if="store.currentGoal.application_collection?.length">
+          <el-table :data="store.currentGoal.application_collection" stripe>
+            <el-table-column label="Application" min-width="260">
+              <template #default="{ row }">
+                <router-link :to="`/applications/${row.id}`" class="protocol-link">{{ row.name }}</router-link>
+              </template>
+            </el-table-column>
+            <el-table-column prop="slug" label="Slug" min-width="200" />
+          </el-table>
+        </div>
+        <el-empty v-else description="No applications linked to this research goal yet" />
+      </section>
+
       <section class="detail-section">
         <h2 class="section-title">Curated Protocols</h2>
         <div v-if="store.currentGoal.protocols?.length">
@@ -80,6 +105,13 @@ onUnmounted(() => {
 .header-tags { display: flex; gap: 8px; }
 .detail-section { margin-bottom: 24px; }
 .section-title { font-size: 18px; font-weight: 600; color: var(--color-text); margin: 0 0 8px 0; border-bottom: 1px solid var(--color-border); padding-bottom: 6px; }
+.count-badge {
+  display: inline-block; margin-left: 8px; padding: 1px 8px;
+  font-size: 12px; font-weight: 600; line-height: 18px;
+  color: var(--color-text-secondary); background: var(--color-bg-alt);
+  border: 1px solid var(--color-border); border-radius: 9999px;
+  vertical-align: middle;
+}
 .section-content { font-size: 15px; line-height: 1.6; color: var(--color-text); }
 .info-text { color: var(--color-text-secondary); font-size: 14px; margin-bottom: 12px; }
 .protocol-link { color: var(--color-primary); text-decoration: none; font-weight: 500; }
