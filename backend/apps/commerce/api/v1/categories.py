@@ -44,6 +44,14 @@ class CategoryTreeView(APIView):
         )
 
         result = {}
+        # ★ 2026-10-30 修：本视图的 count **一直没过滤 status/archived**，
+        #   而前台产品列表只放 active/published 且未归档的行 ⇒ 同一个分类出现两个数字：
+        #   `/api/v1/categories` 报 105（全表，含 draft/archived），`/api/v1/site/home`
+        #   报 67（可见口径）。`ProductLayout` 用本接口的 count 渲染分类条，
+        #   于是**首页胶囊 67 / 列表页胶囊 105**，用户会以为数据错乱。
+        #   ⇒ 与 `site_home` 的 `per_class_counts` 严格同口径。
+        visible = Product.objects.filter(
+            status__in=['active', 'published'], archived=False, is_test_fixture=False)
         for l1 in l1s:
             l2_children = list(l1.children.order_by('sort_order', 'id'))
             # L1 及所有后代 id
@@ -52,12 +60,12 @@ class CategoryTreeView(APIView):
                 descendant_ids.append(l2.id)
                 descendant_ids.extend(l2.children.values_list('id', flat=True))
 
-            l1_count = Product.objects.filter(product_class_id__in=descendant_ids).count()
+            l1_count = visible.filter(product_class_id__in=descendant_ids).count()
 
             # L2 计数（仅 count>0 进 l2_counts）
             l2_counts = {}
             for l2 in l2_children:
-                cnt = Product.objects.filter(product_class=l2).count()
+                cnt = visible.filter(product_class=l2).count()
                 if cnt > 0:
                     l3_names = list(l2.children.order_by('sort_order', 'id').values_list('name', flat=True))
                     l2_counts[l2.name] = {

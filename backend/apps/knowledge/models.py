@@ -27,11 +27,10 @@ class TestFixtureQuerySet(models.QuerySet):
 
 
 def _test_fixture_field():
-    return models.BooleanField(
-        default=False, db_index=True, verbose_name='测试夹具',
-        help_text='True 表示此行由自动化测试残留产生，不参与任何对外展示与统计；'
-                  '仅作标记，数据不会被删除',
-    )
+    """★ 2026-10-30：实现已上移到 `core.models.test_fixture_field`（让 commerce 的
+    Product 也能复用同一份定义）。此处保留薄壳，仅为不惊动本文件 4 处既有调用点。"""
+    from core.models import test_fixture_field
+    return test_fixture_field()
 
 
 class OriginChoices(models.TextChoices):

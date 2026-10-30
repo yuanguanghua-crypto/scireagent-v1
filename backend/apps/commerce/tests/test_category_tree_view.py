@@ -68,3 +68,35 @@ class TestCategoryTreeView:
         data = self._get()
         # l2a 直接 + l3 直接，都算 l1 后代
         assert data['nucleotides_nucleosides']['count'] == 2
+
+    # ── ★ 2026-10-30 计数口径回归闸门 ──────────────────────────────
+    #   改坏判定：把 `visible` 里的 status/archived/is_test_fixture 任一条件删掉，
+    #   下面三个用例必须变红。原实现**一个都没过滤**：本地库报 105，
+    #   而 `/api/v1/site/home` 报 67 ⇒ 首页胶囊 67 / 列表页胶囊 105 自相矛盾。
+
+    def test_count_excludes_non_public_status(self):
+        """draft / deprecated 不计入（前台列表看不到，计数就不能算）。"""
+        l1, l2a, _l2b, _l3 = self._make_tree()
+        ProductFactory(product_class=l2a)
+        ProductFactory(product_class=l2a, status=Product.Status.DRAFT)
+        ProductFactory(product_class=l2a, status=Product.Status.DEPRECATED)
+        assert self._get()['nucleotides_nucleosides']['count'] == 1
+
+    def test_count_excludes_archived(self):
+        l1, l2a, _l2b, _l3 = self._make_tree()
+        ProductFactory(product_class=l2a)
+        ProductFactory(product_class=l2a, archived=True)
+        assert self._get()['nucleotides_nucleosides']['count'] == 1
+
+    def test_count_excludes_test_fixture(self):
+        """e2e 残留（E2E PO Test Product / Product 0）不能把分类数顶高。"""
+        l1, l2a, _l2b, _l3 = self._make_tree()
+        ProductFactory(product_class=l2a)
+        ProductFactory(product_class=l2a, is_test_fixture=True)
+        assert self._get()['nucleotides_nucleosides']['count'] == 1
+
+    def test_l2_counts_excludes_test_fixture(self):
+        """L2 明细同样要排除夹具，否则 L1 数是 1、L2 明细却列出 2。"""
+        l1, l2a, _l2b, _l3 = self._make_tree()
+        ProductFactory(product_class=l2a, is_test_fixture=True)
+        assert 'Fluorescent Nucleotides' not in self._get()['nucleotides_nucleosides']['l2_counts']

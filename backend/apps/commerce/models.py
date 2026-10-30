@@ -4,7 +4,7 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
-from core.models import TimeStampedModel, StatusMixin
+from core.models import TimeStampedModel, StatusMixin, test_fixture_field
 
 # PostgreSQL-only: SearchVectorField + GinIndex
 _USE_POSTGRES = os.getenv('DB_ENGINE', 'postgres') != 'sqlite'
@@ -118,6 +118,10 @@ class Product(StatusMixin, TimeStampedModel):
         ProductClass, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='products', verbose_name='产品分类'
     )
+    # ★ 2026-10-30：与 ResearchGoal/Application/Method/Protocol 对齐夹具标记。
+    #   e2e 造的「E2E PO Test Product」「Product 0」此前无标记 ⇒ 直接出现在前台
+    #   /products 列表（可见 69 个里 2 个是夹具，真实 67）。
+    is_test_fixture = test_fixture_field()
     catalog_group = models.ForeignKey(
         CatalogGroup, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='products', verbose_name='目录分组'

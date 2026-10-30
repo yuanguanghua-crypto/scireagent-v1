@@ -32,8 +32,11 @@ product, _ = Product.objects.get_or_create(
 )
 # ★ 必须 active：商品 API 的 get_queryset 只返回 status='active'（draft 会被过滤）
 #   ⇒ 否则 PoSubmit 页搜不到该商品，UI 提交流程无法选中。
+# ★ 必须 is_test_fixture=True（2026-10-30）：这是测试残留，不能出现在前台 /products。
+#   ProductViewSet 的 list 只对**非 staff** 排除夹具，PoSubmit 是登录态 ⇒ 仍能搜到。
 product.name = 'E2E PO Test Product'
 product.status = Product.Status.ACTIVE
+product.is_test_fixture = True
 product.save()
 sku, _ = SKU.objects.get_or_create(
     sku_code=SKU_CODE,

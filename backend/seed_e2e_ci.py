@@ -74,6 +74,8 @@ p66, created66 = Product.objects.get_or_create(
         'slug': 'e2e-ci-product-66',
         'name': 'E2E CI Product 66',
         'status': Product.Status.ACTIVE,
+        # 2026-10-30：新建时即打夹具标记，避免流到前台 /products
+        'is_test_fixture': True,
     },
 )
 if created66:

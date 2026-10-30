@@ -16,6 +16,8 @@ from apps.commerce.models import (
     Product, SKU, ProductClass, CatalogGroup, ProductDocument, AuditLog,
     SkuPriceTier,
 )
+# 测试夹具可见性统一入口（与 knowledge 侧同一实现，勿在本文件另写一份判定）
+from apps.knowledge.api.v1.fixture_visibility import is_staff_request
 
 
 class IsSuperUser(BasePermission):
@@ -96,6 +98,16 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             )
             if not show_archived:
                 qs = qs.exclude(archived=True)
+            # ── ★ 2026-10-30：公开列表排除测试夹具（与 RG/AP/Method/Protocol 同规则）──
+            #   e2e 造的「E2E PO Test Product」「Product 0」此前直接出现在前台
+            #   /products（可见 69 = 真实 67 + 夹具 2），把首页 StatsBar 与分类胶囊
+            #   的数字全部带偏。
+            #   **staff 不排除**：`seed_e2e_po_fixture.py` 明确要求该夹具 status=active
+            #   且能被 `/products?search=` 搜到，否则 PoSubmit 页选不到商品、采购 e2e 挂；
+            #   这也与 `apply_public_visibility` 的既有取舍一致（staff 在 API 读面看全量）。
+            #   ⇒ 口径：**匿名/普通用户看不到夹具，staff 看得到**（运营清理也需要）。
+            if not is_staff_request(self.request):
+                qs = qs.filter(is_test_fixture=False)
         query = self.request.query_params.get('search', '')
         # ★ v4.1 对抗性自测加固：search 参数长度上限 200（此前 10000 字符靠 nginx 414 兜底）
         if len(query) > 200:
@@ -105,11 +117,18 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             # 旧写法 `qs = selectors.filter_products(query)` 会整段覆盖、丢掉 archived 排除。
             qs = selectors.filter_products(query, base_qs=qs)
         # Filter by category_l1 slug → recursive descendant match
+        #
+        # ★ 2026-10-30 修「分类参数失效 ⇒ 静默返回全量」：
+        #   旧写法 `ids = ...; if ids: qs = qs.filter(...)` —— slug 解析不到时 ids 为 []，
+        #   于是**完全不过滤**，返回全站产品。这比报错更糟：用户点「Click Chemistry (0)」
+        #   看到 69 个产品，只会以为数据错乱。
+        #   首页胶囊正是踩了这个坑（推的是展示 slug `nucleotides`，不是 L1 slug
+        #   `nucleotides_nucleosides`）。即便参数名修好，任何拼错的 slug 仍会静默全量。
+        #   ⇒ 解析不到就是**空集**（与「宁 miss 不错配」同源）。
         cat1 = self.request.query_params.get('category_l1', '')
         if cat1:
             ids = selectors.get_descendant_product_class_ids(cat1)
-            if ids:
-                qs = qs.filter(product_class_id__in=ids)
+            qs = qs.filter(product_class_id__in=ids) if ids else qs.none()
         # Filter by category_l2 name → find L2 ProductClass by name → recursive
         cat2 = self.request.query_params.get('category_l2', '')
         if cat2:
@@ -117,8 +136,10 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             l2_pc = PC.objects.filter(name__icontains=cat2, parent__isnull=False).first()
             if l2_pc:
                 ids = selectors.get_descendant_product_class_ids(l2_pc)
-                if ids:
-                    qs = qs.filter(product_class_id__in=ids)
+                qs = qs.filter(product_class_id__in=ids) if ids else qs.none()
+            else:
+                # 名字匹配不到 L2 ⇒ 空集，理由同上
+                qs = qs.none()
         # 非 staff（匿名/普通用户）只看 active，下架/草稿不进公开列表，
         # 且忽略客户端传入的 status 过滤参数（防止绕过）。
         if not (user and user.is_authenticated and user.is_staff):
