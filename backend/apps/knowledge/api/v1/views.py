@@ -334,6 +334,16 @@ class ReferenceViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     ordering_fields = ['year', 'title']
     filterset_fields = ['source_type']
 
+    def get_queryset(self):
+        """★ 2026-10-30：Reference 此前**完全没有夹具过滤**（连接口都没覆写）。
+
+        本地 219 条里有 32 条 e2e 残留（31 条 `__e2e_references_*__` + 1 条
+        `E2E stub reference`），那条 stub 的 year=2026 会稳定占住首页
+        "Recent Publications" 第一位。走统一入口 `apply_public_visibility`：
+        Reference 无 status 字段 ⇒ 该函数对它等价于「只做夹具过滤」。
+        """
+        return apply_public_visibility(super().get_queryset(), Reference, self.request)
+
 
 class CompatibilityViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Compatibility.objects.all()

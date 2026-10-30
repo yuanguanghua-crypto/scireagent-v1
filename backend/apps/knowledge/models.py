@@ -584,6 +584,12 @@ class Reference(TimeStampedModel):
         WEB = 'web', '网页'
         OTHER = 'other', '其他'
 
+    # ★ 2026-10-30：Reference 是最后一个没有夹具标记的对外读实体。
+    #   实测本地库 219 条里有 32 条 e2e 残留（31 条 `__e2e_references_*__`
+    #   + 1 条 `E2E stub reference`），而 `year=2026` 让那条 stub **排在了
+    #   首页 "Recent Publications" 第一位**。补上标记后由读面统一排除。
+    is_test_fixture = _test_fixture_field()
+
     title = models.CharField(max_length=500, verbose_name='标题',
         help_text='论文/文献完整标题')
     authors = models.TextField(blank=True, default='', verbose_name='作者',

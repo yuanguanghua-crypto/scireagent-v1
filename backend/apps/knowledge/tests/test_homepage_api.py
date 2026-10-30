@@ -26,44 +26,35 @@ class TestHomepageAPI:
         assert isinstance(data['hero']['suggested_searches'], list)
         assert len(data['hero']['suggested_searches']) > 0
 
-    def test_t1_08_featured_solutions_exists(self):
-        """T1-08: Homepage returns featured_solutions list."""
-        app = ApplicationFactory(status='active', display_priority=100)
-        resp = self.client.get('/api/v1/site/home')
-        data = resp.json()['data']
-        assert 'featured_solutions' in data
-        assert isinstance(data['featured_solutions'], list)
+    def test_t1_08_featured_solutions_removed(self):
+        """T1-08（契约变更，2026-10-30）：首页不再返回 featured_solutions。
 
-    def test_t1_09_featured_solution_has_methods_count(self):
-        """T1-09: Featured solution has methods_count."""
-        app = ApplicationFactory(status='active', display_priority=100)
-        MethodFactory(application=app, status='active')
-        MethodFactory(application=app, status='active')
-        resp = self.client.get('/api/v1/site/home')
-        data = resp.json()['data']
-        sol = data['featured_solutions'][0]
-        assert 'methods_count' in sol
-        assert sol['methods_count'] == 2
+        原来这条区块的选取条件是 `display_priority > 0`，而实测全库
+        28,566 个 active Application 的 display_priority **全部是 0**
+        —— 运营置顶功能从未使用 ⇒ 该字段恒为 []，前端也从未渲染。
+        留着只是每次首页多跑一条跨三层的 COUNT 聚合。
+        用户 2026-10-30 拍板删除，「精选应用」改用 featured_applications，
+        所以这里锁住「不再出现」，防止有人把它加回来又变回空区块。
+        """
+        ApplicationFactory(status='active', display_priority=100)
+        data = self.client.get('/api/v1/site/home').json()['data']
+        assert 'featured_solutions' not in data
 
-    def test_t1_10_featured_solution_has_products_count(self):
-        """T1-10: Featured solution has products_count."""
+    def test_t1_09_featured_applications_carry_counts(self):
+        """T1-09（原 featured_solutions 的 methods/products 计数契约迁移到此）：
+        精选应用必须带 methods_count / products_count，供首页卡片显示
+        「N methods · M products」。"""
         app = ApplicationFactory(status='active', display_priority=100)
-        method = MethodFactory(application=app, status='active')
+        m1 = MethodFactory(application=app, status='active')
+        MethodFactory(application=app, status='active')
         product = ProductFactory(status='active')
-        ProductMethod.objects.create(product=product, method=method)
-        resp = self.client.get('/api/v1/site/home')
-        data = resp.json()['data']
-        sol = data['featured_solutions'][0]
-        assert 'products_count' in sol
-        assert sol['products_count'] >= 1
+        ProductMethod.objects.create(product=product, method=m1)
 
-    def test_t1_11_no_references_count(self):
-        """T1-11: Featured solution does NOT have references_count."""
-        app = ApplicationFactory(status='active', display_priority=100)
-        resp = self.client.get('/api/v1/site/home')
-        data = resp.json()['data']
-        if data['featured_solutions']:
-            assert 'references_count' not in data['featured_solutions'][0]
+        data = self.client.get('/api/v1/site/home').json()['data']
+        item = next(a for a in data['featured_applications'] if a['id'] == app.id)
+        assert item['methods_count'] == 2
+        assert item['products_count'] >= 1
+        assert 'references_count' not in item
 
     def test_t1_12_research_goals_exists(self):
         """T1-12: Homepage returns research_goals list."""
@@ -157,9 +148,10 @@ class TestHomepageAPI:
         """T2-01: Homepage response has all 9 sections."""
         resp = self.client.get('/api/v1/site/home')
         data = resp.json()['data']
+        # 2026-10-30：featured_solutions 已按用户决定删除（恒为空），不再要求
         required = ['hero', 'stats', 'featured_applications', 'featured_methods',
-                     'featured_products', 'featured_solutions', 'research_goals',
-                     'references', 'graph_preview']
+                    'featured_products', 'research_goals',
+                    'references', 'graph_preview']
         for key in required:
             assert key in data, f'Missing section: {key}'
 
@@ -206,7 +198,7 @@ class TestHomepageAPI:
         assert isinstance(data['featured_products'], list)
         assert isinstance(data['featured_applications'], list)
         assert isinstance(data['featured_methods'], list)
-        assert isinstance(data['featured_solutions'], list)
+        assert 'featured_solutions' not in data  # 2026-10-30 已删除（恒空区块）
         assert isinstance(data['research_goals'], list)
         assert isinstance(data['references'], list)
 

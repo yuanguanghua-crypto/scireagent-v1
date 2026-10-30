@@ -115,47 +115,6 @@ def site_home(request):
         .order_by('-display_priority', 'name')[:20]
     )
 
-    # Featured solutions (Application-level aggregation)
-    #
-    # ★ 2026-10-21 性能（L7）：原写法是「对**全部** `status=active AND display_priority>0`
-    #   的 Application 做 3 组 `COUNT(DISTINCT)`（其中两次跨到
-    #   `methods__method_protocols__protocol` / `methods__product_methods__product`
-    #   三层），再 `ORDER BY display_priority DESC LIMIT 6`。
-    #   **`GROUP BY` 会让 `LIMIT` 无法下推** ⇒ PG 必须先把几千行（实测该库 28566 个
-    #   active application）全部聚合出来再排序，实测这条 SQL **192ms**，
-    #   占了 `/api/v1/site/home` 的一半以上耗时。
-    #
-    #   排序键 `display_priority` 是 Application **自身字段**、与三个聚合值无关
-    #   ⇒ 可以先按它取前 6 个 id，再只对这 6 个聚合。**结果完全等价**
-    #   （已用「优化前后响应逐字节比对」验证，见 COVERAGE_STATUS §3.17）。
-    _top_solution_ids = list(
-        Application.objects
-        .filter(status='active', display_priority__gt=0)
-        .order_by('-display_priority', 'id')      # 加 id 作次序键：原写法次序未定义，这里更确定
-        .values_list('id', flat=True)[:6]
-    )
-    featured_solutions = (
-        Application.objects
-        .filter(id__in=_top_solution_ids)
-        .annotate(
-            methods_count=Count(
-                'methods',
-                filter=Q(methods__status='active'),
-                distinct=True
-            ),
-            protocols_count=Count(
-                'methods__method_protocols__protocol',
-                filter=Q(methods__method_protocols__protocol__status='published'),
-                distinct=True
-            ),
-            products_count=Count(
-                'methods__product_methods__product',
-                filter=Q(methods__product_methods__product__status__in=['active', 'published']),
-                distinct=True
-            ),
-        )
-        .order_by('-display_priority', 'id')
-    )
 
     # Research goals
     #
@@ -186,7 +145,12 @@ def site_home(request):
     )
 
     # References (recent)
-    references = Reference.objects.order_by('-year', '-id')[:5]
+    # ★ 2026-10-30：必须排除测试夹具 —— 本地 219 条里有 32 条 e2e 残留，
+    #   其中 `E2E stub reference`（year=2026）会**稳居第一位**。
+    references = (
+        Reference.objects.filter(is_test_fixture=False)
+        .order_by('-year', '-id')[:5]
+    )
 
     # Stats — aggregate counts from all relevant models
     # ★ 2026-10-30：公开可见产品 = active/published ∩ 未归档 ∩ 非测试夹具。
@@ -328,16 +292,11 @@ def site_home(request):
                 for m in featured_methods
             ],
             'featured_products': products_data,
-            'featured_solutions': [
-                {
-                    'application_id': a.id,
-                    'name': a.name,
-                    'methods_count': a.methods_count,
-                    'protocols_count': a.protocols_count,
-                    'products_count': a.products_count,
-                }
-                for a in featured_solutions
-            ],
+            # ★ 2026-10-30 C 批：删除 'featured_solutions' —— 该区块**恒为空**。
+            #   选取条件是 `display_priority > 0`，而实测全库 28,566 个 active
+            #   Application 的 display_priority **全部是 0**（运营置顶功能从未使用），
+            #   所以它只会返回 []；前端也从未消费。留着只是每次首页多跑一条
+            #   三层 COUNT 的聚合查询。需要「精选应用」时用 featured_applications。
             'research_goals': [
                 {
                     'id': g.id,

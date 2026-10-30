@@ -23,14 +23,16 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from apps.knowledge.models import Application, Method, ResearchGoal
+from apps.knowledge.models import Application, Method, Reference, ResearchGoal
 
 DEFAULT_PREFIX = '__'
 
+# (label, Model, 名称字段) —— Reference 的名字字段是 title 不是 name
 TARGET_MODELS = (
-    ('ResearchGoal', ResearchGoal),
-    ('Application', Application),
-    ('Method', Method),
+    ('ResearchGoal', ResearchGoal, 'name'),
+    ('Application', Application, 'name'),
+    ('Method', Method, 'name'),
+    ('Reference', Reference, 'title'),
 )
 
 
@@ -51,7 +53,7 @@ class Command(BaseCommand):
             help='回滚：把匹配前缀的行 is_test_fixture 置回 False',
         )
         parser.add_argument(
-            '--model', choices=[label for label, _ in TARGET_MODELS],
+            '--model', choices=[label for label, _m, _f in TARGET_MODELS],
             help='配合 --id 使用：限定要操作的实体类型',
         )
         parser.add_argument(
@@ -84,19 +86,19 @@ class Command(BaseCommand):
         verb = '取消标记' if unmark else '标记'
         scope = f'id={sorted(set(by_id))} @ {only_model}' if by_id else f'前缀="{prefix}"'
 
-        totals_before = {label: Model.objects.count() for label, Model in TARGET_MODELS}
+        totals_before = {label: Model.objects.count() for label, Model, _f in TARGET_MODELS}
 
         summary = []
         with transaction.atomic():
-            for label, Model in TARGET_MODELS:
+            for label, Model, name_field in TARGET_MODELS:
                 if by_id:
                     if label != only_model:
                         continue
                     qs = Model.objects.filter(pk__in=by_id)
                 else:
-                    qs = Model.objects.filter(name__startswith=prefix)
+                    qs = Model.objects.filter(**{f'{name_field}__startswith': prefix})
                 pending = qs.exclude(is_test_fixture=target_value)
-                names = list(pending.values_list('id', 'name')[:50])
+                names = list(pending.values_list('id', name_field)[:50])
                 count = pending.count()
 
                 if not dry_run and count:
@@ -107,12 +109,12 @@ class Command(BaseCommand):
             # id 模式下逐个核对「请求的 id 是否都真的存在」，防止静默漏改
             not_found = []
             if by_id:
-                Model = dict(TARGET_MODELS)[only_model]
+                Model = {lbl: m for lbl, m, _f in TARGET_MODELS}[only_model]
                 found = set(Model.objects.filter(pk__in=by_id).values_list('id', flat=True))
                 not_found = sorted(set(by_id) - found)
 
         # 铁律①硬校验：行数必须一字未变
-        totals_after = {label: Model.objects.count() for label, Model in TARGET_MODELS}
+        totals_after = {label: Model.objects.count() for label, Model, _f in TARGET_MODELS}
         if totals_before != totals_after:
             raise RuntimeError(
                 f'数据行数发生变化，违反零删除铁律: {totals_before} -> {totals_after}'
