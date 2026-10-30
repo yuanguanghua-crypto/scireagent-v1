@@ -474,15 +474,21 @@ class ProtocolDetailSerializer(BaseModelSerializer):
 
 
 class MethodListSerializer(BaseModelSerializer):
-    application_id = serializers.PrimaryKeyRelatedField(
-        source='application', queryset=Application.objects.all(),
-        required=False, allow_null=True,
-    )
+    # ★ 2026-10-30（B 方案阶段 3）：`Method.application` FK 已废弃（全为 NULL）。
+    #   改为从 `ApplicationMethod` 桥取「代表应用」（display_order 最小者）。
+    #   单值是妥协：M:N 下一个方法可服务多个应用，序列化只给一个代表。
+    #   写路径不再接受 application_id —— 要改关联请写桥（`ApplicationMethod`）。
+    application_id = serializers.SerializerMethodField()
     slug = serializers.SlugField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Method
         fields = ['id', 'name', 'slug', 'summary', 'application_id', 'cost_band', 'timeline', 'status', 'created_at']
+
+    def get_application_id(self, obj):
+        from apps.knowledge.services.application_methods import application_of_method
+        app = application_of_method(obj)
+        return app.id if app else None
 
 
 class MethodDetailSerializer(BaseModelSerializer):
@@ -498,14 +504,27 @@ class MethodDetailSerializer(BaseModelSerializer):
     slug = serializers.SlugField(required=False, allow_blank=True, allow_null=True)
     protocols = serializers.SerializerMethodField()
     products = serializers.SerializerMethodField()
+    # ★ 2026-10-30（B 方案阶段 3）：同 MethodListSerializer —— FK 已废弃，改从桥取
+    application_id = serializers.SerializerMethodField()
+    application_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Method
         fields = [
             'id', 'name', 'slug', 'summary', 'purpose', 'advantages', 'limitations',
             'cost_band', 'timeline', 'status', 'application_id',
-            'protocols', 'products', 'created_at', 'updated_at',
+            'application_name', 'protocols', 'products', 'created_at', 'updated_at',
         ]
+
+    def get_application_id(self, obj):
+        from apps.knowledge.services.application_methods import application_of_method
+        app = application_of_method(obj)
+        return app.id if app else None
+
+    def get_application_name(self, obj):
+        from apps.knowledge.services.application_methods import application_of_method
+        app = application_of_method(obj)
+        return app.name if app else None
 
     def get_protocols(self, obj):
         # ★ 2026-10-30：同上 —— 不过滤 published 会让下架协议"列表有、点进 404"。
