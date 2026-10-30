@@ -57,10 +57,10 @@ function toggle() {
 </script>
 
 <template>
-  <section class="knowledge-section" aria-label="Knowledge graph">
+  <section class="knowledge-section" aria-label="Knowledge base">
     <button class="knowledge-toggle" :class="{ open }" @click="toggle">
       <span>
-        Explore Knowledge Graph
+        Explore Knowledge Base
         <span class="pill-count">{{ knowledgeItems.length }} domains</span>
       </span>
       <span class="chevron" :class="{ open }">

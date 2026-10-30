@@ -35,7 +35,7 @@ const tags = props.suggestedSearches.length ? props.suggestedSearches : hotTags
       <div class="hero-text">
         <div class="hero-badge">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
-          Knowledge Graph · Powered Discovery
+          Curated Knowledge · Powered Discovery
         </div>
         <h1 class="hero-title">
           From research goal to<br>

@@ -169,9 +169,9 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Knowledge graph -->
+      <!-- Knowledge entities（这里只是四个计数，不是图谱；2026-10-30 随图谱移除一并正名） -->
       <div class="section">
-        <h3 class="section-title">Knowledge Graph</h3>
+        <h3 class="section-title">Knowledge Entities</h3>
         <div class="kg-grid">
           <span>Goals: <strong>{{ stats.total_goals }}</strong></span>
           <span>Applications: <strong>{{ stats.total_applications }}</strong></span>
