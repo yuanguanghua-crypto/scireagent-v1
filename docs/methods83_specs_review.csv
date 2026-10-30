@@ -1,0 +1,578 @@
+﻿method_id,method_name,protocols,re_band,re_median,llm_timeline,agree,timeline_reason,problems,adv_evidence_n,lim_evidence_n,advantages,limitations,verdict,new_timeline,new_advantages,new_limitations,note
+47894,Genomic DNA Extraction,724,hours,3.9 h,hours,agree,"Median measured protocol total 3.9 h, matching the hours heuristic band.",,4,4,"Yields genomic DNA of sufficient integrity for short- and long-read sequencing workflows.
+Compatible with a wide range of starting materials, from cultured bacteria to plant and lichen tissue.
+Uses standard laboratory reagents and equipment, so it is readily adopted without specialised instrumentation.
+Scalable to multiwell plate formats for processing many samples in parallel.","Yields and purity vary with starting material, so downstream performance depends on sample type and condition.
+Lysis and purification steps can co-extract contaminants that inhibit downstream enzymatic reactions if not removed.
+Recovery of high-molecular-weight DNA is reduced when samples are degraded or handled roughly.
+DNA-based analysis cannot distinguish active from dormant or dead organisms in a community.",,,,,
+47889,PCR,571,hours,2.1 h,hours,agree,"Median per-protocol total 2.1 h; band distribution centres on hours, consistent with a single amplification run.",,4,4,"Amplifies a defined target region from very small amounts of starting nucleic acid.
+Requires only a thermal cycler, primers and standard reagents, making it widely accessible.
+Products are compatible with many downstream readouts, including sequencing and genotyping.
+Primer pairs can be designed to target essentially any known sequence.","Requires prior knowledge of the target sequence to design specific primers.
+Contamination and non-specific amplification can produce misleading products without careful controls.
+Sensitive to inhibitors carried over from sample preparation, which can reduce or block amplification.
+Amplification is exponential, so small differences in efficiency can distort quantitative comparisons.",,,,,
+47919,Pluripotent Stem Cell Culture,330,days,1.1 d,days,agree,Median per-protocol total 1.1 d; measured durations cluster in days band.,,4,4,"Maintains self-renewing pluripotent populations that can be expanded and banked for repeated downstream experiments.
+Supports directed differentiation into multiple lineages, enabling disease modelling and candidate drug testing in human cells.
+Patient-derived lines allow study of disease-relevant genotypes in a matched genetic background.","Requires specialised culture infrastructure and careful handling to preserve pluripotency and karyotype stability.
+Continued expansion of a batch is eventually restricted by senescence-linked growth arrest.
+Differentiation outcomes can vary in morphology and cellular composition between lines and batches.
+Some differentiation routes are laborious and inefficient, needing further purification of the desired cells.",,,,,
+47903,Protein Purification,424,days,12.4 h,days,agree,"Measured median 12.4 h per protocol, but band distribution and heuristic place typical complete runs in days.",,4,4,"Yields purified protein in a form suitable for downstream functional, structural and interaction assays.
+Can isolate native complexes and their interacting partners rather than only recombinant single proteins.
+Affinity tagging allows selective capture of a chosen target from complex mixtures.
+Scales from small analytical preparations to larger culture volumes.","Multi-step workflows are lengthy and require careful handling to avoid loss and degradation.
+Yield and purity depend strongly on the properties of the individual target protein.
+Tag-based capture can introduce artefacts or require tag removal and optimisation.
+Maintaining native conformation and activity throughout purification is not guaranteed.",,,,,
+47912,In-vivo Recording & Surgery,161,hours,2.3 h,hours,agree,Measured median 2.3 h per protocol and heuristic band of hours support a same-day complete run.,,4,3,"Enables recording of physiological or neural activity in the living animal rather than in excised tissue.
+Allows repeated sampling or observation in the same subject over time, reducing animal-to-animal variability.
+Permits correlation of recorded signals with behaviour or other in-vivo readouts in an intact system.","Requires surgical skill and aseptic technique; outcomes depend heavily on operator proficiency.
+Survival surgery carries anaesthesia and post-operative recovery risk that can confound or lose subjects.
+Implanted devices or probes can cause tissue damage and signal degradation over extended periods.
+Regulatory and ethical approval for live-animal procedures adds lead time before work begins.",,,,,
+47892,Bacterial/Microbial Culture,409,days,22.2 h,days,agree,"Median protocol total 22.2 h, but most protocols span days for colony growth and isolation.",,4,2,"Provides viable cells for downstream phenotypic, genomic and biochemical assays.
+Supports isolation of single colonies for clonal purity and strain verification.
+Growth conditions such as medium composition and agar concentration can be varied to mimic different environments.
+Liquid formats allow quantitative growth measurement in plate readers rather than by eye.","Requires incubation time before colonies or turbid growth are visible.
+Results depend on the chosen medium and conditions, which may not reflect the original environment.
+Antibiotic tolerance and growth behaviour can differ between solid and liquid culture formats.
+Culture-based readouts are surrogates and may not capture full community composition.",,,,,
+47902,RNA Isolation,423,hours,1.4 h,hours,agree,"Measured median 1.4 h per protocol; band distribution peaks at hours, consistent with a single-session workflow.",limitations 含变体级细节 phenol,4,4,"Recovers intact total RNA suitable for downstream transcriptomic and sequencing applications.
+Can be performed with standard laboratory equipment and commonly available reagents.
+Adaptable across diverse sample types, from microbial cultures to complex plant tissues.
+Yields RNA of sufficient purity for sensitive downstream enzymatic reactions.","RNA is labile and prone to degradation by endogenous and exogenous RNases, requiring careful handling.
+Phenol-based chemistries carry handling hazards and require appropriate waste disposal.
+Fibrous and polysaccharide-rich tissues can be difficult to process and may give poor recovery.
+Small or low-input samples may lose material during processing, reducing yield.",,,,,
+47891,Live-cell Fluorescence Imaging,402,days,14.2 h,days,agree,"Measured median 14.2 h per protocol, with most protocols falling in the days band.",,4,4,"Visualises protein interactions and cellular dynamics directly in living cells over time.
+Requires only a fluorescence microscope and standard fluorescent labels or reporters.
+Repeated observation of the same cells is possible without fixing or harvesting them.
+Image-based readouts can be automated for high-throughput screening of many samples.","Fluorescent labels can perturb cell behaviour and photobleach or phototoxic under prolonged illumination.
+Some fluorescent reporters mature slowly, limiting real-time detection of fast events.
+Maintaining cell viability and physiological conditions throughout imaging requires careful sample handling.
+Signal quantification depends on image analysis, which can introduce variability between runs.",,,,,
+47904,Amplicon/Illumina Library Prep,399,hours,1.9 h,hours,agree,Median per-protocol total 1.9 h; measured durations cluster in the hours band.,,4,4,"Converts amplified target regions into sequencer-ready libraries in a single working day.
+Scales to many samples in parallel because the workflow is built around standard PCR and bead clean-up steps.
+Requires only a thermal cycler and routine molecular biology equipment, with no specialised instrumentation.
+Indexed amplification lets many libraries be pooled and sequenced together in one run.","PCR amplification introduces polymerase errors and skews fragment representation, so abundance is not quantitative without controls.
+Amplification bias and duplicate reads reduce effective coverage of complex populations.
+Library quality depends on input DNA integrity and on optimising cycle number to limit over-amplification.
+Manual library preparation is labour-intensive and subject to operator variability between batches.",,,,,
+47910,Immune/Stromal Cell Isolation & Culture,290,hours,3.2 h,hours,agree,Median per-protocol total 3.2 h; most protocols fall in the 30 min-4 h band.,,4,4,"Enables study of defined cell populations in isolation from complex tissue context.
+Supports downstream phenotypic, protein and gene expression analysis of purified cells.
+Fundamental workflow is relatively straightforward and adaptable to scale.
+Co-culture formats allow cell-type-specific modulation to be examined directly.","Isolated cells are removed from their physiological environment, which can alter behaviour.
+Enzymatic digestion steps can affect cell surface markers and viability.
+Purity of the recovered target population can be limited without further enrichment.
+Extended culture and passaging can drift cells from their original phenotype.",,,,,
+47890,Immunofluorescence Staining,387,days,13.8 h,days,agree,Median per-protocol total 13.8 h; most protocols fall in the days band.,,4,4,"Enables colocalization and coexpression analysis of multiple proteins in the same sample using antibodies raised in different species.
+Preserves spatial and morphological context, showing where proteins localize within cells and tissues.
+Compatible with cultured cells, tissue sections, and three-dimensional culture models.
+Readout is direct optical detection, so signal is visualized rather than inferred from a bulk assay.","Requires specific antibodies for each target, and results depend on antibody quality and cross-reactivity.
+Sample autofluorescence and light scattering limit detection in thick or highly pigmented specimens.
+Imaging depth in conventional epifluorescence and confocal systems is restricted by scattering and absorption.
+Quantification depends on imaging and analysis pipelines, which may lack integrated multi-channel tracking features.",,,,,
+47929,Model-organism Husbandry,376,days,18.7 h,days,agree,Measured median 18.7 h with dominant days band; husbandry runs span days including culture and observation.,,4,4,"Provides well-characterised, genetically tractable organisms for mechanistic studies across development, behaviour and disease.
+High conservation between model organisms and humans allows findings to inform human biology.
+Requires only standard laboratory instrumentation and routine animal or plant maintenance.
+Supports phenotyping of defined genetic backgrounds and reproducible experimental cohorts.","Husbandry and breeding schedules impose long elapsed times before experiments can begin.
+Species-specific housing, ethical approval and welfare requirements add logistical burden.
+Findings are model-dependent and require validation in other systems before extrapolation.
+Some assays yield weak or variable signals that complicate interpretation.",,,,,
+47888,Flow Cytometry,348,days,4.8 h,hours,DISAGREE,Median per-protocol total 4.8 h; most protocols fall in the hours band.,,4,4,"Measures multiple markers simultaneously on individual cells in a single sample.
+Rapid, high-throughput acquisition of fluorescence readouts from large cell numbers.
+Minimal sample processing needed, so many subsets can be screened in one experiment.
+Can physically sort and recover defined populations for downstream analysis.","Requires specialised instrumentation and trained operators to run and interpret.
+Fluorophore spectral overlap constrains how many markers can be resolved together.
+Cells must be in suspension, so tissue architecture and spatial context are lost.
+Fluorescence compensation and gating decisions introduce subjectivity between operators.",,,,,
+47896,Behavioral Assessment,294,hours,2.0 h,hours,agree,Median per-protocol total 2.0 h and heuristic band hours match measured distribution.,,4,4,"Assesses integrated behavioural phenotypes in the same animals, allowing interactions between traits to be examined.
+Measures multiple phenotypic traits relevant to a condition within a single experimental model.
+Can be implemented with standard laboratory equipment and modest computational resources.
+Phenotypes are scored directly from observed animal behaviour rather than inferred from indirect readouts.","Outcomes depend on experimenter scoring and handling, so blinding and consistent conditions are needed to limit variability.
+Behavioural readouts are indirect and can be influenced by confounders such as stress, pain or prior experience.
+Many assays capture only a narrow aspect of function, so several tests are often combined.
+Results are typically specific to the species, strain and model used and do not translate directly across them.",,,,,
+47920,Pathogen Infection Assay,321,days,1.1 d,days,agree,Median per-protocol total 1.1 d; most durations fall in the days band.,,4,4,"Allows investigation of microbial pathogenesis mechanisms under controlled laboratory conditions.
+Can be completed within a short overall duration relative to many in vivo alternatives.
+Infection of tissue blocks does not require exogenous mitogens or activating factors.
+Permits continuous monitoring of host responses from the start of infection onward.","Outcomes depend on the chosen host system, which may not fully reproduce human disease.
+Requires viable pathogen cultures and appropriate containment facilities.
+Inoculum dose and route must be controlled to keep results reproducible.
+Some readouts need specialised detection equipment and trained personnel.",,,,,
+47924,Viral Vector Transduction,306,days,1.6 d,days,agree,Median per-protocol total 1.6 days; measured distribution peaks in the days band.,,4,3,"Delivers genetic material into cells without transfection reagents or physical disruption.
+Can be applied to cells that are difficult to transfect by chemical methods.
+Requires only standard cell culture equipment and no specialised instrumentation.
+Suitable for introducing genetic material into primary and non-dividing cell types.","Requires production and titration of viral particles before the experiment.
+Packaging capacity limits the size of the genetic payload that can be delivered.
+Transduction efficiency varies with cell type, viral vector and culture conditions.
+Handling infectious viral particles requires appropriate containment and safety precautions.",,,,,
+47900,CRISPR-Cas9 Genome Editing,290,days,1.5 d,days,agree,Median per-protocol total 1.5 d; most protocols fall in the days band.,,4,4,"Targets a chosen genomic locus with a guide RNA rather than relying on random integration.
+Editing reagents can be assembled for many organisms and cell types, including those refractory to older genetic tools.
+Edits can be made precise and introduced into varied genetic backgrounds.
+Requires only standard molecular biology equipment and a thermal cycler for reagent preparation.","Both Cas9 and a guide RNA must be delivered to the same cell, adding delivery and reagent-preparation steps.
+Editing outcomes depend on cellular repair, so unintended edits and off-target changes must be screened for.
+Generating guide RNA reagents can be laborious, requiring cloning and in vitro transcription.
+Edited clones must be validated and expanded, which extends the overall workflow.",,,,,
+47928,Plant Biochemical Assay,157,days,1.3 d,days,agree,Median per-protocol total 1.3 days; most protocols fall in the days band.,,4,0,"Measures defined biochemical activities or metabolite levels directly in plant material rather than inferring them from growth or phenotype.
+Adaptable to many readouts, including radiolabelled incorporation, efflux, imaging and carbohydrate partitioning, within one workflow style.
+Works with small amounts of plant tissue and can be run at moderate throughput with standard laboratory equipment.
+Supports mutant screening and genotype comparison through quantitative, repeatable measurements.","Requires method-specific reagents and instrumentation, so setup differs between assays and is not interchangeable.
+Quantitative outputs depend on careful sample handling and timing, making standardisation across samples essential.
+Many assays rely on labels, isotopes or specialised detection, adding cost and handling requirements.
+Results are often specific to the tissue and physiological state sampled, limiting direct comparison across experiments.",,,,,
+47914,RNA-seq Library Prep,265,hours,2.5 h,hours,agree,Median per-protocol total 2.5 h; measured distribution centres on the hours band.,,4,4,"Profiles whole-transcriptome expression, including coding and non-coding transcripts, in a single assay
+Works with low-input and single-cell samples when combined with amplification or capture steps
+Sequences many samples in parallel through multiplexing and molecular indexing
+Captures both mRNA and pre-mRNA, giving information on transcription as well as steady-state levels","Requires substantial computational analysis and bioinformatics expertise after sequencing
+Cost per sample remains high relative to targeted expression assays
+Library preparation and sequencing introduce bias that can distort transcript abundance estimates
+Short-read data make isoform-level and RNA modification analysis difficult",,,,,
+47916,Bacterial Transformation,265,days,1.5 d,days,agree,Median per-protocol total 1.5 d; most protocols fall in the days band.,advantages 含变体级细节 in-house,4,3,"Introduces foreign DNA into bacteria using only standard lab equipment and reagents.
+Competent cells can be prepared in-house, avoiding reliance on purchased cells.
+Enables selection and recovery of transformants on defined media.
+Applicable to plasmid propagation, cloning and construction of engineered strains.","Transformation efficiency varies widely with strain, DNA form and competence method.
+Chemical competence methods generally give low efficiency and suit plasmids rather than ligation mixtures.
+Plant-associated transformation routes depend on regeneration, which is slow and genotype-dependent.
+Recovery of transformants requires selection and incubation steps that extend the workflow.",,,,,
+47901,ELISA,249,days,8.2 h,days,agree,"Median measured protocol total 8.2 h, but most protocols span days with overnight incubations and plate processing.",,4,4,"Quantifies a specific antigen or antibody in complex samples using only standard plate-reading equipment.
+Highly sensitive detection of target analytes through enzymatic signal amplification.
+Scales to high-throughput quantitation across many samples in parallel.
+Uses widely available primary and secondary antibodies with flexible detection chemistries.","Reproducibility between laboratories is challenging due to variability in assay sensitivity, procedure, and reagents.
+Reagent costs can be high, particularly for antibody pairs and developing reagents.
+Multiple incubation and wash steps make the workflow lengthy and hands-on.
+Antibody-based detection can be limited by cross-reactivity and matrix effects in complex samples.",,,,,
+47939,Targeted Mutagenesis (TAM),216,days,16.8 h,days,agree,"Median per-protocol total 16.8 h, but most protocols span days including library construction and selection steps.",,4,4,"Enables construction of defined or saturation mutant libraries rather than relying on random mutagenesis.
+Allows targeted introduction of specific substitutions, including nonsense and base-edited alleles, at chosen sites.
+Library-based formats permit high-throughput functional interrogation of many variants in parallel.
+Requires only standard molecular biology equipment and widely available reagents.","Library construction and downstream screening extend the workflow over several days.
+Efficiency depends on the target site and the mutagenesis strategy chosen, so not all loci are equally tractable.
+Screening or selection steps can introduce bottlenecks and bias that distort the recovered variant representation.
+Downstream verification of individual mutants is usually required before functional interpretation.",,,,,
+47913,Recombinant Protein Expression,239,days,1.0 d,days,agree,Median per-protocol total of 1.0 d and dominant days band across published protocols.,,4,4,"Provides controlled, inducible expression of a chosen protein, allowing levels and timing to be tuned.
+Can be performed in fast-growing host cells, giving usable protein amounts within a few days.
+Transient expression formats avoid the time and cost of generating stable transformed lines.
+Allows functional study of proteins that are difficult to examine in their native context.","Heterologous expression can misfold or mis-modify proteins, so activity may not reflect the native protein.
+Some target proteins, particularly oxygen-sensitive or toxic ones, require specialised culture conditions.
+Induction systems vary in kinetics and dynamic range, and inducers can cause system-wide changes.
+Downstream purification can require multistep, lengthy procedures to obtain pure protein.",,,,,
+47899,Immunohistochemistry,227,days,16.3 h,days,agree,"Median per-protocol total 16.3 h, but most protocols span days due to fixation and antibody incubation steps.",,3,4,"Retains tissue architecture and spatial context, allowing protein localisation within intact cells and tissue sections.
+Antibody-based detection gives broad target coverage limited mainly by antibody availability.
+Signal is stable and resistant to photobleaching, so stained sections can be archived and re-imaged.
+Compatible with chromogenic or fluorescent detection and with standard light and confocal microscopy.","Antigen retrieval and fixation can compromise epitope preservation and labelling consistency between runs.
+Results depend on antibody specificity and titre, so cross-reactivity and background require careful controls.
+Largely semi-quantitative; staining intensity is not a reliable measure of protein abundance.
+Requires thin sectioned, properly fixed specimens, limiting use on degraded or scarce samples.",,,,,
+47908,Metabolite Extraction (LC-MS),234,days,9.8 h,days,agree,"Median per-protocol total 9.8 h, but most protocols span days including culture and extraction steps.",,4,4,"Profiles many metabolites in a single run without prior knowledge of which compounds are present.
+Couples chromatographic separation to mass accuracy, aiding identification of structurally related metabolites.
+Applicable to a wide range of sample types, from cultured cells to tissues and subcellular fractions.
+Requires only standard LC-MS instrumentation available in most analytical laboratories.","Requires destructive sampling, so the same specimen cannot be followed over time.
+Untargeted workflows are sensitive to matrix and protocol differences, complicating comparison across studies.
+Metabolite coverage and identification depend heavily on the separation and ionisation conditions chosen.
+Quantification of untargeted data is challenging without authentic standards for each compound.",,,,,
+47927,Protein Lysis & Solubilization,229,days,4.0 h,days,agree,Measured median 4.0 h per protocol but band distribution and heuristic both centre on days.,,4,4,"Rapid lysis and solubilization preserves unstable and low-abundance proteins for downstream immunoblot or immunoprecipitation.
+Avoids subcellular fractionation, which can degrade labile proteins before analysis.
+Solubilizes proteins resistant to strong chaotropic agents, extending coverage to otherwise inaccessible fractions.
+Requires only standard laboratory equipment and reagents, keeping workflows accessible.","Detergent choice can interfere with protein quantitation, requiring dilution or alternative assays.
+Different solubilization chemistries recover partly non-overlapping protein sets, so a single buffer may miss a fraction of the proteome.
+Multi-step purification and preparation procedures can be lengthy and labour-intensive.
+Harsh lysis conditions risk denaturing or degrading proteins sensitive to chaotropes and detergents.",,,,,
+47905,Western Blot,209,days,12.8 h,days,agree,"Median per-protocol total 12.8 h, but most published protocols span 1-7 days including gel, transfer, and antibody incubations.",,1,2,"Confirms both the presence and the approximate molecular size of a target protein in a complex lysate.
+Uses standard gel electrophoresis and antibody reagents available in most molecular biology labs.
+Provides a visual, archivable record of protein detection that can be quantified from band intensity.
+Detects specific proteins directly in crude lysates without prior purification.","Multi-step workflow with many incubation and wash stages, so total time typically runs to days.
+Antibody performance varies between batches and targets, requiring optimisation and appropriate controls.
+Detection depends on antibody quality and abundance of the target, so low-abundance proteins are difficult to resolve.
+Results are semi-quantitative unless carefully controlled, limiting precise comparisons between samples.",,,,,
+47893,Cell Viability Assay,199,days,19.1 h,days,agree,"Median per-protocol total 19.1 h, but most protocols span days for cell culture and incubation before readout.",,4,3,"Reports live versus dead cell number directly, giving a quantitative readout of treatment effect.
+Compatible with multiwell plate formats, allowing many conditions to be compared in parallel.
+Requires only standard plate-reading or imaging instrumentation available in most laboratories.
+Can be applied to many cell types, including primary cells and cultured lines.","Requires metabolically active cells, so results depend on culture conditions and timing of readout.
+Signal reflects population-level metabolic state rather than distinguishing cytostasis from cell death.
+Assay signal can be influenced by compounds that interfere with the detection chemistry.
+Cells must be maintained in culture beforehand, adding days before a result is obtained.",,,,,
+47951,Kinase Activity Assay,210,days,11.0 h,days,agree,"Median per-protocol total 11.0 h, but band distribution and heuristic place typical complete runs in days.",,4,4,"Measures catalytic activity directly rather than inferring it from abundance or binding.
+Can be configured without radiolabeled ATP, avoiding isotope handling and disposal.
+Adaptable to inhibitor screening and kinetic characterization of purified kinases.
+Coupled or fluorescence readouts allow continuous monitoring of reaction progress.","Requires purified or enriched active enzyme and suitable substrate, limiting use in crude lysates.
+Radioactive formats remain the most sensitive, while non-radioactive alternatives can lose sensitivity.
+Activity depends on assay buffer, ATP concentration and post-translational state, complicating comparison across samples.
+Coupled detection systems add auxiliary enzymes whose behavior can confound kinetic interpretation.",,,,,
+47940,ChIP-seq/Chromatin Profiling,149,days,16.4 h,days,agree,"Median measured protocol total 16.4 h, with most protocols falling in the 1-7 day band.",,4,4,"Maps protein-DNA binding and chromatin features across the genome in their native cellular context.
+Antibody-based enrichment allows targeting of specific transcription factors or histone modifications of interest.
+Requires only standard molecular biology equipment and a thermal cycler for library amplification.
+Compatible with archived and limited-input samples when appropriate enrichment strategies are used.","Depends on antibody quality and specificity, which strongly influences signal-to-noise and reproducibility.
+Crosslinking and sonication can distort native chromatin interactions and introduce bias.
+Requires relatively large amounts of starting material for conventional workflows.
+Data analysis demands reference genomes and careful alignment to avoid spurious mapping artifacts.",,,,,
+47915,Single-cell RNA-seq,140,hours,1.6 h,hours,agree,Median per-protocol total 1.6 h and dominant hours band support a same-day workflow.,,3,3,"Resolves transcriptomes of individual cells, revealing heterogeneity and rare populations masked in bulk measurements.
+Links expression profiles to individual cells so cell types and states can be assigned directly.
+Requires only standard molecular biology equipment and a thermal cycler for library preparation.","Cell dissociation and processing steps can distort expression states and lose lineage relationships.
+Incomplete dissociation and cell loss can bias which cells are captured and profiled.
+Low RNA content per cell constrains detection of lowly expressed genes and requires amplification.",,,,,
+47935,Receptor/Ligand Binding Assay,68,days,6.6 h,days,agree,"Median per-protocol total 6.6 h, but most protocols span days including incubations and separations.",,4,4,"Directly measures physical interaction between a receptor and its ligand rather than inferring it.
+Works with crude or complex samples such as membrane preparations and cell lysates.
+Can resolve binding affinity and kinetics when performed at equilibrium or in real time.
+Requires only standard laboratory equipment for filtration, centrifugation or scintillation counting.","Separating bound from free ligand is a critical step that can perturb the binding equilibrium.
+Nonspecific binding and high background can obscure low-affinity or low-abundance interactions.
+Labeling the ligand may alter its binding behaviour and must be validated.
+Accurate affinity determination depends on careful control of temperature, buffer and ligand concentration.",,,,,
+47926,Tissue Embedding,147,days,1.2 d,days,agree,Median per-protocol total 1.2 days; most protocols fall in the days band.,,4,1,"Preserves tissue morphology and spatial context so sections retain structural detail for imaging.
+Supports sectioning of whole organs and large specimens that cannot be cut fresh.
+Produces stable blocks that can be stored and re-sectioned over time.
+Compatible with both light and electron microscopy workflows.","Requires infiltration and curing steps that add days before sections are available.
+Resin and other embedding media can limit antibody access and immunolabelling on sections.
+Sectioning demands specialised microtomy equipment and operator skill.
+Tissue size and shape can restrict achievable section orientation and depth.",,,,,
+47933,Viral Infection & Focus Assays,122,days,2.1 d,days,agree,Median per-protocol total 2.1 days; most protocols fall in the days band.,,4,4,"Quantifies infectious virus by counting discrete foci, giving a direct infectious-titre readout rather than bulk signal.
+Supports large sample numbers of infected hosts or cells for comparative infection studies.
+Can be adapted to bypass natural entry routes and assess specific infection or dissemination barriers.
+Uses standard cell culture and microscopy or staining readouts available in most laboratories.","Requires susceptible host cells or animals and appropriate incubation, so results depend on host system permissiveness.
+Focus counts are observer-dependent and require consistent scoring criteria across samples.
+Readout reflects only infectious particles, so non-infectious or replication-defective virus is not detected.
+Optimisation of inoculum dose and incubation time is needed for each virus-host pair.",,,,,
+47898,3D Cell Culture,159,days,2.0 d,days,agree,Measured median 2.0 d per protocol; most durations fall in days-to-weeks bands.,,4,4,"Recreates tissue-like architecture and cell-cell interactions closer to in vivo conditions than monolayer culture.
+Supports study of differentiation, invasion, and drug response in a physiologically relevant spatial context.
+Compatible with diverse cell sources including stem cells, primary cells, and immortalized lines.
+Can be assembled from standard culture reagents and equipment available in most cell biology labs.","Generating reproducible cultures is difficult; substantial heterogeneity is observed across experiments.
+Many formats require extensive manual handling and offer limited throughput for screening applications.
+Nutrient and oxygen gradients within three-dimensional structures can confound interpretation of results.
+Downstream analysis such as imaging and cell recovery is more demanding than in monolayer culture.",,,,,
+47937,Viral Molecular Detection,146,hours,1.2 h,hours,agree,"Median measured protocol duration 1.2 h, with most protocols falling in the 30 min-4 h band.",,0,0,"Detects viral nucleic acid directly, giving a result the same working day rather than after culture.
+Works from swab, respiratory, or other clinical specimens without propagating the virus in cell culture.
+Requires only standard molecular laboratory equipment such as thermal cyclers and nucleic acid readers.
+Scales to many samples at once, supporting batch testing of large specimen sets.","Result reflects only the viral sequences targeted, so unlisted variants or unexpected agents are missed.
+Sensitivity depends on specimen collection quality and timing relative to infection.
+Carryover contamination and inhibitors in clinical specimens can produce false positives or failed reactions.
+Detecting nucleic acid does not by itself establish that infectious virus is present.",,,,,
+47895,Real-Time Quantitative PCR (qPCR),152,days,8.5 h,hours,DISAGREE,Median per-protocol total 8.5 h; most protocols complete within a working day.,,4,4,"Quantifies target abundance in real time during amplification, removing the need for post-PCR gel analysis.
+Closed-tube detection reduces contamination risk compared with endpoint PCR followed by handling of products.
+Wide dynamic range allows comparison of samples differing substantially in target input.
+Needs only a thermal cycler with fluorescence detection and standard reagents.","Requires sequence-specific primers and optimisation; multiplexing is constrained by available fluorophores.
+Absolute quantification depends on reliable standards or calibration curves.
+Sensitivity to inhibitors and to pre-analytical variation means careful sample handling and controls are needed.
+Amplicon size and secondary structure can reduce amplification efficiency and distort quantification.",,,,,
+47897,Illumina Sequencing,146,days,8.0 h,days,agree,"Median per-protocol total 8.0 h, but most protocols span days including library prep and sequencing run.",,4,4,"Enables massively parallel sequencing of millions of fragments in a single run
+Supports a broad range of applications from whole-genome to transcriptome and chromatin conformation
+Library preparation is modular and compatible with many input types and organisms
+Paired-end and long-insert configurations improve alignment and structural variant detection","Requires specialised instrumentation and cluster generation infrastructure not available in every lab
+Library preparation is multi-step and sensitive to input quality and contamination
+Short read lengths complicate assembly of repetitive regions and large structural variants
+Sequencing run and downstream data analysis demand substantial compute and bioinformatics expertise",,,,,
+47921,High-throughput Screening Assay,137,days,17.5 h,days,agree,"Measured median 17.5 h per protocol, but band distribution and heuristic both centre on days.",,4,3,"Screens large numbers of samples or conditions in parallel rather than one at a time.
+Scales to multi-well plates and automated liquid handling and imaging.
+Produces quantitative readouts across biological and technical replicates.
+Can be executed by graduate-level scientists using standard plate-reader or microscope workflows.","Requires specialised plate-handling and detection instrumentation, limiting uptake in small labs.
+Population-averaged readouts can obscure single-cell or rare-member information.
+Assay development and validation add substantial time before screening begins.
+Hit candidates still require downstream confirmation by independent methods.",,,,,
+47907,SDS-PAGE,144,days,16.7 h,days,agree,"Median per-protocol total 16.7 h, but most protocols span days including gel preparation, running and staining.",,4,4,"Resolves proteins by molecular weight with widely available, inexpensive equipment and standard reagents.
+Separates complex protein mixtures into discrete bands for comparison across samples.
+Gel composition and format can be adjusted to suit the size range of the proteins of interest.
+Compatible with downstream detection methods such as staining, blotting and autoradiography.","Requires several hours to a day of hands-on and running time per experiment.
+Gives only size-based separation, so proteins of similar mass are not distinguished.
+Sample preparation with denaturing detergents disrupts native protein interactions and complexes.
+Quantification is semi-quantitative and depends on staining and loading consistency.",,,,,
+47918,Long-read Sequencing,140,hours,2.9 h,hours,agree,"Median per-protocol total 2.9 h; band distribution centres on hours, consistent with the hours heuristic.",,2,4,"Produces long reads that resolve repeat regions, structural variants and full-length transcripts in a single pass.
+Sequences native DNA or RNA directly, so base modifications can be detected without chemical conversion.
+Real-time signal output allows data to be assessed while the run is in progress.
+Platforms range from portable devices to high-output instruments, so scale can be matched to the study.","Per-base raw accuracy is lower than short-read platforms, so consensus or polishing steps are usually needed.
+Throughput and cost per base are generally less favourable than short-read sequencing for high-volume genotyping.
+Input requirements are demanding: high-molecular-weight nucleic acid is needed, and degraded or low-input samples require extra handling.
+Bioinformatic analysis is more involved, and base-modification and isoform calls depend on platform-specific tools.",,,,,
+47911,Electrophysiological Recording,120,hours,2.5 h,hours,agree,Median per-protocol total 2.5 h; most protocols fall in the hours band.,,4,4,"Resolves neuronal activity at single-spike and single-channel temporal resolution.
+Directly measures electrical signalling in live neurons rather than inferring it.
+Works across preparations from acute slices to intact freely moving animals.
+Provides readout of synaptic and membrane properties in real time.","Requires specialised electrophysiology rigs, micromanipulators and vibration isolation.
+Demands considerable operator skill; stable recordings are technically challenging.
+Conventional configurations sample one cell at a time, limiting throughput.
+Preparations are invasive and often viable only for a limited window.",,,,,
+47934,Environmental/eDNA Sampling,89,days,4.9 h,days,agree,"Median protocol total 4.9 h, but most protocols span days including filtration, extraction and amplification.",,4,1,"Recovers genetic material from water, sediment, air or bulk samples without needing to isolate organisms first.
+Closed filtration and rapid on-deck processing reduce contamination risk and sample degradation.
+Compatible with downstream amplicon metabarcoding and droplet digital PCR for absolute quantification.
+Non-invasive sampling leaves target communities and habitats intact for repeat surveys.","DNA in environmental samples is dilute and degraded, so detection depends on adequate sample volume and preservation.
+Results reflect deposited or transported DNA rather than living organisms, complicating abundance and presence inference.
+Contamination and inhibition from environmental matrices require careful controls and clean-up.
+Recovery and detection vary with the marker, primer set and sampling design, limiting comparability across studies.",,,,,
+47945,RNA In Situ Hybridization,114,days,1.1 d,days,agree,Median protocol total 1.1 d; most durations fall in the days band.,,3,0,"Localizes nucleic acid targets within intact cells and tissue, preserving spatial context that bulk assays lose.
+Detects specific transcripts, genes or chromosomal regions directly in their native environment.
+Applicable across many sample types, from tissue sections to whole cells and microorganisms.
+Can resolve closely related sequences, including single nucleotide variants, when probes are designed accordingly.","Requires fixation and permeabilization steps that can compromise morphology or target accessibility if unbalanced.
+Signal depends on probe design and target abundance, so low-copy targets may need signal amplification.
+Background and nonspecific binding require careful controls and optimization for each sample type.
+Multiplexing is constrained by the number of distinguishable labels and spectral separation.",,,,,
+47906,Immunoprecipitation,116,days,11.5 h,days,agree,"Median per-protocol total 11.5 h, but most protocols span days due to incubation and washing steps.",,3,2,"Isolates a specific protein from a complex mixture using an antibody that recognises the target.
+Versatile method that can concentrate a protein of interest and enable downstream functional or interaction studies.
+Can be coupled to downstream assays such as kinase activity measurement, sequencing, or blotting.
+Adaptable to many different targets and sample types by changing the capture antibody.","Requires a specific antibody of suitable affinity for the target, which may not exist or may cross-react.
+Co-immunoprecipitation does not by itself identify the direct binding partner or the interaction site.
+Non-specific binding to the support matrix or antibody can produce background contaminants.
+Optimisation of lysis, wash stringency, and elution conditions is often needed for each target.",,,,,
+47909,Calcium/Functional Imaging,112,days,6.1 h,days,agree,"Median per-protocol total 6.1 h, but band distribution and heuristic place typical complete runs at 1-7 days.",,3,2,"Reports dynamic changes in intracellular calcium in living cells and intact tissue rather than a single fixed endpoint.
+Provides spatial and temporal resolution of signalling events at the level of individual cells and defined regions.
+Requires only standard fluorescence microscopy and widely available calcium indicator dyes or genetically encoded sensors.
+Compatible with many preparations, from cultured cells to neurons in intact small organisms.","Indicator signal is an indirect proxy for calcium concentration, so absolute quantification is difficult and responses are typically reported as relative changes.
+Requires careful control of loading, dye leakage, photobleaching and illumination intensity to avoid artefacts.
+Motion and sample drift during acquisition complicate recording from intact or behaving preparations.
+Sensitivity and kinetics depend on the indicator used, so results are not directly comparable across different sensors.",,,,,
+47931,Cryopreservation,116,days,9.3 h,days,agree,"Median measured protocol duration 9.3 h, but most protocols span days including equilibration and storage.",,3,2,"Enables long-term archiving of viable cells, sperm and microorganisms without continuous culture.
+Supports distribution of strains and cell lines between laboratories as a stable, transportable resource.
+Requires only standard freezing equipment and cryoprotectant reagents, keeping setup modest.
+Allows later recovery of genetically engineered lines, reducing need to maintain live colonies.","Viability after thawing depends on controlled cooling and cryoprotectant handling, and is not guaranteed for all cell types.
+Some cell types recover poorly, requiring optimisation of cryoprotectant and freezing rate per sample.
+Requires a reliable cryogenic storage chain; failures in storage or transport can lose archived material.
+Thawed material may need recovery culture and quality checks before use in downstream experiments.",,,,,
+47944,Correlative Light-Electron Microscopy,111,days,22.5 h,days,agree,Median per-protocol total 22.5 h; most protocols fall in the days band.,,4,2,"Correlates live-cell light microscopy dynamics with nanometer-resolution electron microscopy ultrastructure in the same specimen.
+Resolves subcellular structures within their native, crowded cellular environment rather than in isolated preparations.
+Retains antigenicity for immunolabeling, allowing identification and characterization of heterogeneous cell populations.
+Combines functional readouts from fluorescence with the structural detail of electron microscopy.","Sample thickness constrains achievable resolution and vitrification quality in cryo-based workflows.
+Requires specialized electron microscopy instrumentation and correlative registration between two imaging modalities.
+Workflow is labor-intensive and low-throughput, with limited sampling of rare events.
+Sample preparation can compromise preservation of structure or antigenicity depending on the chemistry used.",,,,,
+47943,Enzymatic Labeling,111,hours,2.6 h,hours,agree,Median per-protocol total 2.6 h; heuristic band hours (30 min-4 h) matches measured distribution.,,1,4,"Labels nucleic acids enzymatically without chemical modification steps, keeping the workflow within standard molecular biology equipment.
+Enzymatic conversion limits DNA degradation compared with chemical alternatives, preserving sample integrity.
+Compatible with downstream amplification, indexing and capture workflows used in sequencing library construction.
+Requires only standard lab reagents and a thermal cycler, avoiding specialised instrumentation.","Enzyme-based steps add reagent cost and require careful handling to maintain activity.
+Labelling efficiency depends on the quality and purity of the input nucleic acid.
+Enzymatic conversion steps must be optimised per application, adding development time.
+Multi-step workflows increase the number of points where sample loss or contamination can occur.",,,,,
+47957,RNA-Protein Crosslinking (CLIP),106,days,18.4 h,days,agree,"Median measured run is 18.4 h, with most protocols falling in the 1-7 day band.",,4,4,"Captures transient and weak RNA-protein interactions that survive poorly through conventional purification
+Crosslinking fixes interactions in place before lysis, reducing rearrangement during sample handling
+Antibody-based selection of the crosslinked complex allows identification of direct binding partners
+Works with standard molecular biology equipment and widely available reagents","Crosslinking efficiency varies between RNA-protein pairs, so some interactions are recovered poorly
+Requires an antibody with good specificity against the target protein or tag
+Low-abundance targets demand substantial starting material to yield enough crosslinked complex
+Distinguishing direct from indirect RNA associations depends on stringent, carefully controlled washes",,,,,
+47956,Protein Aggregation Assay,103,days,8.5 h,days,agree,"Median per-protocol total 8.5 h, but most protocols span multi-day incubation and monitoring periods.",,2,1,"Monitors aggregation in real time, giving kinetic information rather than only an endpoint.
+Uses standard plate readers or spectrofluorimeters with widely available reagents.
+Can be adapted to screen compounds or chaperones for their effect on aggregation.
+Works with recombinant proteins and synthetic peptides, allowing controlled starting material.","Aggregation kinetics depend strongly on buffer, temperature and agitation, so results are hard to compare across labs.
+In vivo aggregation cannot be induced in a controlled manner, limiting disease-relevance of in vitro findings.
+Many readouts report bulk signal and do not resolve individual aggregate species or sizes.
+Requires incubation periods that can extend over days, slowing throughput.",,,,,
+47923,Reverse Transcription & cDNA Synthesis,96,hours,2.9 h,hours,agree,Median per-protocol total 2.9 h; most protocols fall in the 30 min-4 h band.,,3,1,"Converts RNA into stable cDNA that can be archived and re-amplified repeatedly.
+Couples readily to PCR or qPCR for sensitive detection of specific transcripts.
+Requires only a thermal cycler or heat block and standard molecular biology reagents.
+Works with small amounts of total RNA, including low-input samples.","Reverse transcriptase lacks proofreading, so errors are introduced into the cDNA copy.
+RNA quality and integrity strongly influence cDNA yield and length.
+Secondary structure and modified bases can block reverse transcription.
+Carryover of genomic DNA or inhibitors can confound downstream amplification.",,,,,
+47922,Single-nucleus RNA-seq,82,hours,48 min,hours,agree,Median measured protocol total 48 min; most protocols fall in the hours band.,,0,1,"Profiles transcription in cells that are difficult to dissociate into intact single cells, such as neurons and other tissue-resident cells.
+Works with frozen and archived tissue, allowing samples to be banked before processing.
+Nuclei are more uniform in size than whole cells, which aids droplet-based partitioning and downstream analysis.
+Avoids dissociation-induced transcriptional artefacts that can arise when whole cells are enzymatically released.","Nuclear RNA is enriched for nascent and intronic transcripts, so profiles differ from whole-cell mRNA and require appropriate interpretation.
+Recovery of intact nuclei depends on tissue type and on careful, gentle homogenisation.
+Cytoplasmic transcripts are largely excluded, limiting detection of some mature mRNAs.
+Ambient nuclear material and multiplets can complicate assignment of transcripts to individual nuclei.",,,,,
+47958,Biofilm Assay,87,days,2.1 d,days,agree,Median per-protocol total 2.1 d; most protocols fall in the days band.,,4,2,"Measures biofilm formation directly rather than inferring it from planktonic growth.
+Supports comparison of many treatments or isolates in parallel within a single experiment.
+Adaptable to bacteria and fungi and to inhibitory or antimicrobial susceptibility testing.
+Can be run with standard laboratory equipment and reagents.","Biofilm biomass and structure vary with growth conditions, so results are hard to compare across laboratories.
+Staining-based readouts do not distinguish live from dead cells or report community composition.
+Cells within biofilms are difficult to separate, image and analyse, limiting mechanistic interpretation.
+Static assays do not reproduce the flow and shear conditions of many natural biofilms.",,,,,
+47938,Multiplexed Tissue Imaging,73,days,19.7 h,days,agree,"Median measured protocol duration 19.7 h, with most protocols falling in the 1-7 day band.",,0,0,"Profiles many protein markers on a single tissue section, conserving scarce specimens
+Resolves marker expression in spatial context while preserving tissue architecture
+Works on standard formalin-fixed paraffin-embedded sections held in tissue archives
+Successive imaging rounds extend the number of markers measurable per section","Requires specialised cyclic staining and imaging instrumentation not available in most labs
+Long multi-round acquisition and analysis workflow limits throughput per sample
+Antibody panels must be individually validated and conjugated before use
+Signal interpretation depends on computational registration and analysis pipelines",,,,,
+47964,End Labeling,81,days,4.7 h,days,agree,"Median per-protocol total 4.7 h, but band distribution and heuristic place typical complete runs in days.",,1,4,"Adds a detectable tag or label to nucleic acid ends without requiring amplification of the target.
+Labels fragment or transcript termini directly, preserving information about original end structure.
+Uses standard molecular biology reagents and routine equipment available in most laboratories.
+Compatible with downstream detection, sequencing, or capture workflows after the labeling reaction.","Labeling efficiency depends on end chemistry, so recessed, blunt, and protruding ends may react differently.
+Requires sufficient starting material because no amplification step compensates for low input.
+Enzymatic labeling steps are sensitive to inhibitor carryover and to incomplete end-repair or dephosphorylation.
+Labeled products may need purification before downstream steps, adding handling and loss of material.",,,,,
+47932,Gel Purification of DNA,76,hours,3.0 h,hours,agree,Median per-protocol total 3.0 h; most protocols fall in the hours band.,,1,0,"Recovers a single defined fragment away from unwanted products, giving a clean template for downstream cloning or sequencing.
+Separates and resolves fragments by size, so the recovered species can be identified and selected visually.
+Requires only standard electrophoresis equipment and common laboratory reagents.
+Can be applied to a wide range of DNA sources, including PCR products and restriction digests.","Recovery is limited by the amount of DNA loaded, so low-abundance fragments may be lost.
+Exposure to UV light and intercalating dyes can damage DNA and reduce its suitability for later enzymatic steps.
+Yield is typically lower than that of column- or bead-based clean-up because DNA is recovered from a gel slice.
+Small fragments and closely migrating bands are difficult to resolve cleanly from one another.",,,,,
+47925,Lipid Extraction,49,days,4.1 h,days,agree,"Median per-protocol total 4.1 h, but most protocols span days including homogenisation, phase separation and analysis.",,0,0,"Separates lipids into distinct classes for broad untargeted profiling across many sample types
+Compatible with diverse downstream detection methods including mass spectrometry and colorimetric assays
+Uses standard laboratory reagents and equipment, making it widely adoptable across labs
+Supports both targeted quantification of specific lipid classes and untargeted lipidomics workflows","Multi-step phase separation and handling make it labour-intensive and prone to variability between operators
+Requires organic solvents with associated safety and disposal considerations
+Recovery and reproducibility of individual lipid species can differ between protocols, complicating cross-study comparison
+Downstream data analysis and annotation remain complex and dependent on reference databases",,,,,
+47969,Click Chemistry,69,days,8.0 h,days,agree,"Median complete protocol 8.0 h, but most protocols span days with incubation and labelling steps.",,1,4,"Covalently labels biomolecules with high selectivity, enabling detection and enrichment of defined targets.
+Works in complex mixtures and intact cells, allowing labelling within native biological contexts.
+Compatible with diverse detection and pull-down readouts, so one labelling step feeds many downstream assays.
+Modular chemistry lets the same reaction serve protein, nucleic acid and glycan targets.","Requires functionalised probes and reactive groups that must be introduced or supplied, adding preparation steps.
+Labelling efficiency depends on accessibility of the target group, so buried or scarce sites may be missed.
+Side reactions and background labelling can occur, requiring controls and optimisation of reaction conditions.
+Multi-step workflows with incubation and washing periods extend the overall time to result.",,,,,
+47950,Mitochondrial Function Assay,44,days,8.0 h,days,agree,"Median per-protocol total 8.0 h, but most protocols span days including cell culture and incubation.",,1,0,"Measures mitochondrial respiratory and ATP output directly, giving functional readout rather than inferred activity.
+Compatible with whole cells, isolated organelles and microbial or plant samples.
+Readouts can be targeted to mitochondria with genetically encoded or organelle-directed sensors.
+Scales to multiwell formats for comparing many conditions in parallel.","Requires cell or organism culture and incubation steps, so complete runs typically span days.
+Signal depends on sample viability and handling, so results are sensitive to preparation quality.
+Oxygen consumption and ATP readouts reflect overlapping processes, so interpretation needs appropriate controls.
+Specialised instrumentation or reagents are needed for respiratory measurements.",,,,,
+47930,Proteomics Sample Prep,54,days,16.0 h,days,agree,"Median measured protocol total 16 h, with most protocols falling in the days band.",,2,2,"Processes a wide range of sample types, from tissue sections and cell lysates to single cells.
+Digestion into peptides makes proteins amenable to mass spectrometry analysis.
+Supports multiplexed labelling so many samples can be compared in one analysis.
+Workflow relies on standard lab reagents and routine benchtop equipment.","Multi-step lysis, reduction, alkylation, digestion and clean-up make the workflow lengthy and hands-on.
+Low-abundance proteins and modified peptides often need enrichment before they can be detected.
+Enrichment-based approaches inform mainly on the enriched subproteome rather than the whole sample.
+Peptide identification depends on database searching and bioinformatic processing of the spectra.",,,,,
+47967,Lysosomal Activity Assay,54,days,9.5 h,days,agree,"Median per-protocol total 9.5 h, but most protocols span days including culture and incubation.",,2,1,"Reports lysosomal enzyme activity directly, giving a functional readout rather than abundance alone.
+Can be combined with imaging to localise activity within intact cells.
+Assesses lysosomal integrity and content retention in cultured cells.
+Detects changes in lysosomal function associated with senescence and ageing.","Fluorophore properties can be unstable within the lysosomal environment, complicating quantification.
+Requires cell culture and incubation periods, so complete runs typically span days.
+Activity readouts depend on probe access to the lysosome and may vary with loading conditions.
+Distinguishing changes in enzyme activity from changes in lysosomal number needs complementary assays.",,,,,
+47949,Tissue Clearing,47,days,2.6 d,days,agree,Median per-protocol total 2.6 days; most protocols fall in the 1-7 day band.,,1,2,"Renders intact tissues optically transparent so deep structures can be imaged in three dimensions without physical sectioning.
+Preserves fluorescent protein signal, allowing labelled cells and processes to be traced through whole organs.
+Enables comprehensive 3D assessment of structures such as innervation that are hard to map by conventional histology.
+Requires only standard laboratory reagents and routine incubation steps, without specialised instrumentation for the clearing itself.","Total workflow typically spans several days, dominated by long incubation and wash steps.
+Clearing performance and fluorescence preservation vary between protocols, so results are not directly comparable across studies.
+Tissue transparency depends on specimen type and composition, and some specimens clear less completely than others.
+Optimisation is often needed per tissue and per label, since a protocol validated on one organ may not transfer directly.",,,,,
+47941,Neuronal Differentiation,47,days,15.7 h,weeks,DISAGREE,Stem-cell neuronal differentiation inherently spans weeks despite short hands-on sessions; measured median reflects hands-on time only.,,1,0,"Produces post-mitotic human neurons from pluripotent stem cells, giving access to live human neuronal material otherwise unobtainable.
+Supports disease modelling and drug discovery by yielding patient-derived neurons carrying disease-relevant genotypes.
+Generates neurons that develop electrical activity, enabling functional assessment on multi-electrode arrays.
+Allows compartment-specific culture designs that reveal early pathogenic cellular and molecular changes in neurons.","Requires pluripotent stem cell culture expertise and prolonged maintenance, so runs are lengthy and labour-intensive.
+Outcomes depend on cell line, genetic background and differentiation conditions, so batch-to-batch variability is common.
+Differentiated neurons are often heterogeneous in subtype and maturity, complicating interpretation of functional readouts.
+Specialised equipment and reagents are needed for functional assays such as multi-electrode array recording.",,,,,
+47952,Extracellular Vesicle Isolation,51,days,9.4 h,days,agree,"Median measured protocol total 9.4 h, but most protocols span days once incubation and multi-step processing are included.",,0,0,"Recovers membrane-bound vesicles from a wide range of sample types, including cultured cells, plasma, milk and plant material
+Separates vesicle subsets by physical properties such as size and density, allowing enrichment of specific populations
+Yields intact vesicles suitable for downstream characterisation, labelling and functional studies
+Compatible with characterisation and downstream analysis workflows, including microscopy and microfluidic platforms","Requires multiple centrifugation and processing steps, making typical complete runs long relative to hands-on time
+Co-isolation of non-vesicular protein and lipid contaminants can occur, particularly in complex fluids such as plasma and milk
+Recovery and purity depend strongly on sample type and matrix, so performance is not uniform across specimens
+Vesicle yield and integrity can be affected by repeated mechanical handling during processing",,,,,
+47966,Autophagy Flux Assay,49,days,11.4 h,days,agree,"Median complete run 11.4 h, but most protocols span days due to culture and incubation periods.",,3,2,"Measures autophagic flux rather than static autophagosome numbers, distinguishing induction from blocked degradation.
+Tandem fluorescent reporters allow substrate delivery to acidic autolysosomes to be visualised in live cells.
+Punctate red-only versus yellow punctae can be quantified, giving a readout of flux per cell.
+Compatible with imaging of individual organelles and with standard fluorescence microscopy workflows.","Quantification depends on clean red-channel signal free of background fluorescence.
+Requires transfection or expression of tagged reporter constructs, adding preparation steps.
+Steady-state marker levels alone cannot resolve flux without paired conditions or inhibitors.
+Reporter overexpression may perturb the pathway being measured.",,,,,
+47955,Viral Genome Sequencing,44,days,4.8 h,days,agree,Measured median 4.8 h per protocol but band distribution and heuristic place complete runs at 1-7 days.,,0,4,"Resolves whole viral genomes, enabling lineage assignment and variant discovery rather than single-site detection.
+Multiplexing many samples per run lowers per-sample sequencing cost for larger cohorts.
+Works from extracted viral nucleic acid without requiring physical viral particle enrichment or culture.
+Sequence data can be reanalysed retrospectively as new lineages emerge.","Requires library construction, quantification and pooling steps before sequencing, adding hands-on time and failure points.
+Demands specialised sequencing instrumentation and bioinformatics capacity that routine diagnostic labs may lack.
+Low viral titres and degraded samples can reduce genome coverage, leaving gaps in the consensus sequence.
+Multi-step workflows raise contamination and index-crosstalk risk, requiring careful controls.",,,,,
+47947,Microsphere/Particle Synthesis,41,days,8.0 h,days,agree,"Median per-protocol total 8.0 h, but most protocols span days; heuristic band is 1-7 days.",,3,0,"Produces particles with tunable size and surface chemistry for many downstream assay formats.
+Supports attachment of diverse capture molecules, enabling custom functionalised particles.
+Particle-based formats allow signal amplification and sensitive detection in biosensing applications.
+Can be performed with standard laboratory equipment and widely available reagents.","Multi-step synthesis and washing make total workflow time long, typically spanning days.
+Batch-to-batch variation in particle size and surface properties requires characterisation.
+Reproducibility depends on careful control of reaction conditions across steps.
+Particle aggregation and non-specific binding can complicate downstream assays.",,,,,
+47917,Sanger Sequencing,38,days,5.6 h,days,agree,"Median per-protocol total 5.6 h, but band distribution and heuristic place complete runs at 1-7 days.",,0,1,"Resolves sequence at single-base resolution, allowing exact identification of point mutations and small insertions or deletions.
+Produces long, contiguous reads that unambiguously place variants within their local sequence context.
+Requires only standard PCR and capillary electrophoresis equipment, making it widely accessible without specialised platforms.
+Generates interpretable trace data that is straightforward to archive and compare across laboratories.","Throughput is low, so it is unsuitable for sequencing whole genomes or large target panels.
+Each reaction targets a single amplicon, requiring separate primer design and reactions for each region of interest.
+Detection of low-frequency variants within mixed populations is limited compared with deep sequencing approaches.
+Interpretation depends on amplification success, so regions that are difficult to amplify may remain unresolved.",,,,,
+47948,In-vivo PK Sampling & Bioanalysis,18,hours,1.1 h,hours,agree,Median per-protocol total 1.1 h across 18 protocols; heuristic band hours (30 min-4 h).,,0,0,"Measures drug concentration directly in circulating blood over time, giving a concentration-time profile rather than a single endpoint.
+Can be applied in living animals, so each subject serves as its own longitudinal series and inter-animal variability is reduced.
+Requires only standard blood collection and quantitative bioanalytical detection, keeping the workflow within routine laboratory capability.
+Serial sampling captures absorption, distribution and elimination phases that single-timepoint designs miss.","Total blood volume removable per animal is limited, constraining the number and size of serial samples.
+Repeated handling and sampling can stress subjects and alter drug disposition if not carefully controlled.
+Results depend on the selectivity and calibration of the bioanalytical assay, so cross-method comparison requires assay validation.
+Sampling frequency is bounded by collection and processing logistics, which can miss rapid kinetic phases.",,,,,
+47953,Glycogen/Carbohydrate Assay,25,days,11.2 h,days,agree,"Median per-protocol total 11.2 h, but most protocols span days due to hydrolysis and incubation steps.",,1,0,"Quantifies both storage and total carbohydrates from the same sample, conserving limited material.
+Requires only standard laboratory chemicals and basic spectrophotometric or enzymatic detection.
+Applicable across diverse sample types including plant, algal, microbial, and animal tissue.
+Sensitive enough to measure carbohydrate content in small tissue samples.","Multi-step hydrolysis and incubation periods make complete runs span days rather than hours.
+Colorimetric readouts depend on careful standard curve preparation and consistent timing.
+Quantification of specific carbohydrate classes requires separation or enzymatic steps beyond total sugar measurement.
+Sample matrix components can interfere with color development and require appropriate blanks.",,,,,
+47936,Agrobacterium-mediated Plant Transformation,29,days,3.8 d,weeks,DISAGREE,Measured protocols split evenly between days and weeks; tissue culture and selection extend typical complete runs beyond a week.,,1,0,"Delivers DNA into intact plant cells and integrates it into the genome, giving stable heritable transformants.
+Works on whole explants and intact tissues, avoiding protoplast isolation and regeneration from single cells.
+Requires only standard plant tissue culture facilities and a compatible bacterial strain.
+Applicable across many plant species, including those recalcitrant to other delivery routes.","Depends on tissue culture and regeneration, which is slow and strongly species- and genotype-dependent.
+Efficiency varies widely between plant varieties and explant types, so conditions must be optimised per system.
+Requires skilled handling and containment for the bacterial strain and transgenic material.
+Regeneration and selection steps make the workflow lengthy and labour-intensive.",,,,,
+47946,Click Chemistry Labeling,27,days,9.5 h,days,agree,"Median per-protocol total 9.5 h, but most protocols span days due to labeling and incubation periods.",,0,1,"Bio-orthogonal chemistry labels target molecules selectively in complex living systems without disrupting native biology.
+Compatible with metabolic labeling, allowing newly synthesized proteins or modified molecules to be tracked over time.
+Supports both imaging-based detection and mass-spectrometry-based proteomic workflows from the same labeling chemistry.
+Enables chemoselective functionalization of diverse substrates, including decellularized tissue matrices and whole organisms.","Requires metabolic or chemical incorporation of a reactive tag before the labeling reaction, adding preparatory steps.
+Copper-catalyzed formats can be incompatible with live cells or copper-sensitive molecules, constraining application scope.
+Sample preparation, rather than detection sensitivity, often remains the limiting factor in downstream proteomic analyses.
+Labeling specificity depends on efficient tag incorporation and low background from unreacted probe.",,,,,
+47954,Gibson DNA Assembly,27,days,5.0 h,days,agree,"Median per-protocol total 5.0 h, but most protocols span days including transformation and colony screening.",,0,1,"Joins multiple DNA fragments in a single isothermal reaction without restriction sites or ligation.
+Sequence-independent, so fragments can be assembled in any desired order.
+Requires only standard molecular biology reagents and a temperature-controlled incubation.
+Scarless junctions leave no extra sequence between assembled parts.","Requires designed overlap regions on each fragment, adding primer and design effort.
+Short overlaps make assembly sensitive to fragment length and secondary structure.
+Multi-fragment assemblies need optimisation and verification by sequencing.
+Yields must be confirmed by transformation and colony screening, adding time.",,,,,
+47960,Mitochondrial Isolation,21,hours,1.5 h,hours,agree,Median per-protocol total 1.5 h; most protocols fall in the 30 min-4 h band.,,1,1,"Enriches mitochondria away from bulk cytosolic and nuclear material, enabling organelle-focused proteomic, metabolomic and lipidomic analysis.
+Yields intact, functional organelles suitable for downstream activity assays of respiratory chain and membrane complexes.
+Requires only standard centrifugation and benchtop equipment, keeping the workflow accessible to most laboratories.
+Can be applied across cultured cells and solid tissues, including neural and other difficult specimens.","Purity is often incomplete, with residual nuclear and other organelle contamination persisting through common enrichment approaches.
+Recovery, organelle integrity and purity trade off against each other, so no single preparation optimises all three.
+Buffer components used in conventional isolation can interfere with downstream assays and may need removal or exchange.
+Yields of intact organelles from small or fibrous tissue samples can be limited.",,,,,
+47961,Small Molecule Synthesis,18,days,16.2 h,days,agree,"Median per-protocol total 16.2 h, with most protocols falling in the days band.",,1,0,"Delivers preparative-scale quantities of defined small molecules for downstream functional testing.
+Enables access to natural products and synthetic derivatives not readily available from biological sources.
+Supports targeted structural diversification to probe structure-activity relationships.
+Requires only standard synthetic chemistry glassware and reagents.","Multi-step routes accumulate time and material losses across successive reactions and purifications.
+Yields and purity depend heavily on reaction optimisation and intermediate handling.
+Specialised equipment and expertise are needed for hazardous reagents and inert-atmosphere steps.
+Scale-up can be constrained by purification and safety considerations.",,,,,
+47942,FISH Technique,20,days,9.5 h,days,agree,"Median per-protocol total 9.5 h, but most protocols span days due to fixation, permeabilisation and hybridisation incubations.",,0,0,"Localises specific nucleic acid sequences directly within intact cells and tissue architecture
+Combines with microscopy and other imaging modalities on the same section for spatial context
+Detects individual cells or chromosomal regions against a morphological background
+Works across diverse sample types, from cultured cells to tissue sections and whole embryos","Requires fixation and permeabilisation steps that can alter or degrade target accessibility
+Probe design and optimisation are needed for each new target
+Background signal and autofluorescence can complicate interpretation
+Multi-day workflow with several incubation and washing steps",,,,,
+47968,Ubiquitination Assay,15,days,22.4 h,days,agree,Median per-protocol total 22.4 h; most protocols fall in the 1-7 day band.,,2,1,"Reconstitutes ubiquitin transfer in vitro with defined E1, E2 and E3 components, allowing each step to be dissected.
+Can detect substrate ubiquitination and chain formation directly, including auto-ubiquitination of the E3 ligase.
+Adaptable to native substrates, purified proteins or cell lysates depending on the question asked.
+Reads out on standard gel-based or blot-based detection, requiring no specialised instrumentation.","Requires purified, active enzymes; recombinant E1, E2 and E3 preparations are labour-intensive to produce.
+In vitro reconstitution may omit cellular cofactors and adaptors, so results can diverge from the in vivo state.
+Distinguishing ubiquitin from ubiquitin-like modifiers such as Nedd8 requires additional controls.
+Chain linkage type and substrate specificity are not resolved by simple ubiquitination readouts alone.",,,,,
+47963,T7 Transcription,15,hours,2.2 h,hours,agree,"Median measured protocol total 2.2 h, with most protocols falling in the hours band.",,0,0,"Produces large amounts of defined RNA from a template in a short single reaction.
+Requires only standard molecular biology reagents and a heat block or incubator.
+Yields capped, defined-length transcripts when the template is linearised downstream of the insert.
+Allows incorporation of modified or labelled nucleotides during synthesis.","Requires a template carrying a T7 promoter, so the target must first be cloned or amplified into a suitable construct.
+Transcript length and yield fall off for long or highly structured templates.
+Products are often heterogeneous in length and require purification before downstream use.
+Carryover of template DNA or incomplete transcripts can interfere with downstream applications.",,,,,
+47962,eDNA/Metabarcoding Sampling,12,days,4.3 h,days,agree,"Median measured run 4.3 h, but band distribution and heuristic place complete sampling-to-result workflows in days.",,0,0,"Captures biodiversity and community composition without needing to collect or identify individual organisms.
+Works on water, soil, sediment and wastewater, so the same approach suits many sample types.
+Detects organisms that are rare, small, cryptic or hard to capture by conventional survey.
+Sampling is generally non-destructive to the habitat and can be repeated over time.","Results depend on reference sequence databases, so taxa absent from databases may go undetected or be misassigned.
+DNA and RNA persist and move in the environment, so signals may reflect past or transported rather than local present organisms.
+Contamination and inhibition are common in environmental matrices and require careful controls and clean handling.
+Quantitative interpretation is constrained by variable capture, extraction and amplification efficiency across taxa.",,,,,
+47959,Streptavidin Purification,10,days,9.9 h,days,agree,"Median per-protocol total 9.9 h, but most protocols span days including incubation and binding steps.",,0,0,"Exploits the strongest non-covalent interaction available, giving highly specific capture of biotinylated molecules.
+Works with a wide range of sample types, from cell lysates to fixed tissue and recombinant protein preparations.
+Requires only standard lab equipment and widely available biotinylated reagents.
+Elution can be gentle or competitive, helping preserve the activity of the captured molecule.","Endogenous biotin in some samples can cause background binding and requires blocking or controls.
+Strong biotin-streptavidin binding makes release of captured material difficult without denaturing conditions.
+Multiple binding, wash and incubation steps make the workflow lengthy and hard to shorten.
+Carryover of free biotin or biotinylated contaminants can compete with the intended target.",,,,,
+47965,Peptide Synthesis,8,hours,1.4 h,hours,agree,Median measured protocol total 1.4 h; most protocols complete within hours.,,0,0,"Enables production of short peptides with defined sequence that are difficult to obtain from biological sources.
+Allows incorporation of non-natural or modified residues at chosen positions during chain assembly.
+Supports rapid iterative synthesis and screening of many peptide sequences in parallel.
+Requires only standard solid-phase or solution-phase chemistry and widely available laboratory equipment.","Yields and purity decline with increasing chain length, limiting practical access to long peptides and small proteins.
+Repeated coupling and deprotection cycles consume substantial reagent volumes and generate chemical waste.
+Crude products typically require chromatographic purification before use, adding time and cost.
+Difficult sequences can suffer aggregation and incomplete coupling, requiring sequence-specific optimisation.",,,,,
+47970,Random Primer Method,3,days,4.7 h,days,agree,Measured medians cluster near half a day but the heuristic band and one multi-day protocol place a complete run in days.,,0,0,"Labels DNA without sequence knowledge, so any template can be used as a probe.
+Works with small amounts of starting material and partially degraded DNA.
+Needs only standard molecular biology equipment and common reagents.
+Produces labelled probe in a single reaction step rather than multi-stage synthesis.","Incorporation is stochastic, so specific activity and label distribution vary between reactions.
+Labelled products are heterogeneous in length and cannot be sized precisely.
+Unincorporated nucleotides must be removed before use in downstream hybridisation.
+Not suited where defined, sequence-specific labelling is required.",,,,,
