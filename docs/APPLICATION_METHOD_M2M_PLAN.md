@@ -324,3 +324,61 @@ ApplicationMethod    47,844
 桥已建好且与基线完全一致，随时可以切。
 
 **切换前必须复跑一次 `--step verify`**，确认基线仍匹配（因为期间数据可能变动）。
+
+---
+
+# 执行记录（2026-10-30，阶段 2 已完成并上线，提交 `b1c0f1f`）
+
+## 改了 14 处
+
+| # | 位置 | 改法 |
+|---|---|---|
+| 1 | `services/application_methods.resolve_from_bridge` | 新主路径：读桥，一次查询，无需 canonical 翻译 |
+| 2 | 同文件 `resolve_from_legacy_fk` | 旧逻辑保留为**回滚路径** |
+| 3 | 同文件 `application_of_method` | M:N 下取 display_order 最小者（researchPath/图谱需单值） |
+| 4 | `ApplicationDetailSerializer.get_methods` | 走 service（受开关控制） |
+| 5 | `get_protocols` / `get_products` | 方法 id 改从桥取 |
+| 6 | 协议页 researchPath 上溯 | `method.application` → `application_of_method()` |
+| 7 | `selectors.get_methods_by_application` | filter 桥 |
+| 8-9 | `graph_service` 2 处 | Method→AP 边 + 按 AP 取方法 |
+| 10 | `commerce/selectors` | `method__application_id` → `method__application_methods__application_id` |
+| 11 | `product_relationship_service` | 同上（`__in` 多应用，靠 set 去重） |
+| 12 | `site_views` 首页聚合 | `methods__*` → `application_methods__method__*` |
+| 13 | `MethodViewSet.filterset_fields` | 移除 `application_id` 自动筛选，改 get_queryset 手工查桥（参数名不变） |
+| 14 | `MethodDetailSerializer.application_id/name` | 经 `application_of_method` 取 |
+
+## 灰度开关
+
+`APP_METHOD_READ_FROM_BRIDGE`（默认 `1`）。设 `0` 即回滚到旧 FK 路径，**不必重新部署**。
+
+## 生产验证
+
+| 判据 | 结果 |
+|---|---|
+| **逐应用对照基线** | **22,219 个应用，不一致 0** |
+| `methods?application_id=33` | 200，count 1（桥筛选生效） |
+| 协议 201 的 methods | 3 个，**带 application_name**（researchPath 上溯正常） |
+| 图谱 `?type=application&id=33` | 50 节点，含 1 个 method（边正常） |
+| knowledge 全量测试 | 0 失败 |
+| commerce + bridges 全量测试 | 0 失败 |
+
+## 过程中修掉的三个问题
+
+1. **`baseline` 不能用当前读路径算** —— 它固化的是「改造前用户看到什么」。
+   加开关后若用桥算，在桥未建时得到空基线，verify 变成空转（本地实测
+   `test_verify_detects_missing_bridge` 因此未报错）。⇒ 强制用 `resolve_from_legacy_fk`。
+2. **`application_of_method` 也要受开关控制** —— 否则回滚路径下 draft 方法上溯不到
+   应用（协议页面包屑会空）。
+3. **测试工厂必须同步建桥** —— `MethodFactory(application=app)` 若只建 FK 不建桥，
+   19 个既有测试会失败。改为：默认 `status='active'`（对齐生产 canonical）+ 带
+   application 时自动建桥；draft 不建桥（对应「应用页不显示 draft」的既有断言）。
+
+## ⚠️ 阶段 3 尚未执行（不可回滚点）
+
+删 47,835 行 draft + 81 个 archived + 停用 `remap_method_applications`。
+现在的状态是**可回滚**的（开关切 0 即回旧路径），建议观察一段时间再做阶段 3。
+
+**做阶段 3 前必须注意**：
+- 基线文件在容器 `/tmp`，**容器重建即丢** —— 已取回 `_corpus_backup/appmethod_20261030/`，
+  重跑 verify 前要先 `docker cp` 回去
+- 阶段 3 之后 legacy 回滚路径失效（draft 行没了），开关实际上只剩 `1`
