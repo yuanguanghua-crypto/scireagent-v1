@@ -41,6 +41,7 @@
 """
 import json
 import random
+import time
 
 from django.core.management.base import BaseCommand
 from django.db.models import Count, Q
@@ -94,6 +95,19 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         client = Client()
+        # ★ 生产配了 `AnonRateThrottle 100/hour`（settings/base.py:238-243），
+        #   审计要打 数百~上千 次详情，匿名必然撞 429（实测 4 类抽样 200 个全部 429）。
+        #   AnonRateThrottle 只对未认证请求生效 ⇒ 用 staff 账号 force_authenticate 绕过。
+        #   副作用：staff 视角会绕过 status 过滤，但本命令抽样的 id 取自 public_qs
+        #   （已按公开态筛过），所以判据不受影响。
+        try:
+            from apps.accounts.models import User
+            u = User.objects.filter(is_staff=True, is_active=True).first()
+            if u is not None:
+                client.force_authenticate(user=u)
+                self.stdout.write(f'（已用 staff 账号 {u.username} 认证，绕过匿名限流）')
+        except Exception:  # noqa: BLE001
+            pass
         sample_n = opts['sample']
         strict = opts['strict']
         report = {'fails': [], 'warns': [], 'sections': {}}
@@ -110,6 +124,10 @@ class Command(BaseCommand):
                    'missing': [], 'bad_status': [], 'cross_broken': []}
             for pid in ids:
                 resp = client.get(f'/api/v1/{detail_path}/{pid}/', HTTP_HOST='localhost')
+                # 万一限流仍生效（无 staff 账号 / 配了 UserRateThrottle），退避重试一次
+                if resp.status_code == 429:
+                    time.sleep(1.2)
+                    resp = client.get(f'/api/v1/{detail_path}/{pid}/', HTTP_HOST='localhost')
                 if resp.status_code != 200:
                     sec['bad_status'].append((pid, resp.status_code))
                     continue
