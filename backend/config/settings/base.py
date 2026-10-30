@@ -226,7 +226,11 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
-        'rest_framework.filters.OrderingFilter',
+        # ★ 2026-10-30：replace stock OrderingFilter —— PostgreSQL 的 DESC 默认
+        #   NULLS FIRST，nullable 字段（Reference.year / Product.aggregate_relevance_score）
+        #   降序时会把空值行顶到最前。本地 sqlite 默认 NULLS LAST 所以单测抓不到。
+        #   详见 core/filters.py 的模块注释。
+        'core.filters.NullsLastOrderingFilter',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
