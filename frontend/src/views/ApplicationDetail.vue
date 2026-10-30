@@ -30,6 +30,28 @@ const upstreamEntities = computed(() => {
 const downstreamEntities = computed(() => {
   return (app.value?.methods || []).map(m => ({ type: 'method', id: m.id, name: m.name }))
 })
+
+/**
+ * ★ 2026-10-30（走查发现）：生产 6,345 个应用（28,564 的 22.2%）方法/协议/产品**三者全空**，
+ * 但它们并不是坏数据 —— 它们是 AI 提取器从协议里提取出来的真实应用，
+ * 98.7% 有 200+ 字符的实质描述，且各挂 3~4 个父级研究目标。
+ *
+ * 原实现会渲染「Methods are being curated…」「Protocols are being documented…」
+ * 「Product associations are being mapped…」三句空提示 + 顶部 ContextCards 的第四句，
+ * 整页 4 处 "being curated"，0 个可点链接 —— 用户以为页面坏了。
+ *
+ * 现在：三者全空时收成一条说明（并保留去往三类目录的入口），
+ * 有任意内容时维持原样分区块展示。
+ */
+const isDescriptionOnly = computed(() => {
+  const a = app.value
+  if (!a) return false
+  return !(
+    (a.methods && a.methods.length) ||
+    (a.protocols && a.protocols.length) ||
+    (a.products && a.products.length)
+  )
+})
 const researchPath = computed(() => {
   const path = []
   if (app.value?.research_goal_id) {
@@ -62,7 +84,9 @@ onUnmounted(() => { store.clearCurrent() })
       :upstream="upstreamEntities"
       :downstream="downstreamEntities"
       downstream-label="Methods"
-      fallback-message="Method data is being curated for this application."
+      :fallback-message="isDescriptionOnly
+        ? 'No methods mapped to this application yet.'
+        : 'Method data is being curated for this application.'"
     />
 
     <div class="detail-hero">
@@ -71,6 +95,22 @@ onUnmounted(() => { store.clearCurrent() })
       <p v-if="app.summary" class="detail-summary">{{ app.summary }}</p>
     </div>
 
+    <!-- ★ 描述型应用：三区块全空时收成一条说明（见 isDescriptionOnly 的注释） -->
+    <section v-if="isDescriptionOnly" class="detail-section description-only">
+      <h2 class="section-title">Knowledge Coverage</h2>
+      <p class="description-only-text">
+        This application is recorded in the knowledge base with a description only —
+        no methods, protocols or products have been mapped to it yet.
+        It is kept as a reference entry for the research areas it belongs to.
+      </p>
+      <div class="description-only-links">
+        <router-link to="/methods" class="desc-link">Browse all methods</router-link>
+        <router-link to="/protocols" class="desc-link">Browse all protocols</router-link>
+        <router-link to="/products" class="desc-link">Browse all products</router-link>
+      </div>
+    </section>
+
+    <template v-else>
     <!-- Methods -->
     <section class="detail-section">
       <h2 class="section-title">Methods</h2>
@@ -145,6 +185,7 @@ onUnmounted(() => { store.clearCurrent() })
         </template>
       </ExpandableSection>
     </section>
+    </template>
 
     <!-- Research Path Card -->
     <ResearchPathCard v-if="researchPath.length > 1" :path="researchPath" current-type="application" />
@@ -177,6 +218,31 @@ onUnmounted(() => { store.clearCurrent() })
 .badge-draft::before { background: #F59E0B; }
 .detail-summary { font-size: 15px; color: var(--color-text-secondary); line-height: 1.6; margin: 10px 0 0; }
 .detail-section { margin-bottom: 28px; }
+/* ★ 2026-10-30：描述型应用的合并说明（见 isDescriptionOnly 注释） */
+.description-only {
+  border-left: 3px solid var(--color-border);
+  padding-left: 14px;
+}
+.description-only-text {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px;
+  max-width: 760px;
+}
+.description-only-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.desc-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+.desc-link:hover { text-decoration: underline; }
+
 .section-title { font-size: 16px; font-weight: 700; color: var(--color-text); margin: 0 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--color-primary); display: inline-block; }
 .card-grid { display: flex; flex-direction: column; gap: 8px; }
 .link-card { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); text-decoration: none; color: var(--color-text); transition: all 0.15s; }
