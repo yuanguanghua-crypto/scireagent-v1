@@ -273,6 +273,65 @@ class Method(StatusMixin, TimeStampedModel):
         super().save(*args, **kwargs)
 
 
+class ApplicationMethod(TimeStampedModel):
+    """应用 ↔ 方法（M:N）。
+
+    ## 为什么需要这张表（2026-10-30）
+
+    `Method.application` 这个 FK 假设「一个方法只属于一个应用」，与领域事实矛盾：
+    PCR 同时服务基因分型 / 病原检测 / 克隆 / qPCR 定量；「病原检测」这个应用
+    也用 PCR、LAMP、测序。把 M:N 塞进 1:N 的后果是：给 22,213 个应用各存了一份
+    方法清单（47,761 行 draft），再靠 `canonical_by_name()` 在运行时翻译回
+    83 个全局方法。
+
+    本表取代那套做法：方法只存一份（83 个 canonical），应用与方法的关系存这里。
+
+    ## 迁移来源
+
+    47,761 行 draft Method 的 (application, name)，经 `canonical_by_name` 映射到
+    83 个无归属 active Method 后去重写入，`source='migrated_t2'`。
+
+    ## 与 `Method.application` 的关系
+
+    该 FK 语义已废弃（不再写入、新代码禁止读取），仅作历史字段保留。
+    读取一律走本表 —— `related_name='application_methods'`。
+    """
+
+    application = models.ForeignKey(
+        'knowledge.Application', on_delete=models.CASCADE,
+        related_name='application_methods', verbose_name='应用场景',
+        help_text='这个方法出现在哪些实验场景下（M:N）',
+    )
+    method = models.ForeignKey(
+        'Method', on_delete=models.CASCADE,
+        related_name='application_methods', verbose_name='科研方法',
+    )
+    display_order = models.IntegerField(
+        default=0, verbose_name='展示顺序',
+        help_text='同一应用下多个方法的排序；迁移时按 name 字典序写入以保证稳定',
+    )
+    source = models.CharField(
+        max_length=32, blank=True, default='', verbose_name='来源',
+        help_text='migrated_t2 = 从 T2 补链的 draft 行迁移而来；migrated_active = '
+                  '从带 application 的 active 行合并而来；空 = 人工维护',
+    )
+
+    class Meta:
+        db_table = 'application_method'
+        verbose_name = '应用↔方法关联'
+        verbose_name_plural = verbose_name
+        ordering = ['application', 'display_order', 'id']
+        # 幂等键：同一 (应用, 方法) 只能有一条，迁移重跑不会重复插
+        unique_together = [('application', 'method')]
+        indexes = [
+            # 反向查询（某方法被哪些应用用）走这条
+            models.Index(fields=['method', 'application'], name='appmethod_method_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.application_id} ↔ {self.method_id}'
+
+
 class Protocol(TimeStampedModel):
     """实验协议 — 版本化的实验步骤"""
     class PublicationStatus(models.TextChoices):

@@ -210,29 +210,15 @@ class ApplicationDetailSerializer(ApplicationGoalSyncMixin, BaseModelSerializer)
                   'methods', 'protocols', 'products', 'created_at', 'updated_at']
 
     def get_methods(self, obj):
-        # P1-1 canonical 收敛：AP 关联的方法里，active 直接输出；draft（T2 补链遗留）
-        # 按名字解析为 canonical（status='active', application=None）实体输出 id/slug，
-        # 恢复 P0 后骤降的覆盖率，同时不把 47k draft 行放进展示面。
-        # 按名字去重（同 AP 下同名 active/draft 只出一个）。
-        from apps.knowledge.services.canonical_methods import canonical_by_name
-        methods = list(obj.methods.all())
-        if not methods:
-            return []
-        canonical = canonical_by_name({m.name for m in methods})
-        out, seen = [], set()
-        for m in methods:
-            if m.status == 'active':
-                triple = {'id': m.id, 'name': m.name, 'slug': m.slug}
-            else:
-                c = canonical.get(m.name)
-                if c is None:
-                    continue  # 噪音名（无 canonical）宁 miss 不错配
-                triple = c
-            if triple['name'] in seen:
-                continue
-            seen.add(triple['name'])
-            out.append(triple)
-        return out
+        # P1-1 canonical 收敛：active 直接输出；draft/archived（T2 补链遗留）
+        # 按名字解析为 canonical 实体输出，不把 47k draft 行放进展示面。
+        # ★ 2026-10-30：逻辑抽到 services.application_methods.resolve_application_methods，
+        #   因为迁移（migrate_application_methods 的基线）必须用同一个函数算
+        #   「改造前后是否一致」。两套实现必然漂移 —— 本仓库已吃过这个亏。
+        from apps.knowledge.services.application_methods import (
+            resolve_application_methods,
+        )
+        return resolve_application_methods(obj)
 
     def get_protocols(self, obj):
         from apps.bridges.models import MethodProtocol
