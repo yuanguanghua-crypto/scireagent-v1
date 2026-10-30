@@ -33,7 +33,13 @@ onMounted(loadList)
 async function loadList() {
   loading.value = true
   try {
-    const resp = await http.get('/references/', { params: { page_size: 200 } })
+    // ★ 2026-10-30：后端 `ReferenceViewSet` 开始统一过滤测试夹具（公开面必须干净），
+    //   而本页是 **staff 管理面** —— 若不带 opt-in，后台就看不到那 32 条
+    //   `__e2e_references_*__` 残留，等于把「能看见才能清理」这个能力弄丢了。
+    //   后端仍会校验 staff 身份，普通用户带这个参数也无效。
+    const resp = await http.get('/references/', {
+      params: { page_size: 200, include_test_fixtures: 1 },
+    })
     entities.value = (resp.data?.results || resp.data || [])
     totalCount.value = resp.meta?.pagination?.count ?? (Array.isArray(resp.data) ? resp.data.length : 0)
   } catch (e) {

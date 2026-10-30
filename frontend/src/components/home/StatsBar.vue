@@ -22,6 +22,9 @@ const rootEl = ref(null)
 const display = reactive({ products: 0, skus: 0, methods: 0, protocols: 0, areas: 0 })
 const counter = useCountUp(1400, 120)
 
+// 千分位：14065 → 14,065（原样输出在四位数以上很难一眼读数）
+const fmt = (n) => Number(n || 0).toLocaleString('en-US')
+
 onMounted(() => {
   counter.watch(rootEl.value, [
     { setter: v => (display.products = v), value: props.stats.products || 0 },
@@ -36,29 +39,30 @@ onMounted(() => {
 <template>
   <section ref="rootEl" class="stats-section" aria-label="Platform statistics">
     <div class="stats-grid">
+      <!-- ★ 2026-10-30：原来 Products 与 SKUs 是**两个独立格子**，都 push('/products')，
+           但数字不同（67 vs 370）⇒ 用户点 SKUs 进去看到 67 个产品，以为数据错乱。
+           SKU 是产品的规格维度，不是独立浏览对象（站内也没有 SKU 列表页），
+           所以合并成一格：「67 Products · 370 SKUs」。信息零丢失，跳转不再自相矛盾。 -->
       <button class="stat-item" @click="router.push('/products')">
         <StarDot class="stat-star" :size="4" color="#5EEAD4" pulse />
-        <div class="stat-number">{{ display.products }}</div>
-        <div class="stat-label">Products</div>
-      </button>
-      <button class="stat-item" @click="router.push('/products')">
-        <StarDot class="stat-star" :size="4" color="#38BDF8" pulse />
-        <div class="stat-number">{{ display.skus }}</div>
-        <div class="stat-label">SKUs</div>
+        <div class="stat-number">{{ fmt(display.products) }}</div>
+        <div class="stat-label">
+          Products<span class="stat-sub">· {{ fmt(display.skus) }} SKUs</span>
+        </div>
       </button>
       <button class="stat-item" @click="router.push('/methods')">
         <StarDot class="stat-star" :size="4" color="#8FE8FF" pulse />
-        <div class="stat-number">{{ display.methods }}</div>
+        <div class="stat-number">{{ fmt(display.methods) }}</div>
         <div class="stat-label">Methods</div>
       </button>
       <button class="stat-item" @click="router.push('/protocols')">
         <StarDot class="stat-star" :size="4" color="#A6D7FF" pulse />
-        <div class="stat-number">{{ display.protocols }}</div>
+        <div class="stat-number">{{ fmt(display.protocols) }}</div>
         <div class="stat-label">Protocols</div>
       </button>
       <button class="stat-item" @click="router.push('/research-goals')">
         <StarDot class="stat-star" :size="4" color="#B2B0FF" pulse />
-        <div class="stat-number">{{ display.areas }}</div>
+        <div class="stat-number">{{ fmt(display.areas) }}</div>
         <div class="stat-label">Research Areas</div>
       </button>
     </div>
@@ -71,7 +75,7 @@ onMounted(() => {
 }
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1px;
   background: var(--color-border);
   border-radius: 10px;
@@ -114,12 +118,19 @@ onMounted(() => {
   color: var(--color-text-secondary);
   font-weight: 500;
 }
+.stat-sub {
+  margin-left: 5px;
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.72;
+  white-space: nowrap;
+}
 
 @media (max-width: 768px) {
-  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .stat-item:nth-child(5) { grid-column: span 2; }
+  .stat-sub { display: block; margin-left: 0; }
 }
 </style>

@@ -6,17 +6,30 @@ import { getHomeData } from '@/api/site'
 import HeroSearch from '@/components/home/HeroSearch.vue'
 import CategoryPills from '@/components/home/CategoryPills.vue'
 import FeaturedProducts from '@/components/home/FeaturedProducts.vue'
+import FeaturedEntities from '@/components/home/FeaturedEntities.vue'
 import MeridianDivider from '@/components/common/MeridianDivider.vue'
 
 /* Lazy-loaded components (below fold) */
 const StatsBar = defineAsyncComponent(() => import('@/components/home/StatsBar.vue'))
 const KnowledgeSection = defineAsyncComponent(() => import('@/components/home/KnowledgeSection.vue'))
+// ★ 2026-10-30 C 批：这两个组件原来存在但全仓零引用，而 site_home 一直在算
+//   graph_preview（20 节点/23 边）和 references（5 条），数据白算。
+const KnowledgeGraphPreview = defineAsyncComponent(
+  () => import('@/components/home/KnowledgeGraphPreview.vue')
+)
+const ReferencesSection = defineAsyncComponent(
+  () => import('@/components/home/ReferencesSection.vue')
+)
 
 const loading = ref(true)
 const homeData = ref({
   hero: { title: 'SciReagent', subtitle: '', suggested_searches: [] },
   stats: { products: 0, skus: 0, methods: 0, protocols: 0, areas: 0 },
   featured_products: [],
+  featured_applications: [],
+  featured_methods: [],
+  references: [],
+  graph_preview: null,
   categories: [],
   knowledge: { goals: 0, applications: 0, methods: 0, protocols: 0 },
 })
@@ -78,6 +91,41 @@ onMounted(async () => {
           <KnowledgeSection :knowledge="homeData.knowledge" />
           <template #fallback>
             <div class="loading-skeleton" style="height: 80px;"></div>
+          </template>
+        </Suspense>
+
+        <!-- 6~9. 知识实体区块（★ 2026-10-30 C 批接入，此前四块数据算了但没人渲染） -->
+        <FeaturedEntities
+          title="Featured Applications"
+          subtitle="Technique families researchers actually run — each linked to the methods and protocols behind it."
+          kind="application"
+          :items="homeData.featured_applications"
+          link-to="/applications"
+          link-text="All applications"
+        />
+
+        <FeaturedEntities
+          title="Featured Methods"
+          subtitle="Core experimental methods, with the protocols and reagents that support them."
+          kind="method"
+          :items="homeData.featured_methods"
+          link-to="/methods"
+          link-text="All methods"
+        />
+
+        <MeridianDivider />
+
+        <Suspense>
+          <KnowledgeGraphPreview :graph-data="homeData.graph_preview" />
+          <template #fallback>
+            <div class="loading-skeleton" style="height: 260px;"></div>
+          </template>
+        </Suspense>
+
+        <Suspense>
+          <ReferencesSection :references="homeData.references" />
+          <template #fallback>
+            <div class="loading-skeleton" style="height: 120px;"></div>
           </template>
         </Suspense>
       </div>

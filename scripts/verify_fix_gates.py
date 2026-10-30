@@ -58,9 +58,9 @@ CASES = [
         "                        continue\n"
         "                    qs = Model.objects.filter(pk__in=by_id)\n"
         "                else:\n"
-        "                    qs = Model.objects.filter(name__startswith=prefix)",
+        "                    qs = Model.objects.filter(**{f'{name_field}__startswith': prefix})",
         "                if True:\n"
-        "                    qs = Model.objects.filter(name__startswith=prefix)",
+        "                    qs = Model.objects.filter(**{f'{name_field}__startswith': prefix})",
         'apps/knowledge/tests/test_mark_fixtures_by_id.py::'
         'MarkFixturesByIdTest::test_unmark_only_listed_ids',
     ),
@@ -107,6 +107,32 @@ CASES = [
         "                raise CommandError(",
         'apps/knowledge/tests/test_summary_i18n.py::'
         'SummaryI18nScopeTest::test_chinese_in_translation_is_rejected',
+    ),
+    (
+        '⑩ Reference 公开面排除测试夹具',
+        BASE / 'apps/knowledge/api/v1/views.py',
+        "        return apply_public_visibility(super().get_queryset(), Reference, self.request)",
+        "        return super().get_queryset()",
+        'apps/knowledge/tests/test_reference_fixture_visibility.py::'
+        'ReferenceFixtureVisibilityTest::test_anonymous_list_excludes_fixture',
+    ),
+    (
+        '⑪ 首页 references 排除测试夹具（E2E stub 不得占首屏）',
+        BASE / 'apps/knowledge/api/v1/site_views.py',
+        "        Reference.objects.filter(is_test_fixture=False)\n"
+        "        .order_by('-year', '-id')[:5]",
+        "        Reference.objects\n"
+        "        .order_by('-year', '-id')[:5]",
+        'apps/knowledge/tests/test_reference_fixture_visibility.py::'
+        'ReferenceFixtureVisibilityTest::test_homepage_references_exclude_fixture',
+    ),
+    (
+        '⑫ featured_solutions 已删除（恒空区块不得回流）',
+        BASE / 'apps/knowledge/api/v1/site_views.py',
+        "            'research_goals': [",
+        "            'featured_solutions': [],\n            'research_goals': [",
+        'apps/knowledge/tests/test_homepage_api.py::'
+        'TestHomepageAPI::test_t1_08_featured_solutions_removed',
     ),
 ]
 
