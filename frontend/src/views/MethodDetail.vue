@@ -27,9 +27,19 @@ const upstreamEntities = computed(() => {
   }
   return items
 })
+/**
+ * ★ 2026-10-30 修：原来把**全部** protocols 映射成 chip，实测 PCR 关联 585 条
+ *   ⇒ ContextCards 渲染 585 个 chip，页面被撑到 **8,325 px**，
+ *   方法名 h1 和 summary 被埋在协议列表下面（用户滚 8000px 才看到方法叫什么）。
+ *   与协议详情页 2026-10-29 的 PROTOCOL_PREVIEW_LIMIT=20 同口径：详情页只展示代表项，
+ *   完整清单走 /protocols 索引页（那里有分页与筛选）。
+ */
+const PROTOCOL_PREVIEW = 20
 const downstreamEntities = computed(() => {
-  return (method.value?.protocols || []).map(p => ({ type: 'protocol', id: p.id, name: p.name }))
+  return (method.value?.protocols || []).slice(0, PROTOCOL_PREVIEW)
+    .map(p => ({ type: 'protocol', id: p.id, name: p.name }))
 })
+const protocolTotal = computed(() => (method.value?.protocols || []).length)
 const researchPath = computed(() => {
   const path = []
   if (method.value?.research_goal_id) {
@@ -106,7 +116,10 @@ onUnmounted(() => { store.clearCurrent() })
 
     <!-- Protocols -->
     <section class="detail-section">
-      <h2 class="section-title">Protocols</h2>
+      <h2 class="section-title">
+        Protocols
+        <span v-if="protocolTotal" class="proto-count">{{ protocolTotal }}</span>
+      </h2>
       <ExpandableSection
         title=""
         :items="method.protocols || []"
@@ -189,6 +202,13 @@ onUnmounted(() => { store.clearCurrent() })
 .badge-draft::before { background: #F59E0B; }
 .detail-summary { font-size: 15px; color: var(--color-text-secondary); line-height: 1.6; margin: 10px 0 0; }
 .detail-purpose { font-size: 14px; color: var(--color-text); margin: 8px 0 0; }
+.proto-count {
+  display: inline-block; margin-left: 8px; padding: 1px 8px;
+  font-size: 12px; font-weight: 500; font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-subtle, #f3f4f6); border-radius: 10px;
+  vertical-align: middle;
+}
 .desc-draft-note {
   display: inline-block; margin: 8px 0 0; padding: 2px 8px;
   font-size: 11px; font-weight: 600;
