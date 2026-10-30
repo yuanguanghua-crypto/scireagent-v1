@@ -26,7 +26,7 @@ const router = useRouter()
         :key="cat.slug"
         class="category-pill"
         :style="{ '--dot-color': cat.color, '--dot-bg': cat.bg }"
-        @click="router.push(`/products?category=${cat.slug}`)"
+        @click="router.push(`/products?category=${cat.class_slug || cat.slug}`)"
       >
         <span class="dot"></span>
         {{ cat.name }}

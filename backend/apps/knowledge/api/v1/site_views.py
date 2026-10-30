@@ -189,9 +189,14 @@ def site_home(request):
     references = Reference.objects.order_by('-year', '-id')[:5]
 
     # Stats — aggregate counts from all relevant models
-    sku_count = Product.objects.filter(
-        status__in=['active', 'published'], archived=False
-    ).aggregate(
+    # ★ 2026-10-30：公开可见产品 = active/published ∩ 未归档 ∩ 非测试夹具。
+    #   `is_test_fixture` 此前 Product 没有该字段（2026-10-30 才加，migration commerce.0019），
+    #   于是 e2e 造的 2 条残留（E2E PO Test Product / Product 0）被算进 products 与 skus，
+    #   同时把分类计数顶到 69 —— 与真实 67 差 2。三处（product/sku/分类）必须同一口径。
+    visible_products = Product.objects.filter(
+        status__in=['active', 'published'], archived=False, is_test_fixture=False,
+    )
+    sku_count = visible_products.aggregate(
         total=Count('skus__id', distinct=True)
     )['total'] or 0
     # S1：统计口径必须排除测试夹具残骸，否则首页 areas/goals 会把 e2e 残留计入
@@ -201,7 +206,7 @@ def site_home(request):
     area_count = ResearchGoal.objects.public().filter(status='active').count()
     method_count = Method.objects.public().filter(status='active').count()
     protocol_count = Protocol.objects.filter(status='published').count()
-    product_count = Product.objects.filter(status__in=['active', 'published'], archived=False).count()
+    product_count = visible_products.count()
 
     # Stats payload — aligned with frontend StatsBar
     stats_payload = {
@@ -223,6 +228,14 @@ def site_home(request):
     #
     #   语义严格对齐原来的 `get_descendant_product_class_ids(slug)`：
     #   只认 `parent_id IS NULL` 的 slug（见 selector 的 docstring）。
+    # ★ 2026-10-30 修「首页分类胶囊点进去不过滤」：
+    #   这里一直有两套 slug —— `slug` 是**展示用**（nucleotides / click-chemistry），
+    #   而 `/products?category_l1=` 与 `/api/v1/categories` 认的是 **ProductClass 的
+    #   L1 slug**（nucleotides_nucleosides / click_chemistry / molecular_biology）。
+    #   前端胶囊照 `slug` 拼 URL ⇒ `ProductLayout` 把 `selectedL1='nucleotides'` 传给
+    #   `category_l1` ⇒ `get_descendant_product_class_ids('nucleotides')` 查不到 ⇒
+    #   **静默不过滤**，三条胶囊点进去都是全量（实测 69）。
+    #   ⇒ 追加 `class_slug`（真 L1 slug）供筛选链路使用，`slug` 保持不动（SEO/展示在用）。
     from apps.commerce.selectors import build_product_class_tree
     CATEGORY_META = {
         'nucleotides_nucleosides': {'name': 'Nucleotides', 'slug': 'nucleotides', 'color': '#7C3AED', 'bg': '#EDE9FE'},
@@ -234,7 +247,8 @@ def site_home(request):
     per_class_counts = {
         cid: n for cid, n in (
             Product.objects
-            .filter(status__in=['active', 'published'], archived=False)
+            .filter(status__in=['active', 'published'], archived=False,
+                    is_test_fixture=False)
             .values('product_class_id')
             .annotate(n=Count('id'))
             .values_list('product_class_id', 'n')
@@ -245,7 +259,7 @@ def site_home(request):
         root_id = l1_slug_to_id.get(l1_slug)
         descendant_ids = desc_map.get(root_id, []) if root_id else []
         count = sum(per_class_counts.get(i, 0) for i in descendant_ids)
-        categories_payload.append({**meta, 'count': count})
+        categories_payload.append({**meta, 'class_slug': l1_slug, 'count': count})
 
     # Knowledge section data — aligned with frontend KnowledgeSection
     knowledge_payload = {
