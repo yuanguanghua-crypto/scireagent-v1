@@ -507,14 +507,23 @@ class MethodDetailSerializer(BaseModelSerializer):
     # ★ 2026-10-30（B 方案阶段 3）：同 MethodListSerializer —— FK 已废弃，改从桥取
     application_id = serializers.SerializerMethodField()
     application_name = serializers.SerializerMethodField()
+    # ★ 2026-10-30：描述内容的状态。'' = 无描述；'ai_draft' = AI 初稿未审；
+    #   'reviewed' = 领域专家已确认。前端据此在 summary 旁标注，不能把初稿当定论给客户看。
+    description_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Method
         fields = [
             'id', 'name', 'slug', 'summary', 'purpose', 'advantages', 'limitations',
             'cost_band', 'timeline', 'status', 'application_id',
-            'application_name', 'protocols', 'products', 'created_at', 'updated_at',
+            'application_name', 'description_status', 'protocols', 'products',
+            'created_at', 'updated_at',
         ]
+
+    def get_description_status(self, obj):
+        if not (obj.summary or obj.purpose):
+            return ''
+        return 'reviewed' if obj.description_reviewed_at else 'ai_draft'
 
     def get_application_id(self, obj):
         from apps.knowledge.services.application_methods import application_of_method

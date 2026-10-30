@@ -73,6 +73,11 @@ onUnmounted(() => { store.clearCurrent() })
       <span class="detail-badge" :class="`badge-${method.status}`">{{ method.status }}</span>
       <p v-if="method.summary" class="detail-summary">{{ method.summary }}</p>
       <p v-if="method.purpose" class="detail-purpose"><strong>Purpose:</strong> {{ method.purpose }}</p>
+      <!-- ★ 2026-10-30：AI 生成的描述必须标注，不能让客户把未审初稿当定论。
+           后端 description_status: '' = 无描述 / 'ai_draft' = AI 初稿未审 / 'reviewed' = 已确认 -->
+      <p v-if="method.description_status === 'ai_draft'" class="desc-draft-note">
+        AI-generated draft · pending expert review
+      </p>
     </div>
 
     <!-- Specs -->
@@ -184,6 +189,13 @@ onUnmounted(() => { store.clearCurrent() })
 .badge-draft::before { background: #F59E0B; }
 .detail-summary { font-size: 15px; color: var(--color-text-secondary); line-height: 1.6; margin: 10px 0 0; }
 .detail-purpose { font-size: 14px; color: var(--color-text); margin: 8px 0 0; }
+.desc-draft-note {
+  display: inline-block; margin: 8px 0 0; padding: 2px 8px;
+  font-size: 11px; font-weight: 600;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-subtle, #f3f4f6);
+  border-radius: 4px;
+}
 .specs-row { display: flex; gap: 24px; margin-bottom: 24px; }
 .spec { display: flex; flex-direction: column; gap: 2px; }
 .spec-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-tertiary); }

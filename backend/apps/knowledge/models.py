@@ -210,6 +210,16 @@ class Method(StatusMixin, TimeStampedModel):
         help_text='每次实验的大致成本范围')
     timeline = models.CharField(max_length=100, blank=True, default='', choices=Timeline.choices, verbose_name='时间线',
         help_text='完成一次实验所需的大致时间')
+    # ★ 2026-10-30：描述内容的审核标记。
+    #   当日实测 83 个 canonical 方法的 summary/purpose/advantages/limitations/
+    #   cost_band/timeline **全部为空**（B 方案阶段 3 删掉了唯一有值的 10 条 draft）。
+    #   summary/purpose 可由 LLM 基于方法名 + 关联协议标题生成初稿，
+    #   但初稿未经领域专家确认 ⇒ 前台必须能区分「AI 初稿」和「已审核」。
+    #   `null` = 未审（AI 初稿）；有值 = 已审。
+    description_reviewed_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='描述审核时间',
+        help_text='为空表示 description 内容是 AI 初稿未经审核；有值表示已由领域专家确认',
+    )
     display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级')
     is_test_fixture = _test_fixture_field()
     if _USE_POSTGRES:
