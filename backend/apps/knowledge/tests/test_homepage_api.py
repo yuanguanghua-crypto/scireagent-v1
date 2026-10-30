@@ -96,12 +96,16 @@ class TestHomepageAPI:
             assert 'year' in r
             assert 'doi' in r
 
-    def test_t1_16_graph_preview_null(self):
-        """T1-16: Homepage returns graph_preview as null."""
+    def test_t1_16_graph_preview_removed(self):
+        """T1-16（契约变更，2026-10-30）：首页不再返回 graph_preview。
+
+        用户要求「图谱部分不展示，没有作用，而且很杂乱」。原来这条断言的是
+        「返回 null」，但后来 `_build_homepage_graph()` 让它变成 20 节点图，
+        断言就一直是红的/靠空库侥幸通过 —— 现在两边一起删掉。
+        """
         resp = self.client.get('/api/v1/site/home')
         data = resp.json()['data']
-        assert 'graph_preview' in data
-        assert data['graph_preview'] is None
+        assert 'graph_preview' not in data
 
     def test_t1_17_featured_products_use_display_priority(self):
         """T1-17: Featured products with display_priority > 0 appear first."""
@@ -148,10 +152,9 @@ class TestHomepageAPI:
         """T2-01: Homepage response has all 9 sections."""
         resp = self.client.get('/api/v1/site/home')
         data = resp.json()['data']
-        # 2026-10-30：featured_solutions 已按用户决定删除（恒为空），不再要求
+        # 2026-10-30：featured_solutions（恒空）与 graph_preview（用户要求去掉）均已删除
         required = ['hero', 'stats', 'featured_applications', 'featured_methods',
-                    'featured_products', 'research_goals',
-                    'references', 'graph_preview']
+                    'featured_products', 'research_goals', 'references']
         for key in required:
             assert key in data, f'Missing section: {key}'
 

@@ -174,40 +174,29 @@ class GraphAPITest(TestCase):
         resp = self.client.get('/api/v1/graph', {'type': 'product', 'id': 99999})
         self.assertEqual(resp.status_code, 404)
 
+class HomepageGraphPreviewRemovedTest(TestCase):
+    """T8-01~03 的契约反转（2026-10-30）。
 
-class HomepageGraphPreviewTest(TestCase):
-    """T8-01 ~ T8-03"""
+    用户明确要求「图谱部分不展示，没有作用，而且很杂乱」，首页不再返回
+    graph_preview。实测该字段的唯一消费方是 KnowledgeGraphPreview.vue，
+    而那条前端链（Preview → KnowledgeGraph → useGraph → api/graph.js）
+    在接入首页之前**全仓零引用**；每次首页请求还要多跑一次 depth=2 的 BFS
+    （build_graph），纯浪费。
+
+    这里锁的是「首页响应里不再出现该字段」。
+    `/api/v1/graph` 端点本身**保留**（GraphAPITest 仍覆盖），删的只是首页预览。
+    """
 
     def setUp(self):
         self.client = APIClient()
 
-    def test_graph_preview_not_null(self):
-        """T8-01: Homepage graph_preview has nodes/edges"""
-        app = ApplicationFactory(status='active', display_priority=10)
-        method = MethodFactory(status='active', application=app)
-        product = ProductFactory(status='active')
-        ProductMethodFactory(product=product, method=method)
-        resp = self.client.get('/api/v1/site/home')
-        data = resp.json()['data']
-        self.assertIsNotNone(data['graph_preview'])
-        self.assertIn('nodes', data['graph_preview'])
-        self.assertIn('edges', data['graph_preview'])
+    def test_homepage_no_graph_preview(self):
+        ApplicationFactory(status='active', display_priority=10)
+        data = self.client.get('/api/v1/site/home').json()['data']
+        self.assertNotIn('graph_preview', data)
 
-    def test_graph_preview_limited_nodes(self):
-        """T8-02: graph_preview limited to 20 nodes"""
-        resp = self.client.get('/api/v1/site/home')
-        data = resp.json()['data']
-        if data['graph_preview']:
-            self.assertLessEqual(len(data['graph_preview']['nodes']), 20)
-
-    def test_graph_preview_has_central_node(self):
-        """T8-03: graph_preview has at least one application node"""
+    def test_graph_endpoint_still_available(self):
+        """删的只是首页预览，/api/v1/graph 端点必须仍然可用。"""
         app = ApplicationFactory(status='active', display_priority=10)
-        method = MethodFactory(status='active', application=app)
-        product = ProductFactory(status='active')
-        ProductMethodFactory(product=product, method=method)
-        resp = self.client.get('/api/v1/site/home')
-        data = resp.json()['data']
-        if data['graph_preview']:
-            types = [n['type'] for n in data['graph_preview']['nodes']]
-            self.assertIn('application', types)
+        resp = self.client.get(f'/api/v1/graph?type=application&id={app.id}')
+        self.assertEqual(resp.status_code, 200)

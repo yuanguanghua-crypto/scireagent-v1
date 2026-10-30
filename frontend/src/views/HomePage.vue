@@ -12,11 +12,9 @@ import MeridianDivider from '@/components/common/MeridianDivider.vue'
 /* Lazy-loaded components (below fold) */
 const StatsBar = defineAsyncComponent(() => import('@/components/home/StatsBar.vue'))
 const KnowledgeSection = defineAsyncComponent(() => import('@/components/home/KnowledgeSection.vue'))
-// ★ 2026-10-30 C 批：这两个组件原来存在但全仓零引用，而 site_home 一直在算
-//   graph_preview（20 节点/23 边）和 references（5 条），数据白算。
-const KnowledgeGraphPreview = defineAsyncComponent(
-  () => import('@/components/home/KnowledgeGraphPreview.vue')
-)
+// ★ 2026-10-30：KnowledgeGraphPreview 已移除 —— 用户明确要求「图谱部分不展示，
+//   没有作用，而且很杂乱」。它连带整条前端图谱链（KnowledgeGraph → useGraph
+//   → api/graph.js）一起删除，产物里 443KB 的 cytoscape chunk 也随之消失。
 const ReferencesSection = defineAsyncComponent(
   () => import('@/components/home/ReferencesSection.vue')
 )
@@ -29,7 +27,6 @@ const homeData = ref({
   featured_applications: [],
   featured_methods: [],
   references: [],
-  graph_preview: null,
   categories: [],
   knowledge: { goals: 0, applications: 0, methods: 0, protocols: 0 },
 })
@@ -114,13 +111,6 @@ onMounted(async () => {
         />
 
         <MeridianDivider />
-
-        <Suspense>
-          <KnowledgeGraphPreview :graph-data="homeData.graph_preview" />
-          <template #fallback>
-            <div class="loading-skeleton" style="height: 260px;"></div>
-          </template>
-        </Suspense>
 
         <Suspense>
           <ReferencesSection :references="homeData.references" />

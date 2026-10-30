@@ -7,26 +7,11 @@ from apps.knowledge.models import Application, Method, Protocol, ResearchGoal, R
 from apps.commerce.models import Product
 from apps.commerce.services.pricing import start_price
 from apps.bridges.models import ProductMethod
-from apps.knowledge.services.graph_service import build_graph
 
 #: 导航里最多返回多少个 application（见 site_navigation 的 docstring）。
 #: 默认 200 足够覆盖"常用应用"；上限 2000 是防有人用 `?limit=999999` 把放大点重新打开。
 NAV_APPLICATION_LIMIT = 200
 NAV_APPLICATION_LIMIT_MAX = 2000
-
-
-def _build_homepage_graph():
-    """Build a graph preview from the top-priority application."""
-    top_app = Application.objects.public().filter(
-        status='active', display_priority__gt=0
-    ).order_by('-display_priority').first()
-    if not top_app:
-        # Fallback: pick any active application
-        top_app = Application.objects.public().filter(status='active').first()
-    if not top_app:
-        return None
-    graph = build_graph('application', top_app.id, depth=2, max_nodes=20, max_edges=30)
-    return graph if graph and graph['nodes'] else None
 
 
 def get_suggested_searches():
@@ -317,7 +302,13 @@ def site_home(request):
                 }
                 for r in references
             ],
-            'graph_preview': _build_homepage_graph(),
+            # ★ 2026-10-30：删除 'graph_preview'。
+            #   用户明确要求「图谱部分不展示，没有作用，而且很杂乱」。
+            #   实测：它的唯一消费方是 KnowledgeGraphPreview.vue，
+            #   而那条链（Preview → KnowledgeGraph → useGraph → api/graph.js）
+            #   在接入首页前**全仓零引用**，且每次首页请求都多跑一次
+            #   depth=2 的 BFS（build_graph）—— 纯浪费。
+            #   保留 `/api/v1/graph` 端点本身（后端能力，未被删除）。
             'seo': {
                 'title': 'SciReagent — AI-Native Scientific Reagent Platform',
                 'description': 'Discover nucleotides, click chemistry reagents, and related products with AI-powered knowledge graph. Research-driven reagent selection for life science.',
