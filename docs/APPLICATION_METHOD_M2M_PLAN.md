@@ -272,3 +272,55 @@ B 完成后，83 个 canonical Method 成为**唯一的方法实体**。这时�
 
 **所以 B 的真正价值不在「结构干净」，而在「方法的描述只需要写一遍」。**
 这是它值得做的核心理由，也是排在这个时点的理由。
+
+---
+
+# 执行记录（2026-10-30，阶段 0~1 已完成并上线）
+
+## 生产实测
+
+| 步骤 | 结果 |
+|---|---|
+| `baseline` | **22,219 个应用 / 47,844 对**（每应用：1 个 6,966｜2 个 4,906｜3 个 10,339｜4~12 个 8） |
+| `rescue-bridges` | PMR **159**｜MRC **39**｜ProductMethod **19**（另 3 条无处可去，指向那句协议标题名，保留不动） |
+| `merge-active` | 10 个「带 application 的 active」，**10 个全部可合并**，重指向 `method_protocol` **647** 条，删 10 行 |
+| `migrate-drafts` | 待迁 47,835（draft + archived），**仅 1 个名字无法映射**（`__e2e_methods_*`），写入桥 **47,834** 条 |
+| `verify` | **22,219 = 22,219，不一致 0** |
+
+## 当前状态（零风险中间态）
+
+```
+Method 行数          47,925   （47,935 - 10 合并）
+ApplicationMethod    47,844
+前台行为              完全不变（读路径仍是 obj.methods + canonical_by_name）
+抽样 5 个应用         API methods 与桥 100% 一致  ← 说明阶段 2 切换是安全的
+```
+
+## 执行中改掉的四处设计（都已进 commit message）
+
+1. **顺序**：rescue 必须在 merge 之前 —— `ProductMethodRelation.method` 是 PROTECT，
+   先 merge 会被 `ProtectedError` 挡住（数据库在保护数据）。
+2. **promote 分支**：本地实测有一例（id=36 `Random Primer Method`）active 带 application
+   但 canonical 池无同名 —— 不是重复品，而是「还没转正」，应清 FK + 写桥，不能跳过。
+   生产恰好没有这种情况（10/10 都能合并）。
+3. **基线算法**：原用 `canonical_by_name()` 自算，漏了两个分支（active 直接输出 /
+   archived 也走映射），本地 verify 报 30 个不一致。⇒ 抽出
+   `services/application_methods.resolve_application_methods`，序列化器与基线共用。
+4. **迁移范围**：原只查 `status='draft'`，漏 archived。
+
+## 备份
+
+`_corpus_backup/appmethod_20261030/`（1.6MB）
+
+| 文件 | 内容 |
+|---|---|
+| `baseline_app_methods.json` | 22,219 个应用改造前的方法名集合（**verify 的唯一对照依据**） |
+| `merge_active_snapshot.json` | 被合并的 10 个 Method 全字段 + 647 条 method_protocol |
+| `rescue_snapshot.json` | 159 PMR + 39 MRC + 19 ProductMethod 重指向前的方法 id |
+
+## 下一步（阶段 2 未开始）
+
+阶段 2 要改 13 处读路径，是本方案唯一有风险的部分。当前状态可以长期停留 ——
+桥已建好且与基线完全一致，随时可以切。
+
+**切换前必须复跑一次 `--step verify`**，确认基线仍匹配（因为期间数据可能变动）。
