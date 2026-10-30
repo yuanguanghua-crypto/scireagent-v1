@@ -382,3 +382,70 @@ ApplicationMethod    47,844
 - 基线文件在容器 `/tmp`，**容器重建即丢** —— 已取回 `_corpus_backup/appmethod_20261030/`，
   重跑 verify 前要先 `docker cp` 回去
 - 阶段 3 之后 legacy 回滚路径失效（draft 行没了），开关实际上只剩 `1`
+
+---
+
+# 执行记录（2026-10-30，阶段 3 完成 —— B 方案全部落地）
+
+## 结果
+
+| 项 | 改造前 | 现在 |
+|---|---|---|
+| **Method 行数** | 47,935 | **83**（全部 active，全是 canonical） |
+| **method 表体积** | 52 MB | **224 kB**（232 倍） |
+| ApplicationMethod | — | 47,844（22,219 应用 × 83 方法） |
+| method_protocol | 15,241 | 14,975 |
+| product_method | 22 | 19（删了 3 条错配：产品挂给「一句协议标题误当方法名」的假方法） |
+| product_method_relation | 159 | 159（`rescue-bridges` 已重指向 canonical） |
+| method_reagent_class | 39 | 39（同上） |
+| `/methods` 索引 | 93（含 10 个同名重复） | **83**（无重复） |
+| `/protocols` | 13,807 | 13,807（不变） |
+| **基线对照** | — | **22,219 应用，0 不一致** |
+
+## ⚠️ 必须更正的三阶段风险描述
+
+原方案（第二节）把「阶段 3」标为不可回滚点，**这是错的**。
+
+**真正的不可回滚点是阶段 1 的 `merge-active`** —— 它删掉了 10 个「带 application 的 active」
+Method，导致 `app=[30,32,33,34,35,36,37]` 这 7 个应用的 `Method.application` 查询永久变空。
+
+实测证据（阶段 2 后做的两条路径对照）：
+
+```
+桥 vs 现在的 legacy：7 个应用不一致
+  app=30  legacy 方法行=0   桥方法数=3
+  app=32  legacy 方法行=0   桥方法数=1
+这 7 个 application_id 正好等于 merge-active 删掉的 10 个 active 的归属应用
+```
+
+⇒ 所以「切 `APP_METHOD_READ_FROM_BRIDGE=0` 可回滚」这个说法**从阶段 1 起就失效了**：
+代码能回滚，数据回不去。保留 legacy 路径的实际价值只剩「对照验证」，不是「保险」。
+
+**正确的验证方法**是「桥 vs 改造前快照（基线）」，而不是「桥 vs 改造后的 legacy」
+——后者已被我们自己改过，不构成独立对照。基线对照结果：0 不一致。
+
+## 已废弃的两条路
+
+- `APP_METHOD_READ_FROM_BRIDGE` 开关：阶段 3 后 legacy 路径必然返回空（draft 行已删），
+  开关实际只剩 `1`。保留代码作为历史记录，但**不要再切到 0**
+- `remap_method_applications` 命令：已加 `CommandError` 硬闸门
+- `services/method_remap.py`：已标注废弃
+
+## 备份（服务器持久化，不在容器 /tmp）
+
+`/home/admin/scireagent_backups/`
+
+| 文件 | 内容 |
+|---|---|
+| `method_data_pre_purge_20261030.sql.gz` | **删除前** method 表全量数据（47,925 行，1.1 MB gz） |
+| `baseline_app_methods_20261030.json` | 22,219 个应用改造前的方法名集合（1.5 MB） |
+
+本地副本：`_corpus_backup/appmethod_20261030/`（baseline + merge_snapshot + rescue_snapshot）。
+
+## 遗留（本次未做）
+
+| 项 | 说明 |
+|---|---|
+| `RemoveField Method.application` | 字段仍保留（全 NULL）。删它要过一次破坏性 migration，建议单独做 |
+| `MethodDetailSerializer` 的写路径 | `application_id` 已改为只读。若要支持「编辑方法时改所属应用」，需另建桥的写接口 |
+| 83 个 Method 的描述字段 | `purpose/advantages/limitations/timeline` 仍各只有 10 条有值、`cost_band` 0 条。这是 B 方案的**下一步价值**：一份描述被 22,219 个应用共享 |
