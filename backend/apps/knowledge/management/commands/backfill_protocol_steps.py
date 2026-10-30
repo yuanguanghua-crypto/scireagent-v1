@@ -150,6 +150,11 @@ class Command(BaseCommand):
             '--checkpoint-file', default=None,
             help='记录已处理协议 id 的文件（支持断点续跑）',
         )
+        parser.add_argument(
+            '--ids', default='',
+            help='只处理指定 protocol id（逗号分隔）。默认只处理 source=bioprocorpus，'
+                 '人工策展的协议需要显式点名才能补步骤',
+        )
 
     def handle(self, *args, **options):
         directory = options['corpus_dir'] or DEFAULT_CORPUS_DIR
@@ -173,9 +178,18 @@ class Command(BaseCommand):
 
         # 已存在 steps 的协议（含 94 条 curated 及历史残留）一律跳过 —— 幂等 + 不覆盖
         with_steps = set(ProtocolStep.objects.values_list('protocol_id', flat=True))
-        qs = Protocol.objects.filter(
-            source=Protocol.Source.BIOPROCORPUS,
-        ).exclude(id__in=with_steps).order_by('id')
+        # ★ 2026-10-30：`source=bioprocorpus` 会漏掉"语料来的但被标成 curated"的协议。
+        #   实测 id=230 的 corpus_id=Protocol.io-9436、语料里 6 条叶子步骤、名字逐字相同，
+        #   只因 source='curated' 就永远补不上。用 --ids 显式点名，默认行为不变。
+        only_ids = [int(x) for x in (options.get('ids') or '').split(',') if x.strip()]
+        if only_ids:
+            qs = (Protocol.objects.filter(id__in=only_ids)
+                  .exclude(id__in=with_steps).order_by('id'))
+            self.stdout.write(f'  [--ids] 只处理 {len(only_ids)} 个指定 id')
+        else:
+            qs = Protocol.objects.filter(
+                source=Protocol.Source.BIOPROCORPUS,
+            ).exclude(id__in=with_steps).order_by('id')
         if processed_ids:
             qs = qs.exclude(id__in=processed_ids)
 

@@ -265,6 +265,21 @@ class BackfillProtocolStepsCommandTest(TestCase):
         call_command('backfill_protocol_steps', '--corpus-dir', self.src_dir, '--apply')
         self.assertEqual(ProtocolStep.objects.filter(protocol=p).count(), 2)
 
+    def test_ids_flag_can_target_curated_protocol(self):
+        """`source=curated` 但 corpus_id 指向语料的协议，默认过滤会跳过；
+        --ids 显式点名才处理（实测 id=230 就卡在这）。"""
+        _write_corpus(self.src_dir, 'Bio-protocol.json', [
+            _hp_record('Curated But From Corpus', [('leaf', '1.1', 'Do it.'), ('leaf', '1.2', 'Done.')]),
+        ])
+        p = self._make_proto('Curated But From Corpus', source=Protocol.Source.CURATED)
+        # 不带 --ids：curated 被默认过滤，不应写入
+        call_command('backfill_protocol_steps', '--corpus-dir', self.src_dir, '--apply')
+        self.assertEqual(ProtocolStep.objects.filter(protocol=p).count(), 0)
+        # 带 --ids：显式点名后写入
+        call_command('backfill_protocol_steps', '--corpus-dir', self.src_dir,
+                     '--apply', '--ids', str(p.id))
+        self.assertEqual(ProtocolStep.objects.filter(protocol=p).count(), 2)
+
     def test_case_difference_still_matches(self):
         _write_corpus(self.src_dir, 'Bio-protocol.json', [
             _hp_record('PROTO ALPHA', [('leaf', '1.1', 'Do it.')]),
