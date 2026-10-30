@@ -73,6 +73,15 @@ def build_protocol_jsonld(protocol, steps=None, request=None):
         'dateModified': protocol.updated_at.isoformat() if protocol.updated_at else None,
         'step': [],
     }
+    # ★ 2026-10-30 溯源：把协议自身的 DOI / 原文链接暴露给搜索引擎。
+    #   identifier 用 PropertyValue 表达 DOI（schema.org 推荐写法）；
+    #   isBasedOn 指向原始页面 ⇒ 搜索引擎可把本页与 Bio-protocol / protocols.io 原文关联。
+    if getattr(protocol, 'doi', ''):
+        jsonld['identifier'] = {
+            '@type': 'PropertyValue', 'propertyID': 'DOI', 'value': protocol.doi,
+        }
+    if getattr(protocol, 'source_url', ''):
+        jsonld['isBasedOn'] = protocol.source_url
     if steps:
         jsonld['step'] = [
             {

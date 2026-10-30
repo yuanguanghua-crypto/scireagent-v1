@@ -317,7 +317,11 @@ class ProtocolDetailSerializer(BaseModelSerializer):
         fields = [
             'id', 'name', 'slug', 'version', 'objective', 'principle',
             'materials', 'reagents', 'equipment', 'troubleshooting', 'expected_results',
-            'status', 'steps', 'references', 'products', 'facets', 'methods', 'created_at', 'updated_at',
+            'status', 'steps', 'references', 'products', 'facets', 'methods',
+            # 溯源（2026-10-30）：客户可点「View original protocol」追到原文。
+            # corpus_id / corpus_source 是内部溯源字段，刻意不对外暴露。
+            'doi', 'source_url',
+            'created_at', 'updated_at',
         ]
 
     def get_facets(self, obj):

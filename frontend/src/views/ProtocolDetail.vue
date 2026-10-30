@@ -26,6 +26,16 @@ const activeTab = ref('steps')
 
 const protocol = computed(() => store.currentProtocol)
 
+/**
+ * 溯源链接（2026-10-30）：语料里的 DOI / protocols.io 原文地址已回填到后端，
+ * 98.5% 的协议都能点到原文。空就不渲染，不占版面。
+ */
+const sourceLink = computed(() => {
+  const p = store.currentProtocol
+  if (!p || !p.source_url) return null
+  return { url: p.source_url, doi: p.doi || '' }
+})
+
 /* ── Facet 分类（route B 加法，范围 A）──
  * 后端 ProtocolDetailSerializer 返回 facets：{ facet_type: [{id, facet_type, kind, value}] }
  * 仅含非空组。value 全英文（用户决策）；组标签用中文。
@@ -146,6 +156,14 @@ function formatDuration(seconds) {
           </el-tag>
         </div>
         <span class="detail-meta" v-if="protocol?.methods?.length">Methods: {{ protocol.methods.map(m => m.name).join(', ') }}</span>
+      </div>
+
+      <!-- 溯源（2026-10-30）：客户可一键跳到原始协议页面，自行核对，不必只信本站转述 -->
+      <div v-if="sourceLink" class="source-link-row" data-testid="protocol-source-link">
+        <a :href="sourceLink.url" target="_blank" rel="noopener noreferrer" class="source-link">
+          View original protocol <span aria-hidden="true">↗</span>
+        </a>
+        <span v-if="sourceLink.doi" class="source-doi">DOI: {{ sourceLink.doi }}</span>
       </div>
 
       <!-- 研究分类（route B 加法，范围 A） -->
@@ -350,6 +368,22 @@ function formatDuration(seconds) {
 .detail-title { font-size: 28px; font-weight: 700; color: var(--color-text); margin: 0; }
 .version-tag { font-family: var(--font-mono); }
 .detail-meta { font-size: 13px; color: var(--color-text-secondary); }
+
+/* 溯源链接（2026-10-30） */
+.source-link-row {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  margin: -12px 0 20px 0;
+}
+.source-link {
+  font-size: 13px; font-weight: 600;
+  color: var(--color-primary, #2563eb);
+  text-decoration: none;
+}
+.source-link:hover { text-decoration: underline; }
+.source-doi {
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--color-text-tertiary);
+}
 
 /* 研究分类（route B 加法） */
 .facet-groups { display: flex; flex-direction: column; gap: 10px; }

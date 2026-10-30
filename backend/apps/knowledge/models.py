@@ -320,6 +320,31 @@ class Protocol(TimeStampedModel):
     )
     published_at = models.DateTimeField(null=True, blank=True, verbose_name='发布时间')
     superseded_at = models.DateTimeField(null=True, blank=True, verbose_name='取代时间')
+
+    # ★ 溯源四件套（2026-10-30）：语料里原本就有，导入时被丢弃 ⇒ 现已可 100% 回填。
+    # 与 Reference.doi 的区别：Reference 是「这份协议引用了哪篇论文」，
+    # 这里是「这份协议本身从哪个原始页面来」，两者语义不同，不可混用。
+    doi = models.CharField(
+        max_length=100, blank=True, default='', db_index=True,
+        verbose_name='DOI',
+        help_text='协议自身的 DOI，例如 10.21769/BioProtoc.2841。语料里 5,127 条有，2 条重复故不设 unique',
+    )
+    source_url = models.URLField(
+        max_length=500, blank=True, default='',
+        verbose_name='原文链接',
+        help_text='DOI 链接或 protocols.io 页面地址，客户点「View original protocol」跳这里',
+    )
+    corpus_id = models.CharField(
+        max_length=64, blank=True, default='', db_index=True,
+        verbose_name='语料记录 ID',
+        help_text='语料中的原始 id，例如 Bio-protocol-2290，用于对回原 JSON',
+    )
+    corpus_source = models.CharField(
+        max_length=32, blank=True, default='', db_index=True,
+        verbose_name='语料来源',
+        help_text='bioprotocol / protocol_io / protocol_exchange；空=未归属（1.3%，历史手工录入）',
+    )
+
     if _USE_POSTGRES:
         search_vector = SearchVectorField(null=True, blank=True, verbose_name='搜索向量')
 
