@@ -334,7 +334,12 @@ function formatDuration(seconds) {
         </el-tab-pane>
 
         <!-- Troubleshooting Tab -->
-        <el-tab-pane label="Troubleshooting" name="troubleshooting">
+        <!-- ★ 2026-10-30（走查 P3）：生产 13,807 条已发布协议的 troubleshooting
+             **100% 为空**（刚清掉 88 条历史上被写成 "{}" 的脏值后，剩余全空）。
+             留着就是一个永远点开是空白的 tab ⇒ 有内容才渲染。
+             将来补了数据这个 tab 会自动出现，不是硬删。 -->
+        <el-tab-pane v-if="store.currentProtocol.troubleshooting"
+                     label="Troubleshooting" name="troubleshooting">
           <section v-if="store.currentProtocol.troubleshooting" class="detail-section">
             <p class="section-content pre-wrap">{{ store.currentProtocol.troubleshooting }}</p>
           </section>
@@ -342,7 +347,9 @@ function formatDuration(seconds) {
         </el-tab-pane>
 
         <!-- Expected Results Tab -->
-        <el-tab-pane label="Expected Results" name="results">
+        <!-- ★ 2026-10-30（走查 P3）：expected_results 生产 **100% 为空** ⇒ 同上，有内容才显示 -->
+        <el-tab-pane v-if="store.currentProtocol.expected_results"
+                     label="Expected Results" name="results">
           <section v-if="store.currentProtocol.expected_results" class="detail-section">
             <p class="section-content pre-wrap">{{ store.currentProtocol.expected_results }}</p>
           </section>
@@ -350,7 +357,10 @@ function formatDuration(seconds) {
         </el-tab-pane>
 
         <!-- References Tab -->
-        <el-tab-pane label="References" name="references">
+        <!-- ★ 2026-10-30（走查 P3）：references 生产 99.6% 为空（13,745/13,807），
+             仅 62 条能从文本里解析出 doi/pmid ⇒ 有内容才显示，否则是第 4 个空 tab -->
+        <el-tab-pane v-if="store.currentProtocol.references && store.currentProtocol.references.length"
+                     label="References" name="references">
           <ExpandableSection
             title=""
             :items="store.currentProtocol.references || []"
