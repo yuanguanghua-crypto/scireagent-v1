@@ -2,7 +2,8 @@ from rest_framework import serializers
 from django.db import models
 from core.serializers import BaseModelSerializer
 from apps.knowledge.models import (
-    ResearchGoal, Application, Method, Protocol, ProtocolStep, Reference, Compatibility
+    ResearchGoal, Application, Method, Protocol, ProtocolStep, ProtocolMaterial,
+    Reference, Compatibility,
 )
 # ★ 2026-09-24 修 A：`MethodProtocol`（协议↔方法桥）定义在 **bridges** app，
 #   此前 `ProtocolListSerializer.create()/update()` 直接用它却**没导入** ⇒
@@ -305,12 +306,28 @@ class ProtocolListSerializer(BaseModelSerializer):
         return instance
 
 
+class ProtocolMaterialSerializer(BaseModelSerializer):
+    """材料条目（只读）。刻意**不返回 raw_line** —— 那是内部保真校验字段，
+    前端展示用 name + vendor + catalog_no 就够，返回全文会让详情接口体积翻倍。"""
+
+    kind_label = serializers.CharField(source='get_kind_display', read_only=True)
+
+    class Meta:
+        model = ProtocolMaterial
+        fields = ['id', 'seq', 'kind', 'kind_label', 'ordinal', 'name',
+                  'vendor', 'catalog_no', 'model_no', 'section_heading']
+
+
 class ProtocolDetailSerializer(BaseModelSerializer):
     steps = ProtocolStepSerializer(many=True, read_only=True)
     references = serializers.SerializerMethodField()
     products = serializers.SerializerMethodField()
     facets = serializers.SerializerMethodField()
     methods = serializers.SerializerMethodField()
+    # ★ 2026-10-30：从语料 input 解析出的逐条材料清单。
+    #   注意覆盖边界：只有 Bio-protocol / Protocol-exchange 来的协议有，
+    #   Protocol-io 那 62.4% 语料本身没有 input 字段 ⇒ 空数组是正常状态，不是缺陷。
+    materials_items = ProtocolMaterialSerializer(many=True, read_only=True)
 
     class Meta:
         model = Protocol
@@ -321,6 +338,8 @@ class ProtocolDetailSerializer(BaseModelSerializer):
             # 溯源（2026-10-30）：客户可点「View original protocol」追到原文。
             # corpus_id / corpus_source 是内部溯源字段，刻意不对外暴露。
             'doi', 'source_url',
+            # 材料清单（只读嵌套）。旧 TextField materials/reagents/equipment 保留作 fallback
+            'materials_items',
             'created_at', 'updated_at',
         ]
 

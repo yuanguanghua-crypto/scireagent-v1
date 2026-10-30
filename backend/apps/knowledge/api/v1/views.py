@@ -178,6 +178,17 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     ordering_fields = ['name', 'version']
     filterset_fields = ['status']
 
+    def _base_queryset(self):
+        """基础 queryset + 按 action 决定要不要预取材料清单。
+
+        材料清单在 Bio-protocol 一份协议能有 268 条，全库 16.9 万条 ——
+        **只在 retrieve 预取**，列表页绝不带（否则列表接口体积和查询数都会爆）。
+        """
+        qs = Protocol.objects.prefetch_related('steps')
+        if self.action == 'retrieve':
+            qs = qs.prefetch_related('materials_items')
+        return qs.all()
+
     def get_queryset(self):
         """P0：公开端点仅返回已发布(PUBLISHED)记录。
         （原实现无任何 get_queryset 过滤，属结构性泄漏点。）
@@ -187,7 +198,7 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
           详情/写操作不过滤，?include_unpublished=1 看全量。
         """
         qs = apply_public_visibility(
-            Protocol.objects.prefetch_related('steps').all(),
+            self._base_queryset(),
             Protocol, self.request,
         )
         if self.action == 'list' and not include_unpublished(self.request):

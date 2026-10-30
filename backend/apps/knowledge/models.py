@@ -419,6 +419,93 @@ class ProtocolStep(TimeStampedModel):
         return f'Step {self.step_no}: {self.title}'
 
 
+class ProtocolMaterial(TimeStampedModel):
+    """协议材料条目 — 从语料 `input` 字段解析出的**逐条**材料/试剂/设备清单。
+
+    为什么必须建表而不是塞进 Protocol.materials/reagents/equipment 三个 TextField：
+      语料本身就是条目化的（Bio-protocol 85.5% 的记录在第一个 `#` 之前有一段编号清单，
+      其中 80.6% 的条目带 catalog number）。塞成 2,779 字符的一大坨文本，客户既看不下，
+      也无法生成采购清单、无法反查「这份协议到底用了哪些试剂」。
+
+    覆盖率边界（2026-10-30 实测，勿误读为「所有协议」）：
+      - Bio-protocol   4,045/4,157 记录可解析 → 163,413 条
+      - Protocol-exchange 845/933 记录（空行分隔无编号，质量较低）
+      - **Protocol-io  0 条 —— 原始 JSON 根本没有 `input` 字段**，占库内 62.4%。
+      ⇒ 全库 14,128 条协议中最多 34.6% 能长出材料清单，其余是语料本身没有。
+
+    保真铁律：`raw_line` 必须是原 `input` 的子串，只允许拼接续行、不允许改写。
+    """
+
+    class Kind(models.TextChoices):
+        REAGENT = 'reagent', '试剂'
+        EQUIPMENT = 'equipment', '设备'
+        CONSUMABLE = 'consumable', '耗材'
+        BIOLOGICAL_MATERIAL = 'biological_material', '生物材料'
+        SOLUTION_RECIPE = 'solution_recipe', '溶液/配方'
+        SOFTWARE = 'software', '软件'
+        MATERIAL_OR_REAGENT = 'material_or_reagent', '材料或试剂（未细分）'
+        NOTE = 'note', '说明'
+
+    protocol = models.ForeignKey(
+        Protocol, on_delete=models.CASCADE, related_name='materials_items', verbose_name='协议',
+        help_text='所属协议',
+    )
+    seq = models.PositiveIntegerField(
+        verbose_name='解析序号',
+        help_text='解析时生成的协议内全局递增序号。幂等键用 (protocol, seq)，'
+                  '不能用 (kind, ordinal) —— 原文编号跨分节重复（# Solutions 和 # Recipes 都从 1 开始）',
+    )
+    kind = models.CharField(
+        max_length=24, choices=Kind.choices, default=Kind.MATERIAL_OR_REAGENT,
+        db_index=True, verbose_name='类别',
+        help_text='由分节标题归一化得到；前导无标题区按条目名内容判别。'
+                  '语料共 1,800 种标题写法，无法穷举 ⇒ 允许落「未细分」',
+    )
+    ordinal = models.PositiveIntegerField(
+        null=True, blank=True, verbose_name='原文编号',
+        help_text='语料里该项前面的数字编号，仅用于展示对齐；可能跨分节重复',
+    )
+    name = models.CharField(
+        max_length=500, verbose_name='条目名称',
+        help_text='例如 Sodium chloride (NaCl) / Mini centrifuge',
+    )
+    vendor = models.CharField(
+        max_length=200, blank=True, default='', db_index=True, verbose_name='供应商',
+        help_text='括号里第一段，例如 Merck / Sigma-Aldrich / Thermo Fisher Scientific',
+    )
+    catalog_no = models.CharField(
+        max_length=100, blank=True, default='', db_index=True, verbose_name='货号',
+        help_text='catalog number / cat. no. 后的值；不是所有条目都有',
+    )
+    model_no = models.CharField(
+        max_length=100, blank=True, default='', verbose_name='型号',
+        help_text='设备条目常见，例如 MiniSpin plus',
+    )
+    section_heading = models.CharField(
+        max_length=200, blank=True, default='', verbose_name='原始分节标题',
+        help_text='语料里的 # 标题原文（未归一化），保留原貌便于回溯；'
+                  '前导无标题区为空字符串',
+    )
+    raw_line = models.TextField(
+        verbose_name='原始行',
+        help_text='原文整行（含续行拼接），保真是硬约束 —— 必须是语料 input 的子串',
+    )
+
+    class Meta:
+        db_table = 'protocol_material'
+        verbose_name = '协议材料条目'
+        verbose_name_plural = verbose_name
+        ordering = ['protocol', 'seq']
+        unique_together = [('protocol', 'seq')]
+        indexes = [
+            models.Index(fields=['protocol', 'kind'], name='protocol_material_pk_idx'),
+            models.Index(fields=['kind', 'vendor'], name='protocol_material_kv_idx'),
+        ]
+
+    def __str__(self):
+        return f'[{self.kind}] {self.name[:60]}'
+
+
 class Reference(TimeStampedModel):
     """参考文献 — 规范化的引用对象"""
     class SourceType(models.TextChoices):

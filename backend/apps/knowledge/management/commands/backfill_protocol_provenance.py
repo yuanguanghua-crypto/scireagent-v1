@@ -50,18 +50,7 @@ DOI_RE = re.compile(r'(10\.\d{4,9}/\S+)')
 BATCH = 1000
 SAMPLE_N = 5
 
-_NORM_RE = re.compile(r'[^a-z0-9]+')
-
-
-def normalize_title(s):
-    """标题归一化：小写 → 非字母数字折叠为空格 → 压缩空格。
-
-    必须与评估脚本（_corpus_audit/match.py 等）保持同一套规则，
-    否则回填口径与实测的 100% 匹配率不一致。
-    """
-    s = (s or '').strip().lower()
-    s = _NORM_RE.sub(' ', s)
-    return re.sub(r'\s+', ' ', s).strip()
+from apps.knowledge.services.protocol_materials_parser import normalize_title  # noqa: E402  (单一实现，勿在此重复定义)
 
 
 class Command(BaseCommand):

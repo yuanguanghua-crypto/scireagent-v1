@@ -36,6 +36,37 @@ const sourceLink = computed(() => {
   return { url: p.source_url, doi: p.doi || '' }
 })
 
+/* ── 材料清单（2026-10-30）──
+ * 后端 materials_items 是从语料 input 解析出的逐条材料（Bio-protocol 一份协议最多 268 条）。
+ * 按 kind 分组渲染，顺序固定：生物材料 → 试剂 → 溶液配方 → 耗材 → 设备 → 软件 → 未细分 → 说明。
+ * 空分组不渲染（沿用 2026-10-29 定下的「空就整块不显示」原则）。
+ * ⚠️ 覆盖边界：Protocol-io 来源的协议（库内 62.4%）语料本身没有 input 字段，
+ *    这里为空数组是正常状态，不是缺陷。
+ */
+const MATERIAL_KIND_ORDER = [
+  'biological_material', 'reagent', 'solution_recipe', 'consumable',
+  'equipment', 'software', 'material_or_reagent', 'note',
+]
+const MATERIAL_KIND_LABELS = {
+  biological_material: 'Biological materials',
+  reagent: 'Reagents',
+  solution_recipe: 'Solutions & recipes',
+  consumable: 'Consumables',
+  equipment: 'Equipment',
+  software: 'Software & data',
+  material_or_reagent: 'Materials & reagents',
+  note: 'Notes',
+}
+const materialGroups = computed(() => {
+  const items = store.currentProtocol?.materials_items || []
+  if (!items.length) return []
+  const by = {}
+  for (const it of items) (by[it.kind] = by[it.kind] || []).push(it)
+  return MATERIAL_KIND_ORDER
+    .filter((k) => by[k] && by[k].length)
+    .map((k) => ({ kind: k, label: MATERIAL_KIND_LABELS[k] || k, items: by[k] }))
+})
+
 /* ── Facet 分类（route B 加法，范围 A）──
  * 后端 ProtocolDetailSerializer 返回 facets：{ facet_type: [{id, facet_type, kind, value}] }
  * 仅含非空组。value 全英文（用户决策）；组标签用中文。
@@ -252,8 +283,29 @@ function formatDuration(seconds) {
         <!-- ★ 2026-10-29：原来三个字段全空时会渲染成三行 "N/A"（实测这批协议
              materials/equipment/reagents 均为空）⇒ 客户点开这个 tab 看到三个 N/A，以为系统坏了。
              现在有什么显什么；全空就给一句说人话的提示。 -->
+        <!-- ★ 2026-10-30：改为**优先读结构化条目**（materials_items，从语料 input 解析）。
+             旧的 materials/reagents/equipment 三个 TextField 保留作 fallback ——
+             它们只有 157 条 curated 协议有值，直接删会让那些协议的前台内容消失。 -->
         <el-tab-pane label="Materials" name="materials">
-          <template v-if="hasMaterialsInfo">
+          <template v-if="materialGroups.length">
+            <section v-for="g in materialGroups" :key="g.kind" class="detail-section">
+              <h2 class="section-title">
+                {{ g.label }}
+                <span class="material-count">{{ g.items.length }}</span>
+              </h2>
+              <ul class="material-list">
+                <li v-for="it in g.items" :key="it.id" class="material-item">
+                  <span class="material-name">{{ it.name }}</span>
+                  <span v-if="it.vendor || it.catalog_no || it.model_no" class="material-meta">
+                    <template v-if="it.vendor">{{ it.vendor }}</template>
+                    <template v-if="it.catalog_no"> · Cat. {{ it.catalog_no }}</template>
+                    <template v-else-if="it.model_no"> · Model {{ it.model_no }}</template>
+                  </span>
+                </li>
+              </ul>
+            </section>
+          </template>
+          <template v-else-if="hasMaterialsInfo">
             <div v-if="store.currentProtocol.materials || store.currentProtocol.equipment"
                  class="two-column">
               <section v-if="store.currentProtocol.materials" class="detail-section">
@@ -383,6 +435,26 @@ function formatDuration(seconds) {
 .source-doi {
   font-family: var(--font-mono); font-size: 12px;
   color: var(--color-text-tertiary);
+}
+
+/* 材料清单（2026-10-30） */
+.material-count {
+  display: inline-block; margin-left: 8px; padding: 1px 8px;
+  font-size: 12px; font-weight: 500; font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-subtle, #f3f4f6);
+  border-radius: 10px;
+  vertical-align: middle;
+}
+.material-list { margin: 0; padding-left: 20px; }
+.material-item { margin: 5px 0; font-size: 14px; line-height: 1.5; color: var(--color-text); }
+.material-item::marker { color: var(--color-text-tertiary); }
+.material-name { font-weight: 500; }
+.material-meta {
+  margin-left: 6px;
+  font-size: 12px; font-family: var(--font-mono);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
 }
 
 /* 研究分类（route B 加法） */
