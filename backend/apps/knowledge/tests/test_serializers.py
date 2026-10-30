@@ -12,7 +12,7 @@ from apps.bridges.tests.factories import ProductMethodFactory, MethodProtocolFac
 from apps.commerce.tests.factories import ProductFactory
 from apps.bridges.models import MethodProtocol
 import factory
-from apps.knowledge.models import FacetValue, ProtocolFacet
+from apps.knowledge.models import FacetValue, ProtocolFacet, Protocol
 
 
 class FacetValueFactory(factory.django.DjangoModelFactory):
@@ -136,7 +136,11 @@ class ApplicationDetailSerializerTest(TestCase):
     def test_protocol_ids_field(self):
         app = ApplicationFactory()
         method = MethodFactory(application=app)
-        mp = MethodProtocolFactory(method=method)
+        # ★ 2026-10-30：详情序列化器的 protocols 现在只返回 published
+        #   （原来不过滤 ⇒ 下架协议"列表有、点进 404"）。工厂默认 draft，显式置 published。
+        mp = MethodProtocolFactory(
+            method=method,
+            protocol=ProtocolFactory(status=Protocol.PublicationStatus.PUBLISHED))
         serializer = ApplicationDetailSerializer(app)
         protocol_ids = [p['id'] for p in serializer.data['protocols']]
         self.assertIn(mp.protocol_id, protocol_ids)
@@ -168,7 +172,8 @@ class ApplicationDetailSerializerTest(TestCase):
 class MethodDetailSerializerTest(TestCase):
     def test_protocol_ids_field(self):
         method = MethodFactory()
-        protocol = ProtocolFactory()
+        # 同上：只返回 published
+        protocol = ProtocolFactory(status=Protocol.PublicationStatus.PUBLISHED)
         MethodProtocol.objects.create(method=method, protocol=protocol)
         serializer = MethodDetailSerializer(method)
         protocol_ids = [p['id'] for p in serializer.data['protocols']]

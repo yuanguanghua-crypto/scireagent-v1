@@ -1,16 +1,19 @@
 <script setup>
 import { onMounted, ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useProtocolsStore } from '@/stores/protocols'
 import { useAuthStore } from '@/stores/auth'
 import ProtocolCard from '@/components/cards/ProtocolCard.vue'
 import { AppButton } from '@/components/common'
 import { getProtocolFacets } from '@/api/protocols'
 
+const route = useRoute()
 const router = useRouter()
 const store = useProtocolsStore()
 const auth = useAuthStore()
-const searchQuery = ref('')
+// ★ 2026-10-30：从 ?search= 初始化。搜索页的「View all N protocols」跳到这里，
+//   若这里不读 query，用户点过去会看到空白搜索框 + 全部协议 —— 链接等于失效。
+const searchQuery = ref((route.query.search || '').toString())
 const currentPage = ref(1)
 // ★ 2026-10-26（方案 B）：默认 published —— 对齐首页 "Browse 14121" 的数字。
 //   此前默认 'all' 且 handleFilter 没把筛选传给 API ⇒ staff 看到 14,128（含 7 draft）。

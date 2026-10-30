@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.db.models import Count, Prefetch
+from django.db.models import Count, Prefetch, Q
 from core.mixins import EnvelopeMixin
 from core.permissions import IsAdminOrReadOnly
 from core.jsonld import build_method_jsonld, build_protocol_jsonld
@@ -174,7 +174,11 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Protocol.objects.prefetch_related('steps').all()
     serializer_class = ProtocolListSerializer
     permission_classes = [IsAdminOrReadOnly]
-    search_fields = ['name', 'objective', 'materials', 'reagents']
+    # ★ 2026-10-30：`search` 参数改由 get_queryset 自己处理（见下方），
+    #   因为要把 facet 标签并进 OR 命中。若同时留 search_fields，
+    #   DRF SearchFilter 会与本逻辑 AND 叠加 ⇒ 只剩「既命中字段又命中 facet」
+    #   的极少数结果，看起来像搜索坏了。
+    search_fields = []
     ordering_fields = ['name', 'version']
     filterset_fields = ['status']
 
@@ -225,6 +229,22 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         # 用 exclude 而非 filter(isnull)，因为 M2M 需要 NOT EXISTS 语义。
         if (params.get('unclassified') or '').lower() in ('1', 'true', 'yes'):
             qs = qs.exclude(protocol_facets__facet__facet_type='application')
+
+        # ★ 2026-10-30：列表页搜索同样要能命中 facet 标签。
+        #   原来 `?search=DNA extraction` 只查 name/objective/materials/reagents，
+        #   facet 里明明标了 325 条 `DNA Extraction & Purification` 却一条都搜不到 ——
+        #   用户从搜索页点"查看全部"跳过来会看到空列表。
+        term = (params.get('search') or '').strip()
+        if term:
+            facet_ids = (ProtocolFacet.objects
+                         .filter(Q(facet__value__icontains=term)
+                                 | Q(facet__slug__icontains=term))
+                         .values('protocol_id'))
+            qs = qs.filter(
+                Q(name__icontains=term) | Q(objective__icontains=term)
+                | Q(materials__icontains=term) | Q(reagents__icontains=term)
+                | Q(id__in=facet_ids)
+            ).distinct()
         return qs
 
     def get_serializer_class(self):

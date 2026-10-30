@@ -19,6 +19,7 @@ from django.contrib.postgres.search import SearchVector, SearchQuery, SearchRank
 from apps.commerce.models import Product
 from apps.knowledge.models import Application, Method, Protocol, Reference
 from apps.knowledge.api.v1.fixture_visibility import apply_public_visibility
+from apps.knowledge.api.v1.search_views import protocol_search_qs
 
 
 def _is_postgres():
@@ -216,11 +217,19 @@ def search_grouped(request):
     else:
         data['methods'] = []
 
+    protocol_matched = 0
     if not type_filter or type_filter == 'protocol':
-        data['protocols'] = (
-            _search_model_fts(Protocol, q, PROTOCOL_FIELDS, _PROTOCOL_SEARCH_COLS, 5, request) if use_fts
-            else _search_model_icontains(Protocol, q, PROTOCOL_FIELDS, 5, request)
-        )
+        # ★ 2026-10-30：协议搜索不再走通用 `_search_model_fts`，改用 `protocol_search_qs`：
+        #   原来 FTS 的 search_vector 只覆盖 `name` + `objective`，完全不看 facet 标签，
+        #   实测「搜 DNA extraction 只回 5 条，而 facet 标了 325 条」，差 65 倍。
+        #   换成三路命中（名称/摘要/facet）+ 权重排序后，用同一套逻辑服务两个端点，
+        #   避免 search 与 search/grouped 给出不一致的结果。
+        #   代价：放弃 tsvector 的词干化（"extractions" 不再自动匹配 "extraction"），
+        #   在中文语料 + 专有名词为主的场景可接受。
+        qs = protocol_search_qs(q, request)
+        protocol_matched = qs.count()
+        data['protocols'] = list(
+            qs.values('id', 'name', 'slug', 'objective')[:5])
     else:
         data['protocols'] = []
 
@@ -237,5 +246,7 @@ def search_grouped(request):
     return Response({
         'success': True,
         'data': data,
-        'meta': {'query': q, 'count': total},
+        # count = 返回条数（旧契约）；matched = 真实匹配总数（协议单独给出，其余类型未统计）
+        'meta': {'query': q, 'count': total,
+                 'matched': {'protocols': protocol_matched}},
     })

@@ -8,6 +8,9 @@ const router = useRouter()
 const searchQuery = ref('')
 const loading = ref(false)
 const grouped = ref({ products: [], applications: [], methods: [], protocols: [], references: [] })
+// 后端现在返回 meta.matched（真实匹配总数）—— 与 meta.count（返回条数）分开。
+// 不显示这个，用户会以为「搜 DNA extraction 只有 5 条」，实际 facet 里标了 325 条。
+const matchedCounts = ref({})
 const totalCount = ref(0)
 const activeTab = ref('all')
 
@@ -64,6 +67,7 @@ async function doSearch() {
     const res = await searchGrouped(searchQuery.value)
     grouped.value = res.data || { products: [], applications: [], methods: [], protocols: [], references: [] }
     totalCount.value = res.meta?.count || 0
+    matchedCounts.value = res.meta?.matched || {}
   } catch (e) {
     console.error(e)
   } finally {
@@ -154,7 +158,16 @@ function getSubtitle(item) {
           <h2 class="group-title">
             <span class="group-dot" :style="{ background: getTypeColor(tab.key) }"></span>
             {{ tab.label }}
-            <span class="group-count">{{ tabCounts[tab.key] }}</span>
+            <span class="group-count">
+              {{ tabCounts[tab.key] }}<template
+                v-if="(matchedCounts[tab.key] || 0) > tabCounts[tab.key]"
+              > / {{ matchedCounts[tab.key] }}</template>
+            </span>
+            <router-link
+              v-if="tab.key === 'protocols' && (matchedCounts.protocols || 0) > tabCounts.protocols"
+              :to="{ path: '/protocols', query: { search: searchQuery } }"
+              class="view-all-link"
+            >View all {{ matchedCounts.protocols }} →</router-link>
           </h2>
           <div class="result-list">
             <article
@@ -257,6 +270,8 @@ function getSubtitle(item) {
 }
 .group-dot { width: 8px; height: 8px; border-radius: 50%; }
 .group-count { font-size: 11px; font-weight: 600; color: var(--color-text-tertiary); }
+.view-all-link { margin-left: 10px; font-size: 12px; font-weight: 600; color: var(--color-primary); text-decoration: none; }
+.view-all-link:hover { text-decoration: underline; }
 
 /* Result items */
 .result-list { display: flex; flex-direction: column; gap: 6px; }
