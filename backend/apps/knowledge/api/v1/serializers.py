@@ -322,6 +322,15 @@ class ProtocolDetailSerializer(BaseModelSerializer):
     #   注意覆盖边界：只有 Bio-protocol / Protocol-exchange 来的协议有，
     #   Protocol-io 那 62.4% 语料本身没有 input 字段 ⇒ 空数组是正常状态，不是缺陷。
     materials_items = ProtocolMaterialSerializer(many=True, read_only=True)
+    # ★ 2026-10-30（走查 P2-C）：让前端能区分「为什么没有材料清单」。
+    #   实测 13,807 条已发布协议里 8,887 条（64.4%）materials_items 为空，但原因完全不同：
+    #     - protocol_io 8,384 条：语料**没有独立的 input 字段**，材料信息混在 steps 正文里
+    #       （配方表被拍平成一段粘连文本）。这是**语料形态**，不是缺陷，页面不该说"暂无"。
+    #     - bioprotocol 111 + protocol_exchange 90：本该有却解析失败（标题匹配不上）。
+    #     - 空 source 302：来源不明。
+    #   前端据此给不同文案：'no_separate_list' → 引导去看 Steps；'missing' → 说明未提供。
+    #   注意 corpus_source 本身仍不对外暴露（内部溯源字段），这里只暴露一个派生的状态枚举。
+    materials_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Protocol
@@ -333,9 +342,22 @@ class ProtocolDetailSerializer(BaseModelSerializer):
             # corpus_id / corpus_source 是内部溯源字段，刻意不对外暴露。
             'doi', 'source_url',
             # 材料清单（只读嵌套）。旧 TextField materials/reagents/equipment 保留作 fallback
-            'materials_items',
+            'materials_items', 'materials_status',
             'created_at', 'updated_at',
         ]
+
+    def get_materials_status(self, obj):
+        """材料清单的状态枚举，供前端区分「没有」的三种原因。
+
+        - has_items          有结构化条目（protocol_io 0 条 / bioprotocol 97.4% / exchange 90.2%）
+        - no_separate_list   该语料源本身不提供独立清单（protocol_io，材料混在 steps 正文）
+        - missing            本该有但没解析出来（bioprotocol + exchange 共 201 条），或来源不明
+        """
+        if obj.materials_items.exists():
+            return 'has_items'
+        if obj.corpus_source == 'protocol_io':
+            return 'no_separate_list'
+        return 'missing'
 
     def get_facets(self, obj):
         """route B 加法（范围 A）：按 facet_type 分组返回该协议的受控词表标签。

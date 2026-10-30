@@ -322,8 +322,15 @@ function formatDuration(seconds) {
               <p class="section-content pre-wrap">{{ store.currentProtocol.reagents }}</p>
             </section>
           </template>
+          <!-- ★ 2026-10-30（走查 P2-C）：原来所有空材料都显示同一句
+               "This protocol does not list materials, equipment or reagents." ——
+               但 8,887 条空里 8,384 条（protocol_io）是**语料源本身没有独立清单**，
+               材料信息混在 Steps 正文里。统一说"未提供"会误导用户以为这条协议没写材料。
+               现在按后端给的 materials_status 分开说。 -->
           <el-empty v-else
-                    description="This protocol does not list materials, equipment or reagents." />
+                    :description="store.currentProtocol.materials_status === 'no_separate_list'
+                      ? 'This corpus source does not provide a separate materials list — preparation details are inside the Steps tab.'
+                      : 'This protocol does not list materials, equipment or reagents.'" />
         </el-tab-pane>
 
         <!-- Troubleshooting Tab -->
