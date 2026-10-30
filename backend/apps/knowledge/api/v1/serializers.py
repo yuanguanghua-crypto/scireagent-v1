@@ -238,7 +238,11 @@ class ApplicationDetailSerializer(ApplicationGoalSyncMixin, BaseModelSerializer)
         from apps.bridges.models import MethodProtocol
         method_ids = list(obj.methods.values_list('id', flat=True))
         protocol_ids = MethodProtocol.objects.filter(method_id__in=method_ids).values_list('protocol_id', flat=True).distinct()
-        return list(Protocol.objects.filter(id__in=protocol_ids).values('id', 'name', 'slug'))
+        # ★ 2026-10-30：必须过滤 published。原来不过滤 ⇒ 下架/草稿协议仍出现在
+        #   Application 的协议列表里，但点进去 404（详情走了 apply_public_visibility）。
+        return list(Protocol.objects.filter(
+            id__in=protocol_ids, status=Protocol.PublicationStatus.PUBLISHED,
+        ).values('id', 'name', 'slug'))
 
     def get_products(self, obj):
         from apps.bridges.models import ProductMethod
@@ -511,7 +515,11 @@ class MethodDetailSerializer(BaseModelSerializer):
         ]
 
     def get_protocols(self, obj):
-        return list(Protocol.objects.filter(method_protocols__method=obj).values('id', 'name', 'slug', 'version'))
+        # ★ 2026-10-30：同上 —— 不过滤 published 会让下架协议"列表有、点进 404"。
+        return list(Protocol.objects.filter(
+            method_protocols__method=obj,
+            status=Protocol.PublicationStatus.PUBLISHED,
+        ).values('id', 'name', 'slug', 'version'))
 
     def get_products(self, obj):
         from apps.bridges.models import ProductMethod

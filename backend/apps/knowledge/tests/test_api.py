@@ -4,7 +4,7 @@ from apps.knowledge.tests.factories import (
     ResearchGoalFactory, ApplicationFactory, MethodFactory,
     ProtocolFactory, ProtocolStepFactory, ReferenceFactory, CompatibilityFactory
 )
-from apps.knowledge.models import ResearchGoal, Application, Method
+from apps.knowledge.models import ResearchGoal, Application, Method, Protocol
 from apps.bridges.tests.factories import ProductMethodFactory, MethodProtocolFactory
 from apps.bridges.models import MethodProtocol
 from apps.accounts.tests.factories import UserFactory
@@ -426,12 +426,30 @@ class MethodAPITest(TestCase):
 
     def test_detail_protocols_populated(self):
         method = MethodFactory()
-        protocol = ProtocolFactory()
+        # ★ 2026-10-30：方法详情的协议列表现在只返回 published
+        #   （原来不过滤 ⇒ 下架协议"列表有、点进 404"）。工厂默认 draft，这里显式置 published。
+        protocol = ProtocolFactory(status=Protocol.PublicationStatus.PUBLISHED)
         MethodProtocol.objects.create(method=method, protocol=protocol)
         resp = self.client.get(f'/api/v1/methods/{method.id}/')
         data = resp.json()['data']
         protocol_ids = [p['id'] for p in data['protocols']]
         self.assertIn(protocol.id, protocol_ids)
+
+    def test_detail_protocols_excludes_archived(self):
+        """下架（archived）的协议不能出现在方法页的协议列表里 ——
+        否则客户看到列表里有、点进去 404。"""
+        method = MethodFactory()
+        archived = ProtocolFactory(status=Protocol.PublicationStatus.ARCHIVED)
+        MethodProtocol.objects.create(method=method, protocol=archived)
+        resp = self.client.get(f'/api/v1/methods/{method.id}/')
+        self.assertEqual(resp.json()['data']['protocols'], [])
+
+    def test_detail_protocols_excludes_draft(self):
+        method = MethodFactory()
+        draft = ProtocolFactory(status=Protocol.PublicationStatus.DRAFT)
+        MethodProtocol.objects.create(method=method, protocol=draft)
+        resp = self.client.get(f'/api/v1/methods/{method.id}/')
+        self.assertEqual(resp.json()['data']['protocols'], [])
 
     def test_detail_products_populated(self):
         method = MethodFactory()
