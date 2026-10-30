@@ -43,7 +43,12 @@ function plural(n, one, many) {
 
 function metaOf(item) {
   if (props.kind === 'method') {
-    return item.products_count ? plural(item.products_count, 'product', 'products') : ''
+    // ★ 2026-10-30：方法的排序依据改成「已发布协议数」，所以把它显示出来 ——
+    //   否则用户不知道为什么是这六个（原来按 display_priority 排，而全库都是 0）。
+    const bits = []
+    if (item.protocols_count) bits.push(plural(item.protocols_count, 'protocol', 'protocols'))
+    if (item.products_count) bits.push(plural(item.products_count, 'product', 'products'))
+    return bits.join(' · ')
   }
   const bits = []
   if (item.methods_count) bits.push(plural(item.methods_count, 'method', 'methods'))

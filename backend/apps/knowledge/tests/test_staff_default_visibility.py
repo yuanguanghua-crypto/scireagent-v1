@@ -71,7 +71,9 @@ class StaffDefaultVisibilityTest(TestCase):
         """首页 methods 数字必须等于 staff 默认列表的 count —— 这就是本 bug 的判据。"""
         home = self.anon.get('/api/v1/site/home').json()
         home = home.get('data') or home
-        home_methods = (home.get('knowledge') or {}).get('methods')
+        # 2026-10-30：knowledge 字段已随首页「Explore Knowledge Base」区块删除，
+        # methods 数字统一从 stats 取（两者本来就等价）。
+        home_methods = (home.get('stats') or {}).get('methods')
         staff_list = self._count(self.staff, METHODS)
         self.assertEqual(home_methods, staff_list,
                          f'首页 {home_methods} ≠ staff 列表 {staff_list}')

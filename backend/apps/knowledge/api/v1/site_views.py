@@ -50,10 +50,26 @@ def site_home(request):
     #   排序键 `display_priority` / `sort_order` 都是 Application **自身字段**、
     #   与两个聚合值无关 ⇒ 先按它们取前 6 个 id，再只对这 6 个聚合，**结果等价**。
     #   已用「优化前后响应逐字节比对」验证。
+    # ★ 2026-10-30（用户要求 A 方案）：排序键从 `display_priority` 换成**方法数**。
+    #
+    #   原因：生产 28,564 个 active Application 的 `display_priority` **全部是 0**
+    #   （运营置顶功能从未使用）⇒ 原排序退化成「按表里物理顺序取前 6 行」，
+    #   所谓「Featured」其实是「最早插入的 6 条」，与内容质量无关。
+    #
+    #   为什么选方法数而不是协议数：实测按协议数（三层 join
+    #   `application_methods__method__method_protocols__protocol`）排序时，
+    #   前 8 名全部并列 `1693`，且名字是长尾实验（`Isolation of bacteria from
+    #   shark skin`、`BAC Library Screening`），因为同一批协议被多条路径重复计数
+    #   ⇒ 该排序**不可用**。方法数（两层 join）则能选出真正的内容密集技术族
+    #   （Enzymology 12 / Cloning 7 / Microscopy 6）。
+    #
+    #   为控制成本仍保留「两阶段」：先只取 id（两层 join、不 join 产品），
+    #   再对这 6 个补产品数。避免把三层 join 摊到全表。
     _top_app_ids = list(
         Application.objects
         .filter(status='active')
-        .order_by('-display_priority', 'sort_order')
+        .annotate(_methods=Count('application_methods', distinct=True))
+        .order_by('-_methods', 'id')
         .values_list('id', flat=True)[:6]
     )
     featured_apps = (
@@ -71,10 +87,16 @@ def site_home(request):
             ),
             methods_count=Count('application_methods', distinct=True),
         )
-        .order_by('-display_priority', 'sort_order')
+        # id__in 不保序，必须再按同一键排一次，否则显示顺序与选取顺序不符
+        .order_by('-methods_count', 'id')
     )
 
-    # Featured methods (by display_priority if available, else default)
+    # Featured methods — 同样改成数据驱动：按**已发布协议数**降序。
+    # 生产 83 个 Method 的 display_priority 也全是 0，原排序等于按 id 取前 6。
+    # Method 表只有 83 行，直接全量聚合，成本可忽略。
+    # 实测 top6 = Genomic DNA Extraction 731 / PCR 585 / Pluripotent Stem Cell
+    # Culture 498 / Protein Purification 478 / In-vivo Recording 472 /
+    # Bacterial-Microbial Culture 468 —— 确实是内容最厚的六个。
     featured_methods = (
         Method.objects
         .filter(status='active')
@@ -84,8 +106,13 @@ def site_home(request):
                 filter=Q(product_methods__product__status__in=['active', 'published']),
                 distinct=True
             ),
+            protocols_count=Count(
+                'method_protocols__protocol',
+                filter=Q(method_protocols__protocol__status='published'),
+                distinct=True
+            ),
         )
-        .order_by('-display_priority', 'id')[:6]
+        .order_by('-protocols_count', 'id')[:6]
     )
 
     # Featured products (by display_priority) — prefetch SKUs to avoid N+1
@@ -210,17 +237,14 @@ def site_home(request):
         count = sum(per_class_counts.get(i, 0) for i in descendant_ids)
         categories_payload.append({**meta, 'class_slug': l1_slug, 'count': count})
 
-    # Knowledge section data — aligned with frontend KnowledgeSection
-    knowledge_payload = {
-        # ★ 2026-10-30 修：原来只 `public().count()`，**漏了 status='active'**
-        #   ⇒ 首页卡片显示 11,039（含 11 个 archived），而点进 /research-goals
-        #   列表页只放 active ⇒ Total 11,028。同一个数字差 11，用户会以为数据错乱。
-        #   与 applications / methods 保持一致，都加 status='active'。
-        'goals': ResearchGoal.objects.public().filter(status='active').count(),
-        'applications': Application.objects.public().filter(status='active').count(),
-        'methods': method_count,
-        'protocols': protocol_count,
-    }
+    # ★ 2026-10-30（用户要求 A 方案）：删除 `knowledge_payload`。
+    #   它原本喂给首页「Explore Knowledge Base」那块四卡片，而该区块已删除。
+    #   删之前核对过重复性：4 个数字里 3 个与 `stats_payload` 完全等价
+    #   （goals ≡ stats.areas、methods ≡ stats.methods、protocols ≡ stats.protocols），
+    #   只有 `applications` 是独有信息 —— 而它已由 Featured Applications 区块
+    #   直接展示具体条目（比一个孤立的总数更有用）。
+    #   原来在注释里记录的「漏 status='active' 导致差 11」修复，随字段一起退场；
+    #   stats_payload 侧的同一修复不受影响。
 
     # Build featured_products data using prefetched SKUs (no N+1)
     products_data = []
@@ -253,7 +277,6 @@ def site_home(request):
             },
             'stats': stats_payload,
             'categories': categories_payload,
-            'knowledge': knowledge_payload,
             'featured_applications': [
                 {
                     'id': a.id,
@@ -273,6 +296,8 @@ def site_home(request):
                     'slug': m.slug,
                     'purpose': m.purpose,
                     'products_count': m.products_count,
+                    # 新增：排序依据就是它，前端顺手可以显示「N protocols」
+                    'protocols_count': m.protocols_count,
                 }
                 for m in featured_methods
             ],
@@ -311,7 +336,7 @@ def site_home(request):
             #   保留 `/api/v1/graph` 端点本身（后端能力，未被删除）。
             'seo': {
                 'title': 'SciReagent — AI-Native Scientific Reagent Platform',
-                'description': 'Discover nucleotides, click chemistry reagents, and related products with AI-powered knowledge graph. Research-driven reagent selection for life science.',
+                'description': 'Discover nucleotides, click chemistry reagents, and related products with a curated research knowledge base. Research-driven reagent selection for life science.',
                 'og_image': None,
             },
         },

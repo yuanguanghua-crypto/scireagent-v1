@@ -11,7 +11,6 @@ import MeridianDivider from '@/components/common/MeridianDivider.vue'
 
 /* Lazy-loaded components (below fold) */
 const StatsBar = defineAsyncComponent(() => import('@/components/home/StatsBar.vue'))
-const KnowledgeSection = defineAsyncComponent(() => import('@/components/home/KnowledgeSection.vue'))
 // ★ 2026-10-30：KnowledgeGraphPreview 已移除 —— 用户明确要求「图谱部分不展示，
 //   没有作用，而且很杂乱」。它连带整条前端图谱链（KnowledgeGraph → useGraph
 //   → api/graph.js）一起删除，产物里 443KB 的 cytoscape chunk 也随之消失。
@@ -28,7 +27,6 @@ const homeData = ref({
   featured_methods: [],
   references: [],
   categories: [],
-  knowledge: { goals: 0, applications: 0, methods: 0, protocols: 0 },
 })
 
 onMounted(async () => {
@@ -83,18 +81,10 @@ onMounted(async () => {
 
         <MeridianDivider />
 
-        <!-- 5. Knowledge Section (collapsible) -->
-        <Suspense>
-          <KnowledgeSection :knowledge="homeData.knowledge" />
-          <template #fallback>
-            <div class="loading-skeleton" style="height: 80px;"></div>
-          </template>
-        </Suspense>
-
         <!-- 6~9. 知识实体区块（★ 2026-10-30 C 批接入，此前四块数据算了但没人渲染） -->
         <FeaturedEntities
           title="Featured Applications"
-          subtitle="Technique families researchers actually run — each linked to the methods and protocols behind it."
+          subtitle="Technique families researchers actually run — ranked by how many methods each covers."
           kind="application"
           :items="homeData.featured_applications"
           link-to="/applications"
@@ -103,7 +93,7 @@ onMounted(async () => {
 
         <FeaturedEntities
           title="Featured Methods"
-          subtitle="Core experimental methods, with the protocols and reagents that support them."
+          subtitle="Core experimental methods — ranked by the number of published protocols behind them."
           kind="method"
           :items="homeData.featured_methods"
           link-to="/methods"

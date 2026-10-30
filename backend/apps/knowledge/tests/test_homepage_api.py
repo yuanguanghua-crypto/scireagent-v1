@@ -127,15 +127,34 @@ class TestHomepageAPI:
         for p in data['featured_products']:
             assert p['status'] != 'draft'
 
-    def test_t1_19_featured_applications_use_display_priority(self):
-        """T1-19: Featured applications with display_priority > 0 appear first."""
-        a_low = ApplicationFactory(status='active', display_priority=10)
-        a_high = ApplicationFactory(status='active', display_priority=100)
-        resp = self.client.get('/api/v1/site/home')
-        data = resp.json()['data']
+    def test_t1_19_featured_applications_ranked_by_method_count(self):
+        """T1-19（契约变更，2026-10-30）：精选应用改按**方法数**降序。
+
+        原来按 `display_priority`，但实测生产 28,564 个 active Application 该字段
+        全部是 0（运营置顶从未使用）⇒ 排序退化成「按物理顺序取前 6」，所谓
+        Featured 其实是「最早插入的 6 条」。改成方法数后才是「内容最密集的 6 个」。
+
+        为什么不用协议数：三层 join 会让同一批协议被重复计数，实测前 8 名全部
+        并列 1693，且名字是长尾实验而非技术族 —— 那个排序不可用。
+        """
+        rich = ApplicationFactory(status='active')
+        for _ in range(3):
+            MethodFactory(application=rich, status='active')
+        poor = ApplicationFactory(status='active')
+
+        data = self.client.get('/api/v1/site/home').json()['data']
         featured = data['featured_applications']
-        if len(featured) >= 2:
-            assert featured[0].get('display_priority', 0) >= featured[1].get('display_priority', 0)
+        ids = [a['id'] for a in featured]
+        counts = {a['id']: a['methods_count'] for a in featured}
+
+        assert rich.id in ids, '方法最多的应用必须进精选'
+        assert counts[rich.id] == 3
+        if poor.id in ids:
+            assert ids.index(rich.id) < ids.index(poor.id), '方法数多的排前面'
+        # 整体必须是方法数单调不增
+        counts_seq = [a['methods_count'] for a in featured]
+        assert counts_seq == sorted(counts_seq, reverse=True), '精选列表未按方法数降序'
+
 
     def test_t1_20_featured_methods_have_products_count(self):
         """T1-20: Featured methods have products_count."""
