@@ -25,7 +25,7 @@ import time
 
 import numpy as np
 
-from django.db.models import Count, Max
+from django.db.models import Count, F, Max
 
 from apps.bridges.models import ProductProtocol as PP, ProductMethod, MethodProtocol
 from apps.bridges.services import relevance as REL
@@ -467,7 +467,13 @@ def recommend_protocols_for_enrich(product_name, product_pk=None, top_k=10):
                                              PP.LinkSource.INHERITED,
                                              PP.LinkSource.EXPLICIT])
                     .select_related('protocol')
-                    .order_by('-relevance_score', '-score_c', 'id')[:top_k])
+                    # ★ 2026-10-30：`score_c` 字段是 `null=True`（FloatField），
+                    #   而 PostgreSQL 的 DESC 默认 NULLS FIRST —— 一旦将来某条
+                    #   写入路径没算 C 轴，那批空值会被顶到推荐列表最前。
+                    #   实测生产 23,304 条 PP 里 score_c 零 NULL，所以目前无实际
+                    #   影响（且它只是第二排序键），这里纯防御：显式 NULLS LAST。
+                    #   `relevance_score` 非 nullable，无需处理。
+                    .order_by('-relevance_score', F('score_c').desc(nulls_last=True), 'id')[:top_k])
             return [_serialize_pp(pp) for pp in rows]
 
     # 草稿 → S_A/S_B 实时排序（无嵌入，S_C=0）
