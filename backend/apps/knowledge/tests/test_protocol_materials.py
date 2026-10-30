@@ -60,6 +60,26 @@ class SplitParensTest(TestCase):
         out = split_parens('Mini centrifuge (Eppendorf, model: MiniSpin plus)')
         self.assertEqual(out['model_no'], 'MiniSpin plus')
 
+    def test_eg_placeholder_is_not_vendor(self):
+        """实测 2,104 条 `(e.g., Sigma-Aldrich, catalog number: X)` 会把 e.g. 当供应商。"""
+        out = split_parens('Sodium chloride (NaCl) (e.g., Sigma-Aldrich, catalog number: S9888)')
+        self.assertEqual(out['vendor'], 'Sigma-Aldrich')
+        self.assertEqual(out['catalog_no'], 'S9888')
+
+    def test_eg_inline_prefix_is_stripped(self):
+        """`(e.g. Sigma-Aldrich, catalog number: X)` —— 占位词和供应商连写。"""
+        out = split_parens('Absolute ethanol (e.g. Sigma-Aldrich, catalog number: E7023)')
+        self.assertEqual(out['vendor'], 'Sigma-Aldrich')
+
+    def test_vendor_not_taken_from_attribute_segment(self):
+        """括号里只有属性段没有供应商时，宁可留空也不把 `catalog number` 当 vendor。"""
+        out = split_parens('Some powder (catalog number: X123)')
+        self.assertEqual(out['vendor'], '')
+
+    def test_ie_and_etc_also_skipped(self):
+        self.assertEqual(split_parens('X (i.e., Merck, catalog number: 1)')['vendor'], 'Merck')
+        self.assertEqual(split_parens('X (etc., VWR, catalog number: 2)')['vendor'], 'VWR')
+
     def test_no_parens_returns_whole_line_as_name(self):
         out = split_parens('Distilled water')
         self.assertEqual(out['name'], 'Distilled water')

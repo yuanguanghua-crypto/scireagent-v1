@@ -115,6 +115,32 @@ def _s(value, limit):
 _NORM_TITLE_RE = re.compile(r'[^a-z0-9]+')
 
 
+# 括号第一段是这类「占位词」时不是供应商名。
+# 实测 `(e.g., Sigma-Aldrich, catalog number: E7023)` 出现 2,104 次（占 1.2%），
+# 若直接把第一段当 vendor，会得到一堆 vendor='e.g.' 的脏数据，客户看到会以为抓错了。
+_VENDOR_FILLER_RE = re.compile(r'^(?:e\.?\s?g\.?|i\.?\s?e\.?|etc\.?|see|such\s+as|eg)$', re.I)
+_VENDOR_ATTR_RE = re.compile(r'^(?:catalogs?|cat\.?\s*no\.?|model|manuf\w*|part\s*no)\b', re.I)
+
+
+def pick_vendor(parts) -> str:
+    """从括号分段里挑出真正的供应商名。
+
+    规则：跳过 `e.g.` / `i.e.` / `etc.` 这类占位词（含带逗号的变体），
+    遇到 `catalog number:` / `model:` 这类属性段就停止（后面不再有供应商）。
+    """
+    for raw in parts:
+        seg = (raw or '').strip()
+        # 剥掉行首 e.g. / i.e. 前缀，可能是 `e.g. Sigma-Aldrich` 这种连写
+        seg = re.sub(r'^(?:e\.?\s?g\.?|i\.?\s?e\.?|etc\.?)\s*[,:]?\s*', '', seg, flags=re.I)
+        seg = seg.strip().rstrip(',').strip()
+        if not seg or _VENDOR_FILLER_RE.match(seg):
+            continue
+        if _VENDOR_ATTR_RE.match(seg):
+            return ''
+        return seg[:VENDOR_MAX]
+    return ''
+
+
 def normalize_title(s: str) -> str:
     """标题归一化：小写 → 非字母数字折叠为空格 → 压缩空白。
 
@@ -177,12 +203,10 @@ def split_parens(raw: str) -> Dict[str, str]:
             continue
         name = raw[:m.start()].strip().rstrip(',').strip()
         parts = re.split(r',(?![^()]*\))', inner)
-        vendor = parts[0] if parts else ''
-        # `Glycolic acid (Sigma-Aldrich, catalog number: X)` → vendor 段可能带 catalog 尾巴
-        vendor = re.sub(r'\s+(?:catalog|cat\.?\s*no|model)\b.*$', '', vendor, flags=re.I).strip()
+        vendor = pick_vendor(parts)
         return {
             'name': name or raw.strip(),
-            'vendor': vendor[:VENDOR_MAX],
+            'vendor': vendor,
             'catalog_no': (cat_m.group(1).strip() if cat_m else '')[:CATALOG_MAX],
             'model_no': (model_m.group(1).strip() if model_m else '')[:MODEL_MAX],
         }
@@ -291,8 +315,10 @@ def parse_blocks(text: str) -> List[Dict]:
                     is_dose = re.search(r'\d+\s*(?:mg|ml|g|l|mm|um|µm|°c|%|x)\b', inner, re.I)
                     if not is_dose:
                         parts = [p.strip() for p in inner.split(',')]
-                        if parts and parts[0] and not payload['vendor']:
-                            payload['vendor'] = parts[0][:VENDOR_MAX]
+                        if not payload['vendor']:
+                            v = pick_vendor(parts)
+                            if v:
+                                payload['vendor'] = v
                         if (payload['catalog_no'] == '' and len(parts) == 2
                                 and re.fullmatch(r'[A-Z0-9][A-Z0-9\-\.]{2,24}', parts[1])):
                             payload['catalog_no'] = parts[1]
