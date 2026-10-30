@@ -1,7 +1,7 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.http import Http404, HttpResponse
-from django.db.models import Count, Q
+from django.db.models import Case, Count, F, Q, When
 from core.svg_sanitizer import sanitize_svg
 from apps.knowledge.models import Application, Method, Protocol, ResearchGoal, Reference
 from apps.commerce.models import Product
@@ -159,9 +159,24 @@ def site_home(request):
     # References (recent)
     # ★ 2026-10-30：必须排除测试夹具 —— 本地 219 条里有 32 条 e2e 残留，
     #   其中 `E2E stub reference`（year=2026）会**稳居第一位**。
+    # References (recent)
+    #
+    # ★ 2026-10-30 修（用户报「首页 Recent Publications 标题点不了」）：
+    #
+    #   ① 排序错：原写法 `order_by('-year', '-id')`。**PostgreSQL 的 DESC 默认
+    #      NULLS FIRST** ⇒ year 为 NULL 的行被顶到最前。生产 437 条里 422 条有年份、
+    #      15 条没有，于是首页展示的恰恰是**最没数据的那 5 条**（id 348/340/332/330/329）
+    #      —— 它们的 doi/url/year **全为空**，整条不可点。改成显式 nulls_last。
+    #   ② 可读性：优先展示「有 DOI」的，因为 DOI 是唯一可靠的跳转依据。
+    #      实测 406/437 有 DOI，剩下 31 条连 url 也没有，排到后面无妨。
     references = (
         Reference.objects.filter(is_test_fixture=False)
-        .order_by('-year', '-id')[:5]
+        .annotate(_has_doi=Case(
+            When(doi__isnull=True, then=0),
+            When(doi='', then=0),
+            default=1,
+        ))
+        .order_by('-_has_doi', F('year').desc(nulls_last=True), '-id')[:5]
     )
 
     # Stats — aggregate counts from all relevant models
@@ -324,6 +339,8 @@ def site_home(request):
                     'journal': r.journal,
                     'year': r.year,
                     'doi': r.doi,
+                    # 新增：DOI 缺失时的备用跳转目标（前端标题链接用）
+                    'url': r.url,
                 }
                 for r in references
             ],
