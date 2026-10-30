@@ -35,8 +35,9 @@ class PublicVisibilitySearchTest(TestCase):
         self.client = APIClient()
         self.staff = UserFactory(is_staff=True)
 
-        # Method：draft（默认）vs active
-        self.draft_method = MethodFactory(name='zzz draft method')
+        # Method：draft vs active
+        # ★ 2026-10-30：MethodFactory 默认改成 active（对齐生产），draft 必须显式传。
+        self.draft_method = MethodFactory(name='zzz draft method', status=DRAFT)
         self.active_method = MethodFactory(name='zzz real method', status=ACTIVE)
         # Application：draft vs active
         self.draft_app = ApplicationFactory(name='zzz draft app')
@@ -209,10 +210,19 @@ class PublicVisibilityGraphTest(TestCase):
         MethodProtocolFactory(method=self.draft_method, protocol=self.published_protocol)
         # active 产品 ↔ draft 方法（邻居过滤点）
         ProductMethodFactory(product=self.active_product, method=self.draft_method)
-        # active AP ↔ draft 方法（既有过滤点的回归保护）
+        # active AP ↔ 两个方法（既有过滤点的回归保护）
+        # ★ 2026-10-30：改走 ApplicationMethod 桥。原写法 `obj.application = app; obj.save()`
+        #   只改 FK 不建桥，桥路径下图谱拿不到这些边。用工厂传 application 才会自动建桥；
+        #   draft 不会建桥（桥里只放 canonical），所以 draft 那条边仍需手工补以测试过滤。
+        from apps.knowledge.models import ApplicationMethod
         self.draft_method.application = self.active_app
         self.draft_method.save()
+        ApplicationMethod.objects.create(
+            application=self.active_app, method=self.draft_method, source='test')
         self.active_method.application = self.active_app
+        self.active_method.save()
+        ApplicationMethod.objects.create(
+            application=self.active_app, method=self.active_method, source='test')
         self.active_method.save()
 
     def _node_ids(self, resp):

@@ -29,6 +29,15 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # ★ 2026-10-30：B 方案（ApplicationMethod 桥）已取代这套建模。
+        #   本命令会把方法重挂到 `Method.application` FK 并造出 draft 副本 ——
+        #   跑一次就等于把刚清理干净的 47,835 行又造回来。硬停。
+        from django.core.management.base import CommandError
+        raise CommandError(
+            "已废弃：`Method.application` 语义由 ApplicationMethod 桥取代。\n"
+            "方法与应用的关系请用 `ApplicationMethod` 维护（M:N），"
+            "不要再造 application FK 下的 draft 副本。\n"
+            "如需迁移数据，用 `migrate_application_methods`。")
         dry_run = options['dry_run']
         skip_pseudo = options['skip_pseudo']
         self.stdout.write(f'{"[DRY-RUN] " if dry_run else ""}S2 Method 重挂开始...')

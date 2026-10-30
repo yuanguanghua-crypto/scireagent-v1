@@ -132,7 +132,10 @@ class MethodViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSe
     permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'purpose', 'advantages', 'limitations']
     ordering_fields = ['name', 'cost_band']
-    filterset_fields = ['application_id', 'status', 'origin']
+    # ★ 2026-10-30（B 方案阶段 2）：`application_id` 从自动筛选移除 ——
+    #   django-filter 会去查 `Method.application` FK，而该 FK 语义已废弃。
+    #   改为在 get_queryset 里手工按 `application_id` 查桥（参数名不变，前端无感）。
+    filterset_fields = ['status', 'origin']
 
     def get_queryset(self):
         """公开端点仅返回已发布(ACTIVE)记录。
@@ -152,6 +155,11 @@ class MethodViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSe
             statuses = public_statuses(Method)
             if statuses:
                 qs = qs.filter(status__in=statuses)
+
+        # ★ 2026-10-30：application_id 走桥（见 filterset_fields 说明）
+        _app_id = (self.request.query_params.get('application_id') or '').strip()
+        if _app_id:
+            qs = qs.filter(application_methods__application_id=_app_id)
         return qs
 
     def get_serializer_class(self):

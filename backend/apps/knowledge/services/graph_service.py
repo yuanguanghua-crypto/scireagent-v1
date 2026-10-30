@@ -66,13 +66,17 @@ def _product_neighbors(pid):
 def _method_neighbors(mid):
     """Method → Application (FK reverse), Protocol (via MethodProtocol), Product (reverse ProductMethod)"""
     neighbors = []
-    method = Method.objects.filter(id=mid).select_related('application').first()
-    if method and method.application:
+    method = Method.objects.filter(id=mid).first()
+    # ★ 2026-10-30（B 方案阶段 2）：M:N 下取 display_order 最小的应用作为代表分支，
+    #   保证同一方法每次生成的图边稳定（随机取会让图谱抖动）。
+    from apps.knowledge.services.application_methods import application_of_method
+    _app = application_of_method(method) if method else None
+    if _app:
         neighbors.append({
             'target_type': 'application',
-            'target_id': method.application.id,
-            'target_label': method.application.name,
-            'target_slug': method.application.slug,
+            'target_id': _app.id,
+            'target_label': _app.name,
+            'target_slug': _app.slug,
             'relationship': 'belongs_to',
         })
     # Method → Protocol（P0：只挂 published 协议）
@@ -109,7 +113,10 @@ def _application_neighbors(aid):
             'relationship': 'part_of',
         })
     # Application → Method
-    for method in Method.objects.public().filter(application_id=aid, status='active'):
+    # ★ 2026-10-30：改走桥（M:N）。按单个 application_id 筛不会重复，
+    #   `unique_together(application, method)` 保证。
+    for method in Method.objects.public().filter(
+            application_methods__application_id=aid, status='active'):
         neighbors.append({
             'target_type': 'method',
             'target_id': method.id,

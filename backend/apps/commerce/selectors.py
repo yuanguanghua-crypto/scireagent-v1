@@ -108,8 +108,9 @@ def filter_products(query: str = '', filters: dict = None, base_qs: QuerySet = N
             else:
                 qs = qs.filter(product_class_id=pcid)
         if 'application_id' in filters:
+            # ★ 2026-10-30（B 方案阶段 2）：方法→应用改走 ApplicationMethod 桥
             qs = qs.filter(
-                product_methods__method__application_id=filters['application_id']
+                product_methods__method__application_methods__application_id=filters['application_id']
             ).distinct()
         if 'method_id' in filters:
             qs = qs.filter(

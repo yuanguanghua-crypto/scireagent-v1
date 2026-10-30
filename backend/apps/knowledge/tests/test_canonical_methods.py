@@ -13,7 +13,7 @@
 """
 from io import StringIO
 
-from django.test import TestCase
+from django.test import TestCase, override_settings, override_settings
 from django.core.management import call_command
 
 from apps.knowledge.models import Method, Application, Protocol, ResearchGoal
@@ -34,7 +34,13 @@ from apps.bridges.models import MethodProtocol
 class ApplicationDetailCanonicalMethodsTests(TestCase):
     """AP 详情 get_methods：draft method 经 canonical 解析输出。"""
 
+    @override_settings(APP_METHOD_READ_FROM_BRIDGE=False)
+    @override_settings(APP_METHOD_READ_FROM_BRIDGE=False)
     def test_draft_method_resolves_to_canonical(self):
+        """legacy 路径：draft 靠名字映射到 canonical（桥路径下 draft 不进桥，
+        本用例显式走 legacy 以保证回滚路径有覆盖）。"""
+        """legacy 路径：draft 靠名字映射到 canonical（桥路径下 draft 不进桥，
+        本用例显式走 legacy 以保证回滚路径有覆盖）。"""
         ap = ApplicationFactory()
         MethodFactory(application=ap, name='PCR', status='draft')  # T2 补链遗留 draft
         canonical = MethodFactory(name='PCR', status='active', application=None)
@@ -71,6 +77,8 @@ class ApplicationDetailCanonicalMethodsTests(TestCase):
 class ProtocolDetailCanonicalMethodsTests(TestCase):
     """协议详情 get_methods：draft method 桥 → canonical id/slug，保留 application 上溯。"""
 
+    @override_settings(APP_METHOD_READ_FROM_BRIDGE=False)
+    @override_settings(APP_METHOD_READ_FROM_BRIDGE=False)
     def test_draft_method_bridge_returns_canonical_preserving_up_trace(self):
         rg = ResearchGoalFactory()
         ap = ApplicationFactory()

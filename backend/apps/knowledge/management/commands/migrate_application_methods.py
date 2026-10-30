@@ -101,13 +101,14 @@ class Command(BaseCommand):
         #   ① active 方法「直接输出」（不论有无 application）
         #   ② archived 也走 canonical 映射
         #   结果 verify 报 30 个应用不一致（少 20 个、多 1 个）。必须单一实现。
-        from apps.knowledge.services.application_methods import (
-            resolve_application_method_names,
-        )
+        # ★ baseline 必须用 **legacy 语义**算（读 Method.application FK），
+        #   不能用当前读路径 —— 它固化的是「改造前用户看到什么」。
+        #   若用桥算，在桥还没建/或已被改过的情况下会得到错误基线，verify 变成空转。
+        from apps.knowledge.services.application_methods import resolve_from_legacy_fk
         out = {}
         apps = Application.objects.only('id').iterator(chunk_size=5000)
         for a in apps:
-            names = resolve_application_method_names(a)
+            names = sorted({m['name'] for m in resolve_from_legacy_fk(a)})
             if names:
                 out[str(a.id)] = names
         os.makedirs(self.backup_dir, exist_ok=True)

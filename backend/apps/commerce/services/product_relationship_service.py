@@ -88,8 +88,10 @@ def get_related_products(product, limit=6):
 
     # Same Application (+100)
     same_app_ids = set(
+        # ★ 2026-10-30（B 方案阶段 2）：改走桥。这里用 set() 去重，
+        #   因为一条 ProductMethod 经多个应用桥会展开多行。
         ProductMethod.objects.filter(
-            method__application__id__in=app_ids
+            method__application_methods__application_id__in=app_ids
         ).exclude(product=product).values_list('product_id', flat=True)
     )
     for pid in same_app_ids:

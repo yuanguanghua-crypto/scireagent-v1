@@ -3,8 +3,13 @@ from .models import Method, Protocol, ProtocolStep, Application, ResearchGoal
 
 
 def get_methods_by_application(application_id: int) -> QuerySet:
-    """获取指定应用场景下的所有方法"""
-    return Method.objects.filter(application_id=application_id).select_related('application')
+    """获取指定应用场景下的所有方法（M:N，经 ApplicationMethod 桥）。
+
+    ★ 2026-10-30：原走 `Method.application` FK（1:N）。B 方案改为桥之后，
+    同一方法可被多个应用共享，这里按 application_id 筛不会重复
+    （`unique_together(application, method)` 保证）。
+    """
+    return Method.objects.filter(application_methods__application_id=application_id)
 
 
 def get_protocols_with_steps(method_id: int) -> QuerySet:

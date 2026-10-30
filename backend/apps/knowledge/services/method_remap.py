@@ -8,6 +8,12 @@ Method 本身）。
 - 伪 Method = 不删，整体重挂到新建的 catch-all Application
             （research_goal=None，使其脱离任意 RG 导航树，解除对 FL 的塌缩贡献）
             MethodProtocol / ProductMethod 桥接行原样保留（零删除，守 Path 一）
+
+
+⚠️ **已废弃（2026-10-30，B 方案）**：本 service 围绕 `Method.application`
+FK 设计，把方法重挂到应用下。这正是造出 47,761 行 draft 副本的原因。
+B 方案已用 `ApplicationMethod` 桥取代该建模，`remap_method_applications` 命令
+已加硬闸门拒绝执行。**新代码禁止调用本模块。**
 """
 from django.db import transaction
 from django.utils.text import slugify

@@ -8,6 +8,11 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # SECRET_KEY: Required in production, fallback only for development/testing
+# ★ 2026-10-30（B 方案阶段 2）：应用↔方法读路径开关。
+#   '1'（默认）= 读 ApplicationMethod 桥；'0' = 读旧的 Method.application FK。
+#   出问题改环境变量即可回滚，不必重新部署代码。
+APP_METHOD_READ_FROM_BRIDGE = os.getenv('APP_METHOD_READ_FROM_BRIDGE', '1') != '0'
+
 SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
     if os.getenv('DB_ENGINE') == 'sqlite' or 'test' in sys.argv:

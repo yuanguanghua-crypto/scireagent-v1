@@ -222,7 +222,10 @@ class ApplicationDetailSerializer(ApplicationGoalSyncMixin, BaseModelSerializer)
 
     def get_protocols(self, obj):
         from apps.bridges.models import MethodProtocol
-        method_ids = list(obj.methods.values_list('id', flat=True))
+        # ★ 2026-10-30（B 方案阶段 2）：方法 id 改从 ApplicationMethod 桥取。
+        #   实测 method_protocol 14,975 行**全部**指向 canonical，所以桥的 method_id
+        #   与旧 FK 的 id 集合一致；阶段 3 删掉 draft 行后旧路径会失效，桥才是长期解。
+        method_ids = list(obj.application_methods.values_list('method_id', flat=True))
         protocol_ids = MethodProtocol.objects.filter(method_id__in=method_ids).values_list('protocol_id', flat=True).distinct()
         # ★ 2026-10-30：必须过滤 published。原来不过滤 ⇒ 下架/草稿协议仍出现在
         #   Application 的协议列表里，但点进去 404（详情走了 apply_public_visibility）。
@@ -233,7 +236,8 @@ class ApplicationDetailSerializer(ApplicationGoalSyncMixin, BaseModelSerializer)
     def get_products(self, obj):
         from apps.bridges.models import ProductMethod
         from apps.commerce.models import Product
-        method_ids = list(obj.methods.values_list('id', flat=True))
+        # ★ 2026-10-30（B 方案阶段 2）：同 get_protocols，方法 id 改从桥取
+        method_ids = list(obj.application_methods.values_list('method_id', flat=True))
         product_ids = ProductMethod.objects.filter(method_id__in=method_ids).values_list('product_id', flat=True).distinct()
         return list(Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value).values('id', 'name', 'slug', 'catalog_no'))
 
@@ -438,7 +442,10 @@ class ProtocolDetailSerializer(BaseModelSerializer):
             if out_name in seen:
                 continue
             seen.add(out_name)
-            application = method.application
+            # ★ 2026-10-30：M:N 下取 display_order 最小的应用作为「代表分支」
+            #   （researchPath 需要单值上溯；随机取会导致每次刷新路径不同）。
+            from apps.knowledge.services.application_methods import application_of_method
+            application = application_of_method(method)
             if application is None:
                 out.append({
                     'id': out_id,

@@ -76,16 +76,15 @@ def site_home(request):
         .filter(id__in=_top_app_ids)
         .select_related('research_goal')
         .annotate(
+            # ★ 2026-10-30（B 方案阶段 2）：改走 ApplicationMethod 桥。
+            #   桥里全是 canonical（active 且无 application），所以不再需要
+            #   `methods__status='active'` 过滤。
             products_count=Count(
-                'methods__product_methods__product',
-                filter=Q(methods__product_methods__product__status__in=['active', 'published']),
+                'application_methods__method__product_methods__product',
+                filter=Q(application_methods__method__product_methods__product__status__in=['active', 'published']),
                 distinct=True
             ),
-            methods_count=Count(
-                'methods',
-                filter=Q(methods__status='active'),
-                distinct=True
-            ),
+            methods_count=Count('application_methods', distinct=True),
         )
         .order_by('-display_priority', 'sort_order')
     )
