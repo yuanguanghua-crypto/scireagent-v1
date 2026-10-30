@@ -50,6 +50,64 @@ CASES = [
         'apps/commerce/tests/test_product_fixture_visibility.py::'
         'ProductFixtureVisibilityTest::test_anonymous_list_excludes_fixture',
     ),
+    (
+        '⑤ 夹具命令可按 id 精确纠正（撤销误标）',
+        BASE / 'apps/knowledge/management/commands/mark_test_fixtures.py',
+        "                if by_id:\n"
+        "                    if label != only_model:\n"
+        "                        continue\n"
+        "                    qs = Model.objects.filter(pk__in=by_id)\n"
+        "                else:\n"
+        "                    qs = Model.objects.filter(name__startswith=prefix)",
+        "                if True:\n"
+        "                    qs = Model.objects.filter(name__startswith=prefix)",
+        'apps/knowledge/tests/test_mark_fixtures_by_id.py::'
+        'MarkFixturesByIdTest::test_unmark_only_listed_ids',
+    ),
+    (
+        '⑥ 空前缀被拒绝（误标最可能的来源）',
+        BASE / 'apps/knowledge/management/commands/mark_test_fixtures.py',
+        "        if not by_id and not prefix.strip():\n"
+        "            raise CommandError(",
+        "        if False:\n"
+        "            raise CommandError(",
+        'apps/knowledge/tests/test_mark_fixtures_by_id.py::'
+        'MarkFixturesByIdTest::test_empty_prefix_is_rejected',
+    ),
+    (
+        '⑦ summary_i18n 的 scope 隔离（protocol 不得动 summary）',
+        BASE / 'apps/knowledge/management/commands/summary_i18n.py',
+        "            if (kind, field) not in allowed:\n"
+        "                out_of_scope.append(r)\n"
+        "                continue",
+        "            if False:\n"
+        "                out_of_scope.append(r)\n"
+        "                continue",
+        'apps/knowledge/tests/test_summary_i18n.py::'
+        'SummaryI18nScopeTest::test_protocol_scope_does_not_touch_summaries',
+    ),
+    (
+        '⑧ summary_i18n 尊重 skip 列',
+        BASE / 'apps/knowledge/management/commands/summary_i18n.py',
+        "            if (r.get('skip') or '').strip():\n"
+        "                skipped.append(r)\n"
+        "                continue",
+        "            if False:\n"
+        "                skipped.append(r)\n"
+        "                continue",
+        'apps/knowledge/tests/test_summary_i18n.py::'
+        'SummaryI18nScopeTest::test_skip_column_is_respected',
+    ),
+    (
+        '⑨ summary_i18n 拒绝把中文写回去',
+        BASE / 'apps/knowledge/management/commands/summary_i18n.py',
+        "            if CJK.search(new):\n"
+        "                raise CommandError(",
+        "            if False and CJK.search(new):\n"
+        "                raise CommandError(",
+        'apps/knowledge/tests/test_summary_i18n.py::'
+        'SummaryI18nScopeTest::test_chinese_in_translation_is_rejected',
+    ),
 ]
 
 
@@ -84,7 +142,11 @@ def main():
         print(f'[{mark}] {label} → {verdict}')
         if verdict != 'RED':
             print(f'        {detail}')
-    print('\n结论：', '4/4 闸门均能捕获回归' if ok else '存在无法捕获回归的闸门')
+    passed = sum(1 for _label, verdict, _d in results if verdict == 'RED')
+    total = len(results)
+    print('\n结论：',
+          f'{passed}/{total} 闸门均能捕获回归' if ok
+          else f'{passed}/{total} 通过，存在无法捕获回归的闸门')
     return 0 if ok else 1
 
 

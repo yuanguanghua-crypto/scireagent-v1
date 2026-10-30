@@ -39,15 +39,44 @@ from datetime import datetime
 
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.knowledge.models import Application, ResearchGoal
+from apps.knowledge.models import Application, Protocol, ResearchGoal
 
 CJK = re.compile(r'[\u4e00-\u9fff]')
+
+# 字段级本地化清单：scope → [(kind, model, field)]
+# kind 只用于 CSV 里标识实体类型（回写时映射回模型）。
+SCOPES = {
+    # 顶层实体的摘要（2026-10-30 首批 45 条）
+    'summary': [
+        ('research_goal', ResearchGoal, 'summary'),
+        ('application', Application, 'summary'),
+    ],
+    # 协议正文的 CJK 残留（name + objective）。
+    # ★ 2026-10-30：扫全站时发现 5 条 protocol 的 objective 含 CJK，
+    #   性质各异（日文视频说明 / 外文参考文献标题 / 整条中文实验方法 /
+    #   英文方案里夹 MATLAB 中文注释），所以这里只做「导出+回写」，
+    #   逐条怎么办由人填 CSV 决定（可 skip）。
+    'protocol': [
+        ('protocol', Protocol, 'name'),
+        ('protocol', Protocol, 'objective'),
+    ],
+}
+
+PUBLIC_FILTER = {
+    'research_goal': {'status': 'active'},
+    'application': {'status': 'active'},
+    'protocol': {'status': 'published'},
+}
+
 CSV_HEADER = [
-    'kind', 'id', 'name', 'original_zh', 'proposed_en', 'approved_en',
+    'kind', 'id', 'field', 'name', 'original_zh', 'proposed_en', 'approved_en',
     'review_note', 'skip',
 ]
-MODELS = {'research_goal': ResearchGoal, 'application': Application}
-DEFAULT_CSV = 'docs/i18n/cjk_summaries_i18n.csv'
+DEFAULT_CSV = {
+    'summary': 'docs/i18n/cjk_summaries_i18n.csv',
+    'protocol': 'docs/i18n/cjk_protocol_text_i18n.csv',
+}
+MODELS = {'research_goal': ResearchGoal, 'application': Application, 'protocol': Protocol}
 
 
 class Command(BaseCommand):
@@ -58,30 +87,39 @@ class Command(BaseCommand):
         parser.add_argument('--apply', action='store_true', help='按 CSV 回写数据库')
         parser.add_argument('--commit', action='store_true',
                             help='与 --apply 连用才真正写库（不加则仅预演）')
-        parser.add_argument('--csv', default=DEFAULT_CSV, help=f'CSV 路径（默认 {DEFAULT_CSV}）')
+        parser.add_argument('--scope', choices=sorted(SCOPES), default='summary',
+                            help='本地化范围：summary（RG/AP 摘要）| protocol（协议 name/objective）')
+        parser.add_argument('--csv', default=None,
+                            help=f'CSV 路径（默认按 scope 取 {DEFAULT_CSV}）')
         parser.add_argument('--backup-dir', default='/tmp/summary_i18n_bak',
                             help='原值备份目录')
 
     def handle(self, *args, **opts):
         if opts['export'] == opts['apply']:
             raise CommandError('必须且只能指定 --export 或 --apply 之一。')
+        scope = opts['scope']
+        csv_path = opts['csv'] or DEFAULT_CSV[scope]
         if opts['export']:
-            return self._export(opts['csv'])
-        return self._apply(opts['csv'], opts['backup_dir'], commit=opts['commit'])
+            return self._export(csv_path, scope)
+        return self._apply(csv_path, opts['backup_dir'], scope, commit=opts['commit'])
 
     # ---------- 导出 ----------
 
-    def _export(self, path):
+    def _export(self, path, scope):
         rows = []
-        for kind, model in MODELS.items():
-            qs = model.objects.filter(status='active').only('id', 'name', 'summary').order_by('id')
+        for kind, model, field in SCOPES[scope]:
+            qs = (model.objects.filter(**PUBLIC_FILTER[kind])
+                  .only('id', 'name', field).order_by('id'))
+            label = model.__name__
             for obj in qs:
-                text = (obj.summary or '').strip()
+                text = (getattr(obj, field) or '').strip()
                 if not text or not CJK.search(text):
                     continue
                 rows.append({
                     'kind': kind,
                     'id': obj.id,
+                    'field': field,
+                    # name 字段自己就是待改对象时，把「当前名」放在 name 列便于识别
                     'name': obj.name,
                     'original_zh': text,
                     'proposed_en': '',
@@ -89,9 +127,11 @@ class Command(BaseCommand):
                     'review_note': '',
                     'skip': '',
                 })
+            if not rows:
+                self.stdout.write(f'  {label}.{field}: 无 CJK')
 
         if not rows:
-            self.stdout.write(self.style.SUCCESS('没有含中文的 summary，无需处理。'))
+            self.stdout.write(self.style.SUCCESS('没有含中文的字段，无需处理。'))
             return
 
         os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
@@ -108,21 +148,29 @@ class Command(BaseCommand):
             + ('（追加）' if existed else '（新建）')))
         per = {}
         for r in rows:
-            per[r['kind']] = per.get(r['kind'], 0) + 1
+            k = f"{r['kind']}.{r['field']}"
+            per[k] = per.get(k, 0) + 1
         for k, v in per.items():
             self.stdout.write(f'  {k}: {v}')
 
     # ---------- 回写 ----------
 
-    def _apply(self, path, backup_dir, commit=False):
+    def _apply(self, path, backup_dir, scope, commit=False):
         if not os.path.isfile(path):
             raise CommandError(f'CSV 不存在：{path}（先跑 --export）')
+
+        allowed = {(kind, field) for kind, _m, field in SCOPES[scope]}
 
         with open(path, encoding='utf-8-sig', newline='') as fh:
             rows = list(csv.DictReader(fh))
 
-        applicable, skipped, missing, unchanged = [], [], [], []
+        applicable, skipped, missing, unchanged, out_of_scope = [], [], [], [], []
         for r in rows:
+            field = (r.get('field') or 'summary').strip()
+            kind = r['kind']
+            if (kind, field) not in allowed:
+                out_of_scope.append(r)
+                continue
             if (r.get('skip') or '').strip():
                 skipped.append(r)
                 continue
@@ -132,23 +180,23 @@ class Command(BaseCommand):
                 continue
             if CJK.search(new):
                 raise CommandError(
-                    f"{r['kind']} {r['id']} 的译文中仍含中文：{new!r}（先修 CSV）")
-            model = MODELS.get(r['kind'])
-            if model is None:
-                raise CommandError(f"未知 kind：{r['kind']}")
+                    f"{kind} {r['id']} 的译文中仍含中文：{new!r}（先修 CSV）")
+            model = MODELS[kind]
             obj = model.objects.filter(pk=int(r['id'])).first()
             if obj is None:
                 missing.append(r)
                 continue
-            if (obj.summary or '').strip() == new:
+            if (getattr(obj, field) or '').strip() == new:
                 unchanged.append(r)
                 continue
-            applicable.append((obj, r, new))
+            applicable.append((obj, r, field, new))
 
-        self.stdout.write(f'CSV 共 {len(rows)} 行')
+        self.stdout.write(f'CSV 共 {len(rows)} 行（scope={scope}）')
         self.stdout.write(f'  待写 {len(applicable)}')
         self.stdout.write(f'  已是目标值 {len(unchanged)}')
         self.stdout.write(f'  跳过（skip/无译文） {len(skipped)}')
+        if out_of_scope:
+            self.stdout.write(f'  不在本 scope 内 {len(out_of_scope)}')
         if missing:
             self.stdout.write(self.style.WARNING(f'  查不到实体 {len(missing)}'))
 
@@ -158,16 +206,17 @@ class Command(BaseCommand):
 
         payload = {
             'generated_at': datetime.now().isoformat(timespec='seconds'),
+            'scope': scope,
             'count': len(applicable),
             'items': [
-                {'kind': r['kind'], 'id': obj.pk, 'name': obj.name,
-                 'before': obj.summary, 'after': new}
-                for obj, r, new in applicable
+                {'kind': r['kind'], 'id': obj.pk, 'field': field,
+                 'name': obj.name, 'before': getattr(obj, field), 'after': new}
+                for obj, r, field, new in applicable
             ],
         }
         try:
             os.makedirs(backup_dir, exist_ok=True)
-            bpath = os.path.join(backup_dir, 'summary_i18n_before.json')
+            bpath = os.path.join(backup_dir, f'summary_i18n_before_{scope}.json')
             with open(bpath, 'w', encoding='utf-8') as fh:
                 json.dump(payload, fh, ensure_ascii=False, indent=1)
             self.stdout.write(f'原值已备份：{bpath}')
@@ -176,10 +225,10 @@ class Command(BaseCommand):
                 raise
             self.stdout.write(self.style.WARNING(f'备份失败（预演可忽略）：{exc}'))
 
-        for obj, r, new in applicable[:5]:
-            self.stdout.write(f"  例：{r['kind']} {obj.pk} {obj.name[:36]!r}")
-            self.stdout.write(f"      原：{obj.summary[:60]}")
-            self.stdout.write(f"      新：{new[:60]}")
+        for obj, r, field, new in applicable[:5]:
+            self.stdout.write(f"  例：{r['kind']} {obj.pk}.{field} {obj.name[:36]!r}")
+            self.stdout.write(f"      原：{str(getattr(obj, field))[:70]}")
+            self.stdout.write(f"      新：{new[:70]}")
 
         if not commit:
             self.stdout.write(self.style.WARNING(
@@ -188,18 +237,19 @@ class Command(BaseCommand):
 
         from django.db import transaction
         with transaction.atomic():
-            for obj, _r, new in applicable:
-                obj.summary = new
-                obj.save(update_fields=['summary'])
+            for obj, _r, field, new in applicable:
+                setattr(obj, field, new)
+                obj.save(update_fields=[field])
         self.stdout.write(self.style.SUCCESS(f'已回写 {len(applicable)} 条。'))
 
-        # 收尾核对：再扫一遍 active 实体，确认 0 条残留
+        # 收尾核对：按本 scope 的字段再扫一遍，确认 0 条残留
         remain = 0
-        for model in MODELS.values():
-            for obj in model.objects.filter(status='active').only('summary'):
-                if obj.summary and CJK.search(obj.summary):
+        for kind, model, field in SCOPES[scope]:
+            for obj in model.objects.filter(**PUBLIC_FILTER[kind]).only(field).iterator():
+                v = getattr(obj, field)
+                if v and isinstance(v, str) and CJK.search(v):
                     remain += 1
         if remain:
-            self.stdout.write(self.style.WARNING(f'★ 仍有 {remain} 条含中文（可能不在 CSV 里）'))
+            self.stdout.write(self.style.WARNING(f'★ 仍有 {remain} 处含中文（可能不在 CSV 里）'))
         else:
-            self.stdout.write(self.style.SUCCESS('核对通过：active 实体已无中文 summary。'))
+            self.stdout.write(self.style.SUCCESS('核对通过：本 scope 已无中文残留。'))
