@@ -1596,9 +1596,13 @@ async function saveTiers(s) {
       unit_price: Number(r.unit_price).toFixed(2),
     }))
     tierMsg[s.id] = 'Saved'
+    // 提示保留 2s 再自动折叠：0.9s 太短，实际操作时几乎看不到
     setTimeout(() => {
-      if (tierMsg[s.id] === 'Saved') tierOpen[s.id] = false
-    }, 900)
+      if (tierMsg[s.id] === 'Saved') {
+        tierOpen[s.id] = false
+        tierMsg[s.id] = ''
+      }
+    }, 2000)
   } catch (e) {
     const d = e && e.response && e.response.data
     tierMsg[s.id] = (typeof d === 'string' ? d
