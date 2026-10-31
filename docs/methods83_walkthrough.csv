@@ -1,0 +1,89 @@
+﻿scope,item,slug,protocols_api,protocols_bridge,applications,products,summary_len,purpose_len,adv_lines,lim_lines,wrong_rate,paired,proto_review,timeline,cost_band,specs_status,desc_status,verdict,issues
+HOME,stats.products,,,,,,,,,,,,,,,,,,
+HOME,stats.skus,,,,,,,,,,,,,,,,,,
+HOME,stats.methods,,,,,,,,,,,,,,,,,,
+HOME,stats.protocols,,,,,,,,,,,,,,,,,,
+HOME,stats.areas,,,,,,,,,,,,,,,,,,
+METHOD,47970|Random Primer Method,random-primer-method-1,3,3,10,0,333,86,4,4,33.3,3,0,days,,ai_draft,ai_draft,WARN,关联错挂 33%（双模型一致判 wrong 1/3）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47969|Click Chemistry,click-chemistry-25,69,69,25,3,293,110,4,4,97.1,69,0,days,,ai_draft,ai_draft,WARN,关联错挂 97%（双模型一致判 wrong 67/69）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47968|Ubiquitination Assay,ubiquitination-assay-29,19,19,29,0,298,86,4,4,15.8,19,4,days,,ai_draft,ai_draft,WARN,关联存疑 16%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 4 条存疑关联(review)仍在展示
+METHOD,47967|Lysosomal Activity Assay,lysosomal-activity-assay-29,54,54,29,0,284,117,4,4,9.3,54,0,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47966|Autophagy Flux Assay,autophagy-flux-assay-33,49,49,33,0,327,119,4,4,12.2,49,0,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47965|Peptide Synthesis,peptide-synthesis-37,8,8,37,0,236,86,4,4,62.5,8,0,hours,,ai_draft,ai_draft,WARN,关联错挂 62%（双模型一致判 wrong 5/8）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47964|End Labeling,end-labeling-47,81,81,47,3,289,107,4,4,74.1,81,0,days,,ai_draft,ai_draft,WARN,关联错挂 74%（双模型一致判 wrong 60/81）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47963|T7 Transcription,t7-transcription-50,15,15,50,0,222,85,4,4,53.3,15,0,hours,,ai_draft,ai_draft,WARN,关联错挂 53%（双模型一致判 wrong 8/15）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47962|eDNA/Metabarcoding Sampling,ednametabarcoding-sampling-1,12,12,58,0,381,153,4,4,8.3,12,0,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47961|Small Molecule Synthesis,small-molecule-synthesis-63,22,22,63,0,400,118,4,4,27.3,22,4,days,,ai_draft,ai_draft,WARN,关联存疑 27%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 4 条存疑关联(review)仍在展示
+METHOD,47960|Mitochondrial Isolation,mitochondrial-isolation-88,23,23,88,0,303,117,4,4,17.4,23,2,hours,,ai_draft,ai_draft,WARN,关联存疑 17%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 2 条存疑关联(review)仍在展示
+METHOD,47959|Streptavidin Purification,streptavidin-purification-92,10,10,92,0,252,107,4,4,100.0,10,0,days,,ai_draft,ai_draft,WARN,关联错挂 100%（双模型一致判 wrong 10/10）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47958|Biofilm Assay,biofilm-assay-93,87,87,93,0,317,95,4,4,42.0,88,0,days,,ai_draft,ai_draft,WARN,关联错挂 42%（双模型一致判 wrong 37/88）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47957|RNA-Protein Crosslinking (CLIP),rna-protein-crosslinking-clip-103,106,106,103,0,267,110,4,4,68.2,107,0,days,,ai_draft,ai_draft,WARN,关联错挂 68%（双模型一致判 wrong 73/107）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47956|Protein Aggregation Assay,protein-aggregation-assay-105,103,103,105,0,329,94,4,4,35.6,104,0,days,,ai_draft,ai_draft,WARN,关联错挂 36%（双模型一致判 wrong 37/104）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47955|Viral Genome Sequencing,viral-genome-sequencing-110,44,44,110,0,328,132,4,4,9.1,44,0,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47954|Gibson DNA Assembly,gibson-dna-assembly-117,27,27,117,0,277,100,4,4,29.6,27,0,days,,ai_draft,ai_draft,WARN,关联存疑 30%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47953|Glycogen/Carbohydrate Assay,glycogencarbohydrate-assay-1,29,29,131,0,300,90,4,4,24.1,29,4,days,,ai_draft,ai_draft,WARN,关联存疑 24%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 4 条存疑关联(review)仍在展示
+METHOD,47952|Extracellular Vesicle Isolation,extracellular-vesicle-isolation-131,51,51,131,0,250,102,4,4,11.8,51,0,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47951|Kinase Activity Assay,kinase-activity-assay-131,210,210,131,0,296,62,4,4,61.4,210,0,days,,ai_draft,ai_draft,WARN,关联错挂 61%（双模型一致判 wrong 129/210）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47950|Mitochondrial Function Assay,mitochondrial-function-assay-134,60,60,134,0,279,111,4,4,11.7,60,16,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 16 条存疑关联(review)仍在展示
+METHOD,47949|Tissue Clearing,tissue-clearing-149,52,52,149,0,352,101,4,4,13.2,53,5,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 5 条存疑关联(review)仍在展示
+METHOD,47948|In-vivo PK Sampling & Bioanalysis,in-vivo-pk-sampling-bioanalysis-169,32,32,169,0,283,87,4,4,56.2,32,14,hours,,ai_draft,ai_draft,WARN,关联错挂 56%（双模型一致判 wrong 18/32）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 14 条存疑关联(review)仍在展示
+METHOD,47947|Microsphere/Particle Synthesis,microsphereparticle-synthesis-1,41,41,184,0,355,114,4,4,31.0,42,0,days,,ai_draft,ai_draft,WARN,关联错挂 31%（双模型一致判 wrong 13/42）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47946|Click Chemistry Labeling,click-chemistry-labeling-191,28,28,191,0,304,109,4,4,39.3,28,1,days,,ai_draft,ai_draft,WARN,关联错挂 39%（双模型一致判 wrong 11/28）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 1 条存疑关联(review)仍在展示
+METHOD,47945|RNA In Situ Hybridization,rna-in-situ-hybridization-193,121,121,193,0,289,104,4,4,8.2,122,7,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 7 条存疑关联(review)仍在展示
+METHOD,47944|Correlative Light-Electron Microscopy,correlative-light-electron-microscopy-208,111,111,208,0,306,90,4,4,83.9,112,0,days,,ai_draft,ai_draft,WARN,关联错挂 84%（双模型一致判 wrong 94/112）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47943|Enzymatic Labeling,enzymatic-labeling-211,111,111,211,3,299,99,4,4,26.8,112,0,hours,,ai_draft,ai_draft,WARN,关联存疑 27%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47942|FISH Technique,fish-technique-1,20,20,230,0,322,112,4,4,35.0,20,0,days,,ai_draft,ai_draft,WARN,关联错挂 35%（双模型一致判 wrong 7/20）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47941|Neuronal Differentiation,neuronal-differentiation-237,52,52,237,0,327,99,4,4,9.6,52,5,weeks,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 5 条存疑关联(review)仍在展示
+METHOD,47940|ChIP-seq/Chromatin Profiling,chip-seqchromatin-profiling-1,179,179,240,0,286,108,4,4,17.2,180,30,days,,ai_draft,ai_draft,WARN,关联存疑 17%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 30 条存疑关联(review)仍在展示
+METHOD,47939|Targeted Mutagenesis (TAM),targeted-mutagenesis-tam-246,267,267,246,0,319,98,4,4,77.8,270,51,days,,ai_draft,ai_draft,WARN,关联错挂 78%（双模型一致判 wrong 210/270）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 51 条存疑关联(review)仍在展示
+METHOD,47938|Multiplexed Tissue Imaging,multiplexed-tissue-imaging-248,86,86,248,0,237,86,4,4,27.9,86,13,days,,ai_draft,ai_draft,WARN,关联存疑 28%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 13 条存疑关联(review)仍在展示
+METHOD,47937|Viral Molecular Detection,viral-molecular-detection-257,149,149,257,0,337,104,4,4,24.7,154,3,hours,,ai_draft,ai_draft,WARN,关联存疑 25%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 3 条存疑关联(review)仍在展示
+METHOD,47936|Agrobacterium-mediated Plant Transformation,agrobacterium-mediated-plant-transformation-1,29,29,264,0,298,102,4,4,20.7,29,0,weeks,,ai_draft,ai_draft,WARN,关联存疑 21%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47935|Receptor/Ligand Binding Assay,receptorligand-binding-assay-1,175,175,266,0,293,84,4,4,49.2,177,107,days,,ai_draft,ai_draft,WARN,关联错挂 49%（双模型一致判 wrong 87/177）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 107 条存疑关联(review)仍在展示
+METHOD,47934|Environmental/eDNA Sampling,environmentaledna-sampling-1,131,131,267,0,317,119,4,4,26.9,134,42,days,,ai_draft,ai_draft,WARN,关联存疑 27%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 42 条存疑关联(review)仍在展示
+METHOD,47933|Viral Infection & Focus Assays,viral-infection-focus-assays-275,167,167,275,0,289,88,4,4,60.9,169,45,days,,ai_draft,ai_draft,WARN,关联错挂 61%（双模型一致判 wrong 103/169）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 45 条存疑关联(review)仍在展示
+METHOD,47932|Gel Purification of DNA,gel-purification-of-dna-283,76,76,283,0,298,96,4,4,46.1,76,0,hours,,ai_draft,ai_draft,WARN,关联错挂 46%（双模型一致判 wrong 35/76）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47931|Cryopreservation,cryopreservation-351,117,117,351,0,237,111,4,4,10.3,117,1,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 1 条存疑关联(review)仍在展示
+METHOD,47930|Proteomics Sample Prep,proteomics-sample-prep-361,56,56,361,0,383,106,4,4,8.9,56,2,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 2 条存疑关联(review)仍在展示
+METHOD,47929|Model-organism Husbandry,model-organism-husbandry-378,381,381,378,0,254,84,4,4,64.9,382,5,days,,ai_draft,ai_draft,WARN,关联错挂 65%（双模型一致判 wrong 248/382）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 5 条存疑关联(review)仍在展示
+METHOD,47928|Plant Biochemical Assay,plant-biochemical-assay-393,285,285,393,0,335,88,4,4,31.6,285,128,days,,ai_draft,ai_draft,WARN,关联错挂 32%（双模型一致判 wrong 90/285）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 128 条存疑关联(review)仍在展示
+METHOD,47927|Protein Lysis & Solubilization,protein-lysis-solubilization-400,229,229,400,0,296,102,4,4,17.0,229,0,days,,ai_draft,ai_draft,WARN,关联存疑 17%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47926|Tissue Embedding,tissue-embedding-405,176,176,405,0,293,96,4,4,13.1,176,29,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 29 条存疑关联(review)仍在展示
+METHOD,47925|Lipid Extraction,lipid-extraction-406,70,70,406,0,315,96,4,4,12.9,70,21,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 21 条存疑关联(review)仍在展示
+METHOD,47924|Viral Vector Transduction,viral-vector-transduction-423,307,307,423,0,342,110,4,4,54.5,308,1,days,,ai_draft,ai_draft,WARN,关联错挂 55%（双模型一致判 wrong 168/308）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 1 条存疑关联(review)仍在展示
+METHOD,47923|Reverse Transcription & cDNA Synthesis,reverse-transcription-cdna-synthesis-447,100,100,447,0,300,106,4,4,7.8,103,4,hours,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 4 条存疑关联(review)仍在展示
+METHOD,47922|Single-nucleus RNA-seq,single-nucleus-rna-seq-461,86,86,461,0,325,100,4,4,2.3,88,4,hours,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 4 条存疑关联(review)仍在展示
+METHOD,47921|High-throughput Screening Assay,high-throughput-screening-assay-520,145,145,520,0,358,92,4,4,49.3,146,8,days,,ai_draft,ai_draft,WARN,关联错挂 49%（双模型一致判 wrong 72/146）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 8 条存疑关联(review)仍在展示
+METHOD,47920|Pathogen Infection Assay,pathogen-infection-assay-528,321,321,528,0,318,102,4,4,41.4,324,0,days,,ai_draft,ai_draft,WARN,关联错挂 41%（双模型一致判 wrong 134/324）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47919|Pluripotent Stem Cell Culture,pluripotent-stem-cell-culture-530,498,498,530,0,280,111,3,4,45.4,500,168,days,,ai_draft,ai_draft,WARN,关联错挂 45%（双模型一致判 wrong 227/500）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 168 条存疑关联(review)仍在展示
+METHOD,47918|Long-read Sequencing,long-read-sequencing-531,141,141,531,0,349,109,4,4,3.5,142,1,hours,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 1 条存疑关联(review)仍在展示
+METHOD,47917|Sanger Sequencing,sanger-sequencing-537,38,38,537,0,325,74,4,4,34.2,38,0,days,,ai_draft,ai_draft,WARN,关联错挂 34%（双模型一致判 wrong 13/38）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47916|Bacterial Transformation,bacterial-transformation-568,271,271,568,0,274,110,4,4,45.2,272,6,days,,ai_draft,ai_draft,WARN,关联错挂 45%（双模型一致判 wrong 123/272）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 6 条存疑关联(review)仍在展示
+METHOD,47915|Single-cell RNA-seq,single-cell-rna-seq-576,175,175,576,0,280,112,3,3,7.8,179,35,hours,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 35 条存疑关联(review)仍在展示
+METHOD,47914|RNA-seq Library Prep,rna-seq-library-prep-589,268,268,589,0,293,90,4,4,16.2,272,3,hours,,ai_draft,ai_draft,WARN,关联存疑 16%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 3 条存疑关联(review)仍在展示
+METHOD,47913|Recombinant Protein Expression,recombinant-protein-expression-653,266,266,653,0,243,78,4,4,24.3,267,27,days,,ai_draft,ai_draft,WARN,关联存疑 24%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 27 条存疑关联(review)仍在展示
+METHOD,47912|In-vivo Recording & Surgery,in-vivo-recording-surgery-671,472,472,671,0,295,96,3,4,56.6,475,311,hours,,ai_draft,ai_draft,WARN,关联错挂 57%（双模型一致判 wrong 269/475）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 311 条存疑关联(review)仍在展示
+METHOD,47911|Electrophysiological Recording,electrophysiological-recording-679,134,134,679,0,332,96,4,4,5.9,136,14,hours,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 14 条存疑关联(review)仍在展示
+METHOD,47910|Immune/Stromal Cell Isolation & Culture,immunestromal-cell-isolation-culture-1,409,409,682,0,272,98,4,4,19.8,410,119,hours,,ai_draft,ai_draft,WARN,关联存疑 20%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 119 条存疑关联(review)仍在展示
+METHOD,47909|Calcium/Functional Imaging,calciumfunctional-imaging-1,117,117,696,0,276,89,4,4,41.2,119,5,days,,ai_draft,ai_draft,WARN,关联错挂 41%（双模型一致判 wrong 49/119）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 5 条存疑关联(review)仍在展示
+METHOD,47908|Metabolite Extraction (LC-MS),metabolite-extraction-lc-ms-714,245,245,714,0,270,85,4,4,43.7,245,11,days,,ai_draft,ai_draft,WARN,关联错挂 44%（双模型一致判 wrong 107/245）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 11 条存疑关联(review)仍在展示
+METHOD,47907|SDS-PAGE,sds-page-781,144,144,781,0,319,140,4,4,22.2,144,0,days,,ai_draft,ai_draft,WARN,关联存疑 22%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47906|Immunoprecipitation,immunoprecipitation-783,119,119,783,0,316,96,4,4,14.3,119,3,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 3 条存疑关联(review)仍在展示
+METHOD,47905|Western Blot,western-blot-835,212,212,835,0,228,126,4,4,17.3,214,3,days,,ai_draft,ai_draft,WARN,关联存疑 17%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 3 条存疑关联(review)仍在展示
+METHOD,47904|Amplicon/Illumina Library Prep,ampliconillumina-library-prep-1,418,418,889,0,255,81,4,4,32.1,421,19,hours,,ai_draft,ai_draft,WARN,关联错挂 32%（双模型一致判 wrong 135/421）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 19 条存疑关联(review)仍在展示
+METHOD,47903|Protein Purification,protein-purification-905,478,478,905,0,323,111,4,4,37.3,482,54,days,,ai_draft,ai_draft,WARN,关联错挂 37%（双模型一致判 wrong 180/482）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 54 条存疑关联(review)仍在展示
+METHOD,47902|RNA Isolation,rna-isolation-910,465,465,910,0,339,84,4,4,9.4,469,42,hours,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 42 条存疑关联(review)仍在展示
+METHOD,47901|ELISA,elisa-965,270,270,965,0,282,101,4,4,21.0,272,21,days,,ai_draft,ai_draft,WARN,关联存疑 21%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 21 条存疑关联(review)仍在展示
+METHOD,47900|CRISPR-Cas9 Genome Editing,crispr-cas9-genome-editing-1008,290,290,1008,0,261,96,4,4,13.3,293,0,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47899|Immunohistochemistry,immunohistochemistry-1069,254,254,1069,0,270,106,4,4,28.6,255,27,days,,ai_draft,ai_draft,WARN,关联存疑 29%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 27 条存疑关联(review)仍在展示
+METHOD,47898|3D Cell Culture,3d-cell-culture-1079,160,160,1079,0,349,125,4,4,13.7,161,1,days,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 1 条存疑关联(review)仍在展示
+METHOD,47897|Illumina Sequencing,illumina-sequencing-1087,146,146,1087,4,437,115,4,4,34.2,146,0,days,,ai_draft,ai_draft,WARN,关联错挂 34%（双模型一致判 wrong 50/146）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47896|Behavioral Assessment,behavioral-assessment-1296,348,348,1296,0,368,103,4,4,13.8,355,54,hours,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 54 条存疑关联(review)仍在展示
+METHOD,47895|Real-Time Quantitative PCR (qPCR),real-time-quantitative-pcr-qpcr-1,152,152,1347,6,289,93,4,4,77.1,153,0,hours,,ai_draft,ai_draft,WARN,关联错挂 77%（双模型一致判 wrong 118/153）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审
+METHOD,47894|Genomic DNA Extraction,genomic-dna-extraction-1346,731,731,1346,0,280,79,4,4,9.9,740,7,hours,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 7 条存疑关联(review)仍在展示
+METHOD,47893|Cell Viability Assay,cell-viability-assay-1521,208,208,1521,0,254,89,4,4,59.2,211,9,days,,ai_draft,ai_draft,WARN,关联错挂 59%（双模型一致判 wrong 125/211）; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 9 条存疑关联(review)仍在展示
+METHOD,47892|Bacterial/Microbial Culture,bacterialmicrobial-culture-1,468,468,1584,0,258,110,4,4,22.0,472,59,days,,ai_draft,ai_draft,WARN,关联存疑 22%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 59 条存疑关联(review)仍在展示
+METHOD,47891|Live-cell Fluorescence Imaging,live-cell-fluorescence-imaging-2428,453,453,2428,0,300,91,4,4,20.5,453,51,days,,ai_draft,ai_draft,WARN,关联存疑 21%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 51 条存疑关联(review)仍在展示
+METHOD,47890|Immunofluorescence Staining,immunofluorescence-staining-3055,396,396,3055,0,330,129,4,4,16.4,396,9,days,,ai_draft,ai_draft,WARN,关联存疑 16%; 四字段为 AI 初稿未审; 描述为 AI 初稿未审; 9 条存疑关联(review)仍在展示
+METHOD,47889|PCR,pcr-3288,585,585,3288,0,271,107,4,4,13.2,590,14,hours,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 14 条存疑关联(review)仍在展示
+METHOD,47888|Flow Cytometry,flow-cytometry-3435,356,356,3435,0,324,115,4,4,12.9,357,8,hours,,ai_draft,ai_draft,WARN,四字段为 AI 初稿未审; 描述为 AI 初稿未审; 8 条存疑关联(review)仍在展示
