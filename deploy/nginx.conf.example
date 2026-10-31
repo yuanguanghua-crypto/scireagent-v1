@@ -1,3 +1,33 @@
+# ══════════════════════════════════════════════════════════════════════════
+# ⚠️ 这不是生产配置，只是模板。生产配置只存在服务器上。
+# ══════════════════════════════════════════════════════════════════════════
+#
+# 为什么分开（2026-10-31 改造）：
+#   `deploy/nginx.conf` 曾被 git 跟踪，但服务器上的那份被 certbot **就地改写**
+#   （443 启用 + 证书路径 + Basic Auth + CSP），与仓库里的占位版内容不同。
+#   每次同步都要手工走「备份 → checkout 丢弃本地改 → merge → 恢复」，极易出错，
+#   且一旦某次 merge 把占位版落到生产 ⇒ 443 消失 ⇒ HTTPS 全站 down。
+#
+#   改法：生产配置不入库（见 .gitignore），仓库只保留本模板。
+#
+# 新环境初始化：
+#   cp deploy/nginx.conf.example deploy/nginx.conf
+#   bash deploy/generate-htpasswd.sh              # 生成 Basic Auth 账号
+#   certbot --nginx -d <你的域名>                  # 自动追加 443 块并申请证书
+#   docker compose up -d nginx
+#
+# 已有环境改配置：
+#   **直接在服务器上编辑** `/home/admin/scireagent/deploy/nginx.conf`，
+#   不要把本模板 scp/覆盖过去（会抹掉 443 配置）。
+#   改完必须 `docker compose restart nginx`（bind mount 按 inode 挂载，reload 不够）。
+#
+# 验证三件套（改完必跑）：
+#   docker exec scireagent-nginx-1 grep -c 'listen 443' /etc/nginx/conf.d/default.conf
+#   curl -sk -o /dev/null -w '%{http_code}\n' https://<域名>/          # 401 或 200
+#   curl -sk -o /dev/null -w '%{http_code}\n' https://<域名>/assets/notexist.js  # 404
+#
+# ══════════════════════════════════════════════════════════════════════════
+
 # SciReAgent 单机全栈 Nginx 配置（docker-compose nginx 服务挂载到 /etc/nginx/conf.d/default.conf）
 # 前端 SPA 由 nginx 直接托管；/api /admin 反代到 backend:8000；/static /media 由 nginx 读挂载卷。
 

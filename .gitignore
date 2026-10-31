@@ -94,6 +94,10 @@ _docx_media/
 # 单机全栈部署：compose 绑定挂载的主机数据目录（bioprocorpus 一次性上传至此，不入库）
 /data/
 
+# nginx 生产配置不入库（2026-10-31）：服务器版被 certbot 就地改写为 443 启用版，
+# 与仓库占位模板内容不同。仓库只保留 deploy/nginx.conf.example。
+deploy/nginx.conf
+
 # Basic Auth 密码文件（含哈希，不入库；由 deploy/generate-htpasswd.sh 生成）
 deploy/.htpasswd
 deploy/.htpasswd.*
