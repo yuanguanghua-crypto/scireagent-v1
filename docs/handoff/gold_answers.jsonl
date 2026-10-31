@@ -1,0 +1,63 @@
+{"gold_id": "G001", "method_id": 47919, "protocol_id": 9848, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G002", "method_id": 47919, "protocol_id": 6420, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G003", "method_id": 47919, "protocol_id": 7043, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G004", "method_id": 47894, "protocol_id": 1608, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G005", "method_id": 47892, "protocol_id": 4202, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G006", "method_id": 47892, "protocol_id": 6347, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G007", "method_id": 47892, "protocol_id": 13359, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G008", "method_id": 47889, "protocol_id": 9828, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G009", "method_id": 47889, "protocol_id": 9026, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G010", "method_id": 47889, "protocol_id": 11322, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G011", "method_id": 47889, "protocol_id": 13297, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G012", "method_id": 47969, "protocol_id": 188, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G013", "method_id": 47969, "protocol_id": 217, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G014", "method_id": 47969, "protocol_id": 247, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G015", "method_id": 47969, "protocol_id": 220, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G016", "method_id": 47907, "protocol_id": 6600, "expected_verdict": "wrong", "tier": "human", "why": "人工阅读协议原文确认"}
+{"gold_id": "G017", "method_id": 47929, "protocol_id": 13154, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Perfusion procedure, not husbandry"}
+{"gold_id": "G018", "method_id": 47889, "protocol_id": 7814, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Klenow blunting, no amplification"}
+{"gold_id": "G019", "method_id": 47919, "protocol_id": 9832, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Plasmid miniprep, unrelated"}
+{"gold_id": "G020", "method_id": 47888, "protocol_id": 4024, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：DNA repair reporter assays, no cytometry"}
+{"gold_id": "G021", "method_id": 47913, "protocol_id": 5394, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Flow cytometry of HIV transcription; not protein expression"}
+{"gold_id": "G022", "method_id": 47914, "protocol_id": 6270, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Oligo preparation for HTS, not RNA-seq"}
+{"gold_id": "G023", "method_id": 47920, "protocol_id": 2583, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Protein biotinylation and purification, no infection measured"}
+{"gold_id": "G024", "method_id": 47948, "protocol_id": 13386, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Vascular permeability assay, no drug concentration quantification"}
+{"gold_id": "G025", "method_id": 47912, "protocol_id": 6865, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Bead implantation in embryo, not signal recording"}
+{"gold_id": "G026", "method_id": 47896, "protocol_id": 10547, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Library construction, no behavior"}
+{"gold_id": "G027", "method_id": 47889, "protocol_id": 224, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Enzyme assay on 5hmC; no PCR"}
+{"gold_id": "G028", "method_id": 47921, "protocol_id": 2607, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：MSC adhesion assay, not screening"}
+{"gold_id": "G029", "method_id": 47891, "protocol_id": 940, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：In vitro TIRF, not live cells"}
+{"gold_id": "G030", "method_id": 47921, "protocol_id": 769, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Luciferase activity assay, not screening"}
+{"gold_id": "G031", "method_id": 47910, "protocol_id": 7635, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Ginger nanoparticle isolation, not cells"}
+{"gold_id": "G032", "method_id": 47928, "protocol_id": 14205, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Grafting procedure, no biochemical measurement"}
+{"gold_id": "G033", "method_id": 47944, "protocol_id": 9097, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Negative stain TEM only, no fluorescence"}
+{"gold_id": "G034", "method_id": 47904, "protocol_id": 12082, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Single-cell genome sequencing, not amplicon prep"}
+{"gold_id": "G035", "method_id": 47916, "protocol_id": 10404, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Chlamydomonas transformation, not bacterial transformation"}
+{"gold_id": "G036", "method_id": 47928, "protocol_id": 8215, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Mandibular explant bone assay, not plant"}
+{"gold_id": "G037", "method_id": 47908, "protocol_id": 1331, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Proteolysis study, not metabolite extraction"}
+{"gold_id": "G038", "method_id": 47898, "protocol_id": 10080, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：MSC isolation, not 3D culture"}
+{"gold_id": "G039", "method_id": 47939, "protocol_id": 14131, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：RNAi knockdown, not targeted mutagenesis"}
+{"gold_id": "G040", "method_id": 47932, "protocol_id": 11442, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Magnetic bead cleanup, not gel"}
+{"gold_id": "G041", "method_id": 47967, "protocol_id": 13889, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：Proteomics of lysosomes, not activity"}
+{"gold_id": "G042", "method_id": 47919, "protocol_id": 11837, "expected_verdict": "wrong", "tier": "consensus", "why": "既有判定理由：NSCLC proteogenomics validation, unrelated"}
+{"gold_id": "G043", "method_id": 47894, "protocol_id": 11144, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：Core genomic DNA extraction and purification"}
+{"gold_id": "G044", "method_id": 47903, "protocol_id": 8240, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：Polymerase purification is core protein purification"}
+{"gold_id": "G045", "method_id": 47913, "protocol_id": 11741, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：nsp3 macrodomain expression and purification"}
+{"gold_id": "G046", "method_id": 47894, "protocol_id": 14015, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：eDNA extraction from water filters, core method"}
+{"gold_id": "G047", "method_id": 47906, "protocol_id": 9086, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：Co-IP core method for protein partners"}
+{"gold_id": "G048", "method_id": 47900, "protocol_id": 12215, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：CRISPRi screen core method"}
+{"gold_id": "G049", "method_id": 47923, "protocol_id": 11632, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：VILO RT is core"}
+{"gold_id": "G050", "method_id": 47902, "protocol_id": 9892, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：Direct RNA extraction from pooled samples"}
+{"gold_id": "G051", "method_id": 47919, "protocol_id": 11533, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：naive hESC culture maintenance"}
+{"gold_id": "G052", "method_id": 47901, "protocol_id": 10346, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：Protein A sandwich ELISA core"}
+{"gold_id": "G053", "method_id": 47894, "protocol_id": 2737, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：gDNA extraction core"}
+{"gold_id": "G054", "method_id": 47919, "protocol_id": 6444, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：Direct human pluripotent stem cell culture"}
+{"gold_id": "G055", "method_id": 47889, "protocol_id": 509, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：Standard genotyping PCR"}
+{"gold_id": "G056", "method_id": 47889, "protocol_id": 12709, "expected_verdict": "on_topic", "tier": "consensus", "why": "既有判定理由：PCR amplification of cp23S is core"}
+{"gold_id": "G057", "method_id": 47891, "protocol_id": 11543, "expected_verdict": "tangential", "tier": "human", "why": "制备荧光成像专用培养基（调折射率、降自发荧光）——是活细胞荧光成像的准备步骤，不是成像本身"}
+{"gold_id": "G058", "method_id": 47889, "protocol_id": 12641, "expected_verdict": "tangential", "tier": "human", "why": "临床研究协议，PCR 只是 miR-155 表达的测量手段之一；主体是临床指标相关性分析"}
+{"gold_id": "G059", "method_id": 47900, "protocol_id": 1316, "expected_verdict": "tangential", "tier": "human", "why": "用 dCas9 构建 DNA 路障阻断转录，不产生编辑；含 CRISPR 组分但目的不是编辑"}
+{"gold_id": "G060", "method_id": 47903, "protocol_id": 5721, "expected_verdict": "tangential", "tier": "human", "why": "制备高浓度酵母全细胞提取物——纯化的前一步，不是纯化本身"}
+{"gold_id": "G061", "method_id": 47931, "protocol_id": 576, "expected_verdict": "tangential", "tier": "human", "why": "组织速冻保存，目的是保留下游分析样本；冻存是手段而非协议主体"}
+{"gold_id": "G062", "method_id": 47913, "protocol_id": 5715, "expected_verdict": "tangential", "tier": "human", "why": "用 PhiC31 整合建低拷贝过表达细胞系——表达系统构建，不是制备重组蛋白"}
+{"gold_id": "G063", "method_id": 47909, "protocol_id": 340, "expected_verdict": "tangential", "tier": "human", "why": "电压敏感染料成像水蛭神经节；属功能成像，但染料机制是膜电位而非钙指示剂"}

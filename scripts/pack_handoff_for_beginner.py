@@ -10,10 +10,12 @@
   │   └── gold_set.jsonl            （只在考试那步用）
   └── 3_提示词.txt
 
-刻意不放进来的：CRITERIA.json / OUTPUT_SCHEMA.json / RUBRIC.md /
-ACCEPTANCE.md / validate_output.py / input_task_b.jsonl / METHOD_DEFS.json
-—— 前 5 个是我们这边验收用的，小白用不上；METHOD_DEFS 已内嵌进 READ_ME_FIRST；
-Task B 本次不做。放进越多，小白越容易传错文件。
+刻意不放进来的：
+- gold_answers.jsonl —— 答案，放进去就不是盲测
+- CRITERIA / OUTPUT_SCHEMA / RUBRIC / ACCEPTANCE / validate_output.py
+  —— 我们这边验收用，小白用不上
+- input_task_b.jsonl / METHOD_DEFS.json —— Task B 本次不做；METHOD_DEFS 已内嵌
+放进越多，小白越容易传错文件。
 """
 import os
 import zipfile
@@ -36,9 +38,11 @@ if os.path.exists(r):
 else:
     raise SystemExit('缺少 READ_ME_FIRST.md')
 
-g = os.path.join(BASE, 'gold_set.jsonl')
+# ★ 2026-10-31：改用 gold_questions（题目，无答案）。
+#   gold_answers.jsonl 里是答案，**绝不能放进这个包** —— 放进去就不是盲测了。
+g = os.path.join(BASE, 'gold_questions.jsonl')
 if os.path.exists(g):
-    items.append((g, '2_上传给Claude/gold_set.jsonl'))
+    items.append((g, '2_上传给Claude/gold_questions.jsonl'))
 
 parts = sorted(f for f in os.listdir(PARTS) if f.endswith('.jsonl'))
 for f in parts:

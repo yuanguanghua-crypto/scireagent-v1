@@ -166,6 +166,7 @@ def mode_calibrate(args):
 
     stat = defaultdict(lambda: [0, 0])
     conf = defaultdict(Counter)
+    by_exp = Counter()   # (expected, predicted) → count
     missing = 0
     for k, (exp, tier) in gold.items():
         pred = by_key.get(k)
@@ -173,6 +174,7 @@ def mode_calibrate(args):
             missing += 1
             continue
         ok = pred == exp
+        by_exp[(exp, pred)] += 1
         stat[tier][1] += 1
         stat['ALL'][1] += 1
         if ok:
@@ -181,9 +183,9 @@ def mode_calibrate(args):
         conf[exp][pred] += 1
 
     print('=' * 74)
-    print('Gate 2 — 金标准校准')
+    print('Gate 2 — 金标准校准（盲测：题目里没有答案）')
     print('=' * 74)
-    print(f'  gold {len(gold)} 条｜缺失 {missing} 条')
+    print(f'  答案 {len(gold)} 条｜模型漏判 {missing} 条')
     for tier in ('human', 'consensus', 'ALL'):
         if tier not in stat:
             continue
@@ -191,6 +193,16 @@ def mode_calibrate(args):
         acc = c / n if n else 0
         print(f'  {tier:<10} {c:>3}/{n:<3} = {acc * 100:>5.1f}%  '
               f'{"PASS" if acc >= 0.85 else "FAIL"}')
+
+    # 三档分别看：tangential 是最难的一档，单独报
+    print()
+    print('  按期望判定分档：')
+    for lab in ('on_topic', 'wrong', 'tangential'):
+        tot = sum(v for (e, _p), v in by_exp.items() if e == lab)
+        ok = sum(v for (e, p), v in by_exp.items() if e == lab and p == lab)
+        if tot:
+            print(f'    {lab:<11} {ok:>2}/{tot:<2} = {ok * 100 / tot:>5.1f}%'
+                  + ('  ← 最难的一档，单独看' if lab == 'tangential' else ''))
     print()
     print('  混淆矩阵（行=期望，列=实际）：')
     labels = ['on_topic', 'tangential', 'wrong']
@@ -262,7 +274,8 @@ def main():
     ap.add_argument('--calibrate', action='store_true')
     ap.add_argument('--cross', action='store_true')
     ap.add_argument('--input', required=True)
-    ap.add_argument('--gold', default='gold_set.jsonl')
+    ap.add_argument('--gold', default='gold_answers.jsonl',
+                    help='答案文件（gold_answers.jsonl，**不要发给对方**）')
     ap.add_argument('--flash', default='')
     ap.add_argument('--pro', default='')
     ap.add_argument('--task-b-input', default='input_task_b.jsonl')

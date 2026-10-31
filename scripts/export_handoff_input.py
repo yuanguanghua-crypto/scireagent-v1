@@ -53,7 +53,10 @@ for mp in MethodProtocol.objects.select_related('protocol').iterator(chunk_size=
         'bridge_id': mp.id,
         'method_id': m.id,
         'method_name': m.name,
-        'method_definition': clean(m.summary or m.purpose, 260),
+        # ★ 2026-10-31 修：原为 clean(..., 260) 硬截断，导致 71/83 个定义在单词
+        #   中间断掉（PCR 停在 "diver"、Flow Cytometry 停在 "uptake an"）。
+        #   实测完整长度 min 222 / 中位 298 / max 437，全量仅 24KB ⇒ 无需截断。
+        'method_definition': ' '.join((m.summary or m.purpose or '').split()),
         'method_is_step_tag': bool(m.is_step_tag),
         'criteria_key': m.name if m.name in crit_names else 'general',
         'protocol_id': p.id,
@@ -80,7 +83,7 @@ for m in Method.objects.filter(status='active', application_id__isnull=True) \
             'task': 'B',
             'method_id': m.id,
             'method_name': m.name,
-            'method_definition': clean(m.summary, 260),
+            'method_definition': ' '.join((m.summary or '').split()),
             'timeline': m.timeline or '',
             'field': label,
             'lines': [ln.strip() for ln in text.split('\n') if ln.strip()],
