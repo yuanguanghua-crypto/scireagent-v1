@@ -377,9 +377,13 @@ async function loadProduct(id) {
   await store.fetchProductDetail(id)
   // 阶段0：详情失败（404 等）时跳过依赖 product 的渲染，避免对空值抛错/空转
   if (store.productError || !product.value) return
+  // ★ 2026-10-31：路由参数可能是 slug（公开链接已改用 slug），而下游端点
+  //   （/products/<int:pk>/methods/、documents 等）只接受真实 id。
+  //   这里统一取回真实 id 再分发，避免每个下游都要再支持一次 slug。
+  const realId = product.value.id
   renderStructure()
-  loadCompliance()
-  loadVerifiedMethods()
+  loadCompliance(realId)
+  loadVerifiedMethods(realId)
   // 收藏按钮状态（未登录时内部直接返回）
   loadWishlistState()
   // Track in research path
@@ -396,8 +400,8 @@ async function loadProduct(id) {
  */
 /* verified 状态声明见文件顶部（availableTabs 之前，规避 TDZ） */
 
-async function loadVerifiedMethods() {
-  const id = route.params.id
+async function loadVerifiedMethods(idArg) {
+  const id = idArg ?? route.params.id
   if (!id) return
   verifiedLoading.value = true
   try {
@@ -424,8 +428,8 @@ const currentSds = ref(null)
 const coaList = ref([])
 const complianceLoading = ref(false)
 
-async function loadCompliance() {
-  const id = route.params.id
+async function loadCompliance(idArg) {
+  const id = idArg ?? route.params.id
   if (!id) return
   complianceLoading.value = true
   try {

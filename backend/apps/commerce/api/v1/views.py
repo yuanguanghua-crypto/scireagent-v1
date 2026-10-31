@@ -499,8 +499,11 @@ class ProductDetailAPIView(EnvelopeMixin, APIView):
         #   · deprecated → **200，页面保留**（真实网站语义：停产页面留着、编号不释放，
         #                  只是退出店铺列表与在售状态）
         #   draft 仍不放行。
+        # ★ 2026-10-31：pk 可能是 id 也可能是 slug（公开页链接已改 slug）。
+        #   纯数字走 pk，非数字按 slug 查 —— 与 ProductViewSet.get_object 同一策略。
+        lookup = {'pk': pk} if str(pk).isdigit() else {'slug': pk}
         product = get_object_or_404(
-            Product, pk=pk, status__in=['active', 'deprecated'], archived=False)
+            Product, status__in=['active', 'deprecated'], archived=False, **lookup)
 
         # ── P0#3 方案A：读端打通 ──
         # methods：PMR derived 边（derived_relevance）∪ ProductMethod 桥，按 method id 去重。

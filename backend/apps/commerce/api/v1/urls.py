@@ -29,7 +29,10 @@ urlpatterns = [
     path('products/batch-validate/', BatchValidateView.as_view(), name='batch-validate'),
     path('products/batch-recommend-literature/', BatchRecommendLiteratureView.as_view(), name='batch-recommend-literature'),
     # Existing product routes
-    path('products/<int:pk>/detail/', ProductDetailAPIView.as_view(), name='product-detail-v2'),
+    # ★ 2026-10-31：改为 <pk> 以同时接受 id 与 slug（公开页链接已改用 slug）。
+    #   仅此一个端点放开：faq/related/methods 仍是 <int:pk>，因为前端只在拿到
+    #   真实 id 后才调它们（见 ProductDetail.loadProduct）。
+    path('products/<pk>/detail/', ProductDetailAPIView.as_view(), name='product-detail-v2'),
     path('products/<int:pk>/faq/', ProductFAQView.as_view(), name='product-faq'),
     path('products/<int:pk>/related/', RelatedProductsView.as_view(), name='product-related'),
     # Word import / AI tool endpoints
