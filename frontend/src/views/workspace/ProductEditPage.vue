@@ -1526,6 +1526,89 @@ function formatSaveError(e) {
   return `HTTP ${status} — ${e.message}`
 }
 
+// ── 阶梯价（Volume pricing）────────────────────────────────────────────
+// 后端：PUT /api/v1/skus/<id>/price-tiers/ 全量替换（IsAdmin），
+//   body {"tiers":[{"min_qty":1,"unit_price":"100.00"}]}；空数组 = 清空回目录价。
+//   后端另有两条业务校验（min_qty 唯一、按量递增时单价不得上浮）+ AuditLog。
+//   前端先做一遍是为了少跑一次 400，不是替代后端校验。
+// 只对已存在（有 id）的 SKU 开放编辑：新建 SKU 尚无主键，无法调用该端点。
+const tierOpen = reactive({})
+const tierDraft = reactive({})
+const tierSaving = reactive({})
+const tierMsg = reactive({})
+
+function initTierDraft(s) {
+  if (!s.id || tierDraft[s.id]) return
+  tierDraft[s.id] = (s.price_tiers || []).map(t => ({
+    min_qty: Number(t.min_qty),
+    unit_price: String(t.unit_price),
+  }))
+}
+
+function toggleTier(s) {
+  if (!s.id) return
+  initTierDraft(s)
+  tierOpen[s.id] = !tierOpen[s.id]
+}
+
+function addTier(s) {
+  initTierDraft(s)
+  const rows = tierDraft[s.id]
+  const last = rows[rows.length - 1]
+  rows.push({
+    min_qty: last ? Number(last.min_qty) + 10 : 1,
+    unit_price: last ? String(last.unit_price) : String(s.price || '0.00'),
+  })
+}
+
+async function saveTiers(s) {
+  const rows = tierDraft[s.id] || []
+  const errs = []
+  if (rows.some(r => !Number.isFinite(Number(r.min_qty)) || Number(r.min_qty) < 1)) {
+    errs.push('Min qty must be a whole number >= 1')
+  }
+  if (rows.some(r => r.unit_price === '' || !Number.isFinite(Number(r.unit_price)) || Number(r.unit_price) < 0)) {
+    errs.push('Unit price must be >= 0')
+  }
+  const qs = rows.map(r => Number(r.min_qty))
+  if (new Set(qs).size !== qs.length) errs.push('Min qty values must be unique')
+  const sorted = [...rows].sort((a, b) => Number(a.min_qty) - Number(b.min_qty))
+  for (let i = 1; i < sorted.length; i += 1) {
+    if (Number(sorted[i].unit_price) > Number(sorted[i - 1].unit_price)) {
+      errs.push('Unit price must not increase as quantity grows')
+      break
+    }
+  }
+  if (errs.length) { tierMsg[s.id] = errs.join('; '); return }
+
+  tierSaving[s.id] = true
+  tierMsg[s.id] = ''
+  try {
+    await http.put(`/skus/${s.id}/price-tiers/`, {
+      tiers: sorted.map(r => ({
+        min_qty: Math.round(Number(r.min_qty)),
+        unit_price: Number(r.unit_price).toFixed(2),
+      })),
+    })
+    // 回填，保证折叠后的徽标数字与刚保存的一致
+    s.price_tiers = sorted.map(r => ({
+      min_qty: Math.round(Number(r.min_qty)),
+      unit_price: Number(r.unit_price).toFixed(2),
+    }))
+    tierMsg[s.id] = 'Saved'
+    setTimeout(() => {
+      if (tierMsg[s.id] === 'Saved') tierOpen[s.id] = false
+    }, 900)
+  } catch (e) {
+    const d = e && e.response && e.response.data
+    tierMsg[s.id] = (typeof d === 'string' ? d
+      : String((d && (d.detail || d.tiers || d.message)) || (e && e.message) || 'Save failed')
+    ).slice(0, 200)
+  } finally {
+    tierSaving[s.id] = false
+  }
+}
+
 async function saveDraft(isPublish = false) {
   // 告知模式（CLAUDE.md 规则5：研究员是最终权威，发布检查是告知不是硬阻断）：
   // 缺失必填字段仅标红提示，不阻止保存/发布。后端草稿允许不完整。
@@ -1544,7 +1627,7 @@ async function saveDraft(isPublish = false) {
   saving.value = true
   // 派生 sku_code：Word 导入/AI 不生成，按 catalog_no + 序号兜底
   const catNo = (form.catalog_no || 'SKU').trim()
-  const skusPayload = skus.value.map(({ _key, pack_unit, conc_unit, ...s }, i) => ({
+  const skusPayload = skus.value.map(({ _key, pack_unit, conc_unit, price_tiers, ...s }, i) => ({
     ...s,
     sku_code: s.sku_code || `${catNo}-${i + 1}`,
     pack_size: joinValueUnit(s.pack_size, pack_unit),
@@ -2261,26 +2344,59 @@ watch(
             <tr><th>Code</th><th>Pack Size</th><th>Pack Unit</th><th>Concn</th><th>Conc Unit</th><th>Price</th><th>Curr</th><th>Default</th><th></th></tr>
           </thead>
           <tbody>
-            <tr v-for="(s, i) in skus" :key="s._key" :class="{ 'sku-duplicate': skuDuplicate.has(i) }">
-              <td><AppInput v-model="s.sku_code" style="width:140px;margin-bottom:0" /></td>
-              <td><AppInput v-model="s.pack_size" type="number" step="any" min="0" style="width:80px;margin-bottom:0" /></td>
-              <td>
-                <AppSelect v-model="s.pack_unit" :options="packUnitOptions" style="width:90px;margin-bottom:0" />
-              </td>
-              <td><AppInput v-model="s.concentration" style="width:80px;margin-bottom:0" /></td>
-              <td>
-                <AppSelect v-model="s.conc_unit" :options="concUnitOptions" style="width:90px;margin-bottom:0" />
-              </td>
-              <td><AppInput v-model="s.price" type="number" step="0.01" min="0" style="width:100px;margin-bottom:0" /></td>
-              <td>
-                <AppSelect v-model="s.currency" :options="currencyOptions" style="margin-bottom:0" />
-              </td>
-              <td class="col-default">
-                <input type="radio" name="default-sku" :aria-label="'Set ' + (s.sku_code || 'SKU') + ' as default'" :checked="s.is_default"
-                  @change="skus.forEach((sk, j) => sk.is_default = (j === i))" />
-              </td>
-              <td><button type="button" @click="removeSku(i)" class="btn btn-ghost btn-sm">✕</button></td>
-            </tr>
+            <template v-for="(s, i) in skus" :key="s._key">
+              <tr :class="{ 'sku-duplicate': skuDuplicate.has(i) }">
+                <td><AppInput v-model="s.sku_code" style="width:140px;margin-bottom:0" /></td>
+                <td><AppInput v-model="s.pack_size" type="number" step="any" min="0" style="width:80px;margin-bottom:0" /></td>
+                <td>
+                  <AppSelect v-model="s.pack_unit" :options="packUnitOptions" style="width:90px;margin-bottom:0" />
+                </td>
+                <td><AppInput v-model="s.concentration" style="width:80px;margin-bottom:0" /></td>
+                <td>
+                  <AppSelect v-model="s.conc_unit" :options="concUnitOptions" style="width:90px;margin-bottom:0" />
+                </td>
+                <td><AppInput v-model="s.price" type="number" step="0.01" min="0" style="width:100px;margin-bottom:0" /></td>
+                <td>
+                  <AppSelect v-model="s.currency" :options="currencyOptions" style="margin-bottom:0" />
+                </td>
+                <td class="col-default">
+                  <input type="radio" name="default-sku" :aria-label="'Set ' + (s.sku_code || 'SKU') + ' as default'" :checked="s.is_default"
+                    @change="skus.forEach((sk, j) => sk.is_default = (j === i))" />
+                </td>
+                <td><button type="button" @click="removeSku(i)" class="btn btn-ghost btn-sm">✕</button></td>
+              </tr>
+              <tr v-if="s.id" class="tier-row">
+                <td colspan="9">
+                  <div class="tier-wrap">
+                    <button type="button" class="tier-toggle" @click="toggleTier(s)">
+                      {{ tierOpen[s.id] ? '▾' : '▸' }} Volume pricing
+                      <span v-if="(s.price_tiers || []).length" class="tier-count">{{ s.price_tiers.length }} tier(s)</span>
+                      <span v-else class="tier-count tier-count--empty">not set</span>
+                    </button>
+                    <div v-if="tierOpen[s.id]" class="tier-editor">
+                      <table class="tier-table">
+                        <thead><tr><th>Min Qty</th><th>Unit Price</th><th></th></tr></thead>
+                        <tbody>
+                          <tr v-for="(t, ti) in tierDraft[s.id]" :key="ti">
+                            <td><input v-model.number="t.min_qty" type="number" min="1" step="1" /></td>
+                            <td><input v-model="t.unit_price" type="number" min="0" step="0.01" /></td>
+                            <td><button type="button" class="btn btn-ghost btn-sm" aria-label="Remove tier"
+                              @click="tierDraft[s.id].splice(ti, 1)">✕</button></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <div class="tier-actions">
+                        <button type="button" class="btn btn-ghost btn-sm" @click="addTier(s)">+ Add tier</button>
+                        <button type="button" class="btn btn-primary btn-sm" :disabled="tierSaving[s.id]"
+                          @click="saveTiers(s)">{{ tierSaving[s.id] ? 'Saving…' : 'Save tiers' }}</button>
+                        <span v-if="tierMsg[s.id]" class="tier-msg">{{ tierMsg[s.id] }}</span>
+                      </div>
+                      <p class="tier-hint">Empty list = single catalogue price. Unit price must not increase as quantity grows.</p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
         <button type="button" @click="addSku" class="btn btn-ghost btn-sm">+ Add SKU</button>
@@ -2596,6 +2712,22 @@ html.dark .lipinski-unknown { background: #1e293b; color: #94a3b8; border-color:
 
 
 /* SKU table */
+.sku-table .tier-row td { padding: 0 0 10px; border-bottom: 1px solid var(--color-border); }
+.tier-wrap { padding: 4px 8px 0; }
+.tier-toggle { background: none; border: 0; padding: 2px 0; cursor: pointer; font-size: 12px;
+  color: var(--color-text-secondary); display: inline-flex; align-items: center; gap: 6px; }
+.tier-toggle:hover { color: var(--color-text); }
+.tier-count { font-size: 11px; background: var(--color-bg-subtle, #f3f4f6); border-radius: 4px; padding: 1px 6px; }
+.tier-count--empty { opacity: .7; }
+.tier-editor { margin-top: 6px; padding: 8px 10px; background: var(--color-bg-subtle, #f3f4f6); border-radius: 6px; }
+.tier-table { width: auto; border-collapse: collapse; }
+.tier-table th { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+.tier-table th, .tier-table td { padding: 3px 6px; text-align: left; border-bottom: 0; }
+.tier-table input { width: 92px; padding: 3px 6px; border: 1px solid var(--color-border);
+  border-radius: 4px; font-size: 13px; background: var(--color-bg); color: var(--color-text); }
+.tier-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.tier-msg { font-size: 12px; color: var(--color-text-secondary); }
+.tier-hint { margin: 6px 0 0; font-size: 11px; color: var(--color-text-tertiary); }
 .sku-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
 .sku-table th, .sku-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--color-border); font-size: 13px; }
 .sku-table th { color: var(--color-text-secondary); font-weight: 600; }
