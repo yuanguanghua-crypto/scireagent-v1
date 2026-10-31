@@ -184,10 +184,22 @@ class Method(StatusMixin, TimeStampedModel):
         UNKNOWN = '', '未确定'
 
     class Timeline(models.TextChoices):
-        MINUTES = 'minutes', '几分钟 (<30 min)'
-        HOURS = 'hours', '数小时 (30 min - 4 hours)'
-        DAYS = 'days', '数天 (1-7 days)'
-        WEEKS = 'weeks', '数周 (>1 week)'
+        """完成一次该方法的典型总周期（含样本准备/培养/孵育等待）。
+
+        ★ 2026-10-31 重设（原枚举作废）。原四档为
+        `minutes (<30min) / hours (30min-4h) / days (1-7d) / weeks (>1week)`，
+        实测 83 个方法的中位耗时落在 0.8h~92h（中位 9.4h），按原档位分布是
+        **minutes 0 / hours 18 / days 65 / weeks 0** —— 78% 挤在 days，而 days
+        这一档内部跨度达 23 倍（4h 到 92h），另外两档完全空置 ⇒ 字段无区分度。
+
+        新切点取 4h / 10h / 20h（整数、可解释：半个工作日 / 一个工作日 / 含过夜
+        的一天），实测分布为 18 / 28 / 20 / 17，四档均有内容。
+        刻意不用四分位切点（4.5/9.4/18.4）：那会随语料变化而漂移，且 9.4h 无法解释。
+        """
+        LT_4H = 'lt_4h', '4 小时内'
+        H4_10 = 'h4_10', '4–10 小时'
+        H10_20 = 'h10_20', '10–20 小时'
+        GT_20H = 'gt_20h', '超过 20 小时'
         UNKNOWN = '', '未确定'
 
     application = models.ForeignKey(
@@ -229,6 +241,23 @@ class Method(StatusMixin, TimeStampedModel):
     specs_reviewed_at = models.DateTimeField(
         null=True, blank=True, verbose_name='规格审核时间',
         help_text='为空表示 advantages/limitations/timeline 是 AI 初稿未经审核；有值表示已由领域专家确认',
+    )
+    # ★ 2026-10-31（决策 1B）：区分「独立方法」与「通用步骤」。
+    #   判据不是主观感觉，是可量化的「协议共享度」——该方法的协议中，同时挂在
+    #   其他方法下的比例。实测 83 个方法里 69 个共享度 <50%，而下面 9 个 ≥85%：
+    #     Illumina Sequencing 100%｜Sanger Sequencing 100%｜Click Chemistry 100%
+    #     Random Primer Method 100%｜End Labeling 96%｜Enzymatic Labeling 95%
+    #     T7 Transcription 93%｜Streptavidin Purification 90%｜qPCR 87%
+    #   其中「共享高 + 双模型分歧低」的（Click Chemistry 1%、Streptavidin 0%、
+    #   T7 7%、qPCR 14%）属于**真错挂**，清理数据即可；只有「共享高 + 分歧高」
+    #   的 4 个 —— Sanger Sequencing 47%、Enzymatic Labeling 39%、
+    #   Random Primer Method 33%、End Labeling 21% —— 才标为本字段。
+    #   理由：这些方法的协议 100% 都属于别的实验，不存在「我要做一次 Sanger
+    #   测序实验」这种独立需求，把它们与独立技术并列是在暗示不存在的选择。
+    #   前端应将它们单独分组展示，不参与方法主列表。
+    is_step_tag = models.BooleanField(
+        default=False, db_index=True, verbose_name='通用步骤标签',
+        help_text='True = 实为其他实验的必经工序（协议共享度≥85% 且定义分歧高），不作为独立方法展示',
     )
     display_priority = models.PositiveIntegerField(default=0, db_index=True, verbose_name='展示优先级')
     is_test_fixture = _test_fixture_field()

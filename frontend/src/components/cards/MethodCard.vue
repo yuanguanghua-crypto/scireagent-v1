@@ -34,6 +34,7 @@ function handleClick() {
         <el-tag :type="getStatusType(method.status)" size="small" effect="light">
           {{ method.status }}
         </el-tag>
+        <span v-if="method.is_step_tag" class="card-tag-step" title="This is a common step inside other methods, not a standalone protocol type">Step</span>
         <span class="card-badge">{{ method.protocol_count || 0 }} protocols</span>
       </div>
 
@@ -99,6 +100,16 @@ function handleClick() {
   justify-content: space-between;
 }
 
+.card-tag-step {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-subtle, #f3f4f6);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
 .card-badge {
   font-size: 11px;
   font-weight: 500;

@@ -19,18 +19,22 @@ export const COST_BAND_SHORT = {
   high: 'High cost',
 }
 
+// ★ 2026-10-31（决策 2C）枚举重设。原 minutes/hours/days/weeks 作废：
+//   实测 83 个方法中位耗时 0.8h~92h，原档位下 78% 挤在 days（内部跨度 23 倍），
+//   minutes 与 weeks 两档全空 ⇒ 无区分度。新切点 4h/10h/20h。
+//   必须与 backend/apps/knowledge/models.py 的 Method.Timeline 逐字对齐。
 export const TIMELINE_LABELS = {
-  minutes: 'Minutes (<30 min)',
-  hours: 'Hours (30 min–4 h)',
-  days: 'Days (1–7 d)',
-  weeks: 'Weeks (>1 week)',
+  lt_4h: 'Under 4 hours',
+  h4_10: '4–10 hours',
+  h10_20: '10–20 hours',
+  gt_20h: 'Over 20 hours',
 }
 
 export const TIMELINE_SHORT = {
-  minutes: '<30 min',
-  hours: '30 min–4 h',
-  days: '1–7 d',
-  weeks: '>1 week',
+  lt_4h: '<4 h',
+  h4_10: '4–10 h',
+  h10_20: '10–20 h',
+  gt_20h: '>20 h',
 }
 
 /**

@@ -127,6 +127,11 @@ onUnmounted(() => { store.clearCurrent() })
 
     <!-- ★ 2026-10-31：四字段与 summary 是两批独立生成的内容，各自有审核时间戳。
          只要 specs_status 是 ai_draft，就必须显式告知 —— 不能让模型常识以「事实」面貌出现。 -->
+    <!-- ★ 2026-10-31（决策 1B）：通用步骤说明 -->
+    <p v-if="method.is_step_tag" class="step-tag-note">
+      Common step — this technique appears inside other methods rather than standing alone
+    </p>
+
     <p v-if="method.specs_status === 'ai_draft'" class="spec-draft-note">
       Advantages, limitations and timeline are AI-generated drafts · pending expert review
     </p>
@@ -250,6 +255,13 @@ onUnmounted(() => { store.clearCurrent() })
   border-radius: 4px;
 }
 .spec-draft-note { margin: -14px 0 20px; }
+.step-tag-note {
+  display: inline-block; margin: 0 0 16px; padding: 3px 10px;
+  font-size: 12px; font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-subtle, #f3f4f6);
+  border-radius: 6px;
+}
 .specs-row { display: flex; gap: 24px; margin-bottom: 24px; }
 .spec { display: flex; flex-direction: column; gap: 2px; }
 .spec-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-text-tertiary); }

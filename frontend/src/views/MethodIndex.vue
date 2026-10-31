@@ -16,6 +16,14 @@ const currentPage = ref(1)
 //   （含 47,834 个只有名字、零描述的 draft），与首页 93 矛盾。
 const activeFilter = ref('active')
 
+// ★ 2026-10-31（决策 1B）：区分「独立方法」与「通用步骤」。
+//   后端实测：Sanger Sequencing / Enzymatic Labeling / Random Primer Method /
+//   End Labeling 四个方法的协议共享度 ≥85%（协议同时挂在别的方法下），
+//   且双模型判定分歧 21%~47% —— 它们不是可选的独立实验方案，而是别的实验的
+//   必经工序。并列展示会让用户以为存在「我要做一次 Sanger 测序实验」这种选择。
+const studyMethods = computed(() => store.methods.filter((m) => !m.is_step_tag))
+const stepMethods = computed(() => store.methods.filter((m) => m.is_step_tag))
+
 const filters = [
   { key: 'all', label: 'All Methods' },
   { key: 'active', label: 'Active' },
@@ -125,12 +133,30 @@ const resultCount = computed(() => store.total || store.methods.length)
     <div v-else>
       <div class="card-grid">
         <MethodCard
-          v-for="method in store.methods"
+          v-for="method in studyMethods"
           :key="method.id"
           :method="method"
           @click="goToDetail(method)"
         />
       </div>
+
+      <!-- 通用步骤：单独成段，不与独立方法并列 -->
+      <template v-if="stepMethods.length">
+        <h3 class="steps-heading">
+          Common steps
+          <span class="steps-sub">
+            Techniques that appear inside other methods rather than standing alone
+          </span>
+        </h3>
+        <div class="card-grid card-grid--steps">
+          <MethodCard
+            v-for="method in stepMethods"
+            :key="method.id"
+            :method="method"
+            @click="goToDetail(method)"
+          />
+        </div>
+      </template>
 
       <div v-if="store.total > 20" class="pagination-wrapper">
         <el-pagination
@@ -230,6 +256,22 @@ const resultCount = computed(() => store.total || store.methods.length)
   color: white;
 }
 
+.steps-heading {
+  margin: 40px 0 16px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.steps-sub {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-tertiary);
+}
+.card-grid--steps { opacity: 0.88; }
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

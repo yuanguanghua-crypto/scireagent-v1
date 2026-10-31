@@ -29,13 +29,13 @@ test('cost_band 三档全部有标签，与后端 choices 一致', () => {
   assert.equal(costBandLabel('high'), 'High (>$200/sample)');
 });
 
-test('timeline 四档全部有标签，与后端 choices 一致', () => {
+test('timeline 四档全部有标签，与后端 choices 一致（2026-10-31 重设后）', () => {
   assert.deepEqual(
     Object.keys(TIMELINE_LABELS).sort(),
-    ['days', 'hours', 'minutes', 'weeks'],
+    ['gt_20h', 'h10_20', 'h4_10', 'lt_4h'],
   );
-  assert.equal(timelineLabel('minutes'), 'Minutes (<30 min)');
-  assert.equal(timelineLabel('weeks'), 'Weeks (>1 week)');
+  assert.equal(timelineLabel('lt_4h'), 'Under 4 hours');
+  assert.equal(timelineLabel('gt_20h'), 'Over 20 hours');
 });
 
 test('空值返回空串，让模板的 v-if 直接生效', () => {
@@ -54,8 +54,8 @@ test('未知值原样返回 —— 人工填的自由文本不能被吞掉', () 
 test('卡片用短标签，不出现美元符号与括号', () => {
   assert.equal(costBandShort('low'), 'Low cost');
   assert.equal(costBandShort('high'), 'High cost');
-  assert.equal(timelineShort('minutes'), '<30 min');
-  assert.equal(timelineShort('days'), '1–7 d');
+  assert.equal(timelineShort('lt_4h'), '<4 h');
+  assert.equal(timelineShort('gt_20h'), '>20 h');
   assert.ok(!costBandShort('medium').includes('$'));
 });
 

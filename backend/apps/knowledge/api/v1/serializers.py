@@ -505,7 +505,7 @@ class MethodListSerializer(BaseModelSerializer):
 
     class Meta:
         model = Method
-        fields = ['id', 'name', 'slug', 'summary', 'application_id', 'cost_band', 'timeline', 'status', 'created_at']
+        fields = ['id', 'name', 'slug', 'summary', 'application_id', 'cost_band', 'timeline', 'status', 'is_step_tag', 'created_at']
 
     def get_application_id(self, obj):
         from apps.knowledge.services.application_methods import application_of_method
@@ -550,8 +550,8 @@ class MethodDetailSerializer(BaseModelSerializer):
         fields = [
             'id', 'name', 'slug', 'summary', 'purpose', 'advantages', 'limitations',
             'cost_band', 'timeline', 'status', 'application_id', 'applications_count',
-            'application_name', 'description_status', 'specs_status', 'protocols',
-            'products', 'created_at', 'updated_at',
+            'application_name', 'description_status', 'specs_status', 'is_step_tag',
+            'protocols', 'products', 'created_at', 'updated_at',
         ]
 
     def get_description_status(self, obj):

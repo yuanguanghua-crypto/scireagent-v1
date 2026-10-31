@@ -102,10 +102,15 @@ ACTION_RX = re.compile(
     r'hybridi|digest|lyse|lysis|autoradiograph|expos|develop|overnight|at[ \t]+\d+\s*°?C',
     re.I)
 
-VALID_TIMELINE = ('minutes', 'hours', 'days', 'weeks')
+# ★ 2026-10-31（决策 2C）：枚举重设，与 models.Method.Timeline 及
+#   retag_method_specs.CUTS 必须保持一致。原四档（minutes/hours/days/weeks）
+#   在实测分布下 78% 挤在 days、两档全空，已作废。
+#   注意：timeline 的**权威来源是 retag_method_specs 的纯测量**，
+#   本命令的 LLM 判档仅作参考/对照，不再作为最终值。
+VALID_TIMELINE = ('lt_4h', 'h4_10', 'h10_20', 'gt_20h')
 BAND_HUMAN = {
-    'minutes': 'minutes (<30 min)', 'hours': 'hours (30 min-4 h)',
-    'days': 'days (1-7 d)', 'weeks': 'weeks (>1 week)',
+    'lt_4h': 'under 4 hours', 'h4_10': '4-10 hours',
+    'h10_20': '10-20 hours', 'gt_20h': 'over 20 hours',
 }
 
 ADV_RX = re.compile(r'\badvantag', re.I)
@@ -157,13 +162,15 @@ def parse_step_seconds(text):
 
 
 def band_of(sec):
-    if sec < 30 * 60:
-        return 'minutes'
-    if sec < 4 * 3600:
-        return 'hours'
-    if sec < 7 * 86400:
-        return 'days'
-    return 'weeks'
+    """新切点 4h / 10h / 20h（与 retag_method_specs.CUTS 同源）。"""
+    h = sec / 3600
+    if h < 4:
+        return 'lt_4h'
+    if h < 10:
+        return 'h4_10'
+    if h < 20:
+        return 'h10_20'
+    return 'gt_20h'
 
 
 def fmt_hours(sec):
@@ -229,7 +236,7 @@ Evidence 4 — same caveat, verbatim text mentioning LIMITATIONS / DRAWBACKS:
 {lim_evidence}
 
 Now produce:
-- "timeline": exactly one of minutes | hours | days | weeks.
+- "timeline": exactly one of lt_4h | h4_10 | h10_20 | gt_20h.
   Definition: total elapsed time from starting a TYPICAL COMPLETE run of this
   method to obtaining the final result, INCLUDING sample preparation,
   cell/animal culture and incubation/waiting periods. EXCLUDING reagent shelf
