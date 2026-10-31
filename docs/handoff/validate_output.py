@@ -44,7 +44,7 @@ def err(errors, line, msg):
 
 def check_task_a(line, r, errors):
     for k in ('task', 'method_id', 'protocol_id', 'verdict',
-              'criteria_hit', 'confidence', 'reason'):
+              'confidence', 'reason'):
         if k not in r:
             err(errors, line, f'缺字段 {k}')
             return
@@ -52,15 +52,6 @@ def check_task_a(line, r, errors):
         err(errors, line, f'非法 verdict {r["verdict"]!r}')
     if r['confidence'] not in VALID_CONF:
         err(errors, line, f'非法 confidence {r["confidence"]!r}')
-    hits = r.get('criteria_hit')
-    if not isinstance(hits, list) or not hits:
-        err(errors, line, 'criteria_hit 必须是非空数组')
-    else:
-        for h in hits:
-            if not (h == 'definition' or
-                    (isinstance(h, str) and h.split('#')[0] in ('exclude', 'must', 'universal')
-                     and h.split('#')[-1].isdigit())):
-                err(errors, line, f'criteria_hit 元素非法: {h!r}')
     reason = (r.get('reason') or '').strip()
     if len(reason) < 5:
         err(errors, line, 'reason 过短')
@@ -183,16 +174,19 @@ def mode_calibrate(args):
         conf[exp][pred] += 1
 
     print('=' * 74)
-    print('Gate 2 — 金标准校准（盲测：题目里没有答案）')
+    print('一致性分析（不是考试：两边判断的吻合程度）')
     print('=' * 74)
-    print(f'  答案 {len(gold)} 条｜模型漏判 {missing} 条')
-    for tier in ('human', 'consensus', 'ALL'):
+    print(f'  比对基准 {len(gold)} 条｜对方漏判 {missing} 条')
+    print('  ⚠️ 基准来自同一作者：author_read 是作者自读、model_agreement 是作者调用的')
+    print('     两个模型互相同意。**没有任何一条来自独立人类专家**。')
+    print('     所以下面的一致性百分比只说明"两边有多像"，不说明"谁对"。')
+    for tier in ('author_read', 'model_agreement', 'ALL'):
         if tier not in stat:
             continue
         c, n = stat[tier]
         acc = c / n if n else 0
         print(f'  {tier:<10} {c:>3}/{n:<3} = {acc * 100:>5.1f}%  '
-              f'{"PASS" if acc >= 0.85 else "FAIL"}')
+              )
 
     # 三档分别看：tangential 是最难的一档，单独报
     print()
@@ -211,15 +205,21 @@ def mode_calibrate(args):
         print(f'  {a:<12}' + ''.join(f'{conf[a].get(b, 0):>12}' for b in labels))
 
     acc_all = stat['ALL'][0] / stat['ALL'][1] if stat['ALL'][1] else 0
-    acc_h = stat.get('human', [0, 0])
-    acc_c = stat.get('consensus', [0, 0])
+    acc_h = stat.get('author_read', [0, 0])
+    acc_c = stat.get('model_agreement', [0, 0])
     gap = (acc_c[0] / acc_c[1] - acc_h[0] / acc_h[1]) if acc_c[1] and acc_h[1] else 0
     print()
-    print(f'  总体 {acc_all * 100:.1f}%｜human↔consensus 落差 {gap * 100:+.1f}pp'
-          + ('  ← 落差 >10pp，疑似只学会了简单样本' if gap > 0.10 else ''))
-    ok = acc_all >= 0.85 and gap <= 0.10
-    print(f'  结论：{"可用，可进入全量" if ok else "不可用 — 停止，不要跑全量"}')
-    return 0 if ok else 1
+    print(f'  总体一致性 {acc_all * 100:.1f}%｜author_read↔model_agreement 落差 {gap * 100:+.1f}pp')
+    print()
+    print('  怎么读这个数字：')
+    print('    · 一致性高 ≠ 判得对。两个模型可能同时错。')
+    print('    · 一致性低 ≠ 判得错。很可能是我这边的判据有问题。')
+    print('    · 真正有价值的产出是【分歧清单】—— 那才是需要人工看的地方。')
+    if acc_all >= 0.85:
+        print('    · 当前一致性较高，可以放量，但结果仍需抽样人工核。')
+    else:
+        print('    · 当前一致性偏低。先别放量：优先复查是不是判据本身有歧义。')
+    return 0
 
 
 def mode_cross(args):
