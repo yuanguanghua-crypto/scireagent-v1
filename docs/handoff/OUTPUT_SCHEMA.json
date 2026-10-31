@@ -1,0 +1,143 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Handoff output contract",
+  "description": "One JSON object per line (JSONL). Two record kinds, distinguished by the `task` field.",
+  "oneOf": [
+    { "$ref": "#/definitions/taskARecord" },
+    { "$ref": "#/definitions/taskBRecord" }
+  ],
+  "definitions": {
+    "taskARecord": {
+      "type": "object",
+      "required": [
+        "task", "method_id", "protocol_id", "verdict",
+        "criteria_hit", "confidence", "reason"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "task": { "const": "A" },
+        "method_id": { "type": "integer" },
+        "protocol_id": { "type": "integer" },
+        "verdict": {
+          "type": "string",
+          "enum": ["on_topic", "tangential", "wrong"]
+        },
+        "criteria_hit": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Must cite what you used: 'exclude#N' | 'must#N' | 'universal#N' | 'definition'",
+          "items": {
+            "type": "string",
+            "pattern": "^(exclude#\\d+|must#\\d+|universal#\\d+|definition)$"
+          }
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "description": "low = escalate to human. Use it honestly; it is not penalised."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 240,
+          "description": "<= 25 words, must be consistent with criteria_hit"
+        },
+        "model": {
+          "type": "string",
+          "description": "Your model identifier"
+        },
+        "prompt_version": { "type": "string" },
+        "run_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "taskBRecord": {
+      "type": "object",
+      "required": ["task", "method_id", "field", "findings", "overall"],
+      "additionalProperties": true,
+      "properties": {
+        "task": { "const": "B" },
+        "method_id": { "type": "integer" },
+        "field": {
+          "type": "string",
+          "enum": ["advantages", "limitations"]
+        },
+        "overall": {
+          "type": "string",
+          "enum": ["accept", "accept_with_edits", "reject"],
+          "description": "accept = every line passes; reject = more than half the lines fail"
+        },
+        "findings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["line_index", "pass", "rule_violations"],
+            "additionalProperties": true,
+            "properties": {
+              "line_index": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "0-based index into the input row's `lines` array"
+              },
+              "pass": { "type": "boolean" },
+              "rule_violations": {
+                "type": "array",
+                "description": "Empty when pass=true. Rule ids come from RUBRIC.md (R1..R7)",
+                "items": {
+                  "type": "string",
+                  "pattern": "^R[1-7]$"
+                }
+              },
+              "suggested_rewrite": {
+                "type": ["string", "null"],
+                "maxLength": 200,
+                "description": "Only when pass=false and the fix is mechanical"
+              },
+              "note": { "type": "string", "maxLength": 160 }
+            }
+          }
+        },
+        "model": { "type": "string" },
+        "prompt_version": { "type": "string" },
+        "run_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "calibrationReport": {
+      "type": "object",
+      "required": ["task", "total", "correct", "accuracy", "by_tier", "confusion"],
+      "properties": {
+        "task": { "const": "CALIBRATION" },
+        "total": { "type": "integer" },
+        "correct": { "type": "integer" },
+        "accuracy": { "type": "number", "minimum": 0, "maximum": 1 },
+        "by_tier": {
+          "type": "object",
+          "properties": {
+            "human": { "$ref": "#/definitions/tierStat" },
+            "consensus": { "$ref": "#/definitions/tierStat" }
+          }
+        },
+        "confusion": {
+          "type": "object",
+          "description": "confusion[expected][predicted] = count",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": { "type": "integer" }
+          }
+        },
+        "proceed_recommended": {
+          "type": "boolean",
+          "description": "false when accuracy < 0.85"
+        }
+      }
+    },
+    "tierStat": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer" },
+        "correct": { "type": "integer" },
+        "accuracy": { "type": "number" }
+      }
+    }
+  }
+}
