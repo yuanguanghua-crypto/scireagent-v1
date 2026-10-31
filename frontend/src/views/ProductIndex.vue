@@ -74,7 +74,7 @@ function handlePageChange(page) {
 }
 
 function goToDetail(product) {
-  router.push(`/products/${product.id}`)
+  router.push(`/products/${product.slug || product.id}`)
 }
 
 const resultCount = computed(() => store.total || store.products.length)

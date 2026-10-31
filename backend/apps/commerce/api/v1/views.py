@@ -70,6 +70,23 @@ class ProductViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             return ProductCreateUpdateSerializer
         return ProductListSerializer
 
+    def get_object(self):
+        """支持用 id 或 slug 定位产品（2026-10-31）。
+
+        为什么两者都要：公开产品页链接改用 slug（SEO/分享友好），但
+        - workspace 编辑页、回收站、restore/hard-delete 全部用 id；
+        - 前端 api/products.js 的所有调用也是 `/products/${id}`。
+        改 `lookup_field` 会把后者成片打挂，所以在入口分流：
+        **纯数字走默认 pk 路径，非数字才按 slug 查**。
+        slug 不存在仍 404，行为与之前一致。
+        """
+        lookup = self.kwargs.get(self.lookup_field or 'pk')
+        if lookup is not None and not str(lookup).isdigit():
+            obj = get_object_or_404(self.get_queryset(), slug=lookup)
+            self.check_object_permissions(self.request, obj)
+            return obj
+        return super().get_object()
+
     def retrieve(self, request, *args, **kwargs):
         """S2：公开 retrieve 对软删（archived）产品返回 404。
 

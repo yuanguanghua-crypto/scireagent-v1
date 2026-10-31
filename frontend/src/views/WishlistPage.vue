@@ -97,7 +97,7 @@ async function clearAll() {
 }
 
 function goDetail(product) {
-  router.push(`/products/${product.id}`)
+  router.push(`/products/${product.slug || product.id}`)
 }
 
 onMounted(loadWishlist)

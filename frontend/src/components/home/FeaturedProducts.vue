@@ -70,7 +70,7 @@ function viewAllLink() {
         v-for="p in displayProducts"
         :key="p.id"
         class="product-card"
-        @click="router.push(`/products/${p.id}`)"
+        @click="router.push(`/products/${p.slug || p.id}`)"
       >
         <span
           class="domain-tag"

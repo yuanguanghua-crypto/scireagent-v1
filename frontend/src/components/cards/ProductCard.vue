@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue'
 import { formatCurrency, getStatusType, truncate } from '@/utils/helpers'
 
 const props = defineProps({
@@ -41,6 +42,21 @@ function formatPrice(price, currency) {
   const sym = currency === 'CNY' ? '¥' : '$'
   return `${sym}${parseFloat(price).toFixed(2)}`
 }
+
+// ★ 2026-10-31：列表卡片此前读 `product.price`，但 ProductListSerializer **没有
+//   这个字段**（只有 `sku_summary.price_range`）⇒ v-if 恒 false，全列表 0 个价格。
+//   price_range 的 min 已经把「阶梯价最低档」算进去了（见 serializers 同处注释），
+//   所以"$71 起"与详情页分段价目表一致，不会出现点进去反而更贵。
+const priceDisplay = computed(() => {
+  const r = props.product && props.product.sku_summary && props.product.sku_summary.price_range
+  if (!r || !r.min) return null
+  const min = parseFloat(r.min)
+  const max = parseFloat(r.max)
+  if (!Number.isFinite(min) || min <= 0) return null
+  const minStr = formatPrice(min, props.product.currency)
+  const maxStr = Number.isFinite(max) && max > min ? formatPrice(max, props.product.currency) : null
+  return maxStr ? `${minStr} – ${maxStr}` : minStr
+})
 
 // S6 四轴修饰标签 → 按轴着色（与详情页 Modification Signature 共用配色语义）
 function ssChipClass(tag) {
@@ -105,8 +121,8 @@ function ssChipClass(tag) {
           </span>
         </div>
         <div class="card-footer-right">
-          <span v-if="product.price != null" class="card-price">
-            {{ formatPrice(product.price, product.currency) }}
+          <span v-if="priceDisplay" class="card-price" :title="'Price range across pack sizes (lowest tier included)'">
+            {{ priceDisplay }}
           </span>
           <span v-if="product.product_class_name" class="card-class">{{ product.product_class_name }}</span>
         </div>

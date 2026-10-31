@@ -233,6 +233,31 @@ const skuQuantities = reactive({})
 function getSkuQty(id) { return skuQuantities[id] ?? 1 }
 function setSkuQty(id, qty) { skuQuantities[id] = Math.max(1, qty) }
 
+// ★ 2026-10-31：按当前数量取单价。语义与后端 `resolve_unit_price` 完全一致：
+//   在 min_qty <= qty 的档位里取 min_qty 最大的那一档；一档不命中回落 SKU.price。
+//   （此前价格列只静态罗列全部档位，客户调数量看不到"我这单单价是多少"。）
+function activeTier(sku) {
+  const qty = getSkuQty(sku.id)
+  const tiers = sku.price_tiers || []
+  let best = null
+  for (const t of tiers) {
+    if (Number(t.min_qty) <= qty && (!best || Number(t.min_qty) > Number(best.min_qty))) {
+      best = t
+    }
+  }
+  return best
+}
+
+function qtyUnitPrice(sku) {
+  const best = activeTier(sku)
+  return best ? Number(best.unit_price) : Number(sku.price || 0)
+}
+
+function isActiveTier(t, sku) {
+  const best = activeTier(sku)
+  return !!best && Number(best.min_qty) === Number(t.min_qty)
+}
+
 /* ── Add to cart ── */
 async function addToCart(skuId) {
   try {
@@ -705,8 +730,23 @@ function onSearch(query) {
               <span>{{ sku.pack_size }}</span>
               <span class="pd-price">
                 <template v-if="sku.price_tiers && sku.price_tiers.length">
-                  <span v-for="t in sku.price_tiers" :key="t.min_qty" class="pd-tier-line">
+                  <span
+                    v-for="t in sku.price_tiers"
+                    :key="t.min_qty"
+                    class="pd-tier-line"
+                    :class="{ 'is-active': isActiveTier(t, sku) }"
+                  >
                     {{ tierLabel(t) }} · {{ formatCurrency(t.unit_price, sku.currency) }}
+                  </span>
+                  <span v-if="getSkuQty(sku.id) > 1" class="pd-line-total">
+                    {{ getSkuQty(sku.id) }} × {{ formatCurrency(qtyUnitPrice(sku), sku.currency) }}
+                    = <strong>{{ formatCurrency(qtyUnitPrice(sku) * getSkuQty(sku.id), sku.currency) }}</strong>
+                  </span>
+                </template>
+                <template v-else-if="getSkuQty(sku.id) > 1">
+                  {{ formatCurrency(sku.price, sku.currency) }}
+                  <span class="pd-line-total">
+                    · {{ getSkuQty(sku.id) }} × → <strong>{{ formatCurrency(Number(sku.price || 0) * getSkuQty(sku.id), sku.currency) }}</strong>
                   </span>
                 </template>
                 <template v-else>{{ formatCurrency(sku.price, sku.currency) }}</template>
@@ -1284,6 +1324,23 @@ function onSearch(query) {
   font-size: 12px;
   font-weight: 600;
   line-height: 1.45;
+  white-space: nowrap;
+  opacity: .55;
+}
+/* 当前数量命中的档位：提亮 + 左侧标记，让客户一眼看到"我这单单价" */
+.pd-tier-line.is-active {
+  opacity: 1;
+  color: var(--color-primary);
+}
+.pd-tier-line.is-active::before {
+  content: '▸ ';
+  font-size: 10px;
+}
+.pd-line-total {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 .pd-sku-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
