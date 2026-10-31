@@ -403,7 +403,29 @@ router.beforeEach((to, from, next) => {
 
 // ★ v4.1 DEV-7 SEO Phase B：每路由动态 title + meta description
 const SITE_NAME = 'SciReagent'
+// ★ 2026-10-31：动态 import 失败兜底。
+//   场景：部署新构建后旧 chunk 被删，而用户开着旧页面点导航 —— SPA 内跳转不会
+//   重新请求 index.html，于是动态 import 旧哈希 chunk → 404（nginx 侧已修成真 404，
+//   之前更糟：回退 index.html 返回 200+HTML ⇒ `Unexpected token '<'`）。
+//   处理：检测到这类错误就刷新一次拿新版本；用 sessionStorage 防死循环。
+const CHUNK_ERR_RE = /Failed to fetch dynamically imported module|Importing a module script failed|Unexpected token '<'|error loading dynamically imported module/i
+router.onError((error, to) => {
+  const msg = String((error && error.message) || '')
+  if (!CHUNK_ERR_RE.test(msg)) return
+  const key = 'chunk_reload_once'
+  if (sessionStorage.getItem(key)) {
+    // 已经刷过一次还失败 ⇒ 不是旧版本问题，别再无脑刷新
+    console.error('[router] chunk 加载失败，刷新后仍失败：', msg, to && to.fullPath)
+    return
+  }
+  sessionStorage.setItem(key, '1')
+  console.warn('[router] 检测到旧版资源，刷新获取新版本…')
+  location.reload()
+})
+
 router.afterEach((to) => {
+  // 导航成功说明当前资源可用，清掉防循环标记
+  sessionStorage.removeItem('chunk_reload_once')
   const title = to.meta?.title
   document.title = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — AI-Native Scientific Reagent Platform`
   const desc = document.querySelector('meta[name="description"]')
