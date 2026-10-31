@@ -1,0 +1,215 @@
+{
+  "_meta": {
+    "purpose": "定义「协议属于某方法」的可判定判据，用于收敛双模型判定分歧",
+    "created": "2026-10-31",
+    "evidence": "分歧率来自 flash/pro 全量双判 14,975 条（一致率 80.5%）；本文件只覆盖分歧率 > 25% 的 20 个方法，其余 63 个方法边界已足够清楚（分歧 < 25%）",
+    "universal_rules": [
+      "核心产出原则：该方法必须是协议要交付的核心产出手段。若只是顺带一步，判 tangential；若撤掉它协议仍成立且结论不变，不算本方法。",
+      "不做上游替代：协议主体是样本制备/提取，而本方法只是其后续分析，判 tangential 或 wrong。",
+      "不做下游替代：协议主体是分析方法，而某制备技术只是准备步骤，该制备技术不因此获得本方法标签。",
+      "方法同名不同物：优先按技术机制判定，不按字面词撞车（如 lymphocyte transformation ≠ bacterial transformation；SCFA extraction ≠ eDNA sampling）。",
+      "标注档位：on_topic = 核心；tangential = 有该步骤但非核心；wrong = 完全不涉及。"
+    ]
+  },
+  "methods": {
+    "Sanger Sequencing": {
+      "essence": "用双脱氧链终止法（Sanger/dideoxy）从模板直接读出碱基序列",
+      "must": ["协议核心产出是 Sanger 测序读长或色谱图"],
+      "exclude": [
+        "仅为送 Sanger 测序做模板制备（PCR 扩增、质粒抽提、片段纯化、引物设计）",
+        "用 Sanger 测序作为克隆/编辑/构建的下游验证手段，协议主体不是测序",
+        "二代/三代测序（属 Illumina Sequencing / Long-read Sequencing）",
+        "片段分析（如微卫星分型、SNaPshot）与 Sanger 机制不同者"
+      ]
+    },
+    "Lysosomal Activity Assay": {
+      "essence": "测量溶酶体酶活性或溶酶体功能状态（如 acid phosphatase、cathepsin、LysoTracker 通量）",
+      "must": ["测量对象是溶酶体本身的酶活或功能"],
+      "exclude": [
+        "自噬通量测定（autophagic flux）——属 Autophagy Flux Assay",
+        "泛素-蛋白酶体系统降解测定",
+        "仅为成像而使用溶酶体染料做定位/形态观察，无活性读数",
+        "线粒体功能测定（属 Mitochondrial Function Assay）"
+      ]
+    },
+    "Enzymatic Labeling": {
+      "essence": "用酶的催化活性把可检测标记共价接到目标分子上（如 TdT、kinase、transferase 标记）",
+      "must": ["标记的引入依赖酶的催化反应"],
+      "exclude": [
+        "化学标记（NHS-ester、click chemistry、荧光染料直接偶联）",
+        "仅用酶做切割/降解/合成，目的不是加标记",
+        "免疫学检测（抗体-酶偶联显色，那是 ELISA/WB 的读出方式）",
+        "代谢标记（如 EU/BrdU 掺入）若不是酶催化引入者"
+      ]
+    },
+    "SDS-PAGE": {
+      "essence": "用 SDS 变性 + 聚丙烯酰胺凝胶电泳按分子量分离蛋白，并以染色/成像得到分离结果",
+      "must": ["凝胶电泳分离本身是协议的核心步骤并产出具判定价值的结果"],
+      "exclude": [
+        "协议标题或目的明确是 Western blot / 免疫印迹 / 蛋白免疫检测 —— 判 tangential（跑胶是其一步，但协议主体是免疫检测）",
+        "协议标题是凝胶配方、缓冲液配方、样品缓冲液制备 —— 判 wrong（无电泳分离过程）",
+        "仅作为质谱/测序样品的脱盐或分级准备，无染色/成像结果判读",
+        "琼脂糖凝胶电泳分离核酸（属 Gel Purification of DNA 等）",
+        "Native-PAGE/等电聚焦等非 SDS 变性体系（另有其方法）"
+      ]
+    },
+    "FISH Technique": {
+      "essence": "用荧光标记的核酸探针与靶序列原位杂交，在细胞/组织原位显示特定序列位置",
+      "must": ["核心是原位杂交 + 荧光探针检测"],
+      "exclude": [
+        "免疫荧光染色（抗体检测蛋白，属 Immunofluorescence Staining）",
+        "原位 PCR/RT-PCR 若不以探针杂交为读出",
+        "Southern/Northern blot（膜上杂交，非原位）",
+        "染色体涂染/核型分析若不以探针原位杂交为核心"
+      ]
+    },
+    "Mitochondrial Isolation": {
+      "essence": "从细胞/组织中分离出富集的完整线粒体组分",
+      "must": ["核心产出是纯化后的线粒体组分"],
+      "exclude": [
+        "线粒体功能/呼吸测定（属 Mitochondrial Function Assay）",
+        "仅用商业试剂盒裂解后做下游检测，无分离纯化步骤",
+        "mtDNA 提取（属 DNA Extraction）",
+        "线粒体形态成像而无分离"
+      ]
+    },
+    "Neuronal Differentiation": {
+      "essence": "把干细胞/祖细胞定向诱导为神经元谱系并验证其神经元身份",
+      "must": ["核心过程是从多能/祖细胞向神经元的分化诱导"],
+      "exclude": [
+        "仅培养原代神经元（取材自组织）——属 Immune/Stromal Cell Isolation 或神经元培养",
+        "多能干细胞维持培养但未诱导分化（属 Pluripotent Stem Cell Culture）",
+        "神经元功能记录/成像（属 Electrophysiological Recording / Calcium Imaging）",
+        "神经干细胞增殖而不定向分化"
+      ]
+    },
+    "Agrobacterium-mediated Plant Transformation": {
+      "essence": "用农杆菌侵染植物外植体把外源基因整合进植物基因组并再生/筛选转化体",
+      "must": ["核心是农杆菌介导的植物遗传转化流程"],
+      "exclude": [
+        "仅制备农杆菌感受态或转化农杆菌（属 Bacterial Transformation）",
+        "植物组织培养/再生而不涉及转化",
+        "其他物种转化（如酵母、真菌、动物细胞）",
+        "瞬时表达（agroinfiltration）若不涉及稳定整合——视是否为转化意图判定，倾向 tangential"
+      ]
+    },
+    "Lipid Extraction": {
+      "essence": "用有机溶剂体系把脂质从样本中分离出来供下游分析",
+      "must": ["核心产出是脂质组分（如 Folch/Bligh-Dyer/MTBE 法）"],
+      "exclude": [
+        "代谢物全谱提取（属 Metabolite Extraction (LC-MS)）",
+        "仅脂质染色/成像（如 Oil Red O、BODIPY），无提取",
+        "膜蛋白增溶/去垢剂处理（属 Protein Lysis & Solubilization）",
+        "脂质体/脂质纳米颗粒制备"
+      ]
+    },
+    "Random Primer Method": {
+      "essence": "用随机引物（random hexamer/octamer）起始延伸来标记或扩增未知序列",
+      "must": ["核心依赖随机引物起始"],
+      "exclude": [
+        "oligo-dT 或基因特异引物起始者（属 Reverse Transcription / PCR）",
+        "随机引物只是 RT 流程中的可选组分，协议主体是 RT（判 tangential）",
+        "随机突变/随机文库构建若不以此为核心"
+      ]
+    },
+    "Gel Purification of DNA": {
+      "essence": "从凝胶中切出目标 DNA 条带并回收纯化",
+      "must": ["核心是从凝胶回收 DNA 片段"],
+      "exclude": [
+        "仅跑胶观察/鉴定而不回收",
+        "柱纯化/PCR cleanup 而无凝胶步骤",
+        "蛋白从凝胶中回收（属 Proteomics Sample Prep）",
+        "RNA 从凝胶回收"
+      ]
+    },
+    "Environmental/eDNA Sampling": {
+      "essence": "从环境基质（水/土/沉积物/空气/表面）采集并保存生物材料以检测其中的生物",
+      "must": ["核心是环境基质的采样与保存（及 eDNA 富集）"],
+      "exclude": [
+        "从生物个体/组织取样（如根结线虫卵从根提取、粪便拭子、临床阴道拭子）——非环境基质",
+        "对环境 DNA 的下游分析（扩增测序属 eDNA/Metabarcoding Sampling 的分析端，但采样协议本身归属需看主体）",
+        "纯培养物的核酸提取"
+      ]
+    },
+    "Live-cell Fluorescence Imaging": {
+      "essence": "在活的、未固定细胞上用荧光报告分子随时间成像",
+      "must": ["样本是活细胞且成像过程未固定"],
+      "exclude": [
+        "固定细胞/组织的免疫荧光成像（属 Immunofluorescence Staining / Immunohistochemistry）",
+        "活细胞成像但读出不是荧光（如明场、全息、相差）",
+        "流式细胞术（属 Flow Cytometry）",
+        "仅做图像处理分析而无活细胞采集"
+      ]
+    },
+    "Reverse Transcription & cDNA Synthesis": {
+      "essence": "用逆转录酶把 RNA 转成 cDNA",
+      "must": ["核心产出是 cDNA 或依赖 RT 的读出"],
+      "exclude": [
+        "RNA 提取/纯化（属 RNA Isolation）",
+        "不依赖 RT 的 RNA 检测（如直接 RNA 测序的某些建库、Northern blot）",
+        "RT 只是 RT-qPCR/RNA-seq 全流程中的一步且协议主体是整体流程（判 tangential）",
+        "RNA 结构解析（如 SHAPE）若 RT 仅作读出手段而非目标（判 tangential）"
+      ]
+    },
+    "Glycogen/Carbohydrate Assay": {
+      "essence": "定量糖类（糖原、总糖、单糖）含量或相关酶活",
+      "must": ["测量对象是糖/糖原的丰度或糖代谢酶活"],
+      "exclude": [
+        "脂质测定",
+        "蛋白/核酸定量",
+        "细胞活力测定（如 MTT 依赖代谢但目的是活力）",
+        "糖基化修饰分析若不以糖含量为核心"
+      ]
+    },
+    "Protein Lysis & Solubilization": {
+      "essence": "裂解细胞/组织并把蛋白溶解释放到可分析状态",
+      "must": ["核心产出是可溶的蛋白裂解液"],
+      "exclude": [
+        "蛋白纯化（属 Protein Purification）",
+        "免疫沉淀前的常规裂解若协议主体是 IP（判 tangential）",
+        "膜蛋白增溶若为核心步骤则可算（需看主体）",
+        "核酸提取的裂解步骤（那属对应核酸方法）"
+      ]
+    },
+    "Multiplexed Tissue Imaging": {
+      "essence": "在同一组织切片上同时成像多个标志物（如 CODEX、CycIF、IMC、mIF）",
+      "must": ["核心是多标志物同片成像并获得空间信息"],
+      "exclude": [
+        "单标志物免疫荧光/组化",
+        "质谱成像（MALDI-MSI）若不以抗体/探针多重标记为核心",
+        "空间转录组（如 Visium/Nova-ST）——测序读出，非成像",
+        "仅做图像分析而不涉及多重染色"
+      ]
+    },
+    "Amplicon/Illumina Library Prep": {
+      "essence": "把 PCR 扩增子转成带 index 的 Illumina 测序文库",
+      "must": ["核心是从扩增子到可上机文库的构建"],
+      "exclude": [
+        "仅做 PCR 扩增（属 PCR）",
+        "非扩增子来源的文库构建（如全基因组、RNA-seq 建库——属 RNA-seq Library Prep / 其他）",
+        "仅做文库定量/质检",
+        "空间转录组建库（有自己的方法）"
+      ]
+    },
+    "Pathogen Infection Assay": {
+      "essence": "用病原体感染宿主并定量感染结果（滴度、病变、载量）",
+      "must": ["核心是病原体对宿主的感染过程及感染读数"],
+      "exclude": [
+        "仅培养病原体而无感染宿主（属 Bacterial/Microbial Culture）",
+        "病毒包装/制备（属 Viral Production）",
+        "宿主对非病原刺激的响应（如 LPS 刺激若不视为感染模型，需看定义）",
+        "植物病原接种若协议核心是病害表型评估，视是否以感染过程为主体"
+      ]
+    },
+    "Click Chemistry Labeling": {
+      "essence": "用生物正交 click 反应（CuAAC/SPAAC 等）把标记共价接到目标分子",
+      "must": ["核心依赖 click 反应完成标记/偶联"],
+      "exclude": [
+        "NHS-ester/马来酰亚胺等非 click 化学偶联",
+        "仅提及 click 可用的探针但协议未做 click 反应",
+        "代谢掺入（如 EU 掺入）后续若不接 click 步骤",
+        "酶法标记"
+      ]
+    }
+  }
+}
