@@ -1,12 +1,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useProductsStore } from '@/stores/products'
 import ProductLayout from '@/components/layout/ProductLayout.vue'
 import ProductCard from '@/components/cards/ProductCard.vue'
 import { LoadingSpinner, EmptyState } from '@/components/common'
 
-const router = useRouter()
 const store = useProductsStore()
 const searchQuery = ref('')
 const currentPage = ref(1)
@@ -73,10 +71,6 @@ function handlePageChange(page) {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-function goToDetail(product) {
-  router.push(`/products/${product.slug || product.id}`)
-}
-
 const resultCount = computed(() => store.total || store.products.length)
 const totalPages = computed(() => Math.ceil(resultCount.value / pageSize))
 
@@ -133,7 +127,6 @@ const visiblePages = computed(() => {
             v-for="product in store.products"
             :key="product.id"
             :product="product"
-            @click="goToDetail(product)"
           />
         </div>
 

@@ -9,13 +9,11 @@
  *   不能把「空列表」直接渲染成空态。
  */
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import ProductCard from '@/components/cards/ProductCard.vue'
 import { AppButton, LoadingSpinner, toast } from '@/components/common'
 import { getWishlists, createWishlist, updateWishlist } from '@/api/wishlist'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
 const loading = ref(true)
@@ -96,10 +94,6 @@ async function clearAll() {
   }
 }
 
-function goDetail(product) {
-  router.push(`/products/${product.slug || product.id}`)
-}
-
 onMounted(loadWishlist)
 </script>
 
@@ -152,7 +146,7 @@ onMounted(loadWishlist)
     <!-- 产品网格 -->
     <div v-else class="wl-grid">
       <div v-for="p in products" :key="p.id" class="wl-item">
-        <ProductCard :product="p" @click="goDetail" />
+        <ProductCard :product="p" />
         <button
           type="button"
           class="wl-remove"

@@ -9,11 +9,12 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['click'])
-
-function handleClick() {
-  emit('click', props.product)
-}
+// ★ 2026-10-31：改为真正的 <router-link>。
+//   此前根元素是 <article role="button" @click>，点击走 JS 跳转 —— 爬虫抓不到
+//   列表到详情的内链（实测 a[href*="/products/"] 返回空数组），对 SEO 不利；
+//   顺带让中键/Ctrl+点击「新标签页打开」这类原生行为失效。
+//   router-link 渲染成 <a href>，既保留 SPA 导航，又让链接可被抓取/可右键打开。
+const to = computed(() => `/products/${props.product.slug || props.product.id}`)
 
 function getInventoryType(status) {
   const map = {
@@ -69,13 +70,10 @@ function ssChipClass(tag) {
 </script>
 
 <template>
-  <article
+  <router-link
+    :to="to"
     class="card product-card"
-    role="button"
-    tabindex="0"
     :aria-label="`Product: ${product.name}`"
-    @click="handleClick"
-    @keydown.enter="handleClick"
   >
     <!-- Left accent bar - neutral color -->
     <div class="card-accent" aria-hidden="true"></div>
@@ -128,12 +126,14 @@ function ssChipClass(tag) {
         </div>
       </div>
     </div>
-  </article>
+  </router-link>
 </template>
 
 <style scoped>
 .product-card {
   cursor: pointer;
+  text-decoration: none;
+  color: inherit;
   display: flex;
   flex-direction: row;
   background: var(--color-surface);
