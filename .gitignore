@@ -142,3 +142,7 @@ e2e_po_fixture.json                  # PO E2E 夹具（backend/seed_e2e_po_fixtu
 _test_runs/
 backend/db_probe.sqlite3
 backend/_probe_ids.json
+
+# 交接包分片：与 docs/handoff/input_task_a_parts.zip 内容重复（zip 内即这些文件），
+# 只提交 zip，分片由 scripts/split_handoff_parts.py 重新生成
+docs/handoff/parts/

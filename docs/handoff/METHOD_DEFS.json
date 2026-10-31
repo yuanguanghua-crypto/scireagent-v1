@@ -1,0 +1,417 @@
+{
+ "47917": {
+  "name": "Sanger Sequencing",
+  "definition": "Sanger sequencing determines the nucleotide sequence of DNA fragments by chain-termination synthesis with dideoxynucleotides and capillary or gel electrophoretic separation of the products. It is chosen for targeted, low-throughput readouts such as verifying c",
+  "is_step_tag": true
+ },
+ "47889": {
+  "name": "PCR",
+  "definition": "PCR amplifies specific DNA sequences through repeated cycles of denaturation, primer annealing, and extension by a thermostable polymerase. Researchers use it to detect or quantify targets, prepare DNA for cloning or sequencing, and genotype samples from diver",
+  "is_step_tag": false
+ },
+ "47916": {
+  "name": "Bacterial Transformation",
+  "definition": "Bacterial transformation introduces exogenous DNA into competent bacterial cells, typically via heat shock or electroporation, followed by selection on antibiotic-containing media. Researchers use it to propagate plasmids, build libraries, and move constructs ",
+  "is_step_tag": false
+ },
+ "47933": {
+  "name": "Viral Infection & Focus Assays",
+  "definition": "Viral infection and focus assays quantify infectious virus by inoculating susceptible cells and detecting infected foci, often with antibody or reporter-based readouts. Researchers use them to titrate viral stocks, assess neutralization, and measure replicatio",
+  "is_step_tag": false
+ },
+ "47895": {
+  "name": "Real-Time Quantitative PCR (qPCR)",
+  "definition": "Real-time quantitative PCR amplifies a specific DNA target while measuring fluorescence each cycle, allowing quantification of starting template amounts. Researchers use it to measure gene expression, detect or quantify pathogens and specific sequences, and as",
+  "is_step_tag": false
+ },
+ "47897": {
+  "name": "Illumina Sequencing",
+  "definition": "Illumina sequencing is a short-read, sequencing-by-synthesis method that generates nucleotide reads from DNA or RNA-derived libraries. Researchers choose it for applications requiring high-throughput read output, including transcriptome profiling, small RNA an",
+  "is_step_tag": false
+ },
+ "47943": {
+  "name": "Enzymatic Labeling",
+  "definition": "Enzymatic labeling uses an enzyme's catalytic activity to attach a detectable label or to convert a substrate into a measurable product. Researchers choose it when they need to visualize or quantify enzyme activity, label surface proteins, or measure metabolit",
+  "is_step_tag": true
+ },
+ "47964": {
+  "name": "End Labeling",
+  "definition": "End labeling adds a detectable or reactive moiety to the terminus of a nucleic acid molecule, using enzymatic or chemical means. Researchers use it to prepare probes, quantify specific lesions, map RNA or DNA termini, and render fragment ends suitable for down",
+  "is_step_tag": true
+ },
+ "47969": {
+  "name": "Click Chemistry",
+  "definition": "Click chemistry is a set of modular, high-yield reactions used to covalently join two molecular partners under mild, bio-orthogonal conditions. Researchers choose it when they need selective labeling, conjugation, or ligation of biomolecules without interferin",
+  "is_step_tag": false
+ },
+ "47894": {
+  "name": "Genomic DNA Extraction",
+  "definition": "Genomic DNA extraction isolates DNA from a range of sample types, including plant nuclei, plasmid DNA on filter paper, and microbial or viral communities. Researchers choose it when they need DNA suitable for downstream applications such as sequencing, PCR, or",
+  "is_step_tag": false
+ },
+ "47909": {
+  "name": "Calcium/Functional Imaging",
+  "definition": "Calcium/functional imaging uses fluorescent or luminescent indicators to monitor intracellular ion dynamics and related functional readouts in living cells and tissues. Researchers choose it to follow signaling events, vesicle turnover, or reporter activity ov",
+  "is_step_tag": false
+ },
+ "47903": {
+  "name": "Protein Purification",
+  "definition": "Protein purification isolates a specific protein or protein complex from a biological source by separating it from other cellular components. Researchers choose it when downstream experiments require enriched, functionally active protein, such as structural an",
+  "is_step_tag": false
+ },
+ "47893": {
+  "name": "Cell Viability Assay",
+  "definition": "Cell viability assays quantify the proportion of live cells in a population after experimental treatment. Researchers use them to assess cytotoxicity, compare drug or compound effects, and monitor cell health over time across many cell types and formats.",
+  "is_step_tag": false
+ },
+ "47904": {
+  "name": "Amplicon/Illumina Library Prep",
+  "definition": "Amplicon/Illumina library prep converts PCR amplicons into indexed libraries for short-read sequencing on Illumina platforms. Researchers choose it when targeted loci, marker genes, or barcoded constructs must be sequenced across many samples in parallel.",
+  "is_step_tag": false
+ },
+ "47890": {
+  "name": "Immunofluorescence Staining",
+  "definition": "Immunofluorescence staining uses fluorophore-conjugated antibodies to label specific proteins in fixed or live cells and tissues, which are then imaged by fluorescence microscopy. Researchers choose it to determine protein localization, distribution, and abund",
+  "is_step_tag": false
+ },
+ "47924": {
+  "name": "Viral Vector Transduction",
+  "definition": "Viral vector transduction introduces genetic material into target cells using viral particles, enabling stable or transient expression of shRNAs, cDNAs, reporters, or CRISPR components. Researchers choose it when they need efficient delivery across hard-to-tra",
+  "is_step_tag": false
+ },
+ "47935": {
+  "name": "Receptor/Ligand Binding Assay",
+  "definition": "Receptor/ligand binding assays measure the interaction between a receptor and its ligand, typically to determine affinity, kinetics, or binding specificity. Researchers choose this approach when they need to quantify binding under defined conditions, including",
+  "is_step_tag": false
+ },
+ "47914": {
+  "name": "RNA-seq Library Prep",
+  "definition": "RNA-seq library prep converts RNA into sequenceable cDNA libraries for transcriptome profiling. Variants accommodate polyadenylated or non-polyadenylated inputs, bulk tissues, single cells, small RNAs, and long reads, so researchers select a protocol matched t",
+  "is_step_tag": false
+ },
+ "47940": {
+  "name": "ChIP-seq/Chromatin Profiling",
+  "definition": "Chromatin profiling methods map protein-DNA interactions, nucleosome positions, and chromatin accessibility genome-wide. Researchers choose these approaches to locate transcription factor binding sites, define chromatin states, or resolve chromatin architectur",
+  "is_step_tag": false
+ },
+ "47927": {
+  "name": "Protein Lysis & Solubilization",
+  "definition": "Protein lysis and solubilization disrupts cells and extracts proteins into solution for downstream analysis. Researchers choose it when preparing lysates for assays, fractionation, or proteomic workflows, with buffer composition adjusted to preserve the target",
+  "is_step_tag": false
+ },
+ "47949": {
+  "name": "Tissue Clearing",
+  "definition": "Tissue clearing renders biological specimens optically transparent by removing or matching refractive index of lipids and other light-scattering components, enabling deep imaging of internal structures by light and fluorescence microscopy. Researchers choose i",
+  "is_step_tag": false
+ },
+ "47951": {
+  "name": "Kinase Activity Assay",
+  "definition": "A kinase activity assay measures the catalytic activity of a kinase by detecting phosphorylation of a substrate or a coupled readout of nucleotide consumption. Researchers use it to quantify kinase function, compare activity across samples or conditions, and s",
+  "is_step_tag": false
+ },
+ "47913": {
+  "name": "Recombinant Protein Expression",
+  "definition": "Recombinant protein expression uses host cells or cell-free systems to produce a target protein from a cloned gene. Researchers choose it when they need preparative amounts of a protein for purification, biochemical assays, or structural work.",
+  "is_step_tag": false
+ },
+ "47946": {
+  "name": "Click Chemistry Labeling",
+  "definition": "Click chemistry labeling covalently attaches tags, fluorophores, or affinity handles to biomolecules through bioorthogonal reactions such as azide-alkyne cycloaddition. Researchers choose it when selective, mild conjugation is needed on proteins, nucleic acids",
+  "is_step_tag": false
+ },
+ "47891": {
+  "name": "Live-cell Fluorescence Imaging",
+  "definition": "Live-cell fluorescence imaging detects fluorescently tagged or stained molecules in intact cells over time. Researchers use it to follow localization, clustering, internalization, and reporter activity in living samples, preserving spatial and temporal context",
+  "is_step_tag": false
+ },
+ "47939": {
+  "name": "Targeted Mutagenesis (TAM)",
+  "definition": "Targeted mutagenesis introduces defined sequence changes at a chosen genomic locus, enabling construction of point mutants, deletions, and reporter or variant alleles in bacterial, mouse, and mammalian systems. Researchers choose it when a specific genetic alt",
+  "is_step_tag": false
+ },
+ "47921": {
+  "name": "High-throughput Screening Assay",
+  "definition": "A high-throughput screening assay measures a defined phenotype across many samples or variants in parallel, typically in multiwell plates with automated liquid handling and plate readers or imaging. Researchers choose it when comparing large libraries, compoun",
+  "is_step_tag": false
+ },
+ "47928": {
+  "name": "Plant Biochemical Assay",
+  "definition": "Plant biochemical assays measure chemical constituents, enzyme activities, or staining reactions in plant tissues to assess physiological state, stress responses, or developmental processes. Researchers choose these assays when a specific biochemical or histoc",
+  "is_step_tag": false
+ },
+ "47947": {
+  "name": "Microsphere/Particle Synthesis",
+  "definition": "Microsphere and particle synthesis produces dispersed colloidal or polymeric particles with controlled composition and size, using approaches such as reduction, emulsion, membrane emulsification, or nanoprecipitation. Researchers choose it to generate nanopart",
+  "is_step_tag": false
+ },
+ "47905": {
+  "name": "Western Blot",
+  "definition": "Western blot separates proteins by gel electrophoresis, transfers them to a membrane, and detects specific proteins with antibodies. Researchers use it to assess protein presence, size, and relative abundance in complex samples.",
+  "is_step_tag": false
+ },
+ "47961": {
+  "name": "Small Molecule Synthesis",
+  "definition": "Small molecule synthesis covers the preparation of defined organic and organometallic compounds through controlled chemical reactions, including derivatization reagents, fluorinated compounds, polymers, and functional probes. Researchers choose it when a speci",
+  "is_step_tag": false
+ },
+ "47906": {
+  "name": "Immunoprecipitation",
+  "definition": "Immunoprecipitation uses an antibody immobilized on a solid support to capture a specific antigen from a complex mixture, allowing its separation from other components. Researchers choose it to enrich a target protein or complex for downstream analysis, or to ",
+  "is_step_tag": false
+ },
+ "47936": {
+  "name": "Agrobacterium-mediated Plant Transformation",
+  "definition": "Agrobacterium-mediated transformation delivers DNA into plant cells via bacterial infection, enabling stable integration or transient expression. Researchers use it for generating transgenic lines, transient assays, virus-induced gene silencing, and studying g",
+  "is_step_tag": false
+ },
+ "47910": {
+  "name": "Immune/Stromal Cell Isolation & Culture",
+  "definition": "Covers isolation and culture of immune and stromal cells from blood, tissue, or culture, including depletion and activation steps. Researchers use it when a defined cell population is needed for downstream assays such as sequencing, reporter assays, or functio",
+  "is_step_tag": false
+ },
+ "47968": {
+  "name": "Ubiquitination Assay",
+  "definition": "Ubiquitination assays detect and characterize covalent attachment of ubiquitin to substrate proteins, using purified components or cell lysates. Researchers use them to test E3 ligase activity, substrate specificity, and chain formation, or to enrich ubiquitin",
+  "is_step_tag": false
+ },
+ "47920": {
+  "name": "Pathogen Infection Assay",
+  "definition": "A Pathogen Infection Assay introduces a defined pathogen to a host, tissue, or substrate under controlled conditions and measures the resulting infection, colonization, or killing. Researchers use it to compare virulence, test antimicrobial or immune treatment",
+  "is_step_tag": false
+ },
+ "47929": {
+  "name": "Model-organism Husbandry",
+  "definition": "Covers the routine care and propagation of model organisms, including feeding, watering, housing, acclimation, breeding, and synchronized culture. Researchers use it to establish and maintain healthy, reproducible stocks before experimental manipulation.",
+  "is_step_tag": false
+ },
+ "47912": {
+  "name": "In-vivo Recording & Surgery",
+  "definition": "In-vivo recording and surgery covers procedures for instrumenting live animals to acquire physiological or neural signals, including electrode implantation, cannulation, and telemetry. Researchers choose it when measurements must be made in the intact, functio",
+  "is_step_tag": false
+ },
+ "47908": {
+  "name": "Metabolite Extraction (LC-MS)",
+  "definition": "Metabolite extraction prepares biological samples for LC-MS analysis by isolating small-molecule metabolites from cells or tissues. Researchers choose it when profiling metabolite composition, quantifying specific compounds, or comparing metabolic states acros",
+  "is_step_tag": false
+ },
+ "47901": {
+  "name": "ELISA",
+  "definition": "ELISA detects and quantifies specific proteins, antibodies, or small molecules in liquid samples using antibody-based binding and an enzymatic signal readout. Researchers choose it for sensitive, plate-based measurement of analytes across serum, culture, and e",
+  "is_step_tag": false
+ },
+ "47888": {
+  "name": "Flow Cytometry",
+  "definition": "Flow cytometry measures optical and fluorescence properties of individual cells or particles in a fluid stream, enabling enumeration and phenotyping of heterogeneous populations. Researchers use it to quantify surface or intracellular markers, assess uptake an",
+  "is_step_tag": false
+ },
+ "47898": {
+  "name": "3D Cell Culture",
+  "definition": "3D cell culture maintains cells in three-dimensional arrangements that better approximate tissue architecture, cell-cell contacts, and spatial gradients than planar culture. Researchers use it to study morphology, migration, aggregation, colony formation, and ",
+  "is_step_tag": false
+ },
+ "47919": {
+  "name": "Pluripotent Stem Cell Culture",
+  "definition": "Pluripotent stem cell culture maintains undifferentiated embryonic and induced pluripotent stem cells under defined conditions, supporting self-renewal and subsequent differentiation. Researchers use it to expand lines for gene editing, differentiation, and re",
+  "is_step_tag": false
+ },
+ "47900": {
+  "name": "CRISPR-Cas9 Genome Editing",
+  "definition": "CRISPR-Cas9 introduces targeted double-strand breaks at genomic loci defined by a guide RNA, enabling knockouts, knock-ins, and other edits through cellular repair. Researchers choose it when they need site-specific modification of a gene in cells or organisms",
+  "is_step_tag": false
+ },
+ "47902": {
+  "name": "RNA Isolation",
+  "definition": "RNA isolation recovers total or fractionated RNA from cells, tissues, or body fluids for downstream analysis such as sequencing, RT-PCR, or small RNA detection. Researchers choose it when they need intact RNA suitable for transcriptome profiling, non-polyadeny",
+  "is_step_tag": false
+ },
+ "47923": {
+  "name": "Reverse Transcription & cDNA Synthesis",
+  "definition": "Reverse transcription converts RNA templates into complementary DNA using a reverse transcriptase, primed by oligo-dT, random primers, or gene-specific primers. Researchers choose it when RNA must be stabilized as cDNA for downstream amplification, library con",
+  "is_step_tag": false
+ },
+ "47907": {
+  "name": "SDS-PAGE",
+  "definition": "SDS-PAGE separates proteins by molecular mass under denaturing conditions, using an anionic detergent to unfold polypeptides and impart a uniform charge-to-mass ratio. Researchers use it to assess purity, monitor fractionation, verify protein preparation, and ",
+  "is_step_tag": false
+ },
+ "47926": {
+  "name": "Tissue Embedding",
+  "definition": "Tissue embedding infiltrates and surrounds specimens with a supporting medium so they can be sectioned or imaged while preserving structure. Researchers choose it when samples need mechanical support for microtomy, cryosectioning, or resin-based fluorescence a",
+  "is_step_tag": false
+ },
+ "47957": {
+  "name": "RNA-Protein Crosslinking (CLIP)",
+  "definition": "RNA-protein crosslinking covalently links RNAs to interacting proteins in intact cells, typically with UV light, enabling purification and sequencing of bound RNA segments. Researchers use it to map protein-RNA binding sites and identify interaction partners i",
+  "is_step_tag": false
+ },
+ "47899": {
+  "name": "Immunohistochemistry",
+  "definition": "Immunohistochemistry detects specific proteins in tissue sections using antibody-based staining, preserving spatial context within the tissue architecture. Researchers choose it to localize or assess target expression in situ, including on biopsy and archived ",
+  "is_step_tag": false
+ },
+ "47892": {
+  "name": "Bacterial/Microbial Culture",
+  "definition": "Bacterial and microbial culture propagates microorganisms in controlled media to obtain viable cells, isolates, or stocks. Researchers use it when they need to expand cultures for downstream assays, maintain strains, or prepare inocula for experimental work.",
+  "is_step_tag": false
+ },
+ "47956": {
+  "name": "Protein Aggregation Assay",
+  "definition": "Protein aggregation assays detect and quantify aggregated or fibrillar protein species, often using fluorescence, imaging, or light scattering readouts. Researchers use them to follow aggregation kinetics, assess aggregate clearance, or characterise phase-sepa",
+  "is_step_tag": false
+ },
+ "47954": {
+  "name": "Gibson DNA Assembly",
+  "definition": "Gibson DNA Assembly joins DNA fragments with overlapping end sequences in a single isothermal reaction using an exonuclease, a polymerase, and a ligase. Researchers choose it to assemble multiple fragments or insert DNA into a vector without restriction digest",
+  "is_step_tag": false
+ },
+ "47944": {
+  "name": "Correlative Light-Electron Microscopy",
+  "definition": "Correlative light-electron microscopy pairs fluorescence imaging of labeled molecules with electron microscopy of the same specimen, allowing fluorescent signals to be mapped onto ultrastructural context. Researchers choose it when molecular identity must be a",
+  "is_step_tag": false
+ },
+ "47953": {
+  "name": "Glycogen/Carbohydrate Assay",
+  "definition": "The glycogen/carbohydrate assay quantifies glycogen or total carbohydrate in biological samples, typically by colorimetric detection after extraction or hydrolysis. Researchers choose it when carbohydrate content must be measured alongside lipid, glucose, or m",
+  "is_step_tag": false
+ },
+ "47958": {
+  "name": "Biofilm Assay",
+  "definition": "A biofilm assay quantifies microbial biofilm formation, typically by growing cells in wells or on surfaces, staining attached biomass, and measuring retained signal. Researchers use it to assess how treatments, surfaces, or growth conditions affect biofilm dev",
+  "is_step_tag": false
+ },
+ "47911": {
+  "name": "Electrophysiological Recording",
+  "definition": "Electrophysiological recording measures electrical activity from excitable tissues such as nerves, muscle, and heart using electrodes placed in vitro, in vivo, or on the body surface. Researchers choose it to capture real-time physiological signals, including ",
+  "is_step_tag": false
+ },
+ "47937": {
+  "name": "Viral Molecular Detection",
+  "definition": "Viral molecular detection covers the purification and concentration of virus particles from environmental, faecal, sediment, and clinical samples, followed by molecular assays to identify and characterise viral nucleic acid. Researchers choose it when they nee",
+  "is_step_tag": false
+ },
+ "47942": {
+  "name": "FISH Technique",
+  "definition": "Fluorescence in situ hybridisation detects specific DNA or RNA sequences in fixed cells and tissue by hybridising labelled probes and visualising them by fluorescence microscopy. Researchers use it to localise sequences within intact cellular and tissue archit",
+  "is_step_tag": false
+ },
+ "47941": {
+  "name": "Neuronal Differentiation",
+  "definition": "Neuronal differentiation converts stem cells or somatic cells into neuron-like cells that express neuronal markers, extend processes, and form functional synapses. Researchers use it to obtain cultured neurons for morphological, electrophysiological, and imagi",
+  "is_step_tag": false
+ },
+ "47950": {
+  "name": "Mitochondrial Function Assay",
+  "definition": "Mitochondrial function assays measure respiration, complex activity, morphology, mtDNA turnover, and flux in live or fixed samples. Researchers choose them to assess oxidative phosphorylation, mitochondrial quality control, and organelle dynamics across cell t",
+  "is_step_tag": false
+ },
+ "47932": {
+  "name": "Gel Purification of DNA",
+  "definition": "Gel purification separates DNA fragments by agarose gel electrophoresis and recovers a specific size band from the gel matrix. Researchers use it when a defined fragment must be isolated from mixed products, primers, or other bands, such as after restriction d",
+  "is_step_tag": false
+ },
+ "47925": {
+  "name": "Lipid Extraction",
+  "definition": "Lipid extraction separates lipids from aqueous and non-lipid components of a sample using organic solvents, yielding a lipid fraction suitable for downstream quantification or analysis. Researchers choose it when preparing cells, tissues, or other matrices for",
+  "is_step_tag": false
+ },
+ "47945": {
+  "name": "RNA In Situ Hybridization",
+  "definition": "RNA in situ hybridization detects specific RNA transcripts within intact cells or tissue sections by hybridizing labelled probes to target sequences. Researchers use it to localize RNA spatially while preserving tissue morphology, including multiplexed detecti",
+  "is_step_tag": false
+ },
+ "47938": {
+  "name": "Multiplexed Tissue Imaging",
+  "definition": "Multiplexed tissue imaging detects multiple markers within a single tissue section while preserving spatial context. Researchers choose it to map cell types, states, and tissue architecture across heterogeneous samples in one experiment.",
+  "is_step_tag": false
+ },
+ "47896": {
+  "name": "Behavioral Assessment",
+  "definition": "Behavioral assessment measures observable actions, performance, or physiological outputs to infer function in living subjects. Researchers use it when the question concerns behavior, cognition, or integrated physiological responses rather than isolated molecul",
+  "is_step_tag": false
+ },
+ "47967": {
+  "name": "Lysosomal Activity Assay",
+  "definition": "The Lysosomal Activity Assay measures lysosomal function using readouts such as DQ-BSA fluorescence, LAMP1-positive puncta quantification, or substrate cleavage. Researchers choose it to assess lysosomal degradation capacity and endolysosomal integrity in cell",
+  "is_step_tag": false
+ },
+ "47934": {
+  "name": "Environmental/eDNA Sampling",
+  "definition": "Environmental/eDNA sampling collects biological material from air, water, sediment, soil, or surfaces to detect organisms present in a habitat without direct capture. Researchers choose it for biodiversity inventories, pathogen or indicator monitoring, and det",
+  "is_step_tag": false
+ },
+ "47955": {
+  "name": "Viral Genome Sequencing",
+  "definition": "Viral genome sequencing recovers and characterizes genetic material from viruses in cultured isolates, purified preparations, or metagenomic samples. Researchers use it to identify viruses, assemble genomes, and support phylogenetic or variant analysis. It sui",
+  "is_step_tag": false
+ },
+ "47931": {
+  "name": "Cryopreservation",
+  "definition": "Cryopreservation preserves cells, organisms, and biological samples at low temperature for long-term storage. Researchers use it to maintain cell lines, archive strains, and prepare samples for downstream cryo-based analysis or shipment.",
+  "is_step_tag": false
+ },
+ "47965": {
+  "name": "Peptide Synthesis",
+  "definition": "Peptide synthesis builds peptides from amino acid building blocks, either in solution or on a solid support. Researchers use it to obtain defined peptides for assays, binding studies, and immunization when a specific sequence is needed.",
+  "is_step_tag": false
+ },
+ "47966": {
+  "name": "Autophagy Flux Assay",
+  "definition": "Autophagy flux assays measure the progression of autophagic cargo through the pathway, typically by combining reporters or substrates with lysosomal inhibition to distinguish delivery from degradation. Researchers choose them to assess whether a perturbation a",
+  "is_step_tag": false
+ },
+ "47915": {
+  "name": "Single-cell RNA-seq",
+  "definition": "Single-cell RNA-seq profiles transcriptomes of individual cells, resolving cell types, states, and heterogeneity within a sample. Researchers choose it when bulk measurements would obscure cell-to-cell variation, such as mapping tissue composition or identifyi",
+  "is_step_tag": false
+ },
+ "47918": {
+  "name": "Long-read Sequencing",
+  "definition": "Long-read sequencing generates continuous nucleotide reads from single DNA or RNA molecules, resolving repeats, structural variants, and full-length transcripts that short reads fragment. Researchers choose it for de novo assembly, isoform characterization, ha",
+  "is_step_tag": false
+ },
+ "47960": {
+  "name": "Mitochondrial Isolation",
+  "definition": "Mitochondrial isolation separates mitochondria from other cellular components using differential centrifugation and density-gradient steps. Researchers choose it when they need an enriched mitochondrial fraction for proteomics, enzyme activity assays, protein ",
+  "is_step_tag": false
+ },
+ "47948": {
+  "name": "In-vivo PK Sampling & Bioanalysis",
+  "definition": "In-vivo PK sampling and bioanalysis collects blood or plasma at defined times after dosing and quantifies drug concentrations to characterize absorption, distribution, and clearance. Researchers use it when they need time-resolved exposure data from living ani",
+  "is_step_tag": false
+ },
+ "47962": {
+  "name": "eDNA/Metabarcoding Sampling",
+  "definition": "Environmental DNA and metabarcoding sampling collects genetic material from water, soil, or other environmental matrices, typically through filtration or direct preservation, followed by nucleic acid extraction and amplification of marker genes. Researchers ch",
+  "is_step_tag": false
+ },
+ "47952": {
+  "name": "Extracellular Vesicle Isolation",
+  "definition": "Extracellular vesicle isolation separates vesicles from biological fluids, conditioned media, or tissue preparations. Researchers choose it when downstream analysis requires vesicle-enriched fractions for characterization, staining, or protein study.",
+  "is_step_tag": false
+ },
+ "47930": {
+  "name": "Proteomics Sample Prep",
+  "definition": "Proteomics sample prep covers the steps that turn cells, tissues, or purified complexes into peptides suitable for mass spectrometry, including lysis, protein extraction, reduction and alkylation, digestion, and optional labelling or fractionation. Researchers",
+  "is_step_tag": false
+ },
+ "47922": {
+  "name": "Single-nucleus RNA-seq",
+  "definition": "Single-nucleus RNA-seq profiles gene expression from individual nuclei, enabling transcriptomic analysis of tissues that are difficult to dissociate into intact cells, including frozen or archived material. Researchers choose it when whole-cell dissociation is",
+  "is_step_tag": false
+ },
+ "47963": {
+  "name": "T7 Transcription",
+  "definition": "T7 transcription uses bacteriophage T7 RNA polymerase to synthesize RNA from a DNA template carrying a T7 promoter. Researchers use it to produce RNA for probes, guide RNAs, mRNA constructs, and polymerase activity assays.",
+  "is_step_tag": false
+ },
+ "47970": {
+  "name": "Random Primer Method",
+  "definition": "Random primers are short oligonucleotides of mixed sequence that anneal throughout a nucleic acid template, allowing DNA polymerase to initiate synthesis at many sites. This enables uniform labeling or amplification of DNA, including degraded or fragmented sam",
+  "is_step_tag": true
+ },
+ "47959": {
+  "name": "Streptavidin Purification",
+  "definition": "Streptavidin purification isolates streptavidin or biotinylated molecules through the high-affinity streptavidin–biotin interaction. Researchers use it to capture biotin-tagged proteins, nucleic acids, or complexes for downstream assays and enrichment.",
+  "is_step_tag": false
+ }
+}

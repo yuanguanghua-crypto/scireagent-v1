@@ -13,13 +13,29 @@ Read this file completely before producing any output. Two tasks, two input file
 | File | Rows | Purpose |
 |---|---|---|
 | `CRITERIA.json` | 20 methods + 5 universal rules | **Authoritative** judgement rules |
+| `METHOD_DEFS.json` | 83 entries, keyed by `method_id` | Method name + definition (see below) |
 | `input_task_a.jsonl` | 14,975 | One row per protocol↔method link (Task A) |
 | `input_task_b.jsonl` | 166 | One row per method field to review (Task B) |
 | `gold_set.jsonl` | 56 | Calibration set with known answers — run this FIRST |
 | `OUTPUT_SCHEMA.json` | — | Exact output shape |
 | `RUBRIC.md` | — | Review criteria for Task B only |
 
-Every input row is **self-contained**. You never need to look anything up outside these files.
+Every input row carries everything except the method's own name/definition — those are
+stored **once** in `METHOD_DEFS.json` (keyed by `method_id`) instead of being repeated in
+all ~180 rows that reference the same method. This keeps each shard under the context limit.
+
+### Resolving the method for a row
+
+For every row, look up `METHOD_DEFS.json[str(method_id)]`:
+
+```json
+{"123": {"name": "PCR", "definition": "PCR amplifies specific DNA sequences...", "is_step_tag": false}}
+```
+
+- `name` and `definition` are the method context you need for judging.
+- `is_step_tag` is background only — it does **not** change the verdict rules.
+- If a `method_id` is missing from `METHOD_DEFS.json`, that is a data error: report it,
+  do not guess.
 
 ---
 
