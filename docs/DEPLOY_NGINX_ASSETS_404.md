@@ -52,30 +52,42 @@ location /assets/ {
 | SPA 深链 `/workspace/users` | 200 | 200 |
 | `listen 443` | 2 处 | 2 处（未受影响） |
 
-## ⚠️ 部署注意：这个文件不能直接 merge
+## ✅ 已解耦（2026-10-31 改造）
 
-`deploy/nginx.conf` 是 **tracked 文件**，但服务器上的版本被 certbot 就地改写过
-（443 启用 + 证书路径 + Basic Auth 等），与仓库里的**占位版（443 注释）**内容不同。
+原先 `deploy/nginx.conf` 是 tracked 文件，但服务器版被 certbot 就地改写（443 启用 +
+证书路径 + Basic Auth + CSP），与仓库占位版内容不同。每次同步都要手工走
+「备份 → checkout 丢弃本地改 → merge → 恢复」，极易漏步骤，一旦把占位版落到生产
+就 443 消失、HTTPS 全站 down。
 
-仓库版的这次修改已在本地提交，但**服务器不能直接 `git merge --ff-only`**，
-否则会用占位版覆盖生产 443 配置 → HTTPS 全站 down。
+**现在已彻底解耦：**
 
-### 正确的部署流程（每次需要同步 nginx.conf 时）
+| 文件 | 状态 |
+|---|---|
+| `deploy/nginx.conf` | **不入库**（.gitignore），生产配置只存服务器 |
+| `deploy/nginx.conf.example` | 模板（含 443 注释版 + `location /assets/` 404 块 + 使用说明） |
+
+### 以后怎么改 nginx 配置
+
+**直接在服务器上编辑** `/home/admin/scireagent/deploy/nginx.conf`，不要从本地覆盖。
 
 ```bash
-cd /home/admin/scireagent
-cp deploy/nginx.conf /tmp/prod-nginx.conf      # ① 保存生产版
-git checkout -- deploy/nginx.conf              # ② 丢弃本地修改，让 merge 能过
-git merge --ff-only origin/master              # ③ 仓库版落地（占位 + assets 404 块）
-cp /tmp/prod-nginx.conf deploy/nginx.conf      # ④ 恢复生产版（含 443）
-docker compose restart nginx                   # ⑤ bind mount 需 restart，reload 不够
-curl -sk -o /dev/null -w "%{http_code}\n" https://scireagent.com/   # ⑥ 必须 401/200
+# 服务器上
+vim /home/admin/scireagent/deploy/nginx.conf
+docker compose restart nginx        # 必须 restart：bind mount 按 inode 挂载，reload 不够
+
+# 三条验证（缺一不可）
+docker exec scireagent-nginx-1 grep -c 'listen 443' /etc/nginx/conf.d/default.conf   # 2
+curl -sk -o /dev/null -w '%{http_code}\n' https://scireagent.com/                  # 401 或 200
+curl -sk -o /dev/null -w '%{http_code}\n' https://scireagent.com/assets/notexist.js  # 404
 ```
 
-**若不涉及 nginx.conf 的常规部署，跳过上述流程，直接 merge 即可**——
-只要待合并的提交没碰这个文件，git 不会报冲突。
+`git merge` 从此不再触碰这个文件，也不会删除它。
 
-### 长期建议
+### 新环境初始化
 
-把 `deploy/nginx.conf` 改为 `.gitignore` + 提供 `deploy/nginx.conf.example` 占位模板，
-生产配置只存服务器。这样彻底消除"本地版与生产版打架"的问题。
+```bash
+cp deploy/nginx.conf.example deploy/nginx.conf
+bash deploy/generate-htpasswd.sh
+certbot --nginx -d <域名>            # 自动追加 443 块并申请证书
+docker compose up -d nginx
+```
