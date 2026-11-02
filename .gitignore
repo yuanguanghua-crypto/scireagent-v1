@@ -146,3 +146,10 @@ backend/_probe_ids.json
 # 交接包分片：与 docs/handoff/input_task_a_parts.zip 内容重复（zip 内即这些文件），
 # 只提交 zip，分片由 scripts/split_handoff_parts.py 重新生成
 docs/handoff/parts/
+
+# ── work/ ：P0 工作区（scratch）—— **整目录忽略** ──────────────────────────────
+# 2026-11-02 立。此前 work/ 未被忽略：目录里 57+ 个文件含 κ 判定（p0_kappa_*.jsonl）、
+# 盲测批、暖身判定、样本原文报告 —— 一次 `git add -A` 就会把它们全提交。
+# 需要长期留存的执行脚本 / 规范，请**复制**到 deploy/sql/ 或 docs/，不要依赖 work/ 里那份。
+# ⚠️ 绝不受此影响的：docs/、scripts/、deploy/sql/（那些是正式资产，本就该入仓）
+work/
