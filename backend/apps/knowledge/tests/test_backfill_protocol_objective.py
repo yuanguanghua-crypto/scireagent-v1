@@ -184,7 +184,11 @@ class BackfillProtocolObjectiveCommandTest(TestCase):
         self.assertEqual(p.objective, 'Lyse cells, add TRIzol, centrifuge.')
 
     def test_falls_back_through_priority_order(self):
-        """abstract 空时按 protocol>description>method>hierarchical_protocol 优先级取首个非空。"""
+        """abstract 空时按 protocol>description>method 优先级取首个非空。
+
+        注意：`hierarchical_protocol` 已从优先级链中移除（2026-11-02），
+        它是结构字段，见 test_structure_only_field_never_fills_objective。
+        """
         _write_source(self.src_dir, 'Bio-protocol.json', [
             {'id': 1, 'title': 'X',
              'description': 'Desc only', 'method': 'Method text'},
@@ -251,8 +255,13 @@ class BackfillProtocolObjectiveCommandTest(TestCase):
         p.refresh_from_db()
         self.assertEqual(p.objective, '', '高相似度门槛：不相关标题不得误匹配')
 
-    def test_structured_field_dict_is_stringified(self):
-        """hierarchical_protocol 等为 dict/list 等结构化字段应安全拼接为文本（不崩溃）。"""
+    def test_structure_only_field_never_fills_objective(self):
+        """★ 结构字段 hierarchical_protocol 单独存在时，objective 必须保持空。
+
+        回归保护：2026-11-02 前本条断言的是相反行为（objective 里含 Lyse/Centrifuge），
+        即把"文档大纲写进 objective"当成了正确行为 —— 生产库因此有 443 条污染。
+        结构树不是目标陈述，源头没有目标字段时正确做法是留空。
+        """
         _write_source(self.src_dir, 'Bio-protocol.json', [
             {'id': 1, 'title': 'Struct Proto',
              'abstract': '',
@@ -264,5 +273,27 @@ class BackfillProtocolObjectiveCommandTest(TestCase):
         )
         call_command('backfill_protocol_objective', '--path', self.src_dir)
         p.refresh_from_db()
-        self.assertIn('Lyse', p.objective)
-        self.assertIn('Centrifuge', p.objective)
+        self.assertEqual(p.objective, '',
+                         '结构字段不得写入 objective（会变成 1: title: ... 大纲）')
+
+    def test_structure_only_record_skipped_without_blocking_others(self):
+        """同批中只有结构树的记录跳过，不影响其他有正文字段的记录被回填。"""
+        _write_source(self.src_dir, 'Bio-protocol.json', [
+            {'id': 1, 'title': 'Outline Only',
+             'hierarchical_protocol': {'1': {'title': ''}, '1.1': 'Aliquots applied to gels'}},
+            {'id': 2, 'title': 'Has Method',
+             'method': 'Incubate at 37 C for 1 h.'},
+        ])
+        p1 = Protocol.objects.create(
+            name='Outline Only', slug='outline-only',
+            source=Protocol.Source.BIOPROCORPUS, objective='',
+        )
+        p2 = Protocol.objects.create(
+            name='Has Method', slug='has-method',
+            source=Protocol.Source.BIOPROCORPUS, objective='',
+        )
+        call_command('backfill_protocol_objective', '--path', self.src_dir)
+        p1.refresh_from_db()
+        p2.refresh_from_db()
+        self.assertEqual(p1.objective, '')
+        self.assertEqual(p2.objective, 'Incubate at 37 C for 1 h.')

@@ -10,8 +10,12 @@ backfill_protocol_objective — 任务2：BioProCorpus 协议正文回填（含 
 
 B 类改进（本轮）：
 - 扩展字段来源（③）：源记录仅含 title+abstract 时同原行为；abstract 为空则按
-  `protocol` > `description` > `method` > `hierarchical_protocol` 优先级取首个非空，
-  最大化本地源利用率。
+  `protocol` > `description` > `method` 优先级取首个非空，最大化本地源利用率。
+- **`hierarchical_protocol` 已从证据来源中移除（2026-11-02）**：它是文档大纲/章节树
+  （形如 `{"1": {"title": ""}, "1.1": "Aliquots ..."}`），**不是"方法目标陈述"**。
+  曾被当作最后兜底，导致 443 条协议的 objective 被写成 `1: title: \r1.1: ...` 大纲。
+  源头没有正确 objective 时，正确处理是**留空**（"这条没有目标证据"），而不是塞大纲。
+  证据：`work/objective污染_只读调查报告_20261102.md`
 - 保守模糊匹配（④，默认关闭，--fuzzy 启用）：先归一化精确命中（大小写/标点/
   空白差异），再对高相似度（difflib ratio >= 0.90）且唯一候选的做回退匹配。
   严守"宁 miss 不错配"——不相关标题绝不误写（AUTO MATCH 十铁律①）。
@@ -38,8 +42,15 @@ from apps.knowledge.models import Protocol
 DEFAULT_SUBDIR = os.path.join('data', 'bioprocorpus')
 BATCH = 1000
 
-# 正文候选字段优先级：abstract(策展摘要) 优先，空则回退其余字段
-PRIORITY_FIELDS = ['abstract', 'protocol', 'description', 'method', 'hierarchical_protocol']
+# 正文候选字段优先级：abstract(策展摘要) 优先，空则回退其余"目标类"字段。
+# ⚠️ `hierarchical_protocol` 刻意不在本列表内 —— 它是结构字段，见 STRUCTURE_ONLY_FIELDS。
+PRIORITY_FIELDS = ['abstract', 'protocol', 'description', 'method']
+# 仅结构字段：文档大纲/章节树，不是目标陈述，**绝不可写入 objective**。
+# 2026-11-02：此处曾把 hierarchical_protocol 当作最后兜底 ⇒ 443 条协议 objective
+# 被写成 "1: title: ... 1.1: ..." 大纲（全部来自 source='bioprocorpus'）。
+# 源头目标类字段全空时正确处理是留空，不是塞大纲。
+# 证据：work/objective污染_只读调查报告_20261102.md
+STRUCTURE_ONLY_FIELDS = ('hierarchical_protocol',)
 # 模糊匹配相似度门槛（越高越保守，避免误配）
 FUZZY_RATIO_THRESHOLD = 0.90
 # 参与模糊倒排索引的最小 token 长度
@@ -67,8 +78,14 @@ def _to_text(v):
 
 
 def _record_text(rec):
-    """从单条源记录挑最优正文字段（按优先级首个非空）。结构化字段拼接为文本。"""
+    """从单条源记录挑最优正文字段（按优先级首个非空）。结构化字段拼接为文本。
+
+    ⚠️ 防御：任何落在 STRUCTURE_ONLY_FIELDS 里的字段一律跳过，即便有人把它
+    加回 PRIORITY_FIELDS —— 结构树拼进 objective 就是 443 条污染的同型事故。
+    """
     for field in PRIORITY_FIELDS:
+        if field in STRUCTURE_ONLY_FIELDS:
+            continue
         v = _to_text(rec.get(field))
         if v:
             return v
