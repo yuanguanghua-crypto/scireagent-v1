@@ -1,30 +1,26 @@
 # ============================================================================
-# ★ 曹操采纳版 v3.1 —— **AI 起草、曹操采纳；独立复核尚未签署**
+# ★ 曹操采纳版 v3.1 —— **AI 起草、曹操采纳；诸葛亮已复核签署（组织方代录）**
 #
 # 作者（署名）：曹操
+# 复核（署名）：诸葛亮
 # 起草：DS（AI）—— 参考草稿提供者，**不是作者、不署名**
 #
-# 状态：`status: adopted-by-author`（曹操已采纳）；`reviewed_by` **为空**，
-#      独立复核人（诸葛亮）尚未签署。**作者采纳 ≠ 独立复核，两者不得合并**；
-#      作者自己填 reviewed_by 即「作者自复核」，与"组织方与作者分离"的纪律冲突。
+# ★ 签署留痕（重要）：复核签署由**组织方于 2026-11-02 22:03 确认「诸葛亮已同意署名」**，
+#   由 DS 代录入 `reviewed_by` / `status`。**这不是诸葛亮本人经办的文件操作**。
+#   若需更强的留痕，应由诸葛亮本人或组织方在文件里另附一句确认。
 #
-# 版本 v3.1 说明：**只改了本段头注释与 `version` 元数据，定义内容字段逐字节未变**
-#   ⇒ 按规范 §7.5，不触发"改定义须换新样本重测"，本轮 κ 结果继续有效。
-#   （历史：v3 采纳时曹操只改了 status、未同步头注释，导致"参考草稿"与
-#     "adopted-by-author" 并存；诸葛亮在标注中发现并指出，此处修正。）
+# ★ 状态语义（三者不得混用）：
+#   `adopted-by-author` = 作者采纳；`reviewed` = **复核已签**。
+#   **「冒烟通过」与「已验证」目前 YAML 无字段可表达**（已知缺口，见结果文件 §四）。
+#   ⇒ 本文件 `status: reviewed` **只表示复核已签，不代表「已验证」**，
+#     也不能据此对外或对下游宣称该定义已被验证。
 #
-# 变更依据：work/A方案_SDS-PAGE_v3重验_草案.md v3（18:54 三条决定）
+# ★ 版本约定：**`version` 不随元数据变更**。
+#   v3.1 相对 v3 只改头注释与 `version`；本次只改 `reviewed_by` / `status`
+#   ⇒ **定义内容字段逐字节未变** ⇒ 按规范 §7.5 **不触发重测**，本轮 κ 结果继续有效。
 #
-# 相对 v2 的改动：
-#   [V3-1] 引用规范 §3 证据出处规则（**全局规则，定义不重复定义**，此处仅指路）
-#   [V3-2] 规范 §4.2 空 objective 规则 —— **以 neg_examples 第 5 条落地**（insufficient_detail: true）
-#   [V3-3] exclude E2 已删去 v2 的「二维属 composite、不排除」定性
-#   [V3-4] edge_examples 原二维那条已删（18:54：二维本轮回避）
-#   [V3-6] 新增 scope_note 字段（v3.3 §5.1.1）—— 顶部声明范围边界，**不参与判定**
-#   [V3-7] neg_examples 恢复 E2 反例为第 6 条（§5.1 要求每个 E 有反例；原 v2 那条已随 E2 改写而**重写了措辞**，见该条注释）
-#   [V3-8] edge_examples 增第 6 条覆盖 composite（19:0x 决定选甲：非二维的合成例）
-#
-# ⚠️ 规范已到 **v3.4**：字段表 8 → 9（v3.3 加可选 scope_note）→ **10**（v3.4 补 category_definition）。本稿按 v3.4 写。
+#   （历史：v3 采纳时曹操只改了 status、未同步头注释，导致「参考草稿」与
+#     「adopted-by-author」并存；诸葛亮在标注中发现并指出，v3.1 已修正。）
 # ============================================================================
 
 # ── [V3-1] 证据出处规则：引用规范 §3（全局规则，本文件不重复定义，仅指路）──────────
@@ -116,8 +112,8 @@ edge_examples:
   - {text: "Analyze the PCR products on a 1% agarose gel, then separate the protein fraction of the same samples on a 10% SDS-PAGE gel, stain it, and image the gel.", verdict: on_topic, category: composite, why: "Two electrophoretic methods (agarose and SDS-PAGE) run in one protocol, and the SDS-PAGE gel-band pattern itself is a stated readout."}
 
 author: 曹操
-reviewed_by: ""
-status: adopted-by-author
+reviewed_by: "诸葛亮"
+status: reviewed
 
 # ============================================================================
 # 已决记录（原「待裁定」三处的处置，2026-11-02 19:0x 组织方定）
