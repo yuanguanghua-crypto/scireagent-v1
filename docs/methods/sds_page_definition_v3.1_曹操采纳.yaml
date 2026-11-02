@@ -1,0 +1,138 @@
+# ============================================================================
+# ★ 曹操采纳版 v3.1 —— **AI 起草、曹操采纳；独立复核尚未签署**
+#
+# 作者（署名）：曹操
+# 起草：DS（AI）—— 参考草稿提供者，**不是作者、不署名**
+#
+# 状态：`status: adopted-by-author`（曹操已采纳）；`reviewed_by` **为空**，
+#      独立复核人（诸葛亮）尚未签署。**作者采纳 ≠ 独立复核，两者不得合并**；
+#      作者自己填 reviewed_by 即「作者自复核」，与"组织方与作者分离"的纪律冲突。
+#
+# 版本 v3.1 说明：**只改了本段头注释与 `version` 元数据，定义内容字段逐字节未变**
+#   ⇒ 按规范 §7.5，不触发"改定义须换新样本重测"，本轮 κ 结果继续有效。
+#   （历史：v3 采纳时曹操只改了 status、未同步头注释，导致"参考草稿"与
+#     "adopted-by-author" 并存；诸葛亮在标注中发现并指出，此处修正。）
+#
+# 变更依据：work/A方案_SDS-PAGE_v3重验_草案.md v3（18:54 三条决定）
+#
+# 相对 v2 的改动：
+#   [V3-1] 引用规范 §3 证据出处规则（**全局规则，定义不重复定义**，此处仅指路）
+#   [V3-2] 规范 §4.2 空 objective 规则 —— **以 neg_examples 第 5 条落地**（insufficient_detail: true）
+#   [V3-3] exclude E2 已删去 v2 的「二维属 composite、不排除」定性
+#   [V3-4] edge_examples 原二维那条已删（18:54：二维本轮回避）
+#   [V3-6] 新增 scope_note 字段（v3.3 §5.1.1）—— 顶部声明范围边界，**不参与判定**
+#   [V3-7] neg_examples 恢复 E2 反例为第 6 条（§5.1 要求每个 E 有反例；原 v2 那条已随 E2 改写而**重写了措辞**，见该条注释）
+#   [V3-8] edge_examples 增第 6 条覆盖 composite（19:0x 决定选甲：非二维的合成例）
+#
+# ⚠️ 规范已到 **v3.4**：字段表 8 → 9（v3.3 加可选 scope_note）→ **10**（v3.4 补 category_definition）。本稿按 v3.4 写。
+# ============================================================================
+
+# ── [V3-1] 证据出处规则：引用规范 §3（全局规则，本文件不重复定义，仅指路）──────────
+# 判定「协议是否陈述/执行了 SDS-PAGE」时，有效证据只有两处：
+#   (a) objective（目标陈述）  (b) 实际步骤正文（protocol_step.body）
+# 两处**同等有效**，任一处陈述即可；本规则**同时适用于 must 与 on_topic_requires**。
+# **仅标题出现 "SDS-PAGE" 不构成证据。**
+# 证据词形须认全称与拼接形态：
+#   SDS-PAGE / SDS PAGE / sodium dodecyl sulfate / sodium dodecyl sulfate-polyacrylamide
+#   / SDS-polyacrylamide / Laemmli
+
+# ── [V3-2] objective 为空时怎么判（规范 §4.2）—— 以 neg_examples 第 5 条落地 ──────
+# 空 objective 不等于方法没执行，只表示「没有目标证据」：
+#   · objective 空，但前 6 步陈述了方法证据 → 按步骤正常判
+#   · objective 空，且前 6 步也无方法证据   → 拿不准往低判 → wrong，
+#                                            且 why 必须标 insufficient detail
+# 不得因为「没写目标」就判 wrong。
+
+method: SDS-PAGE
+version: 3.1
+
+essence: "SDS-PAGE is a denaturing polyacrylamide gel electrophoresis method in which sodium dodecyl sulfate (SDS) unfolds polypeptides and imparts a uniform charge-to-mass ratio, allowing proteins to be separated primarily by apparent molecular mass."
+
+must:
+  - "The material being separated is a protein, polypeptide, or peptide sample."
+  - "The sample is exposed to sodium dodecyl sulfate (SDS), an anionic detergent, in the sample-preparation or electrophoresis system before or during separation."
+  - "The protein or peptide sample is loaded onto a polyacrylamide gel and an electric field is applied to electrophoretically separate the proteins or peptides through the gel."
+
+on_topic_requires:
+  - "The separated protein or peptide bands are made directly observable on the gel by a stated readout step, such as staining, fluorescence, or gel imaging."
+  - "The protocol's stated objective or final readout is the SDS-PAGE gel-band pattern itself — not a membrane signal, not a downstream mass-spectrometry identification, and not a purification or expression workflow in which SDS-PAGE only checks the product."
+
+common_but_not_required:
+  - "A reducing agent such as DTT or 2-mercaptoethanol may be added; non-reducing SDS-PAGE is still SDS-PAGE."
+  - "Samples may be heated before loading; heating is common but is not required to identify the method."
+  - "Coomassie staining, silver staining, and fluorescent stains are common visualization options, but no particular stain is required."
+  - "Precast or hand-cast gels, fixed-percentage gels, and gradient gels may be used."
+  - "Common buffer systems include Tris-glycine and Tris-Tricine; Tris-Tricine SDS-PAGE remains within scope."
+  - "A protein molecular-weight marker may be loaded as a reference."
+  - "SDS is commonly supplied in a Laemmli sample buffer, but the exact sample-buffer formulation is not defining."
+
+# [V3-6] scope_note（v3.3 §5.1.1）：只声明范围边界，**不参与判定**、**不得作 exclude_item 引用**。
+#         用途限定为「名册缺口」——下面四项对应的方法在 83 名册里都不存在。
+#         二维协议的归属**不在本字段里回答**，由单独立轮决定。
+scope_note: "Out of scope for this method: Native-PAGE (non-denaturing PAGE, including Blue Native PAGE); isoelectric focusing run on its own, including the first dimension of two-dimensional electrophoresis; the two-dimensional electrophoresis workflow as a whole; and single-cell gel electrophoresis (comet assay). These are declared as boundaries only and carry no verdict weight; how a two-dimensional protocol should be assigned to a method is decided separately."
+
+exclude:
+  - E1: "Non-denaturing PAGE systems, such as Native-PAGE or Blue Native PAGE, that do not use SDS-mediated denaturation and separation."
+  - E2: "Isoelectric focusing (IEF) performed on its own, with no SDS-polyacrylamide separation step anywhere in the protocol, is out of scope for this method."
+  - E3: "Agarose-gel electrophoresis and DNA or RNA electrophoresis or blotting workflows, such as Northern blotting, when the protocol does not perform SDS-based polyacrylamide separation of proteins."
+  - E4: "Gel recipes, buffer recipes, gel casting, or gel polymerization alone, without electrophoretic separation of a protein sample."
+  - E5: "Protocols whose principal deliverable is Western blot or immunoblot detection on a membrane; SDS-PAGE is only the preceding separation step."
+  - E6: "Protein expression, preparation, purification, fractionation, or crystallization workflows in which no SDS-PAGE separation is actually performed."
+  - E7: "Polyacrylamide gels used as physical scaffolds, substrates, or materials rather than as an electrophoresis matrix for protein separation."
+  - E8: "Protocols that use SDS-PAGE only to prepare bands or fractions for downstream mass spectrometry or sequencing, where the principal analytical output is the downstream identification rather than the gel-band pattern."
+
+category_definition:
+  upstream: "SDS-PAGE is performed before the protocol's principal procedure, such as membrane transfer or band excision."
+  downstream: "SDS-PAGE is performed after the protocol's principal procedure and is applied to its product, such as a purity check after purification."
+  variant: "The protocol performs SDS-PAGE with a recognized alternative SDS gel system, such as Tris-Tricine."
+  analogue: "The protocol uses a different but related electrophoresis method, such as Native-PAGE, and does not perform SDS-PAGE."
+  composite: "SDS-PAGE is one of two or more electrophoretic methods combined in a single protocol."
+
+pos_examples:
+  - {text: "Mix the protein lysate with SDS sample buffer, load 20 micrograms per lane onto a 10% polyacrylamide gel, run at 120 V, stain with Coomassie Brilliant Blue, and image the gel.", verdict: on_topic}
+  - {text: "Separate the purified protein by non-reducing SDS-PAGE and visualize the bands with SYPRO Ruby.", verdict: on_topic}
+
+neg_examples:
+  - {text: "Separate the DNA fragments on a 1.2% agarose gel in 0.5X TBE buffer and visualize them with SYBR Safe.", verdict: wrong, exclude_item: E3}
+  - {text: "Prepare the resolving-gel and stacking-gel solutions, pour the gel, and allow it to polymerize; no sample is loaded or electrophoresed.", verdict: wrong, exclude_item: E4}
+  - {text: "Grow protein crystals by dispensing protein and crystallization-screen solutions into a sitting-drop plate and incubating the drops.", verdict: wrong, exclude_item: E6}
+  - {text: "Polymerize a soft polyacrylamide layer on functionalized coverslips, dry the gel, coat it with lipid, and rehydrate it to generate giant unilamellar vesicles.", verdict: wrong, exclude_item: E7}
+  - {text: "The protocol is titled 'SDS-PAGE of the purified complex'. The objective field is empty, and none of the first six steps mentions SDS, polyacrylamide, or applying an electric field; the steps describe buffer exchange and concentration only.", verdict: wrong, why: "The objective is empty and the steps do not state the method either, so this is judged wrong under the lower-when-unsure rule with insufficient detail flagged.", insufficient_detail: true}
+  # [V3-7] E2 的反例（§5.1 要求每个 E 都有对应反例）。
+  # ⚠️ **本条的措辞相对 v2 改过**：v2 原句是"在二维电泳第一维把样品聚焦到 IPG 条上"——
+  #    那是二维协议的一个片段，既触及"二维"（18:54 已定回避），也与改写后的 E2
+  #    （排除的是"IEF 单独跑、全程无 SDS 聚丙烯酰胺分离"）**对不上**。
+  #    所以改为"只跑 IEF、全流程没有任何 SDS 胶"，这样 E2 才真正覆盖它。
+  - {text: "Focus the protein sample on an IPG strip over pH 3-10, stain the focused strip, and record the pattern; no SDS-polyacrylamide gel is cast or run anywhere in the protocol.", verdict: wrong, exclude_item: E2}
+
+edge_examples:
+  - {text: "Separate the protein lysate by SDS-PAGE, transfer the proteins to a PVDF membrane, and detect the target with an anti-GAPDH antibody.", verdict: tangential, category: upstream, exclude_item: E5, why: "SDS-PAGE is performed before membrane transfer, but the principal readout is immunodetection on the membrane rather than the gel-band pattern."}
+  - {text: "Purify the recombinant protein by affinity chromatography, then analyze the purified fraction by SDS-PAGE with Coomassie staining to check its purity.", verdict: tangential, category: downstream, why: "The purification workflow is the principal procedure; SDS-PAGE is a downstream characterization step applied to the purified product."}
+  - {text: "Resolve the peptides on a Tris-Tricine SDS-polyacrylamide gel and visualize the bands by silver staining.", verdict: on_topic, category: variant, why: "Tris-Tricine is a recognized SDS-PAGE gel system; the analyte is separated under SDS-denaturing conditions and the gel-band pattern is read directly."}
+  - {text: "Separate the native protein complexes by Blue Native PAGE without adding SDS to the sample or running system.", verdict: wrong, category: analogue, exclude_item: E1, why: "Native-PAGE is a related polyacrylamide gel method, but it preserves native complexes and does not use SDS-based denaturing separation."}
+  - {text: "Separate the protein mixture by SDS-PAGE, excise the bands, digest them with trypsin, and identify the peptides by LC-MS/MS.", verdict: tangential, category: upstream, exclude_item: E8, why: "SDS-PAGE precedes band excision and mass spectrometry, but the principal analytical output is the downstream peptide identification rather than the gel-band pattern."}
+  # [V3-8] 第 6 条：覆盖 category=composite（19:0x 决定选甲 —— 非二维的合成例）。
+  # ✅ 本条已采纳（曹操未改即接受，2026-11-02）。当初备选：若否掉则退回"4/5 + 临时例外"。
+  - {text: "Analyze the PCR products on a 1% agarose gel, then separate the protein fraction of the same samples on a 10% SDS-PAGE gel, stain it, and image the gel.", verdict: on_topic, category: composite, why: "Two electrophoretic methods (agarose and SDS-PAGE) run in one protocol, and the SDS-PAGE gel-band pattern itself is a stated readout."}
+
+author: 曹操
+reviewed_by: ""
+status: adopted-by-author
+
+# ============================================================================
+# 已决记录（原「待裁定」三处的处置，2026-11-02 19:0x 组织方定）
+#
+# 【一】composite 的 edge 例 —— 选甲，已写入正文第 6 条（[V3-8]）。**已采纳**（曹操未改即接受）。
+#       依据：v2 已有 6 条 edge，§5.3 的 5 条是**下限**，故新增第 6 条即可，无需替换既有例。
+#       若曹操否掉此例 → 退回"4/5 + 例外"（临时豁免，须注明"二维定性后补"，不得当永久豁免）。
+#
+# 【二】scope 声明 —— 已解决：v3.3 新增可选字段 scope_note（[V3-6]），
+#       三条使用规则见 v3 §5.1.1（只作描述／不得作 exclude_item／走英文闸门）。
+#
+# 【三】schema 缺口 —— 已解决：v3 由 8 → 9（v3.3 加 scope_note）→ **10**（v3.4 补 category_definition）。
+#       未走"只写注释"那条路，因为 §5.2 明说注释不入库，等于没写进定义。
+#
+# 【四】本稿自查发现并修掉的一处（非组织方提出）：
+#       E2 反例若照 v2 原文恢复，会与**改写后的 E2** 对不上（v2 说的是"二维第一维"，
+#       新 E2 排除的是"IEF 单独跑、全程无 SDS 胶"）。故该条措辞已重写，见 [V3-7]。
+#       ⇒ 教训：改 E 的措辞时，必须同步检查它的反例还覆不覆盖得住。
