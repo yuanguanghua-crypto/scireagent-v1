@@ -1,0 +1,113 @@
+# ============================================================================
+# PCR 方法定义 · v0.1 · **作者采纳版（诸葛亮已署名；复核待签）** · 骨架沿用规范 v3.4
+#
+# ★ 状态：`adopted-by-author` —— **作者诸葛亮已确认并署名**；`reviewed_by` 仍空，**复核待曹操签署**。
+#   `status: adopted-by-author` **只表示作者采纳，不代表复核已签、更不代表已验证**。
+#   复核签署须曹操本人或组织方明确确认后填写；DS **不代填** `reviewed_by`。
+#   本段为 2026-11-03 11:08 的**头注释清理**：只改注释，**不增版本**（`version` 仍 0.1）。
+#   清理前此处写的是签名前的 `reference-draft` 状态，与已采纳的 `status` 自相矛盾。
+#
+# ── 复核签署留痕 ─────────────────────────────────────────────────────────────
+#   复核人：曹操；签署时间：2026-11-04 08:17:21 +0800。
+#   渠道：WorkBuddy 本会话（组织方提交送审材料并指令按复核简报执行）。
+#   本次仅填写 reviewed_by、将 status 改为 reviewed，并添加本签署注释；
+#   version 仍为 0.1，10 个内容字段均未改动。reviewed 只表示复核已签，不代表已验证。
+#
+# ── [V3-1] 证据出处规则（规范 §3，全局规则，本文件不重复定义）──────────────────
+#   有效证据只有 (a) objective (b) 步骤正文；任一处陈述即可，must 与 on_topic_requires 同样适用。
+#   **仅标题出现 "PCR" 不构成证据。**
+#   认的词形：PCR / polymerase chain reaction / PCR amplification / RT-PCR / reverse transcription PCR /
+#             nested PCR / colony PCR / touchdown PCR / real-time PCR / qPCR / digital PCR / ddPCR
+#   ★ 「陈述做了 PCR」= 陈述**扩增反应被执行**。下列情形**不算**陈述：
+#     "PCR tube"、"PCR purification kit"、"PCR-grade water"、"primers for PCR（只是设计）" 等把 PCR 当形容词或计划的写法。
+#   ★ 命名了 PCR 且说明被执行，即同时陈述 must 1-3（与 SDS-PAGE v3.1 的处理一致）；
+#     协议另写出模板、聚合酶、引物、循环参数的，按所写逐条核对。
+#
+# ── [V3-2] objective 为空（规范 §4.2，硬规则）──────────────────────────────────
+#   空 ≠ 没执行。空但前 6 步陈述了方法证据 → 按步骤正常判；
+#   空且前 6 步也无证据 → 拿不准往低判 → wrong，且 why 标 insufficient detail。
+#
+# ── 四个边界的决定（交接单 §5；本稿作者决定，一句话理由）────────────────────────
+#   ① qPCR / RT-qPCR / Ct-Cq：**PCR 已被执行（must 全满足），但产出是定量读出，不是本方法的产出 -> tangential**
+#      （落为 otr-3 + E2）。理由：名册里 PCR 与 qPCR 并列，qPCR 协议在 PCR 下判 tangential、在 qPCR 下判 on_topic，
+#      两边不会同时 on_topic；且规范 §二 规定 wrong 只能由 must 不满足产生，把 qPCR 判 wrong 就得往 must 里塞读出要求，那是禁止的。
+#      Ct/Cq、扩增曲线、熔解曲线**不得**作为本方法的 on-topic 读出。
+#      RT-PCR 指「逆转录后再 PCR」；若协议陈述的是实时监测，则按 qPCR 处理。
+#   ② 等温扩增（LAMP / RPA / NASBA 等）：**不算 PCR -> wrong**（落为 must-3「重复温度循环」不满足 + E3 + analogue）。
+#      理由：PCR 的定义性操作是温度循环，不做成「等效步骤」，否则 must 失去可证实性。
+#   ③ digital PCR（ddPCR）：**PCR 已被执行，但产出是分区计数定量 -> tangential**（同 ① 的 E2）。
+#      这是最容易被推翻的一条：若曹操或组织方要把它改成 on_topic，只需把 E2 与 otr-3 里的 "digital" 删去。
+#   ④ 只做引物设计 / 退火温度计算、不实际扩增：**wrong**（落为 must-3 不满足 + E1）。
+#
+# ── 变更说明（规范 §八）──────────────────────────────────────────────────────
+#   v0.1 首稿。改了什么：由模板骨架（全占位）写成完整 10 字段。依据：规范 v3.4 §五/§六、交接单 §5、
+#   SDS-PAGE v3.1 的格式与颗粒度。谁批的：尚无（待诸葛亮署名、曹操复核）。
+#
+# ── 写作留痕（给复核人）──────────────────────────────────────────────────────
+#   · E2 与 E5 的对应反例是 **edge_examples 里判 tangential 的条目**（带 exclude_item），不是 neg_examples。
+#     依据：SDS-PAGE v3.1 的 E5 / E8 同样如此处理（must 全满足，产出不是本方法的，不能判 wrong）。
+#   · `scope_note` 整行未写：本稿不知道 83 名册里有没有 LAMP / dPCR 等方法，不能声明「名册缺口」；
+#     而它们的归属已由 E2 / E3 写进判定，不需要再声明。
+# ============================================================================
+
+method: PCR
+version: 0.1
+
+essence: "PCR is an enzymatic method that exponentially amplifies a specific region of a nucleic acid template through repeated cycles of thermal denaturation, primer annealing, and polymerase-mediated extension."
+
+must:
+  - "A nucleic acid template is present in the reaction: genomic or plasmid DNA, a cDNA, or RNA that is reverse transcribed within the protocol."
+  - "The reaction mixture contains a thermostable DNA polymerase and sequence-specific oligonucleotide primers."
+  - "The reaction is actually run for multiple repeated thermal cycles that alternate a high-temperature strand-separation step with primer annealing and extension steps (annealing and extension may be combined), for example in a thermal cycler; a single heating step or an incubation at one constant temperature does not meet this condition."
+
+on_topic_requires:
+  - "The protocol's stated objective or final readout is the amplification result itself: an amplified product detected after cycling by an end-point readout such as gel electrophoresis or capillary electrophoresis, or an amplified product that is the protocol's own final deliverable."
+  - "The amplification is not merely a preparatory or verification step inside a larger workflow whose principal procedure is something else, such as cloning, library preparation, mutagenesis, or sequencing."
+  - "The readout is not real-time or digital quantification, such as Ct or Cq values, amplification curves, melt curves, or copy numbers counted per partition."
+
+common_but_not_required:
+  - "The type of polymerase, such as Taq or a high-fidelity enzyme, is not defining."
+  - "The number of cycles, the annealing temperature, the extension time, and the buffer composition are not defining."
+  - "A hot start, a final extension step, or additives such as DMSO or betaine may be used."
+  - "A negative control without template or a positive control may be included."
+  - "Agarose gel electrophoresis with a DNA stain is a common end-point readout, but no particular readout is required to identify the method."
+
+exclude:
+  - E1: "Primer design, sequence analysis, or annealing temperature calculation alone, where no amplification reaction is actually prepared and run."
+  - E2: "Protocols whose principal deliverable is real-time or digital quantification of a target, such as Ct or Cq values, amplification or melt curves, or absolute copy numbers from partitioned reactions; the thermal-cycled amplification is only the means, and the quantitative readout belongs to the separate qPCR method."
+  - E3: "Nucleic acid amplification that is not thermal-cycled PCR, such as isothermal methods (LAMP, RPA, NASBA, strand displacement or rolling circle amplification) run at a constant temperature, when no repeated thermal cycling is stated anywhere in the protocol."
+  - E4: "Preparation or handling of reagents, buffers, master mixes, consumables, or kits, or cleanup of an already obtained product, without an amplification reaction being run in the protocol."
+  - E5: "Protocols in which PCR is only a preparatory or verification step of a larger workflow, such as cloning, library preparation, mutagenesis, or sequencing, and whose principal deliverable is not the amplification result itself."
+
+category_definition:
+  upstream: "PCR is performed before the protocol's principal procedure and prepares its material, such as amplifying an insert for cloning, adding adapters during library preparation, or generating a template for sequencing."
+  downstream: "PCR is performed after the protocol's principal procedure and is applied to its product, such as colony PCR confirming a clone."
+  variant: "The protocol performs thermal-cycled PCR in a recognized alternative format that stays within the cycling principle, such as hot-start, touchdown, nested, multiplex, long-range, real-time, or digital PCR."
+  analogue: "The protocol uses a different but related nucleic acid amplification method that is not thermal-cycled PCR, such as LAMP, RPA, or NASBA, and does not perform PCR."
+  composite: "PCR is combined with another molecular method in a single protocol, such as reverse transcription followed by end-point PCR."
+
+pos_examples:
+  - {text: "Prepare a 25 microliter reaction containing genomic DNA, forward and reverse primers, dNTPs, Taq DNA polymerase, and buffer; run 30 cycles of 95 degrees C for 30 seconds, 58 degrees C for 30 seconds, and 72 degrees C for 60 seconds in a thermal cycler; resolve the product on a 1% agarose gel and image the band.", verdict: on_topic}
+  - {text: "Amplify the target region by touchdown hot-start PCR, lowering the annealing temperature by 1 degree C per cycle over the first ten cycles of thermal cycling, and check the amplicon size by capillary electrophoresis.", verdict: on_topic}
+  - {text: "Genotype mouse tail DNA by PCR with allele-specific primers and Taq polymerase for 35 cycles, then score the genotype from the band pattern on an agarose gel.", verdict: on_topic}
+
+neg_examples:
+  - {text: "Select forward and reverse primers for the target gene with a primer design tool, check for hairpins and primer dimers, and calculate the melting and annealing temperatures; no reaction is prepared or run.", verdict: wrong, exclude_item: E1}
+  - {text: "Detect the target by recombinase polymerase amplification: mix the primers, recombinase, and polymerase, and incubate the tube at a constant 39 degrees C for 20 minutes without any thermal cycling.", verdict: wrong, exclude_item: E3}
+  - {text: "Prepare 1 mL of 2X PCR master mix by combining buffer, dNTPs, magnesium chloride, and polymerase, aliquot it, and store it at minus 20 degrees C; no template is added and no reaction is run.", verdict: wrong, exclude_item: E4}
+  - {text: "Purify an already amplified DNA fragment from the reaction tube using a spin column, elute it in water, and measure its concentration; no amplification reaction is run in the protocol.", verdict: wrong, exclude_item: E4}
+  - {text: "The protocol is titled 'PCR amplification of the target gene'. The objective field is empty, and none of the first six steps mentions PCR, polymerase, primers, or thermal cycling; the steps describe DNA extraction from tissue and DNA quantification only.", verdict: wrong, why: "The objective is empty and the steps do not state the method either, so this is judged wrong under the lower-when-unsure rule with insufficient detail flagged.", insufficient_detail: true}
+
+edge_examples:
+  - {text: "Amplify the coding sequence by PCR with primers carrying restriction sites, digest the product, ligate it into an expression vector, and transform E. coli to obtain the plasmid.", verdict: tangential, category: upstream, exclude_item: E5, why: "PCR is performed before the principal procedure and only prepares the insert; the principal deliverable is the cloned plasmid rather than the amplification result."}
+  - {text: "After transforming E. coli with the ligation mixture, pick colonies, run colony PCR with vector-specific primers for 30 cycles, and check the insert size on an agarose gel to confirm the clone.", verdict: tangential, category: downstream, exclude_item: E5, why: "The cloning workflow is the principal procedure; PCR is a downstream verification step applied to its product."}
+  - {text: "Amplify a 16S rRNA gene fragment by nested PCR: run 25 cycles with the outer primer pair, transfer 1 microliter of the product into a second reaction with the inner primer pair for 25 more cycles, and visualize the final product on an agarose gel.", verdict: on_topic, category: variant, why: "Nested PCR is a recognized thermal-cycled PCR format; the amplified product is read directly on the gel."}
+  - {text: "Detect the viral target by loop-mediated isothermal amplification: incubate the primer set and Bst polymerase at a constant 65 degrees C for 40 minutes and read the turbidity.", verdict: wrong, category: analogue, exclude_item: E3, why: "LAMP is a related amplification method, but it runs at a constant temperature with no repeated thermal cycling, so no PCR is performed."}
+  - {text: "Reverse transcribe total RNA into cDNA with oligo(dT) primers, amplify the target by 35 cycles of end-point PCR, and resolve the product on a 2% agarose gel.", verdict: on_topic, category: composite, why: "Reverse transcription and PCR are combined in one protocol, and the end-point gel band of the amplified product is the stated readout."}
+  - {text: "Amplify the target cDNA on a real-time PCR instrument with a SYBR Green master mix for 40 cycles and report the Cq values normalized to a reference gene.", verdict: tangential, category: variant, exclude_item: E2, why: "Thermal-cycled PCR is performed, but the principal readout is real-time quantification by Cq, which belongs to the separate qPCR method."}
+  - {text: "Reverse transcribe RNA into cDNA, quantify the transcript by real-time PCR with a TaqMan probe, and calculate relative expression by the delta-delta Cq method.", verdict: tangential, category: composite, exclude_item: E2, why: "Reverse transcription and PCR are both performed, but the stated final readout is relative quantification from Cq values, not the amplification result itself."}
+  - {text: "Partition the reaction mixture into about 20,000 droplets, run 40 cycles of thermal cycling, and count the positive and negative droplets to report copies per microliter.", verdict: tangential, category: variant, exclude_item: E2, why: "Droplet PCR performs thermal-cycled amplification, but the stated readout is absolute quantification by partition counting rather than the amplification result itself."}
+
+author: "诸葛亮"          # 作者已确认并署名（2026-11-03）；本行原写"在此之前不得写"，随头注释一并清理
+reviewed_by: "曹操"  # 曹操于 2026-11-04 08:17:21 +0800 在 WorkBuddy 本会话复核签署
+status: reviewed
