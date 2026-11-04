@@ -278,7 +278,9 @@ class Method(StatusMixin, TimeStampedModel):
         choices=[('essential', '必需'), ('enabling', '可替代'), ('optional', '可选'), ('none', '无直接依赖')],
     )
     canonical_name = models.CharField(max_length=255, blank=True, default='', verbose_name='英文规范名')
-    definition = models.TextField(blank=True, default='', verbose_name='定义')
+    definition = models.TextField(blank=True, default='', verbose_name='定义',
+        help_text='★ DEPRECATED: see method_definition —— 判据唯一权威是 MethodDefinition 表；'
+                  '本列保持为空、不自动同步（同步会造出第二个可写入口）。仅作历史占位。')
     experimental_purpose = models.TextField(blank=True, default='', verbose_name='实验目的')
     grounded_term = models.CharField(max_length=500, blank=True, default='', verbose_name='接地术语')
     grounded_ontology = models.CharField(max_length=64, blank=True, default='', verbose_name='接地本体')
@@ -320,6 +322,112 @@ class Method(StatusMixin, TimeStampedModel):
                 n += 1
             self.slug = slug
         super().save(*args, **kwargs)
+
+
+class MethodDefinition(TimeStampedModel):
+    """方法判定定义 —— **唯一权威**（`docs/方法定义规范_v3.md` v3.4 §5.1）。
+
+    设计约定（2026-11-04 批复，逐条落在这里，别改而不知）：
+
+    * **`version` 是字符串，不是数字**。YAML 里 `3.1` 会被解析成 float，而 `3.10` 与 `3.1`
+      在数值上相等 ⇒ 用 numeric 会撞 UNIQUE 并**静默覆盖**旧版本。故存 `varchar`，原样保留 token。
+    * **`exclude` 存对象** `{"E1": "文本", ...}`，不是数组。源头 YAML 是 `[{E1: 文本}, ...]`，
+      导入时拍平；YAML 仍是唯一源头，本字段只是派生。
+    * **状态双轴**：`status` 管文档生命周期，`verification` 管验收强度。
+      规范反复强调「`reviewed` ≠ 已验证」，单字段装不下，故拆开。
+    * **`layer_status` 可为 NULL**：表示「未知/不适用」，**不用 `normal` 冒充已分层**。
+    * `Method.definition` 列已废弃，见该字段 help_text；**本表不做任何同步写入**。
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', '草稿'
+        ADOPTED_BY_AUTHOR = 'adopted_by_author', '作者已采纳'
+        REVIEWED = 'reviewed', '已复核签署'
+        ACTIVE = 'active', '生效'
+        RETIRED = 'retired', '已退役'
+
+    class Verification(models.TextChoices):
+        NONE = 'none', '未验'
+        SMOKE_PASSED = 'smoke_passed', '冒烟通过'
+        FAILED = 'failed', '未通过'
+        VERIFIED = 'verified', '已验证'
+
+    method = models.ForeignKey(
+        Method, on_delete=models.CASCADE, related_name='definitions', verbose_name='方法',
+    )
+    version = models.CharField(max_length=16, verbose_name='版本',
+        help_text='字符串，形如 3.1 / 0.1。★ 不可用数值类型：3.10 与 3.1 数值相等会撞唯一约束')
+
+    essence = models.TextField(verbose_name='本质')
+    must = models.JSONField(default=list, verbose_name='必须满足',
+        help_text='数组；每条须为可观察操作事实；不得含产出/读出类要求')
+    on_topic_requires = models.JSONField(default=list, verbose_name='同题必需产出',
+        help_text='数组；产出是否属于该方法本身。与 must 分离，不得合并')
+    common_but_not_required = models.JSONField(default=list, verbose_name='常见但非必须',
+        help_text='数组；不得用于判 wrong')
+    exclude = models.JSONField(default=dict, verbose_name='排除情形',
+        help_text='对象 {"E1": "文本"}；源头 YAML 为 [{E1: 文本}]，导入时拍平')
+    category_definition = models.JSONField(default=dict, verbose_name='五类关系定义',
+        help_text='对象，必须含 upstream/downstream/variant/analogue/composite 五键')
+    pos_examples = models.JSONField(default=list, verbose_name='正例')
+    neg_examples = models.JSONField(default=list, verbose_name='反例')
+    edge_examples = models.JSONField(default=list, verbose_name='边界例')
+    scope_note = models.TextField(blank=True, default='', verbose_name='范围声明',
+        help_text='只作描述，不参与 verdict 推导；不得被 exclude_item 引用')
+
+    status = models.CharField(max_length=20, choices=Status.choices,
+        default=Status.DRAFT, verbose_name='状态')
+    verification = models.CharField(max_length=16, choices=Verification.choices,
+        default=Verification.NONE, verbose_name='验收态')
+    layer_status = models.CharField(max_length=16, null=True, blank=True, default=None,
+        verbose_name='分层状态', help_text='NULL = 未知/不适用；不要用 normal 冒充已分层')
+
+    author = models.CharField(max_length=64, verbose_name='作者',
+        help_text='真实人名，不接受模型名')
+    reviewed_by = models.CharField(max_length=64, blank=True, default='', verbose_name='复核人',
+        help_text='真实人名，不接受模型名；与 author 必须不同')
+    retired_at = models.DateTimeField(null=True, blank=True, verbose_name='退役时间')
+
+    class Meta:
+        db_table = 'method_definition'
+        verbose_name = '方法定义'
+        verbose_name_plural = verbose_name
+        ordering = ['method_id', 'version']
+        constraints = [
+            models.UniqueConstraint(fields=['method', 'version'],
+                                    name='uq_methoddef_method_version'),
+            # 每个方法同一时刻最多一个 active 版本（"有定义" = 有 active 版本）
+            models.UniqueConstraint(fields=['method'], condition=models.Q(status='active'),
+                                    name='uq_methoddef_one_active'),
+            models.CheckConstraint(
+                condition=models.Q(status__in=['draft', 'adopted_by_author', 'reviewed',
+                                               'active', 'retired']),
+                name='ck_methoddef_status',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(verification__in=['none', 'smoke_passed', 'failed',
+                                                     'verified']),
+                name='ck_methoddef_verification',
+            ),
+            # ★ 2026-11-04 批复第 5c 条：layer_status 的约束**明确定为「容许 NULL 的 CHECK」**，
+            #   而不是"把约束去掉、交给应用层"。两种写法差别不是 NULL 能不能进：
+            #     · 容许 NULL 的 CHECK：NULL 合法；非 NULL 只许 normal/layer_pending ⇒ 拼错被 DB 拦；
+            #     · 纯应用层：DB 什么都收，写错一个字母照样入库。
+            #
+            #   ★ 实测（PG 17.11，2026-11-04）：**只写 `IN (...)` 本身也允许 NULL** ——
+            #     CHECK 只在表达式为 FALSE 时失败，NULL 求值为 UNKNOWN，视为通过。
+            #     所以下面显式写 `IS NULL OR` 的目的**不是**"否则 NULL 会被误判"，
+            #     而是：① 让意图在 DDL 里自解释，不依赖读者懂三值逻辑；
+            #           ② 不把合法性寄托在某个后端对 UNKNOWN 的处理上。
+            models.CheckConstraint(
+                condition=(models.Q(layer_status__isnull=True)
+                           | models.Q(layer_status__in=['normal', 'layer_pending'])),
+                name='ck_methoddef_layer_status',
+            ),
+        ]
+
+    def __str__(self):
+        return '%s v%s' % (self.method_id, self.version)
 
 
 class ApplicationMethod(TimeStampedModel):
