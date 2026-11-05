@@ -25,6 +25,7 @@ import_method_definitions — 把已签的方法定义 YAML 灌进 `method_defin
     # 名字有歧义时显式指定
     manage.py import_method_definitions x.yaml --map SDS-PAGE=sds-page-781
 """
+import hashlib
 import os
 
 import yaml
@@ -85,7 +86,10 @@ class Command(BaseCommand):
                 problems.append('%s：顶层不是字典' % path)
                 continue
             token, quoted = raw_version_token(path)
-            ok, issues, ex_obj = check(data, token)
+            # 规则 11 需要**内容 md5**：未加引号的新版只能靠"文件是否已核"来判定，
+            # 文件名键控会被改名绕过（已实测），故这里按字节现算。
+            file_md5 = hashlib.md5(open(path, 'rb').read()).hexdigest()
+            ok, issues, ex_obj = check(data, token, quoted, file_md5)
             if not ok:
                 problems.extend('%s：%s' % (os.path.basename(path), i) for i in issues)
                 continue

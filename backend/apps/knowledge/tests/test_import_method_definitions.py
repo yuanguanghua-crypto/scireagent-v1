@@ -120,3 +120,42 @@ class ImportMethodDefinitionsTest(TestCase):
                          '--map', 'SDS-PAGE=%s' % good.slug,
                          '--map', 'PCR=%s' % pcr.slug, '--apply')
         self.assertEqual(MethodDefinition.objects.count(), 0)
+
+    def test_refuses_missing_required_field(self):
+        """规则 10：缺必填字段 ⇒ 拒绝。
+
+        加这条之前，缺字段是靠 ORM 在事务内抛错兜的 —— 库安全，但报错不是干净的校验清单。
+        现在应当在校验阶段就给出可读 issue。
+        """
+        m = self._method('SDS-PAGE', 'sds-page-test')
+        d = valid_definition()
+        d.pop('essence')
+        p = self._write('missing.yaml', d)
+        with self.assertRaises(CommandError):
+            call_command('import_method_definitions', p,
+                         '--map', 'SDS-PAGE=%s' % m.slug, '--apply')
+        self.assertEqual(MethodDefinition.objects.count(), 0)
+
+    def test_scope_note_may_be_absent(self):
+        """规则 10 的反向：`scope_note` **允许缺省**（规范里它是可选、只作描述）。"""
+        m = self._method('PCR', 'pcr-test')
+        d = valid_definition('PCR', '0.1')
+        d.pop('scope_note', None)
+        p = self._write('no_scope.yaml', d)
+        call_command('import_method_definitions', p,
+                     '--map', 'PCR=%s' % m.slug, '--apply')
+        self.assertEqual(MethodDefinition.objects.count(), 1)
+
+    def test_refuses_unquoted_new_version(self):
+        """规则 11：未加引号 且 内容 md5 不在祖父白名单 ⇒ 拒绝。
+
+        裸写 `version: 3.10` 会被 YAML 解析成 float 3.1 —— 版本号被静默改掉。
+        白名单只认内容 md5（改名绕不过、改内容即失效）。
+        这里用 float 9.9 强制产出**无引号**的 version，且其 md5 必然不在白名单内。
+        """
+        m = self._method('PCR', 'pcr-test')
+        p = self._write('unquoted.yaml', valid_definition('PCR', 9.9))
+        with self.assertRaises(CommandError):
+            call_command('import_method_definitions', p,
+                         '--map', 'PCR=%s' % m.slug, '--apply')
+        self.assertEqual(MethodDefinition.objects.count(), 0)
