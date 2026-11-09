@@ -1,0 +1,233 @@
+# ============================================================================
+# PCR 方法定义 · v0.3 · **起草稿（作者已署名；复核待签、未采纳、未验证）**
+#
+# ★★ 署名与状态（必读）★★
+#   · 作者（author）：**曹操**，由本人在 `adoption.author` 内署名；
+#     起草过程使用 AI 辅助整理文字，**AI 不署名、不主张作者身份**。
+#   · 复核（reviewed_by）：**留空**，待他人复核；**起草人不得复核自己的稿**。
+#   · `adoption.status: draft-for-v0.3` 只表示**起草完成**；**不代表已复核、已采纳、已验证**。
+#   · 采纳后须按 §7.5 用**新样本**重测；**不得沿用 v0.1 的 κ=0.8615（962 样本）
+#     或 v0.2 的 κ=0.8440（399 样本）作为 v0.3 的验收**。
+#
+# ── 相对 v0.2（md5 477e04f3fe6d4afac2bf8ea24cfcabf9）的变更（**三处**，条款其余未动）──
+#   ① 新增 [V3-1a]：陈述执行的最低要素（执行表述 ＋ 反应要素三选一）
+#   ② 新增 [§6-a]：pooling 限定为文库级混池；"送测序"只是 handoff，非必要非充分
+#   ③ 新增 [§7-a]：转化按分子类别/状态判，不按序列；融合扩增子不算转化
+#
+# ── 相对 v0.1（md5 903fabc8d32bef048dd4f1d345e4b812）的变更（**七处**，含 ⑦ schema 变化；条款未动）──
+#   ① otr-1：从「读出」改为「交付物」——判定轴由"读出方式"改为"协议交付什么"
+#   ② otr-2：整条删除（原"不得只是前置/验证步骤"是 D-001 的绝对否决来源）
+#   ③ otr-3：删除 "melt curves" 一词（其余逐字未改）。理由：v0.1 把熔解曲线列为"不得作为对靶读出"，
+#      与 §8 的 sole-purpose 例外直接矛盾。这是规则性措辞改动，单列、不得混在"未动"里。
+#      （rev1 曾误标"未动"，rev2 已更正。）
+#   ④ E5：把"前置/验证"换成可查的"产物是否已在协议内转化为另一种分子"
+#   ⑤ category_definition 的 upstream / downstream：降为描述性分类，不再单独决定 verdict
+#   ⑥ 新增：deliverable_boundary（§6）、read_versus_convert（§7）、melt_curve（§8）、pcr_role
+#   ⑦ **schema 变化（原先漏登记，2026-11-06 补）**：
+#      v0.1 的 `author` / `reviewed_by` / `status` 位于**顶层**；v0.2 全部移入 `adoption`，
+#      并在 `adoption` 下新增 `retest_required` 与 `md5_policy`。
+#      **下游若仍读顶层这三个键，会取不到值**——这属读取 schema 变更，不是纯文字调整。
+#
+# ── 执笔人相对 rev2 的改动（本稿新增；共两类、共 5 处文字，verdict 一条未动）──────────
+#   [v0.2 期处理记录①] neg_examples 第 5 条：
+#       "none of the first six steps mentions PCR..." → "no step mentions PCR..."
+#       理由：与 [V3-2′] 全文口径冲突，属规则性措辞，不是解释，留着定义自相矛盾；本意（objective 空 +
+#       无 PCR 证据 → wrong，insufficient_detail）不变。
+#       ★ 记为"examples 不动"原则的唯一例外（只去掉时间限定，verdict 与 insufficient_detail 不变）。
+#   [v0.2 期处理记录②] edge 1 / 2 / 3 的 `why` 做最小改写（均不动 verdict、category、exclude_item）：
+#       edge 1：补"协议内已把产物连接进载体并转化 → 交付物是质粒"；
+#       edge 2：把"principal procedure"改写为"协议内执行克隆、PCR 仅验证其产物 → 交付物是确认的克隆"；
+#       edge 3：补"终产物在胶上直接读、未转化为别的分子，且该片段即交付物"。
+#       edge 4/5/6 未动；edge 7/8（"amplification result itself" 与 "fragment" 的措辞差异，实质一致）按清单不动。
+#
+# ── 执笔人发现、**未改**（超出本次授权范围，交曹操/组织方裁定；各附建议文本）──────────
+#   (A) §7 read_versus_convert.convert 含 "using the product as a template for a further reaction"：
+#       字面上会把 edge 3（巢式 PCR：第一轮产物转入第二轮反应，verdict=on_topic）判成"转化"，
+#       与该例及 category.variant（nested / multiplex）冲突。
+#       建议：把该短语限定为 "...a further reaction that is not amplification of the same target
+#       (for example in-vitro transcription or assembly)"。
+#       ★ **[已按本建议修改]** 2026-11-06 20:42 依组织方指令执行，改后文字见 §7 read_versus_convert.convert。
+#         **该次修改仅动 §7 convert 一处**（当时 (B)(C) 均未动；其中 (B) 后于 r055 按曹操裁甲落地，见下）。
+#   (B) edge 2 带 exclude_item: E5，但新 E5 的字面是"扩增产物在协议内被转化"；菌落 PCR 的产物并未被转化，
+#       该例现在的 tangential 实际由 on_topic_requires 第 1 条（交付物是确认的克隆、不是扩增片段）推出，
+#       而非由 E5 推出。verdict 不变；建议曹操复核时确认是保留 exclude_item: E5 还是去掉。
+#       ★ **[曹操已裁甲：去掉] 2026-11-06 20:55 按裁决落地** —— edge 2 的 `exclude_item: E5` 已删除，
+#         `verdict: tangential` 与 `why` 均未动；edge 1 的 `E5` 保留（其转化对象是扩增产物本身）。
+#   (C) E2 仍把 "melt curves" 列为定量交付物的例子，而 §8 例外（熔解曲线是唯一读出、仅确认产物）判 on_topic。
+#       E2 在本次"不许动"之列，故未改；读法：E2 约束的是"定量"，仅确认产物存在的熔解曲线不是定量，
+#       但措辞上仍存在张力，建议升版时一并处理。
+#
+# ── 同时修 D-002（6 步阈值）──────────────────────────────────────────────────
+#   原 [V3-2] 用「前 6 步」判"objective 空"，该阈值是给"只显示 6 步"的展示约定写的。
+#   本版为**全文口径**：不复存在"前 6 步"这一判据（neg_examples 第 5 条的文字已随之改过）。
+#
+# ── 未改动（刻意保留，已机检与 rev2 逐字一致）──────────────────────────────────
+#   · `must` 三条、`essence`、E1 / E2 / E3 / E4、otr-1 / otr-3、common_but_not_required
+#   · 三组 examples 的 verdict 全部未动；pos_examples 全文未动
+#
+# ── [V3-1] 证据出处规则（沿用 v0.1，未改）──────────────────────────────────────
+#   有效证据只有 (a) objective (b) 步骤正文；任一处陈述即可。
+#   **仅标题出现 "PCR" 不构成证据。**
+#   认的词形：PCR / polymerase chain reaction / PCR amplification / RT-PCR / reverse transcription PCR /
+#             nested PCR / colony PCR / touchdown PCR / real-time PCR / qPCR / digital PCR / ddPCR
+#   ★ 下列情形**不算**陈述：「PCR tube」「PCR purification kit」「PCR-grade water」「primers for PCR（只是设计）」
+#
+# ── [V3-1a] 「陈述执行」的最低要素（v0.3 新增；不改 [V3-1] 其余文字）────────────
+#   一个说法算「陈述执行」，须同时满足 (1) 与 (2)：
+#   (1) 执行表述：文本把扩增写成本协议内实际要做、已做或所描述的动作
+#       （run / perform / carry out / proceed to / amplify /
+#        "amplification of X by PCR" / "after running the PCR" 等）。
+#       只是"可用于 PCR""建议用 PCR 验证""按外部协议另做"——不算执行表述。
+#   (2) 反应要素：给出下列任一组，足以指认被扩增的那个反应：
+#       (a) 明确的模板/样本 ＋ 明确的引物（序列或结合位置）；或
+#       (b) 明确的模板/样本 ＋ 明确的聚合酶或 master mix；或
+#       (c) 明确的热循环程序（变性/退火/延伸的温度与时间，且循环数 > 1）。
+#   聚合酶、循环数、反应体积、热循环仪型号不是必须；只缺其中一项不否定 (1)(2)。
+#   但只有反应名、只有"按内部/外部协议"、只有耗材或试剂名称、只有泛称
+#   （如 "a test DNA template"）、或只在 QC/下游一句话里提到 PCR，均不满足 (2)
+#   → 不算陈述执行，按无 PCR 证据处理（E4；objective 为空时并标 insufficient detail）。
+#   理由：以「执行表述＋可指认反应的一组要素」为门槛，既排除耗材名与协议外转引，
+#   又不会因缺少聚合酶或循环参数而误杀真实反应。
+#   案例落点：c0108 有模板（250–500 ng 纯化接头连接 RNA）＋引物（正向结合目标 RNA、
+#   反向结合 3′ 接头）→ 算；c0655 只有"running control PCR reactions / 按 BenBio
+#   内部协议"＋泛称模板，无引物、无循环，master mix 又是本协议的产品 → 不算。
+# ── [V3-2′] objective 为空（**全文口径**，替代 v0.1 的"前 6 步"规则）──────────────
+#   空 ≠ 没执行。空但**全文**步骤中陈述了方法证据 → 按步骤正常判；
+#   空且**全文**步骤也无任何方法证据 → 拿不准往低判 → wrong，且 why 标 insufficient detail。
+# ============================================================================
+
+method: PCR
+version: 0.3
+
+essence: "PCR is an enzymatic method that exponentially amplifies a specific region of a nucleic acid template through repeated cycles of thermal denaturation, primer annealing, and polymerase-mediated extension."
+
+must:
+  - "A nucleic acid template is present in the reaction: genomic or plasmid DNA, a cDNA, or RNA that is reverse transcribed within the protocol."
+  - "The reaction mixture contains a thermostable DNA polymerase and sequence-specific oligonucleotide primers."
+  - "The reaction is actually run for multiple repeated thermal cycles that alternate a high-temperature strand-separation step with primer annealing and extension steps (annealing and extension may be combined), for example in a thermal cycler; a single heating step or an incubation at one constant temperature does not meet this condition."
+
+on_topic_requires:
+  # ① v0.2 改动：从「读出」改为「交付物」
+  - "The protocol's own deliverable is the DNA fragment produced by the amplification. A readout that inspects that fragment without converting it into another molecule — such as gel or capillary electrophoresis, sequencing of the product, or a melt-curve check used solely to confirm the product — is consistent with this condition."
+  # ② v0.2 删除：原 otr-2「不得只是更大流程里的前置/验证步骤」
+  #    删除理由：它是 D-001 的绝对否决来源，与新判定轴冲突；"是否已完成转化"改由 E5 处理。
+  # ③ 改动：删除 "melt curves" 一词（v0.1 原文含此词）。
+  #    理由：留着会把熔解曲线一律排除为"非对靶读出"，与 §8 的 sole-purpose 例外矛盾。
+  #    其余部分逐字未改。
+  - "The readout is not real-time or digital quantification, such as Ct or Cq values, amplification curves, or copy numbers counted per partition."
+
+common_but_not_required:
+  - "The type of polymerase, such as Taq or a high-fidelity enzyme, is not defining."
+  - "The number of cycles, the annealing temperature, the extension time, and the buffer composition are not defining."
+  - "A hot start, a final extension step, or additives such as DMSO or betaine may be used."
+  - "A negative control without template or a positive control may be included."
+  - "Agarose gel electrophoresis with a DNA stain is a common end-point readout, but no particular readout is required to identify the method."
+
+exclude:
+  - E1: "Primer design, sequence analysis, or annealing temperature calculation alone, where no amplification reaction is actually prepared and run."
+  - E2: "Protocols whose principal deliverable is real-time or digital quantification of a target, such as Ct or Cq values, amplification or melt curves, or absolute copy numbers from partitioned reactions; the thermal-cycled amplification is only the means, and the quantitative readout belongs to the separate qPCR method."
+  - E3: "Nucleic acid amplification that is not thermal-cycled PCR, such as isothermal methods (LAMP, RPA, NASBA, strand displacement or rolling circle amplification) run at a constant temperature, when no repeated thermal cycling is stated anywhere in the protocol."
+  - E4: "Preparation or handling of reagents, buffers, master mixes, consumables, or kits, or cleanup of an already obtained product, without an amplification reaction being run in the protocol."
+  # ③ v0.2 改动：把"前置/验证"换成"协议内是否已完成转化"
+  - E5: "Protocols in which the amplification product is converted within the protocol into another molecule, such as a sequencing library, a cloned plasmid, an edited genome, or a transcribed RNA; the protocol's deliverable is then that converted molecule rather than the amplified fragment. Library preparation and sequencing that are merely named as a downstream application, and not performed inside the protocol, do not trigger this exclusion."
+
+# ④ v0.2 改动：upstream / downstream 降为描述性分类，不再单独决定 verdict
+category_definition:
+  upstream: "DESCRIPTIVE ONLY — PCR runs before the protocol's principal procedure and prepares its material. Whether it is on_topic is decided by on_topic_requires and E5, NOT by this label."
+  downstream: "DESCRIPTIVE ONLY — PCR runs after the protocol's principal procedure and is applied to its product. Whether it is on_topic is decided by on_topic_requires and E5, NOT by this label."
+  variant: "The protocol performs thermal-cycled PCR in a recognized alternative format that stays within the cycling principle, such as hot-start, touchdown, nested, multiplex, long-range, real-time, or digital PCR."
+  analogue: "The protocol uses a different but related nucleic acid amplification method that is not thermal-cycled PCR, such as LAMP, RPA, or NASBA, and does not perform PCR."
+  composite: "PCR is combined with another molecular method in a single protocol, such as reverse transcription followed by end-point PCR."
+
+# ── §6 新增：建库 / 测序 在协议内 还是 协议外（E5 的操作化清单）────────────────
+deliverable_boundary:
+  # ★ D-003 修复（2026-11-06）：原 rule 以"出现任一动作"为判据，会把"单次加接头/index PCR 后停止"
+  #   判成文库（tangential），与 otr-1（交付带接头的扩增片段 → on_topic）冲突。
+  #   现改为**链条判据**：加接头/index 必须**再接至少一个下游文库步骤**，才判文库。
+  inside_protocol_actions:
+    - "add adapters"
+    - "library preparation"
+    - "index PCR"
+    - "library quantification"
+    - "pooling of libraries"
+    - "loading onto a sequencer"
+    - "demultiplexing / FASTQ generation"
+  action_qualifiers:
+    add adapters: "A separate library-conversion or adapter-ligation step. It does NOT cover adapter or index sequence merely being incorporated through the PCR primers themselves."
+    index PCR: "Not sufficient on its own. Whether the deliverable becomes a library depends on what follows — see rule and exception below."
+  # ── [§6-a] pooling 的限定（v0.3 新增；不改 rule / exception 原文）─────────────
+  pooling_definition: "Pooling (混池) means physically combining two or more distinct adapter- or index-tagged LIBRARIES into a single sequencing pool, with each library traceable by its index. It does NOT mean pooling amplicons or PCR products, combining replicate reactions, or combining samples before library preparation; amplicon/sample pooling is not a library-chain step and does not trigger E5."
+  submission: "A statement that the pool is submitted or handed to a sequencing facility ('送测序', 'submit for sequencing', 'hand to the sequencing platform') is a handoff, not one of the enumerated chain steps; it is neither necessary nor sufficient. The chain is complete only if library quantification, library pooling, loading onto a sequencer, or demultiplexing is performed in the protocol; a bare downstream suggestion ('can be submitted for sequencing') does not complete it."
+  reason: "Only library-level pooling (or quantification/loading/demultiplexing) shows that the deliverable has become a sequencing library; amplicon pooling and a bare 'submit for sequencing' do not."
+  # 案例落点：c0803 第 20 步称产物为 "your barcode library"，第 22 步要求 pooling 后送测
+  #   → 文库级混池已在协议内 → 链条走完，tangential；c0441 止于柱纯化的 index 扩增片段，
+  #   无定量/混池/上机 → 未走完，on_topic（与对照案例一致）。
+  rule: "The deliverable is a library or sequencing output (so E5 applies and the verdict is tangential) only when the protocol carries out the library chain as its closing stages: adapter or index addition FOLLOWED BY at least one of library quantification, pooling of libraries, loading onto a sequencer, or demultiplexing. Adapter/index addition alone does not complete that chain."
+  exception: "An adapter- or index-adding amplification that ends at the purified adapter-tagged amplicon, without subsequent library preparation, library quantification, pooling, or sequencing steps, does not by itself trigger E5; its deliverable remains the amplified DNA fragment and it may be on_topic."
+  downstream_only: "If these actions appear only as a stated downstream application, or are explicitly marked as not described here, the protocol ends at the amplified fragment and the verdict may be on_topic."
+
+# ── §7 新增：读 vs 转化 ───────────────────────────────────────────────────────
+read_versus_convert:
+  read: "Gel or capillary electrophoresis, sequencing of the product, and Ct/curve readouts INSPECT the fragment. Sequencing a PCR product to validate it does not convert it into another molecule."
+  convert: "Ligation into a vector, transformation, library preparation, in-vitro transcription, or using the product as a template for a further reaction that is not amplification of the same target (for example in-vitro transcription or assembly) PRODUCE a different molecule."
+  # ── [§7-a] 「转化」的判准（v0.3 新增；不改 convert / rule 原文）───────────────
+  conversion_test: "Conversion is judged by a change in molecular CLASS or STATE, not by a change in sequence. Ligation into a vector, transformation, library preparation (adapter/index plus downstream library steps), in-vitro transcription, integration into a genome, circularization, or assembly into a vector/plasmid produce a different molecule (plasmid, library, RNA, edited genome, circular DNA) and are conversion."
+  same_class_rule: "Recombining two or more PCR amplicons into one new amplicon by PCR (overlap-extension / fusion PCR), where the final product is still a linear DNA fragment obtained by amplification and is purified or read as such, is NOT conversion even though its sequence differs from either template; the deliverable remains the amplified fragment and may be on_topic. A further reaction that uses the product as a template counts only when its product belongs to a different molecular class; 'assembly' in convert means assembly into a vector or other non-amplicon molecule, not fusion PCR that joins amplicons into another amplicon."
+  reason: "The test is whether the molecule's class changed (vector, library, RNA, circular DNA), not whether its sequence changed; a fusion amplicon is still an amplified DNA fragment."
+  # 案例落点：c0590 用重叠延伸把两段扩增子拼成一条融合片段，纯化后即止，克隆在下游协议
+  #   → 仍属扩增片段，不算转化，on_topic（与 c0935 的环化/连接成环状 DNA 相对照）。
+  rule: "Inspection leaves the deliverable as the amplified fragment. Conversion replaces it. This distinction decides between on_topic and tangential."
+
+# ── §8 新增：熔解曲线 / 特异性确认（含例外与理据）──────────────────────────────
+melt_curve:
+  default: "tangential — a melt curve attached to a qPCR run supports a quantitative or typing readout; the principal deliverable is the value or call."
+  exception: "on_topic — if the sole purpose of the protocol is to confirm the presence or uniqueness of the amplified product by melt curve, with no quantification and no downstream conversion."
+  rationale: "The test is what the protocol's sole deliverable is, not which readout technology is used. When a melt curve is the only readout, the object it inspects is the amplified fragment itself, which is an end-point readout of that fragment under on_topic_requires."
+
+# ── pcr_role（配套字段；v0.2 草案期只落字段，不填值）────────────────────────────
+pcr_role:
+  field: "primary | support | none"
+  meaning:
+    primary: "PCR is the protocol's subject; the protocol is organized around amplification and its readout."
+    support: "PCR is present but the protocol has another principal procedure (cloning, library preparation, sequencing, phenotyping) and PCR occupies only some steps."
+    none: "No amplification is performed."
+  constraint: "pcr_role does not participate in the verdict. It is an independent label."
+  fill_timing:
+    - "Drafting and discussion: field present, all values empty."
+    - "After v0.3 is adopted and BEFORE the first full-scale judging: fix the primary/support criteria on a calibration set (suggested 50 items)."
+    # ^ 版本串同步：v0.2 → v0.3（2026-11-09 依组织方指令由 DS 执行；仅此一串，条款未动）
+    - "Only after those criteria are stable may values be filled at full scale."
+    - "Before that point, pcr_role must NOT be used in any statistic, filter, or conclusion."
+
+pos_examples:
+  - {text: "Prepare a 25 microliter reaction containing genomic DNA, forward and reverse primers, dNTPs, Taq DNA polymerase, and buffer; run 30 cycles of 95 degrees C for 30 seconds, 58 degrees C for 30 seconds, and 72 degrees C for 60 seconds in a thermal cycler; resolve the product on a 1% agarose gel and image the band.", verdict: on_topic}
+  - {text: "Amplify the target region by touchdown hot-start PCR, lowering the annealing temperature by 1 degree C per cycle over the first ten cycles of thermal cycling, and check the amplicon size by capillary electrophoresis.", verdict: on_topic}
+  - {text: "Genotype mouse tail DNA by PCR with allele-specific primers and Taq polymerase for 35 cycles, then score the genotype from the band pattern on an agarose gel.", verdict: on_topic}
+
+neg_examples:
+  - {text: "Select forward and reverse primers for the target gene with a primer design tool, check for hairpins and primer dimers, and calculate the melting and annealing temperatures; no reaction is prepared or run.", verdict: wrong, exclude_item: E1}
+  - {text: "Detect the target by recombinase polymerase amplification: mix the primers, recombinase, and polymerase, and incubate the tube at a constant 39 degrees C for 20 minutes without any thermal cycling.", verdict: wrong, exclude_item: E3}
+  - {text: "Prepare 1 mL of 2X PCR master mix by combining buffer, dNTPs, magnesium chloride, and polymerase, aliquot it, and store it at minus 20 degrees C; no template is added and no reaction is run.", verdict: wrong, exclude_item: E4}
+  - {text: "Purify an already amplified DNA fragment from the reaction tube using a spin column, elute it in water, and measure its concentration; no amplification reaction is run in the protocol.", verdict: wrong, exclude_item: E4}
+  # 执笔人已处理：原文 "none of the first six steps" 改为 "no step"（全文口径，见文件头 [v0.2 期处理记录①]）；verdict 与 insufficient_detail 不变。
+  - {text: "The protocol is titled 'PCR amplification of the target gene'. The objective field is empty, and no step mentions PCR, polymerase, primers, or thermal cycling; the steps describe DNA extraction from tissue and DNA quantification only.", verdict: wrong, why: "The objective is empty and the steps do not state the method either, so this is judged wrong under the lower-when-unsure rule with insufficient detail flagged.", insufficient_detail: true}
+
+edge_examples:
+  - {text: "Amplify the coding sequence by PCR with primers carrying restriction sites, digest the product, ligate it into an expression vector, and transform E. coli to obtain the plasmid.", verdict: tangential, category: upstream, exclude_item: E5, why: "PCR is performed before the principal procedure, and within the protocol the amplified product is ligated into a vector and transformed, so it is converted into a plasmid; the deliverable is the cloned plasmid rather than the amplified fragment."}
+  # ★ (B) 已落地（2026-11-06，曹操裁甲）：本条的转化发生在 colony PCR **之前**、对象是连接产物；
+  #   PCR 产物只跑胶、未在协议内被转化 ⇒ 新 E5 不适用。tangential 由 otr-1 支撑（交付物是确认的克隆）。
+  - {text: "After transforming E. coli with the ligation mixture, pick colonies, run colony PCR with vector-specific primers for 30 cycles, and check the insert size on an agarose gel to confirm the clone.", verdict: tangential, category: downstream, why: "The cloning workflow is carried out inside the protocol and PCR is a downstream verification step applied to its product, so the protocol's deliverable is the confirmed clone rather than the amplified fragment."}
+  - {text: "Amplify a 16S rRNA gene fragment by nested PCR: run 25 cycles with the outer primer pair, transfer 1 microliter of the product into a second reaction with the inner primer pair for 25 more cycles, and visualize the final product on an agarose gel.", verdict: on_topic, category: variant, why: "Nested PCR is a recognized thermal-cycled PCR format; the final amplified fragment is read directly on the gel without being converted into another molecule, and that fragment is the protocol's deliverable."}
+  - {text: "Detect the viral target by loop-mediated isothermal amplification: incubate the primer set and Bst polymerase at a constant 65 degrees C for 40 minutes and read the turbidity.", verdict: wrong, category: analogue, exclude_item: E3, why: "LAMP is a related amplification method, but it runs at a constant temperature with no repeated thermal cycling, so no PCR is performed."}
+  - {text: "Reverse transcribe total RNA into cDNA with oligo(dT) primers, amplify the target by 35 cycles of end-point PCR, and resolve the product on a 2% agarose gel.", verdict: on_topic, category: composite, why: "Reverse transcription and PCR are combined in one protocol, and the end-point gel band of the amplified product is the stated readout."}
+  - {text: "Amplify the target cDNA on a real-time PCR instrument with a SYBR Green master mix for 40 cycles and report the Cq values normalized to a reference gene.", verdict: tangential, category: variant, exclude_item: E2, why: "Thermal-cycled PCR is performed, but the principal readout is real-time quantification by Cq, which belongs to the separate qPCR method."}
+  - {text: "Reverse transcribe RNA into cDNA, quantify the transcript by real-time PCR with a TaqMan probe, and calculate relative expression by the delta-delta Cq method.", verdict: tangential, category: composite, exclude_item: E2, why: "Reverse transcription and PCR are both performed, but the stated final readout is relative quantification from Cq values, not the amplification result itself."}
+  - {text: "Partition the reaction mixture into about 20,000 droplets, run 40 cycles of thermal cycling, and count the positive and negative droplets to report copies per microliter.", verdict: tangential, category: variant, exclude_item: E2, why: "Droplet PCR performs thermal-cycled amplification, but the stated readout is absolute quantification by partition counting rather than the amplification result itself."}
+
+# ── 采纳与重测要求（§7.5）────────────────────────────────────────────────────
+adoption:
+  status: "reviewed - 已复核；未采纳、未验证"
+  author: "曹操"            # 起草人（人类）；AI 仅辅助整理文字，不署名
+  reviewed_by: "袁广华"     # 2026-11-09 11:20 复核通过（组织方在本会话提交并确认；起草人曹操未参与复核）
+  retest_required: "Artifacts must be retested with a NEW sample set per §7.5. Neither the κ = 0.8615 obtained on the 962-item sample of v0.1 nor the κ = 0.8440 obtained on the 399-item sample of v0.2 may be used as the acceptance result for v0.3."
+  md5_policy: "This file's md5 will differ from v0.1 (903fabc8d32bef048dd4f1d345e4b812) and from v0.2 (477e04f3fe6d4afac2bf8ea24cfcabf9); the grandfather whitelist entries for v0.1 and v0.2 do not cover v0.3."
