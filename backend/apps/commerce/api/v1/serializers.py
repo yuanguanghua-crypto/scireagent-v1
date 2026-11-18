@@ -686,8 +686,16 @@ class ProductDetailSerializer(BaseModelSerializer):
         return None
 
     def get_structure_svg(self, obj):
-        """Sanitize SVG before output to prevent XSS."""
-        return sanitize_svg(obj.structure_svg) if obj.structure_svg else None
+        """Sanitize SVG before output to prevent XSS.
+
+        ★ A-043：空值返回 `''` 而不是 `None`。
+          模型该字段是 `blank=True, default=''`，但这里原本把空值渲染成 JSON `null`；
+          而 **PUT 不接受 null**（DRF CharField allow_null=False）⇒
+          「GET 出来原样 PUT 回去」对**所有没有结构式的产品**直接 400。
+          生产实测 141 条产品里 85 条（60%）structure_svg 为空，全部踩这个坑。
+          读得到的形状必须写得回去 —— 这是契约，不是风格问题。
+        """
+        return sanitize_svg(obj.structure_svg) if obj.structure_svg else ''
 
     def get_product_class_path(self, obj):
         """Return breadcrumb path: [L1_name, L2_name, L3_name]"""
