@@ -68,15 +68,17 @@ class IntakeProtocolWritePathTest(TestCase):
         self.assertEqual(rows[0].title, '准备反应液')
         self.assertEqual(rows[0].body, '准备反应液')
 
-    def test_inline_numbered_steps_are_split(self):
-        """表单占位符就是「1. A 2. B 3. C」这种一行写法，必须能切开"""
-        data = self._post(protocol_steps='1. Prepare RNA 2. Add reagents 3. Incubate 4. Purify')
-        self.assertEqual(data['steps_created'], 4)
-        titles = list(
-            ProtocolStep.objects.filter(protocol__name='CuAAC RNA Labeling Protocol')
-            .order_by('step_no').values_list('title', flat=True)
-        )
-        self.assertEqual(titles, ['Prepare RNA', 'Add reagents', 'Incubate', 'Purify'])
+    def test_one_line_with_inline_numbers_is_a_single_step(self):
+        """★ 只按行切：一行里写了 `1. 2. 3.` 也只算**一步**，不按编号拆。
+
+        2026-11-18 组织方拍板「收窄成只按行切」——编号是作者的排版习惯，
+        不是结构承诺，后端不该替作者猜步骤边界。
+        """
+        data = self._post(protocol_steps='1. Prepare RNA 2. Add reagents 3. Incubate')
+        self.assertEqual(data['steps_created'], 1, '单行被按编号切成了多步')
+        row = ProtocolStep.objects.get()
+        self.assertEqual(row.body, '1. Prepare RNA 2. Add reagents 3. Incubate',
+                         'body 应保持作者原文')
 
     def test_steps_created_count_is_real(self):
         data = self._post(protocol_steps='步骤一\n步骤二')
@@ -193,27 +195,33 @@ class ParsePlainTextStepsTest(TestCase):
         self.assertEqual([r['step_no'] for r in rows], [1, 2, 3])
         self.assertEqual([r['body'] for r in rows], ['A', 'B', 'C'])
 
-    def test_inline_numbering_split(self):
+    def test_inline_numbering_not_split(self):
+        """一行内的 `1. 2. 3.` 不再当结构：只算一步"""
         rows = parse_plain_text_steps('1. A 2. B 3. C')
-        self.assertEqual(len(rows), 3)
-        self.assertEqual([r['title'] for r in rows], ['A', 'B', 'C'])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['body'], '1. A 2. B 3. C')
+        self.assertEqual(rows[0]['title'], 'A 2. B 3. C', 'title 只去掉行首编号')
 
     def test_volume_like_text_is_not_split(self):
         """`1.5 mL buffer` 是体积不是编号，不许被切成两步"""
         rows = parse_plain_text_steps('Add 1.5 mL buffer to the tube')
         self.assertEqual(len(rows), 1)
 
-    def test_leading_numbering_stripped(self):
+    def test_leading_numbering_stripped_from_title_but_body_kept(self):
+        """行首编号只从 title 去掉，body 保持作者原文"""
         for text in ('1. Prepare RNA', '1) Prepare RNA', '1、Prepare RNA',
                      'Step 1: Prepare RNA'):
             rows = parse_plain_text_steps(text)
             self.assertEqual(len(rows), 1, text)
-            self.assertNotIn('1', rows[0]['title'].split(' ')[0], text)
+            self.assertEqual(rows[0]['title'], 'Prepare RNA', text)
+            self.assertEqual(rows[0]['body'], text, text)
 
-    def test_colon_splits_title_and_body(self):
-        rows = parse_plain_text_steps('Prepare reaction: heat at 70C for 5 min')
-        self.assertEqual(rows[0]['title'], 'Prepare reaction')
-        self.assertEqual(rows[0]['body'], 'heat at 70C for 5 min')
+    def test_colon_does_not_split_title_and_body(self):
+        """★ 不按冒号拆标题：冒号可能出现在比例/时间描述里"""
+        text = 'Prepare reaction: heat at 70C for 5 min'
+        rows = parse_plain_text_steps(text)
+        self.assertEqual(rows[0]['body'], text)
+        self.assertEqual(rows[0]['title'], text[:60], 'title 应是正文前 60 字符')
 
     def test_without_colon_body_is_kept_whole(self):
         text = 'Incubate the sample at room temperature for thirty minutes then purify'

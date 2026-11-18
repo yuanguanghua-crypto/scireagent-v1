@@ -136,56 +136,37 @@ def parse_hierarchical_protocol(hp: Any) -> List[Dict[str, Any]]:
 
 # ── 入口二：表单自由文本 → 步骤（A-070 写入路径接入）──────────────────────
 #
-# 为什么需要它：`KnowledgeIntake` 页面只有一个 textarea 让人手填步骤
-# （占位符示例就是「1. Prepare RNA 2. Add reagents 3. Incubate 4. Purify」）。
-# 这类输入既可能是**每行一步**，也可能是**一行写完**，都要能吃下。
+# 为什么需要它：`KnowledgeIntake` 页面只有一个 textarea 让人手填步骤。
 # 但绝不能"解析不了就整段塞 objective" —— 那正是 A-070 的原始缺陷。
+#
+# ★ 切分范围（2026-11-18 组织方拍板，用户点选"收窄成只按行切"）：
+#   **纯文本只按行切，一行一步。**
+#   明确**不做**两件曾被实现过的推断：
+#     · 不做「一行里按 1. 2. 3. 编号切开」—— 编号是作者的排版习惯，不是结构承诺
+#     · 不做「按冒号把一行拆成标题:正文」—— 冒号可能出现在试剂比例、时间描述里
+#   结构化数组路径（`_from_structured_list`）不受此限：数组本身就是结论。
+#
+# 唯一保留的规范化：行首编号（`1.` / `1)` / `Step 1:`）会从 **title** 里去掉，
+#   **body 保持作者原样**。这一步不改变步骤条数，只是让标题可读；
+#   如果组织方认为这也算推断，去掉它只需删掉下面这一处 `_LEADING_NO_RE.sub`。
 
-# 行首编号：`1.` / `1)` / `1、` / `Step 1:` / `1：`
+# 行首编号：`1.` / `1)` / `1、` / `Step 1:` / `1：`（**只用于清理 title**）
 _LEADING_NO_RE = re.compile(r'^\s*(?:step\s*)?\d{1,3}\s*[.)、,:：]\s*', re.I)
-# 内联编号：行首或空白之后 + 数字 + 后缀 + **至少一个空白** + 非空白
-#   ⇒ `1.5 mL buffer` 不会被切开（`1.` 后面紧跟数字不是空白），
-#      `1. Prepare` 才会命中。
-_INLINE_NO_RE = re.compile(r'(?:^|(?<=\s))\d{1,3}\s*[.)、]\s+(?=\S)')
 
-TITLE_SPLIT_MAX = 40        # 冒号在前 40 字符内才认作「标题：正文」分隔
 TITLE_FALLBACK_CHARS = 60   # 与层级入口的回退长度保持一致（body[:60]）
 
 
-def _split_title_body(item: str):
-    """把一条步骤拆成 (title, body)。规则确定性，可逐条断言：
-
-    1. 冒号（`:` 或 `：`）出现在**前 40 字符**内且两侧都非空
-       ⇒ 冒号前 = title，冒号后 = body
-    2. 否则 title 取正文前 60 字符（截取自身正文，**不编造**），body = 完整正文
-    3. 返回的 title 可能为空串，由调用方兜底（保持与层级入口一致）
-    """
-    for sep in ('：', ':'):
-        idx = item.find(sep)
-        if 0 < idx <= TITLE_SPLIT_MAX:
-            head, tail = item[:idx].strip(), item[idx + 1:].strip()
-            if head and tail:
-                return head, tail
-    return item[:TITLE_FALLBACK_CHARS].strip(), item
-
-
 def parse_plain_text_steps(text: Any) -> List[Dict[str, Any]]:
-    """把表单里的步骤解析成 `[{step_no, title, body}]`（与层级入口同形状）。
+    """把表单步骤解析成 `[{step_no, title, body}]`（与层级入口同形状）。
 
-    ★ 入参两种形态（2026-11-18 组织方拍板「格式 A = 前端多行结构化录入，
-      后端不做文本切分」后补充）：
+    入参两种形态：
 
-      1. **结构化数组**（首选、无歧义）：
-         `[{'title': ..., 'body': ..., 'duration_seconds': ..., 'warnings': ...}, ...]`
-         或 `['Prepare RNA', 'Add reagents', ...]`
-         ⇒ 数组就是最终结论，**原样采用，不再做任何切分/推断**。
-      2. **纯文本**（兼容既有表单，textarea 尚未升级时）：按下面的规则切。
-
-    纯文本切分规则：
-      - 多行 ⇒ 每个非空行 = 一步
-      - 单行且以编号开头、且含 ≥2 个编号（`1.` `2)` `3、`）⇒ 按编号切开
-      - 单行且无编号 ⇒ 整体算一步（宁可一步，也不凭标点瞎切）
-      - 切完去残留编号、压缩空白；空项丢弃；step_no 从 1 连续编号
+      1. **结构化数组**（首选、无歧义）：dict 列表或字符串列表
+         ⇒ 数组就是最终结论，**原样采用，不做切分/推断**。
+      2. **纯文本**（兼容既有 textarea）：**只按行切，一行一步**。
+         - 空行丢弃
+         - 单行（不管里面有几个 `1. 2.`）⇒ 算**一步**
+         - `title` = 去掉行首编号后的前 60 字符；`body` = 该行原文（压缩空白）
 
     其它类型（None/数字/字典）一律返回 []，不抛异常。
     """
@@ -197,24 +178,14 @@ def parse_plain_text_steps(text: Any) -> List[Dict[str, Any]]:
     if not raw:
         return []
 
-    lines = [ln for ln in raw.splitlines() if ln.strip()]
-    if len(lines) == 1:
-        hits = list(_INLINE_NO_RE.finditer(lines[0]))
-        # 行首必须就是第一个编号，且至少两个编号，才认作"一行多步"
-        items = _INLINE_NO_RE.split(lines[0]) if (len(hits) >= 2 and hits[0].start() == 0) else lines
-    else:
-        items = lines
-
     steps: List[Dict[str, Any]] = []
-    for it in items:
-        s = _LEADING_NO_RE.sub('', (it or '').strip())
-        s = re.sub(r'\s+', ' ', s).strip()
-        if not s:
+    for line in raw.splitlines():
+        body = re.sub(r'\s+', ' ', line).strip()
+        if not body:
             continue
-        title, body = _split_title_body(s)
-        title = _clean_title(title) or s[:TITLE_FALLBACK_CHARS]
-        if len(title) > TITLE_MAX:
-            title = title[:TITLE_MAX]
+        # title 去掉行首编号；body 保留原文（不因清理标题而改动作者写的正文）
+        head = _LEADING_NO_RE.sub('', body).strip() or body
+        title = _clean_title(head)[:TITLE_FALLBACK_CHARS] or body[:TITLE_FALLBACK_CHARS]
         steps.append({'step_no': len(steps) + 1, 'title': title, 'body': body})
     return steps
 
