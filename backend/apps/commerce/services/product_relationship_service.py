@@ -21,7 +21,7 @@ def get_related_products(product, limit=6):
     if product.product_class:
         same_class_qs = Product.objects.filter(
             product_class=product.product_class,
-            status='active',
+            status='active', archived=False,
         ).exclude(id=product.id).order_by('catalog_no')
 
         class_ids = list(same_class_qs.values_list('id', flat=True))
@@ -30,7 +30,7 @@ def get_related_products(product, limit=6):
             all_in_class = list(
                 Product.objects.filter(
                     product_class=product.product_class,
-                    status='active',
+                    status='active', archived=False,
                 ).order_by('catalog_no').values_list('id', flat=True)
             )
             try:
@@ -46,7 +46,7 @@ def get_related_products(product, limit=6):
             neighbor_ids = neighbor_ids[:limit]
 
             if neighbor_ids:
-                neighbor_products = Product.objects.filter(id__in=neighbor_ids)
+                neighbor_products = Product.objects.filter(id__in=neighbor_ids, archived=False)
                 product_map = {p.id: p for p in neighbor_products}
                 for pid in neighbor_ids:
                     p = product_map.get(pid)
@@ -125,7 +125,7 @@ def get_related_products(product, limit=6):
     if product.product_class:
         same_class_ids = set(
             Product.objects.filter(
-                product_class=product.product_class, status='active'
+                product_class=product.product_class, status='active', archived=False
             ).exclude(id=product.id).values_list('id', flat=True)
         )
         for pid in same_class_ids:
@@ -138,7 +138,7 @@ def get_related_products(product, limit=6):
     # Sort by score descending, take remaining slots
     sorted_ids = sorted(scores.keys(), key=lambda pid: scores[pid], reverse=True)[:fallback_limit]
 
-    fallback_products = Product.objects.filter(id__in=sorted_ids, status='active')
+    fallback_products = Product.objects.filter(id__in=sorted_ids, status='active', archived=False)
     fb_map = {p.id: p for p in fallback_products}
 
     for pid in sorted_ids:

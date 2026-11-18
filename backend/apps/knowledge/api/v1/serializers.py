@@ -239,7 +239,7 @@ class ApplicationDetailSerializer(ApplicationGoalSyncMixin, BaseModelSerializer)
         # ★ 2026-10-30（B 方案阶段 2）：同 get_protocols，方法 id 改从桥取
         method_ids = list(obj.application_methods.values_list('method_id', flat=True))
         product_ids = ProductMethod.objects.filter(method_id__in=method_ids).values_list('product_id', flat=True).distinct()
-        return list(Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value).values('id', 'name', 'slug', 'catalog_no'))
+        return list(Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value, archived=False).values('id', 'name', 'slug', 'catalog_no'))
 
 
 class ProtocolStepSerializer(BaseModelSerializer):
@@ -410,7 +410,8 @@ class ProtocolDetailSerializer(BaseModelSerializer):
                 .values_list('product_id', flat=True)
             )
         return list(
-            Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value)
+            Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value,
+                                   archived=False)
             .values('id', 'name', 'slug', 'catalog_no')
         )
 
@@ -596,7 +597,7 @@ class MethodDetailSerializer(BaseModelSerializer):
         from apps.bridges.models import ProductMethod
         from apps.commerce.models import Product
         product_ids = ProductMethod.objects.filter(method=obj).values_list('product_id', flat=True).distinct()
-        return list(Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value).values('id', 'name', 'slug', 'catalog_no'))
+        return list(Product.objects.filter(id__in=product_ids, status=Product.Status.ACTIVE.value, archived=False).values('id', 'name', 'slug', 'catalog_no'))
 
 
 class ReferenceSerializer(BaseModelSerializer):
