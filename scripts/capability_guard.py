@@ -1122,8 +1122,15 @@ class Gate:
         target_paths = {t["path"] for t in targets}
 
         # 逐文件分析（不合并 blob —— 合并会让行号失真，指向别的文件）
+        # ★ L1 的语义是「端点失去唯一**前端**入口」：后端 Python 文件不可能是前端
+        #   入口。修复前它对任何待删文件都跑 symbols_used_by，于是后端 views.py
+        #   注释里的 `deleteDocument()` 被当成前端符号使用 ⇒ 误 BLOCK。
+        #   事前(--check)与事后(--audit)两种模式都只对该前缀的文件做 L1。
         used_syms: set[str] = set()
+        fe_prefix = rel(FRONTEND_SRC) + "/"
         for t in targets:
+            if not t["path"].startswith(fe_prefix):
+                continue
             used_syms |= self.symbols_used_by(t["text"])
 
         # ── L1 端点级：唯一入口 ──
@@ -1152,8 +1159,28 @@ class Gate:
                 ep = self.be.match(sym.http, url)
                 if ep is None:
                     continue                      # 该 URL 已不在后端 ⇒ 真死代码
-                others = (self.fe.entry_consumers(key) |
-                          direct_by_ep.get(ep.path, set())) - target_paths
+
+                # ── ★ 与 --map 同口径：只认「真实入口调用方」 ──
+                # build_map 用 fe.entry_consumers(key) 判定有无前端入口，为空即孤儿。
+                # 这里必须在**同一口径**上判断「删除会不会让端点失去入口」。
+                #
+                # 踩点（2026-11-10）：backend/apps/commerce/api/v1/views.py:457 的
+                # 注释写着「`deleteDocument()` 在前端定义了但无人调用」，
+                # symbols_used_by 的 \bname\s*[\.(] 把注释里的括号也认成调用；
+                # 于是删一个**后端 Python 文件**竟被判「前端唯一入口丢失」，
+                # 与 --map 的孤儿结论直接矛盾，整批 --check 被误 BLOCK。
+                #
+                # 判据：事前预演（--check）时待删文件仍在磁盘上，若它根本不是该
+                # 符号的真实调用方，就只是「提到」了符号 ⇒ 删它不会失去入口。
+                # 事后审计（--audit）时文件已删、live_targets 为空 ⇒ 不套此判据，
+                # 保留原逻辑对「唯一调用方被删」的 BLOCK 能力（CI 依赖它）。
+                all_callers = (self.fe.entry_consumers(key) |
+                               direct_by_ep.get(ep.path, set()))
+                live_targets = {p for p in target_paths
+                                if os.path.isfile(os.path.join(REPO, p))}
+                if live_targets and not (all_callers & live_targets):
+                    continue
+                others = all_callers - target_paths
                 if others:
                     continue
                 has_test, test_why = self.be.has_test(ep.path)

@@ -398,3 +398,76 @@ class ActionUrlTests(SimpleTestCase):
         self.assertTrue(
             guard.action_url("/api/v1/coas", "download", True).endswith("download/")
         )
+
+
+class MapCheckConsistencyTests(SimpleTestCase):
+    """--map 与 --check 必须对「零入口端点」给出同一结论（2026-11-11）。
+
+    事故：`backend/apps/commerce/api/v1/views.py:457` 的注释写着
+    「`deleteDocument()` 在前端定义了但无人调用」，symbols_used_by 把注释里的
+    括号也认成调用 ⇒ 删一个后端 Python 文件被判「前端唯一入口丢失」，
+    --check 整批 BLOCK，而 --map 同时把该端点判为孤儿（零入口）。
+    两份结论互相矛盾时，删除闸门不可用。
+
+    修复判据：事前预演（--check）时待删文件仍在磁盘上，若它不是符号的真实
+    调用方，就只是「提到」了符号 ⇒ 不构成入口；事后审计（--audit）时文件已
+    消失，不套该判据，保留「唯一调用方被删必须 BLOCK」的能力。
+    """
+
+    BACKEND_VICTIM = "backend/apps/commerce/api/v1/views.py"
+    REAL_CALLER = "frontend/src/views/workspace/ProductEditPage.vue"
+    ORPHAN_PATH = "/api/v1/documents/{X}/"
+
+    def test_zero_consumer_symbol_is_orphan_in_map(self):
+        """前置事实：deleteDocument 只有 api 层定义，--map 判该端点为孤儿。"""
+        be = guard.BackendIndex().build()
+        fe = _index()
+        self.assertEqual(
+            fe.entry_consumers("frontend/src/api/products.js::deleteDocument"), set(),
+            "前置条件不成立：deleteDocument 出现了真实页面消费方，用例需重判",
+        )
+        m = guard.build_map(be, fe)
+        row = next(r for r in m["rows"] if r["path"] == self.ORPHAN_PATH)
+        self.assertEqual(row["callers"], [], "--map 应把该端点判为零入口")
+        self.assertTrue(row["orphan"])
+
+    def test_backend_comment_mention_does_not_block(self):
+        """删后端文件不应产生「前端入口丢失」BLOCK。"""
+        be = guard.BackendIndex().build()
+        fe = _index()
+        gate = guard.Gate(be, fe)
+        result = gate.check([{
+            "path": self.BACKEND_VICTIM,
+            "text": guard.read(os.path.join(REPO, self.BACKEND_VICTIM)),
+        }])
+        self.assertEqual(result["verdict"], "OK", f"误 BLOCK：{result['findings']}")
+        blob = " ".join(str(f) for f in result["findings"])
+        self.assertNotIn(self.ORPHAN_PATH, blob,
+                         "零入口端点仍出现在拦截清单里 ⇒ --map/--check 仍矛盾")
+
+    def test_real_unique_caller_still_blocks(self):
+        """修口径不能把闸门修松：删掉真实唯一调用方仍须 BLOCK。"""
+        be = guard.BackendIndex().build()
+        fe = _index()
+        gate = guard.Gate(be, fe)
+        result = gate.check([{
+            "path": self.REAL_CALLER,
+            "text": guard.read(os.path.join(REPO, self.REAL_CALLER)),
+        }])
+        self.assertEqual(result["verdict"], "BLOCK",
+                         "删除唯一命名空间调用方后闸门未 BLOCK ⇒ 修复把闸门修松了")
+
+    def test_audit_mode_deleted_backend_file_also_stays_clean(self):
+        """事后审计（文件已从磁盘消失）也不该因后端注释误 BLOCK。
+
+        --audit 时 live_targets 为空 ⇒ 新增的「事前预演」判据不生效；
+        此时靠「L1 只看 frontend/src 前缀」这条兜住，原 --audit 逻辑不变。
+        """
+        from unittest.mock import patch
+        be = guard.BackendIndex().build()
+        fe = _index()
+        gate = guard.Gate(be, fe)
+        text = guard.read(os.path.join(REPO, self.BACKEND_VICTIM))
+        with patch.object(guard.os.path, "isfile", return_value=False):
+            result = gate.check([{"path": self.BACKEND_VICTIM, "text": text}])
+        self.assertEqual(result["verdict"], "OK", f"事后审计误 BLOCK：{result['findings']}")
