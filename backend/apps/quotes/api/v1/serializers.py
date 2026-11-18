@@ -8,10 +8,40 @@ from apps.quotes.models import QuoteRequest, QuoteRequestItem
 # 同时挡住 ``items=[{}] * 50000`` 这类匿名滥用（item 四个字段均可缺省，``{}`` 合法）。
 MAX_QUOTE_REQUEST_ITEMS = 50
 
+# ★ A-179：RFQ 明细数量此前**零校验** —— 0 / -3 / 1000 全部 201 落库
+#   （2026-11-18 实测 RFQ 明细可直接存 quantity=0、quantity=-3）。
+#   根因是 `QuoteRequestItem.quantity` 是裸 `IntegerField(default=1)`（模型无 validator），
+#   而序列化器直接透传，于是「0 件」这种无意义询价单能直接生成（PDF A-179）。
+#
+#   下限 = 1，**与购物车同口径**（`AddToBasketSerializer` 等三处均为 min_value=1）。
+#
+#   ⚠️ 上限**刻意不等于购物车的 999**：
+#   购物车是「零售包装自助下单」，999 是包装数量上限；
+#   而 RFQ 是**批量询价**入口，前端 `QuoteRequestPage.vue:179` 的数量输入
+#   只有 `min="1"`、根本没有 max —— 客户填 5000 支来问价是正常业务。
+#   把 999 套到 RFQ 上会直接拒掉真实批量询价，属"改一个 bug 引入另一个 bug"。
+#   ⇒ 这里只设一个**荒谬值护栏**（100 万），作用仅是挡住手滑/脚本灌数，
+#     业务上不构成任何限制。
+RFQ_ITEM_QTY_MIN = 1
+RFQ_ITEM_QTY_MAX = 1000000
+QTY_MIN_MSG = '数量至少为 {min_value}，不能是 0 或负数。'
+QTY_MAX_MSG = '数量超出可受理范围（上限 {max_value}），请核对是否多输了位数，或直接联系我们。'
+
 
 class QuoteRequestItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', default='', read_only=True)
     sku_code = serializers.CharField(source='sku.sku_code', default='', read_only=True)
+    # ★ A-179：显式声明以挂上下限；缺省仍为 1（保持既有 `{}` 合法行为不变）。
+    quantity = serializers.IntegerField(
+        min_value=RFQ_ITEM_QTY_MIN,
+        max_value=RFQ_ITEM_QTY_MAX,
+        required=False,
+        default=1,
+        error_messages={
+            'min_value': QTY_MIN_MSG,
+            'max_value': QTY_MAX_MSG,
+        },
+    )
 
     class Meta:
         model = QuoteRequestItem
