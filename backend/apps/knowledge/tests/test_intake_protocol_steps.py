@@ -83,6 +83,18 @@ class IntakeProtocolWritePathTest(TestCase):
         self.assertEqual(data['steps_created'], 2)
         self.assertEqual(ProtocolStep.objects.count(), 2)
 
+    def test_structured_array_input_accepted_end_to_end(self):
+        """格式 A 的真实形态：前端直接送结构化数组，后端原样落库。"""
+        data = self._post(protocol_steps=[
+            {'title': '准备反应液', 'body': '按 1:1 混合', 'duration_seconds': 300},
+            {'title': '孵育', 'body': '37°C 30 分钟'},
+        ])
+        self.assertEqual(data['steps_created'], 2)
+        rows = list(ProtocolStep.objects.order_by('step_no'))
+        self.assertEqual([r.title for r in rows], ['准备反应液', '孵育'])
+        self.assertEqual(rows[0].duration_seconds, 300)
+        self.assertEqual(rows[0].body, '按 1:1 混合')
+
     # ---------- 2. objective 只由显式字段承载 ----------
 
     def test_objective_comes_from_explicit_field(self):
@@ -221,3 +233,34 @@ class ParsePlainTextStepsTest(TestCase):
     def test_blank_lines_skipped(self):
         rows = parse_plain_text_steps('A\n\n\nB\n   \nC')
         self.assertEqual(len(rows), 3)
+
+    # ---------- 结构化数组（格式 A 的首选形态）----------
+
+    def test_structured_list_of_strings_used_as_is(self):
+        """数组就是最终结论：不再按标点切、不再猜标题/正文"""
+        text = 'Prepare reaction: heat at 70C for 5 min'
+        rows = parse_plain_text_steps([text, 'Purify product'])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]['body'], text, '结构化输入被二次切分了')
+        self.assertEqual(rows[1]['body'], 'Purify product')
+        self.assertEqual([r['step_no'] for r in rows], [1, 2])
+
+    def test_structured_list_of_dicts_passthrough(self):
+        rows = parse_plain_text_steps([
+            {'title': 'Prepare reaction', 'body': 'heat at 70C', 'duration_seconds': 300},
+            {'title': 'Purify', 'body': 'column purification', 'warnings': '避光'},
+        ])
+        self.assertEqual([r['title'] for r in rows], ['Prepare reaction', 'Purify'])
+        self.assertEqual(rows[0]['duration_seconds'], 300)
+        self.assertEqual(rows[1]['warnings'], '避光')
+
+    def test_structured_dict_without_title_falls_back_to_body(self):
+        rows = parse_plain_text_steps([{'body': 'Incubate overnight at 37C'}])
+        self.assertTrue(rows[0]['title'].startswith('Incubate overnight'))
+        self.assertEqual(rows[0]['body'], 'Incubate overnight at 37C')
+
+    def test_structured_list_skips_empty_and_garbage(self):
+        rows = parse_plain_text_steps(['', '  ', {'title': '', 'body': ''}, None, 123, 'Real step'])
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['body'], 'Real step')
+        self.assertEqual(rows[0]['step_no'], 1)

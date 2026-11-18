@@ -170,15 +170,27 @@ def _split_title_body(item: str):
 
 
 def parse_plain_text_steps(text: Any) -> List[Dict[str, Any]]:
-    """把表单里手填的步骤文本解析成 `[{step_no, title, body}]`（与层级入口同形状）。
+    """把表单里的步骤解析成 `[{step_no, title, body}]`（与层级入口同形状）。
 
-    切分规则：
+    ★ 入参两种形态（2026-11-18 组织方拍板「格式 A = 前端多行结构化录入，
+      后端不做文本切分」后补充）：
+
+      1. **结构化数组**（首选、无歧义）：
+         `[{'title': ..., 'body': ..., 'duration_seconds': ..., 'warnings': ...}, ...]`
+         或 `['Prepare RNA', 'Add reagents', ...]`
+         ⇒ 数组就是最终结论，**原样采用，不再做任何切分/推断**。
+      2. **纯文本**（兼容既有表单，textarea 尚未升级时）：按下面的规则切。
+
+    纯文本切分规则：
       - 多行 ⇒ 每个非空行 = 一步
-      - 单行且含 ≥2 个行首/内联编号（`1.` `2)` `3、`）⇒ 按编号切开
+      - 单行且以编号开头、且含 ≥2 个编号（`1.` `2)` `3、`）⇒ 按编号切开
       - 单行且无编号 ⇒ 整体算一步（宁可一步，也不凭标点瞎切）
       - 切完去残留编号、压缩空白；空项丢弃；step_no 从 1 连续编号
-    非 str（None/数字/list）一律返回 []，不抛异常。
+
+    其它类型（None/数字/字典）一律返回 []，不抛异常。
     """
+    if isinstance(text, list):
+        return _from_structured_list(text)
     if not isinstance(text, str):
         return []
     raw = text.strip()
@@ -204,4 +216,48 @@ def parse_plain_text_steps(text: Any) -> List[Dict[str, Any]]:
         if len(title) > TITLE_MAX:
             title = title[:TITLE_MAX]
         steps.append({'step_no': len(steps) + 1, 'title': title, 'body': body})
+    return steps
+
+
+# 结构化数组里允许透传的字段（其余忽略，避免把任意键塞进 model）
+_STEP_EXTRA_FIELDS = ('duration_seconds', 'warnings', 'required_materials')
+
+
+def _from_structured_list(items: List[Any]) -> List[Dict[str, Any]]:
+    """结构化数组 → 统一步骤形状。**不做切分、不做推断**，只做清洗与编号。
+
+    - dict 项：`title` 必需（缺失/空则回退 `body` 前 60 字符）；
+      `body` 缺省取 title；`duration_seconds`/`warnings`/`required_materials` 透传。
+    - str 项：整条即正文，title 回退正文前 60 字符（**不再按标点切**）。
+    - 其它类型 / 全空项：丢弃。
+    """
+    steps: List[Dict[str, Any]] = []
+    for it in items:
+        if isinstance(it, dict):
+            body = (it.get('body') or '').strip()
+            title = _clean_title((it.get('title') or '').strip())
+            if not title:
+                title = _clean_title(body)[:TITLE_FALLBACK_CHARS]
+            if not title and not body:
+                continue
+            if not body:
+                body = title
+            row: Dict[str, Any] = {
+                'step_no': len(steps) + 1,
+                'title': title[:TITLE_MAX],
+                'body': body,
+            }
+            for k in _STEP_EXTRA_FIELDS:
+                if it.get(k) not in (None, ''):
+                    row[k] = it[k]
+            steps.append(row)
+        elif isinstance(it, str):
+            body = re.sub(r'\s+', ' ', it).strip()
+            if not body:
+                continue
+            steps.append({
+                'step_no': len(steps) + 1,
+                'title': _clean_title(body)[:TITLE_FALLBACK_CHARS] or body[:TITLE_FALLBACK_CHARS],
+                'body': body,
+            })
     return steps
