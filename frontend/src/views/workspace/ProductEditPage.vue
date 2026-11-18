@@ -9,6 +9,7 @@ import { openPreview } from '@/utils/previewInject'
 import { useDialogA11y } from '@/composables/useDialogA11y'
 import { AppInput, AppSelect, LoadingSpinner } from '@/components/common'
 import { sortProtocolLinks, buildFolded, splitWeakLinks, axisBadges, unionProtocolRows } from '@/utils/protocolLinks'
+import { resolveMolecularWeight } from '@/utils/molecularWeight'
 
 import StructureViewer from './components/StructureViewer.vue'
 
@@ -38,6 +39,9 @@ const publishedButIncomplete = ref(false)  // 2.11 — 已发布但不够完整
 // 必填字段标红：collectMissing 计算缺失项，missingFields 保存 key 列表供 isFieldMissing() 使用。
 // 告知模式（CLAUDE.md 规则5）：缺失只标红提示，不阻止保存/发布，研究员拥有最终决定权。
 const missingFields = ref([])
+// ★ A-042：分子量冲突。非空时表示「外部来源给了另一个值，但我们没有覆盖你填的值」，
+//   必须在 MW 输入框旁长期可见 —— 不能用 4 秒就消失的 toast，那等于静默。
+const mwConflict = ref(null)   // { formValue, enrichValue, source }
 const REQUIRED_FIELDS = [
   { key: 'name', label: 'Name' },
   { key: 'catalog_no', label: 'Catalog No' },
@@ -96,6 +100,15 @@ const form = reactive({
   usage: '',
   seo_title: '', seo_description: '',
   status: 'draft', product_class_id: null,
+})
+
+// ★ A-042：只有「表单里的值仍然是当时人填的那个」才继续显示冲突。
+//   研究员一旦自己改动（或清空）分子量，这条提示就该消失 —— 否则会看到
+//   「库值 469 与你填的 484.14 不一致」而输入框里明明写着 469。
+const mwConflictActive = computed(() => {
+  if (!mwConflict.value) return false
+  const cur = Number(form.molecular_weight)
+  return Number.isFinite(cur) && cur === Number(mwConflict.value.formValue)
 })
 
 // Cascader value: array of ids [l1_id, l2_id] or [l1_id, l2_id, l3_id]
@@ -439,6 +452,53 @@ async function autoGenerateSeo() {
 function setFeedback(type, message) {
   saveFeedback.value = { type, message }
   setTimeout(() => { saveFeedback.value = { type: '', message: '' } }, 4000)
+}
+
+// ── 分子量唯一写入口（A-042）──────────────────────────
+// 历史缺陷：4 条 apply* 路径里 smiles/inchi/formula 都有 `!form.X` 守卫，
+// 只有 molecular_weight 没有 ⇒ 研究员手填的 484.14 被库值 469 无声盖掉。
+// 现在一律走这里：判定逻辑在 utils/molecularWeight.js（有单测），
+// 本函数只负责把"冲突"落到 UI 上。
+function applyMolecularWeight(incoming, source) {
+  const { next, conflict } = resolveMolecularWeight(form.molecular_weight, incoming, source)
+  form.molecular_weight = next
+  if (conflict) {
+    mwConflict.value = conflict
+    setFeedback(
+      'warn',
+      `分子量未被覆盖：你填的是 ${conflict.formValue}，${conflict.source} 给的是 ${conflict.enrichValue}。` +
+      '已保留你填的值 —— 确认要改用库值请点输入框下方的「改用库值」。',
+    )
+  }
+}
+
+/** 研究员显式选择改用外部来源的值（唯一允许覆盖的路径） */
+function useEnrichMolecularWeight() {
+  if (!mwConflict.value) return
+  form.molecular_weight = mwConflict.value.enrichValue
+  mwConflict.value = null
+  setFeedback('success', '分子量已改用库值，请与文档核对后再保存')
+}
+
+function keepMyMolecularWeight() {
+  mwConflict.value = null
+}
+
+/**
+ * 套用成功后报结果，但**不许把分子量冲突冲掉**（A-042）。
+ * 原先三个 apply* 结尾都无条件 `setFeedback('success', ...)`，
+ * 会把刚弹出的"分子量未被覆盖"换成"套用成功" ⇒ 又回到静默。
+ */
+function feedbackApplied(successMsg) {
+  if (mwConflictActive.value) {
+    const c = mwConflict.value
+    setFeedback(
+      'warn',
+      `${successMsg}；但分子量未改动（${c.source} 给 ${c.enrichValue}，你填 ${c.formValue}）`,
+    )
+  } else {
+    setFeedback('success', successMsg)
+  }
 }
 
 // ── Input validation ─────────────────────────────────
@@ -903,10 +963,11 @@ function applyCandidate(c) {
   }
   if (c.canonical_smiles && !form.smiles) form.smiles = c.canonical_smiles
   if (c.molecular_formula && !form.formula) form.formula = c.molecular_formula
-  if (c.molecular_weight) form.molecular_weight = Number(c.molecular_weight) || null
+  // ★ A-042：候选化合物是"显式选身份"，分子量**仍不静默覆盖**人填的值
+  applyMolecularWeight(c.molecular_weight, '候选化合物')
   if (c.cas && !form.cas) form.cas = c.cas
   if (c.inchi && !form.inchi) form.inchi = c.inchi
-  setFeedback('success', 'Candidate applied — please verify before saving')
+  feedbackApplied('Candidate applied — please verify before saving')
 }
 
 function applyPubchemProperties() {
@@ -921,17 +982,20 @@ function applyPubchemProperties() {
   if (p.canonical_smiles && !form.smiles) form.smiles = p.canonical_smiles
   if (p.inchi && !form.inchi) form.inchi = p.inchi
   if (p.molecular_formula && !form.formula) form.formula = p.molecular_formula
-  if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
+  // ★ A-042：见 applyMolecularWeight —— 库值只补空，不覆盖人填
+  applyMolecularWeight(p.molecular_weight, 'PubChem')
   // jena 是最终权威：匹配到则优先用其 CAS，否则用 PubChem 解析的 CAS
   const jena = enrichJena.value
   const casToUse = (jena?.matched && jena.cas_number) ? jena.cas_number : (chem.cas_resolved || '')
   if (casToUse && !form.cas) form.cas = casToUse
   pubchemEnrichResult.value = { ...data, applied: true }
-  setFeedback('success', 'Chemical properties applied to form')
+  feedbackApplied('Chemical properties applied to form')
 }
 
 // #170B: 保存前若化学身份已 verified 而表单 cas/smiles 仍空，自动套用（verified=后端已校验，安全），
 // 避免研究员点 Save Draft 后化学属性「凭空消失」造成不完整。unverified/候选分支不自动套用（须人工选候选）。
+// ★ A-042：本函数注释一直写着「仅填空字段，不覆盖人工录入」，但分子量那行从来没有守卫 ——
+//   注释与代码相反，导致保存前把人填的 MW 改掉且无提示。现已全部改为真·仅填空。
 function applyVerifiedChemicalToForm() {
   if (!chemAutoVerified.value) return
   const data = pubchemEnrichResult.value
@@ -941,7 +1005,8 @@ function applyVerifiedChemicalToForm() {
   if (p.canonical_smiles && !form.smiles) form.smiles = p.canonical_smiles
   if (p.inchi && !form.inchi) form.inchi = p.inchi
   if (p.molecular_formula && !form.formula) form.formula = p.molecular_formula
-  if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
+  // ★ A-042：这是 A-042 最可能的现场（saveDraft 每次保存都会调本函数）
+  applyMolecularWeight(p.molecular_weight, 'PubChem')
   // jena 是最终权威：匹配到则优先用其 CAS，否则用 PubChem 解析的 CAS
   const jena = enrichJena.value
   const casToUse = (jena?.matched && jena.cas_number) ? jena.cas_number : (chem.cas_resolved || '')
@@ -1024,7 +1089,8 @@ async function applyAllEnrichResults() {
     if (p.canonical_smiles && !form.smiles) form.smiles = p.canonical_smiles
     if (p.inchi && !form.inchi) form.inchi = p.inchi
     if (p.molecular_formula && !form.formula) form.formula = p.molecular_formula
-    if (p.molecular_weight) form.molecular_weight = Number(p.molecular_weight) || null
+    // ★ A-042：这是"Apply All"路径 —— 同样只补空，不覆盖人填
+    applyMolecularWeight(p.molecular_weight, 'PubChem')
     if (chem.cas_resolved && !form.cas) form.cas = chem.cas_resolved
   } else if (chem?.found && !chemAutoVerified.value) {
     setFeedback('warn', '化学属性未经验证，未自动套用 — 请从候选中选择或手动填写')
@@ -1053,9 +1119,9 @@ async function applyAllEnrichResults() {
   if (jenaCount) parts.push(`${jenaCount} jena specs`)
   // R0-a：语料库候选协议不再自动入库，明确告知需人工逐条确认
   if (pendingCount) {
-    setFeedback('success', `Applied: ${parts.join(', ')} — ${pendingCount} corpus protocols kept as candidates (not saved to the knowledge base; use Import on each card to persist)`)
+    feedbackApplied(`Applied: ${parts.join(', ')} — ${pendingCount} corpus protocols kept as candidates (not saved to the knowledge base; use Import on each card to persist)`)
   } else {
-    setFeedback('success', `Applied: ${parts.join(', ')}`)
+    feedbackApplied(`Applied: ${parts.join(', ')}`)
   }
 }
 
@@ -1183,6 +1249,8 @@ async function loadProduct() {
     if (resp.data) {
       const d = resp.data
       Object.keys(form).forEach(k => { if (k in d) form[k] = d[k] ?? form[k] })
+      // ★ A-042：换了产品/重新载入，上一个产品的分子量冲突提示必须清掉
+      mwConflict.value = null
       if (d.skus) skus.value = d.skus.map(s => {
         const ps = splitValueUnit(s.pack_size, 'mg')
         const cs = splitValueUnit(s.concentration, 'mM')
@@ -2142,6 +2210,14 @@ watch(
             <label>Molecular Weight
               <AppInput v-model.number="form.molecular_weight" type="number" step="0.01" placeholder="e.g. 522.2" />
               <span v-if="validateField('molecular_weight')" class="field-error">{{ validateField('molecular_weight') }}</span>
+              <!-- ★ A-042：外部来源的值与你填的不同 —— 不覆盖，但必须说出来。
+                   放在这里而不是只弹 toast：toast 4 秒就没了，等于静默。 -->
+              <span v-if="mwConflictActive" class="mw-conflict">
+                ⚠ {{ mwConflict.source }} 给的是 <b>{{ mwConflict.enrichValue }}</b>，与你填的
+                <b>{{ mwConflict.formValue }}</b> 不一致 —— 已保留你填的值。
+                <button type="button" class="mw-conflict-btn" @click="useEnrichMolecularWeight">改用库值</button>
+                <button type="button" class="mw-conflict-btn" @click="keepMyMolecularWeight">保持我的值</button>
+              </span>
             </label>
           </div>
           <div class="chem-preview">
@@ -2627,6 +2703,29 @@ watch(
 .ai-panel-wrapper { margin-top: 16px; border-top: 1px solid var(--color-border); padding-top: 16px; }
 .form-hint { font-size: 12px; color: var(--color-text-secondary); margin-top: 8px; }
 .field-error { font-size: 12px; color: var(--color-red-500); }
+/* ★ A-042：分子量冲突提示 —— 长期可见（不像 toast 会消失），所以用琥珀色块而非红字 */
+.mw-conflict {
+  display: block;
+  margin-top: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-amber-800, #92400e);
+  background: var(--color-amber-50, #fffbeb);
+  border-left: 3px solid var(--color-amber-400, #fbbf24);
+  border-radius: 4px;
+}
+.mw-conflict-btn {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 12px;
+  color: var(--color-amber-800, #92400e);
+  background: transparent;
+  border: 1px solid var(--color-amber-400, #fbbf24);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.mw-conflict-btn:hover { background: var(--color-amber-100, #fef3c7); }
 .custom-under { margin-top: 4px; }
 .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 12px 20px; border-radius: 8px; font-size: 14px; font-weight: 500; z-index: 2000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 .toast-success { background: var(--color-success-light); color: var(--color-primary-active); }
