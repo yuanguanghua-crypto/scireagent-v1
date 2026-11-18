@@ -249,11 +249,11 @@ class ChEMBLFallbackTest(TestCase):
                     }
                 },
                 {
-                    "molecule_chembl_id": "CHEMBL1200",
-                    "pref_name": "SALICYLIC ACID",
-                    "molecule_structures": {"canonical_smiles": "O=C(O)C1=CC=CC=C1O"},
+                    "molecule_chembl_id": "CHEMBL521",
+                    "pref_name": "IBUPROFEN",
+                    "molecule_structures": {"canonical_smiles": "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O"},
                     "molecule_properties": {
-                        "full_molformula": "C7H6O3", "full_mwt": 138.12,
+                        "full_molformula": "C13H18O2", "full_mwt": 206.28,
                     }
                 },
             ]
@@ -266,7 +266,7 @@ class ChEMBLFallbackTest(TestCase):
         self.assertEqual(result["source"], "chembl")
         self.assertEqual(len(result["candidates"]), 2)
         self.assertEqual(result["candidates"][0]["cid"], "CHEMBL25")
-        self.assertEqual(result["candidates"][1]["cid"], "CHEMBL1200")
+        self.assertEqual(result["candidates"][1]["cid"], "CHEMBL521")
 
     # ── cas_resolved 语义修复（P4）──────────────────────────
     # 历史坑：L454 把 canonical_smiles 塞进 cas_resolved，下游误把 SMILES 当 CAS。

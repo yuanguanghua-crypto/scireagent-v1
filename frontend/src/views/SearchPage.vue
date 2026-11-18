@@ -34,7 +34,7 @@ const tabCounts = computed(() => {
   return counts
 })
 
-// ★ 2026-11-18（A-138）：顶部计数必须跟随当前 tab。
+// ★ 2026-11-18（S2 甲组·搜索页计数口径）：顶部计数必须跟随当前 tab。
 //   原实现恒用 totalCount（= meta.count，**全部类型**的总条数）⇒ 切到 Protocols 时
 //   分组卡片 0 条、顶部却写「1 result(s)」，被当成自相矛盾（实测搜 5-Iodo-dUTP）。
 //   那个 1 是其他类型（product/method）的匹配，本身没错 —— 错在把它当成本 tab 的结果数。
