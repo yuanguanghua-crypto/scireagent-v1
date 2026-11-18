@@ -21,6 +21,12 @@ hierarchical_protocol 结构（实测样本）：
 - 空 dict / None / 非预期类型不崩
 
 输出：list[{'step_no','title','body'}]，step_no 从 1 连续编号。
+
+另一个入口见文末 `parse_plain_text_steps(text)`：把人手填的自由文本解析成同一形状。
+两者形状一致，写入方（intake）只依赖该形状，不关心来源。
+
+历史（A-070 根因）：表单的 `protocol_steps` 此前被直接写进 `Protocol.objective`
+（"目标"字段），步骤既没进 `protocol_step` 表，还污染了目标字段。
 """
 import html
 import re
@@ -125,4 +131,77 @@ def parse_hierarchical_protocol(hp: Any) -> List[Dict[str, Any]]:
             title = title[:TITLE_MAX]
         step_no += 1
         steps.append({'step_no': step_no, 'title': title, 'body': body})
+    return steps
+
+
+# ── 入口二：表单自由文本 → 步骤（A-070 写入路径接入）──────────────────────
+#
+# 为什么需要它：`KnowledgeIntake` 页面只有一个 textarea 让人手填步骤
+# （占位符示例就是「1. Prepare RNA 2. Add reagents 3. Incubate 4. Purify」）。
+# 这类输入既可能是**每行一步**，也可能是**一行写完**，都要能吃下。
+# 但绝不能"解析不了就整段塞 objective" —— 那正是 A-070 的原始缺陷。
+
+# 行首编号：`1.` / `1)` / `1、` / `Step 1:` / `1：`
+_LEADING_NO_RE = re.compile(r'^\s*(?:step\s*)?\d{1,3}\s*[.)、,:：]\s*', re.I)
+# 内联编号：行首或空白之后 + 数字 + 后缀 + **至少一个空白** + 非空白
+#   ⇒ `1.5 mL buffer` 不会被切开（`1.` 后面紧跟数字不是空白），
+#      `1. Prepare` 才会命中。
+_INLINE_NO_RE = re.compile(r'(?:^|(?<=\s))\d{1,3}\s*[.)、]\s+(?=\S)')
+
+TITLE_SPLIT_MAX = 40        # 冒号在前 40 字符内才认作「标题：正文」分隔
+TITLE_FALLBACK_CHARS = 60   # 与层级入口的回退长度保持一致（body[:60]）
+
+
+def _split_title_body(item: str):
+    """把一条步骤拆成 (title, body)。规则确定性，可逐条断言：
+
+    1. 冒号（`:` 或 `：`）出现在**前 40 字符**内且两侧都非空
+       ⇒ 冒号前 = title，冒号后 = body
+    2. 否则 title 取正文前 60 字符（截取自身正文，**不编造**），body = 完整正文
+    3. 返回的 title 可能为空串，由调用方兜底（保持与层级入口一致）
+    """
+    for sep in ('：', ':'):
+        idx = item.find(sep)
+        if 0 < idx <= TITLE_SPLIT_MAX:
+            head, tail = item[:idx].strip(), item[idx + 1:].strip()
+            if head and tail:
+                return head, tail
+    return item[:TITLE_FALLBACK_CHARS].strip(), item
+
+
+def parse_plain_text_steps(text: Any) -> List[Dict[str, Any]]:
+    """把表单里手填的步骤文本解析成 `[{step_no, title, body}]`（与层级入口同形状）。
+
+    切分规则：
+      - 多行 ⇒ 每个非空行 = 一步
+      - 单行且含 ≥2 个行首/内联编号（`1.` `2)` `3、`）⇒ 按编号切开
+      - 单行且无编号 ⇒ 整体算一步（宁可一步，也不凭标点瞎切）
+      - 切完去残留编号、压缩空白；空项丢弃；step_no 从 1 连续编号
+    非 str（None/数字/list）一律返回 []，不抛异常。
+    """
+    if not isinstance(text, str):
+        return []
+    raw = text.strip()
+    if not raw:
+        return []
+
+    lines = [ln for ln in raw.splitlines() if ln.strip()]
+    if len(lines) == 1:
+        hits = list(_INLINE_NO_RE.finditer(lines[0]))
+        # 行首必须就是第一个编号，且至少两个编号，才认作"一行多步"
+        items = _INLINE_NO_RE.split(lines[0]) if (len(hits) >= 2 and hits[0].start() == 0) else lines
+    else:
+        items = lines
+
+    steps: List[Dict[str, Any]] = []
+    for it in items:
+        s = _LEADING_NO_RE.sub('', (it or '').strip())
+        s = re.sub(r'\s+', ' ', s).strip()
+        if not s:
+            continue
+        title, body = _split_title_body(s)
+        title = _clean_title(title) or s[:TITLE_FALLBACK_CHARS]
+        if len(title) > TITLE_MAX:
+            title = title[:TITLE_MAX]
+        steps.append({'step_no': len(steps) + 1, 'title': title, 'body': body})
     return steps

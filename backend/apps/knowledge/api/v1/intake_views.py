@@ -10,7 +10,8 @@ from rest_framework.exceptions import APIException
 from django.db import transaction
 from core.mixins import EnvelopeMixin
 from apps.commerce.models import Product
-from apps.knowledge.models import ResearchGoal, Application, Method, Protocol
+from apps.knowledge.models import ResearchGoal, Application, Method, Protocol, ProtocolStep
+from apps.knowledge.services.protocol_steps_parser import parse_plain_text_steps
 from apps.bridges.models import ProductMethod, MethodProtocol
 
 
@@ -103,24 +104,83 @@ class KnowledgeIntakeView(EnvelopeMixin, APIView):
                 ProductMethod.objects.get_or_create(product=product, method=method)
 
             # 5. Create/Get Protocols
+            #
+            # ★ A-070（写入路径修正，2026-11-18）三处语义纠正：
+            #   ① 步骤不再写进 `objective`。原实现 `objective=data['protocol_steps']`
+            #      把「怎么做的」塞进「要达成什么目的」——字段错位，且步骤永远进不了
+            #      `protocol_step` 表（生产曾因此积压 443 条被污染的 objective）。
+            #      现在步骤只进 ProtocolStep，objective 只由显式字段 `protocol_objective` 承载。
+            #   ② 材料落 `materials`（协议级材料清单），不再落 `reagents`
+            #      （reagents = 含浓度与用量的试剂，表单没有这个颗粒度，硬塞等于造假）。
+            #   ③ `protocols_created` 原为 `len(protocols)`，把**复用**的也算成新建 ⇒
+            #      计数虚高。现在如实分开 created / reused，并回报真实 steps 数。
             protocol_names = data.get('protocols', [])
+
+            # 参考来源：表单有两个独立输入框，合成每行一条（与模型 help_text 一致）
+            refs = []
+            if (data.get('reference_doi') or '').strip():
+                refs.append(f"DOI: {data['reference_doi'].strip()}")
+            if (data.get('reference_pmid') or '').strip():
+                refs.append(f"PMID: {data['reference_pmid'].strip()}")
+            references_text = '\n'.join(refs)
+
+            objective_text = (data.get('protocol_objective') or '').strip()
+            materials_text = (data.get('protocol_materials') or '').strip()
+
             protocols = []
+            protocols_created = 0
+            protocols_reused = 0
             for name in protocol_names:
                 if not name:
                     continue
-                method = methods[0] if methods else None
-                protocol, _ = _get_or_create_unique(
+                protocol, created = _get_or_create_unique(
                     Protocol,
                     name,
                     {
-                        'objective': data.get('protocol_steps', ''),
-                        'reagents': data.get('protocol_materials', ''),
+                        'objective': objective_text,
+                        'materials': materials_text,
+                        'reagents': '',
                         'troubleshooting': '',
+                        'references': references_text,
                         'version': '1.0',
                         'status': 'draft',
                     },
                 )
                 protocols.append(protocol)
+                if created:
+                    protocols_created += 1
+                else:
+                    protocols_reused += 1
+
+            # 5b. 步骤落 ProtocolStep
+            #
+            # 表单只有一个 steps 文本框，无法描述「N 个协议各自不同的步骤」。
+            # ⇒ 只挂到**第一份**协议，绝不给每个协议复制同一段（那是凭空造出 N-1 份假步骤）。
+            #     多协议时在响应 warnings 里明说，让人自己补。
+            # 已存在步骤的协议不再追加：重复提交同一表单不该把步骤翻倍。
+            step_rows = parse_plain_text_steps(data.get('protocol_steps'))
+            steps_created = 0
+            warnings = []
+            if step_rows:
+                if not protocols:
+                    warnings.append('protocol_steps 已提供，但 protocols 为空 ⇒ 步骤无处可挂，未写入。')
+                else:
+                    target = protocols[0]
+                    if target.steps.exists():
+                        warnings.append(
+                            f'协议「{target.name}」已有步骤，本次未覆盖（避免重复追加）。'
+                            f'如需更新请先清空该协议步骤后重新提交。'
+                        )
+                    else:
+                        ProtocolStep.objects.bulk_create([
+                            ProtocolStep(protocol=target, **row) for row in step_rows
+                        ])
+                        steps_created = len(step_rows)
+                    if len(protocols) > 1:
+                        warnings.append(
+                            f'共 {len(protocols)} 个协议，但 steps 只有一个来源 ⇒ '
+                            f'只写入「{target.name}」，其余协议步骤需逐个补录。'
+                        )
 
             # 6. Create MethodProtocol bridges
             for i, protocol in enumerate(protocols):
@@ -128,12 +188,26 @@ class KnowledgeIntakeView(EnvelopeMixin, APIView):
                 if method:
                     MethodProtocol.objects.get_or_create(method=method, protocol=protocol)
 
-            return self.success_response({
+            # 表单收了、但库里没有对应字段的输入 —— 如实回报，不硬塞进别的字段
+            unmapped = [f for f in ('protocol_time', 'protocol_difficulty')
+                        if (data.get(f) or '').strip()]
+
+            payload = {
                 'product_id': product_id,
                 'product_name': product.name,
                 'goals_created': len(goals),
                 'apps_created': len(apps),
                 'methods_created': len(methods),
-                'protocols_created': len(protocols),
+                'protocols_created': protocols_created,
+                'protocols_reused': protocols_reused,
+                'steps_created': steps_created,
                 'confidence': data.get('confidence', 'medium'),
-            })
+            }
+            if unmapped:
+                payload['unmapped_fields'] = unmapped
+                warnings.append(
+                    f'{", ".join(unmapped)} 暂无法落库：协议模型没有对应字段（需加字段+迁移）。'
+                )
+            if warnings:
+                payload['warnings'] = warnings
+            return self.success_response(payload)

@@ -27,6 +27,7 @@ const form = ref({
   applications: [],
   methods: [],
   protocols: [],
+  protocol_objective: '',
   protocol_steps: '',
   protocol_materials: '',
   protocol_time: '',
@@ -86,12 +87,19 @@ const filteredProducts = computed(() => {
 /* ── Select product ── */
 function selectProduct(p) {
   selectedProduct.value = p
-  // Load existing knowledge data if any
+  // ⚠️ 这里**不加载**该产品已有的知识（原注释写 "Load existing knowledge data if any"
+  //    是错的：下面只是把表单清空）。
+  //    安全性来自后端语义：`/knowledge-intake/` 是**只增不改**——
+  //    目标/方法/协议按 name get-or-create，已有协议不会被覆盖，
+  //    已有步骤也不会被追加。所以空表单提交不会毁掉既有内容。
+  //    如果将来要支持"在既有内容上编辑"，必须新做一个读取接口，
+  //    不能在写接口里悄悄改成 update。
   form.value = {
     research_goals: [],
     applications: [],
     methods: [],
     protocols: [],
+    protocol_objective: '',
     protocol_steps: '',
     protocol_materials: '',
     protocol_time: '',
@@ -118,11 +126,23 @@ async function save() {
   saving.value = true
   message.value = null
   try {
-    await http.post('/knowledge-intake/', {
+    const res = await http.post('/knowledge-intake/', {
       product_id: selectedProduct.value.id,
       ...form.value,
     })
-    message.value = { type: 'ok', text: `Saved as draft for ${selectedProduct.value.catalog_no}` }
+    // ★ A-070：后端会回报真实的 created / reused / steps 数与告警。
+    //   只显示 "Saved" 会让人以为步骤写进去了 —— 告警必须一起显示出来。
+    const d = (res && res.data) || {}
+    const parts = [`Saved as draft for ${selectedProduct.value.catalog_no}`]
+    if ('protocols_created' in d || 'steps_created' in d) {
+      parts.push(
+        `协议 新建 ${d.protocols_created ?? 0} / 复用 ${d.protocols_reused ?? 0}｜步骤 ${d.steps_created ?? 0} 条`
+      )
+    }
+    const warn = Array.isArray(d.warnings) && d.warnings.length ? d.warnings.join('；') : ''
+    message.value = warn
+      ? { type: 'err', text: parts.join('｜') + ' ⚠️ ' + warn }
+      : { type: 'ok', text: parts.join('｜') }
   } catch (e) {
     message.value = { type: 'err', text: 'Save failed: ' + (e.message || 'Unknown error') }
   }
@@ -284,8 +304,13 @@ async function copyToSimilar() {
                 <input v-model="form.protocols[0]" class="ki-input" placeholder="e.g. CuAAC RNA Labeling Protocol" />
               </div>
               <div>
-                <label>Steps (brief)</label>
-                <textarea v-model="form.protocol_steps" class="ki-textarea" rows="3" placeholder="1. Prepare RNA 2. Add reagents 3. Incubate 4. Purify" />
+                <label>Objective</label>
+                <input v-model="form.protocol_objective" class="ki-input" placeholder="e.g. Covalently label RNA with a fluorescent dye" />
+              </div>
+              <div>
+                <label>Steps (one step per line)</label>
+                <textarea v-model="form.protocol_steps" class="ki-textarea" rows="6" placeholder="1. Prepare RNA&#10;2. Add reagents&#10;3. Incubate 30 min&#10;4. Purify product&#10;&#10;每个非空行 = 一个步骤；写成「标题：正文」可自动拆出标题。" />
+                <p class="ki-hint">保存后会写入协议的步骤表（不再是塞进 Objective）。</p>
               </div>
               <div>
                 <label>Materials</label>
@@ -303,6 +328,7 @@ async function copyToSimilar() {
                   </select>
                 </div>
               </div>
+              <p class="ki-hint">Time / Difficulty 暂不落库：协议模型还没有对应字段，保存时会回到提示里告诉你（不会硬塞进别的字段）。</p>
             </div>
           </div>
 
@@ -408,6 +434,7 @@ async function copyToSimilar() {
 .ki-section-title { font-size: 14px; font-weight: 700; margin: 0 0 12px; color: var(--color-text); }
 .ki-form-grid { display: flex; flex-direction: column; gap: 12px; }
 .ki-form-grid label { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 4px; display: block; }
+.ki-hint { font-size: 11px; line-height: 1.5; color: var(--color-text-tertiary); margin: 2px 0 0; }
 .ki-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .ki-row label { font-size: 12px; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 4px; display: block; }
 .ki-input { width: 100%; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: 13px; font-family: var(--font-sans); }
