@@ -9,6 +9,16 @@ from apps.commerce.services.pricing import tier_segments
 from apps.knowledge.models import Method, Protocol
 from apps.commerce.services.commerce_service import CommerceService
 
+# ── 金额口径（单一来源，禁止各处散写）─────────────────────────────
+# ★ A-017：SKU 目录价 `SKU.price` 与阶梯价 `SkuPriceTier.unit_price` 必须用同一套
+#   精度与下限。历史上阶梯价加了 min_value、目录价漏了，导致 -100.00 能落库
+#   （实测 SKU 963 = -5.00）。抽常量后两处引用同一值，避免第四次漂移。
+#   注意：下限是 0 不是 0.01 —— 0 是合法的"待定价"占位，不得误伤。
+MONEY_MIN = Decimal('0')
+MONEY_MAX_DIGITS = 12
+MONEY_DECIMAL_PLACES = 2
+MONEY_PRICE_REQUIRED_MSG = '价格不能为负。'
+
 
 class ProductClassSerializer(BaseModelSerializer):
     class Meta:
@@ -41,6 +51,17 @@ class SKUSerializer(BaseModelSerializer):
 
 
 class SKUCreateSerializer(serializers.ModelSerializer):
+    # ★ A-017（起步档，零迁移）：目录价此前**无任何下限校验**，实测 -5.00 可落库。
+    #   与 SkuTierItemSerializer.unit_price 改为共用 MONEY_* 常量，两处口径统一。
+    #   0 是合法的"待定价"占位（生产有 3 条 0 价 SKU），故下限取 0 而非 0.01。
+    price = serializers.DecimalField(
+        max_digits=MONEY_MAX_DIGITS,
+        decimal_places=MONEY_DECIMAL_PLACES,
+        min_value=MONEY_MIN,
+        required=False,
+        error_messages={'min_value': MONEY_PRICE_REQUIRED_MSG},
+    )
+
     class Meta:
         model = SKU
         fields = ['id', 'sku_code', 'pack_size', 'price', 'currency', 'inventory_status',
@@ -59,8 +80,12 @@ class SKUCreateSerializer(serializers.ModelSerializer):
 class SkuTierItemSerializer(serializers.Serializer):
     """阶梯价单档入参。"""
     min_qty = serializers.IntegerField(min_value=1)
+    # ★ A-017：与 SKU 目录价共用 MONEY_* 常量（原本这里硬编码，目录价则完全没有）
     unit_price = serializers.DecimalField(
-        max_digits=12, decimal_places=2, min_value=Decimal('0'))
+        max_digits=MONEY_MAX_DIGITS, decimal_places=MONEY_DECIMAL_PLACES,
+        min_value=MONEY_MIN,
+        error_messages={'min_value': MONEY_PRICE_REQUIRED_MSG},
+    )
 
 
 class SkuTierSetSerializer(serializers.Serializer):
