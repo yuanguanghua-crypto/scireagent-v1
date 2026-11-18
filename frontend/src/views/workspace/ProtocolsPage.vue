@@ -22,18 +22,45 @@ const error = ref('')
 const showEditor = ref(false)
 const editing = ref(null)
 const saving = ref(false)
-const form = ref({ name: '', method_id: null })
+const form = ref({
+  name: '',
+  // ★ 2026-11-18（A-076）：改前是单选 `method_id`，编辑一个有 3 条显式桥的协议时
+  //   只会回填 methods[0]，保存即把另 2 条 explicit 桥删掉（后端 update 会清理
+  //   未勾选的 explicit 行）。实测生产 explicit 桥现为 0 条，所以还没炸过 ——
+  //   但这是颗地雷，扩字段的同时必须改成多选。
+  method_ids: [],
+  status: 'draft',
+  objective: '',
+  principle: '',
+  materials: '',
+  reagents: '',
+  equipment: '',
+  troubleshooting: '',
+  expected_results: '',
+})
 const methods = ref([])
+const optionsLoading = ref(false)
+const optionsError = ref('')
+// ★ 2026-11-18（A-212）：归档入口（两次点击确认）
+const pendingArchiveId = ref(null)
+// ★ 2026-11-18（A-155）：409 后允许「再点一次 Save 就照样建」（= allow_duplicate=1）
+const allowDuplicate = ref(false)
 const overlay = ref(null)
 const dialogAttrs = useDialogA11y(showEditor, overlay, {
   titleId: 'entity-editor-title',
   close: () => { showEditor.value = false },
 })
 
-onMounted(loadList)
+onMounted(() => {
+  loadList()
+  // ★ 2026-11-18（A-064）：预载方法选项 —— 改前 openNew() 里 fire-and-forget，
+  //   对话框必定先渲染成「disabled + No Method available」。
+  loadMethods()
+})
 
 async function loadList() {
   loading.value = true
+  pendingArchiveId.value = null
   try {
     const resp = await http.get('/protocols/', { params: { page_size: 500 } })
     entities.value = (resp.data?.results || resp.data || [])
@@ -46,51 +73,113 @@ async function loadList() {
 }
 
 async function loadMethods() {
+  optionsLoading.value = true
+  optionsError.value = ''
   try {
-    const resp = await getMethods({ page_size: 200 })
+    const resp = await getMethods({
+      page_size: 200,
+      // 管理端要能挂到草稿方法上；后端列表端点默认只给 active（方案 B）
+      include_unpublished: 1,
+    })
     methods.value = (resp.data?.results || resp.data || [])
-  } catch { /* ignore */ }
+  } catch (e) {
+    methods.value = []
+    // 改前是 `catch { /* ignore */ }`：失败与"没有方法"同形，用户只看到禁用框
+    optionsError.value = '方法列表加载失败：' + (e.response?.data?.meta?.error?.message || e.message)
+  } finally {
+    optionsLoading.value = false
+  }
+}
+
+function blankForm() {
+  return {
+    name: '', method_ids: [], status: 'draft',
+    objective: '', principle: '', materials: '', reagents: '',
+    equipment: '', troubleshooting: '', expected_results: '',
+  }
 }
 
 function openNew() {
   editing.value = null
-  form.value = { name: '', method_id: null }
-  loadMethods()
+  form.value = blankForm()
+  allowDuplicate.value = false
   showEditor.value = true
+  loadMethods()
 }
+
 async function openEdit(e) {
   editing.value = e
-  // 列表接口不返回 methods，编辑时拉详情预填已关联方法，避免保存时误清空桥。
-  let methodId = null
+  const next = blankForm()
+  next.name = e.name || ''
+  next.status = e.status || 'draft'
+  // 列表接口不返回 methods/内容字段，编辑时拉详情预填，避免保存时误清空桥与正文
   try {
     const resp = await http.get(`/protocols/${e.id}/`)
     const data = resp.data?.data || resp.data || {}
-    const methods = data.methods || []
-    methodId = methods.length ? methods[0].id : null
+    next.method_ids = (data.methods || []).map((m) => m.id)
+    for (const k of ['objective', 'principle', 'materials', 'reagents',
+                     'equipment', 'troubleshooting', 'expected_results']) {
+      next[k] = data[k] || ''
+    }
+    if (data.status) next.status = data.status
   } catch { /* 拉取失败则留空，不影响编辑其他字段 */ }
-  form.value = { name: e.name || '', method_id: methodId }
-  loadMethods()
+  form.value = next
+  allowDuplicate.value = false
   showEditor.value = true
+  loadMethods()
 }
 
 async function save() {
   saving.value = true
   try {
-    // #494 route B：协议↔方法经 MethodProtocol 桥多对多。编辑器维持单选 UX，
-    // 保存时把单个 method_id 转成 methods 列表写入桥（后端 ProtocolListSerializer 处理）。
-    const payload = { name: form.value.name }
-    payload.methods = form.value.method_id ? [form.value.method_id] : []
+    // #494 route B：协议↔方法经 MethodProtocol 桥多对多。
+    const payload = {
+      name: form.value.name,
+      status: form.value.status,
+      methods: [...form.value.method_ids],
+    }
+    for (const k of ['objective', 'principle', 'materials', 'reagents',
+                     'equipment', 'troubleshooting', 'expected_results']) {
+      payload[k] = form.value[k] || ''
+    }
+    const config = allowDuplicate.value ? { params: { allow_duplicate: 1 } } : undefined
     if (editing.value) {
-      await http.put(`/protocols/${editing.value.id}/`, payload)
+      await http.put(`/protocols/${editing.value.id}/`, payload, config)
     } else {
-      await http.post('/protocols/', payload)
+      await http.post('/protocols/', payload, config)
     }
     showEditor.value = false
+    allowDuplicate.value = false
     await loadList()
   } catch (e) {
+    // ★ A-155：同名冲突改由后端 409 显式拒绝（生产已有 63 组真实同名，不能加唯一约束）
+    if (e.response?.status === 409) {
+      allowDuplicate.value = true
+      const msg = e.response?.data?.meta?.error?.message || '已存在同名协议'
+      toast.warning(`${msg} —— 再点一次 Save 就会照样新建。`)
+      return
+    }
     toast.error('Save failed: ' + (e.response?.data?.meta?.error?.message || e.message))
   } finally {
     saving.value = false
+  }
+}
+
+/** ★ 2026-11-18（A-212）：归档入口。
+ *  协议用自有 `PublicationStatus`（draft/published/superseded/archived），
+ *  与其余知识实体的 StatusMixin **枚举不同**（Protocol 的 `active` 恒为 0）。 */
+async function archiveRow(e) {
+  if (pendingArchiveId.value !== e.id) {
+    pendingArchiveId.value = e.id
+    return
+  }
+  pendingArchiveId.value = null
+  try {
+    await http.patch(`/protocols/${e.id}/`, { status: 'archived' })
+    toast.success(`已归档「${e.name}」`)
+    await loadList()
+  } catch (err) {
+    toast.error('Archive failed: ' + (err.response?.data?.meta?.error?.message || err.message))
   }
 }
 </script>
@@ -112,7 +201,12 @@ async function save() {
           <td>{{ e.id }}</td>
           <td class="col-name">{{ e.name }}</td>
           <td><span class="status-tag" :class="'status-' + (e.status || 'draft')">{{ e.status || '—' }}</span></td>
-          <td><button class="btn btn-ghost btn-sm" @click="openEdit(e)">Edit</button></td>
+          <td>
+            <button class="btn btn-ghost btn-sm" @click="openEdit(e)">Edit</button>
+            <button class="btn btn-ghost btn-sm btn-danger" @click="archiveRow(e)">
+              {{ pendingArchiveId === e.id ? 'Confirm archive' : 'Archive' }}
+            </button>
+          </td>
         </tr>
       </tbody>
     </table>
@@ -122,12 +216,32 @@ async function save() {
       <div class="dialog">
         <h3 id="entity-editor-title">{{ editing ? 'Edit' : 'New' }} Protocol</h3>
         <label>Name <input v-model="form.name" class="input-full" /></label>
-        <label>Method
-          <el-select v-model="form.method_id" placeholder="Select method" clearable :disabled="!methods.length" style="width: 100%">
-            <el-option v-for="m in methods" :key="m.id" :label="m.name" :value="m.id" />
-          </el-select>
-          <span v-if="!methods.length" class="fk-empty">No Method available</span>
+        <label>Status
+          <select v-model="form.status" class="input-full">
+            <option value="draft">draft</option>
+            <option value="published">published</option>
+            <option value="superseded">superseded</option>
+            <option value="archived">archived</option>
+          </select>
         </label>
+        <label>Methods
+          <el-select
+            v-model="form.method_ids" multiple collapse-tags collapse-tags-tooltip
+            filterable placeholder="Select method(s)" clearable
+            :loading="optionsLoading" style="width: 100%"
+          >
+            <el-option v-for="m in methods" :key="m.id" :label="m.status ? `${m.name} · ${m.status}` : m.name" :value="m.id" />
+          </el-select>
+          <span v-if="optionsLoading" class="fk-empty">Loading methods…</span>
+          <span v-else-if="optionsError" class="fk-empty fk-error">{{ optionsError }}</span>
+        </label>
+        <label>Objective <textarea v-model="form.objective" rows="3" class="input-full"></textarea></label>
+        <label>Principle <textarea v-model="form.principle" rows="3" class="input-full"></textarea></label>
+        <label>Materials <textarea v-model="form.materials" rows="3" class="input-full"></textarea></label>
+        <label>Reagents <textarea v-model="form.reagents" rows="3" class="input-full"></textarea></label>
+        <label>Equipment <textarea v-model="form.equipment" rows="2" class="input-full"></textarea></label>
+        <label>Troubleshooting <textarea v-model="form.troubleshooting" rows="3" class="input-full"></textarea></label>
+        <label>Expected Results <textarea v-model="form.expected_results" rows="3" class="input-full"></textarea></label>
         <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="showEditor = false">Cancel</button>
           <button class="btn btn-primary btn-sm" @click="save" :disabled="saving">{{ saving ? 'Saving...' : 'Save' }}</button>
@@ -150,4 +264,5 @@ async function save() {
 .status-draft { background: var(--color-warning-light); color: var(--color-warning); }
 .error { text-align: center; padding: 40px; color: var(--color-text-secondary); }
 .fk-empty { font-size: 12px; color: var(--color-text-secondary); font-style: italic; }
+.fk-error { color: var(--color-danger, #dc2626); font-style: normal; }
 </style>

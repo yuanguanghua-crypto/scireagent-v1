@@ -26,6 +26,10 @@ const saving = ref(false)
 const form = ref({ name: '', summary: '', protocols: [] })
 const protocolOptions = ref([])
 const protocolSearching = ref(false)
+// ★ 2026-11-18（A-212）：归档入口（两次点击确认）
+const pendingArchiveId = ref(null)
+// ★ 2026-11-18（A-155）：409 后允许「再点一次 Save 就照样建」（= allow_duplicate=1）
+const allowDuplicate = ref(false)
 const overlay = ref(null)
 const dialogAttrs = useDialogA11y(showEditor, overlay, {
   titleId: 'entity-editor-title',
@@ -36,6 +40,7 @@ onMounted(loadList)
 
 async function loadList() {
   loading.value = true
+  pendingArchiveId.value = null
   try {
     const resp = await http.get('/research-goals/', { params: { page_size: 200 } })
     entities.value = (resp.data?.results || resp.data || [])
@@ -50,6 +55,7 @@ async function loadList() {
 function openNew() {
   editing.value = null
   form.value = { name: '', summary: '', protocols: [] }
+  allowDuplicate.value = false
   protocolOptions.value = []
   showEditor.value = true
 }
@@ -65,6 +71,7 @@ async function openEdit(e) {
     options = cur.map(p => ({ value: p.id, label: p.name }))
   } catch { /* 详情取不到则回退为空，仍可保存其它字段 */ }
   form.value = { name: e.name || '', summary: e.summary || '', protocols }
+  allowDuplicate.value = false
   protocolOptions.value = options
   showEditor.value = true
 }
@@ -72,7 +79,16 @@ async function openEdit(e) {
 async function searchProtocols(query) {
   protocolSearching.value = true
   try {
-    const resp = await http.get('/protocols/', { params: { search: query || '', page_size: 50 } })
+    const resp = await http.get('/protocols/', {
+      params: {
+        search: query || '',
+        page_size: 50,
+        // ★ 2026-11-18（A-061）：后端列表端点对 staff 也默认只给 published（方案 B），
+        //   而这里在**策展**目标要挂哪些协议 —— 管理动作必须能看到草稿，
+        //   否则刚建好的草稿协议永远搜不到（QA 用 14243 复现的正是这一条）。
+        include_unpublished: 1,
+      },
+    })
     const list = (resp.data?.results || resp.data || [])
     protocolOptions.value = list.map(p => ({ value: p.id, label: p.name }))
   } catch { /* ignore */ }
@@ -84,17 +100,42 @@ async function searchProtocols(query) {
 async function save() {
   saving.value = true
   try {
+    const config = allowDuplicate.value ? { params: { allow_duplicate: 1 } } : undefined
     if (editing.value) {
-      await http.put(`/research-goals/${editing.value.id}/`, form.value)
+      await http.put(`/research-goals/${editing.value.id}/`, form.value, config)
     } else {
-      await http.post('/research-goals/', form.value)
+      await http.post('/research-goals/', form.value, config)
     }
     showEditor.value = false
+    allowDuplicate.value = false
     await loadList()
   } catch (e) {
+    // ★ A-155：同名冲突改由后端 409 显式拒绝（改前一模一样地建副本）
+    if (e.response?.status === 409) {
+      allowDuplicate.value = true
+      const msg = e.response?.data?.meta?.error?.message || '已存在同名目标'
+      toast.warning(`${msg} —— 再点一次 Save 就会照样新建。`)
+      return
+    }
     toast.error('Save failed: ' + (e.response?.data?.meta?.error?.message || e.message))
   } finally {
     saving.value = false
+  }
+}
+
+/** ★ 2026-11-18（A-212）：归档入口（模型层早有 `archived`，缺的只是 UI）。 */
+async function archiveRow(e) {
+  if (pendingArchiveId.value !== e.id) {
+    pendingArchiveId.value = e.id
+    return
+  }
+  pendingArchiveId.value = null
+  try {
+    await http.patch(`/research-goals/${e.id}/`, { status: 'archived' })
+    toast.success(`已归档「${e.name}」`)
+    await loadList()
+  } catch (err) {
+    toast.error('Archive failed: ' + (err.response?.data?.meta?.error?.message || err.message))
   }
 }
 </script>
@@ -121,7 +162,12 @@ async function save() {
           <td class="col-name">{{ e.name }}</td>
           <td class="col-summary">{{ (e.summary || '').slice(0, 120) }}</td>
           <td><span class="status-tag" :class="`status-${e.status}`">{{ e.status || '—' }}</span></td>
-          <td><button class="btn btn-ghost btn-sm" @click="openEdit(e)">Edit</button></td>
+          <td>
+            <button class="btn btn-ghost btn-sm" @click="openEdit(e)">Edit</button>
+            <button class="btn btn-ghost btn-sm btn-danger" @click="archiveRow(e)">
+              {{ pendingArchiveId === e.id ? 'Confirm archive' : 'Archive' }}
+            </button>
+          </td>
         </tr>
       </tbody>
     </table>

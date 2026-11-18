@@ -138,6 +138,12 @@ const methodName = (mid) =>
   || `#${mid}`
 const methodIsHidden = (mid) => !!methodLinkMap.value[mid]?.is_hidden
 
+// ★ 2026-11-18（A-157）：协议侧的 `methodLinkMap` 等价物。
+//   与 Method 不同的是，协议行由 `displayProtocolRows` 用 `knowledgeList.protocols`
+//   解析名字，而那份列表只含 published（方案 B）⇒ 新建的草稿协议解析不到名字，
+//   芯片退化成 `#id`；用户看不到名字就以为"没关联上"。
+const localProtocolNames = ref({})
+
 // ★ N3（2026-09-24）：载入时服务端返回的 protocol_ids 快照。
 //   服务端 `protocol_ids`（走 MethodProtocol **桥**）与 `protocol_links`（走 ProductProtocol **表**）
 //   本就不同源：前者含"链可达但尚未物化"的 id，最多比后者多 103 个（实测 product 34）。
@@ -191,7 +197,10 @@ const displayProtocolRows = computed(() => {
   const rows = unionProtocolRows(
     productProtocolLinks.value,
     locallyAddedProtocolIds.value,
-    (pid) => knowledgeList.value.protocols.find((p) => p.id === pid)?.name || null
+    // ★ A-157：本地新建的协议优先用本地记住的名字（草稿不在 published 列表里）
+    (pid) => localProtocolNames.value[pid]
+      || knowledgeList.value.protocols.find((p) => p.id === pid)?.name
+      || null
   )
   const { strong, weak } = splitWeakLinks(sortProtocolLinks(rows))
   const folded = buildFolded(strong, 10, showAllProtocolLinks.value)
@@ -534,12 +543,13 @@ async function loadKnowledge() {
     const [g, a, m, p] = await Promise.all([
       http.get('/research-goals/', { params: { page_size: 200 } }),
       http.get('/applications/', { params: { page_size: 200 } }),
-      // ★ A3（2026-09-24）：只列「存量导入/人工」的方法。
-      //   全表 6.7 万条里 99.87% 是 T2 的 AI 空壳（origin='ai_extracted'，无任何协议链），
-      //   不过滤时「前 200 条」的有效命中率仅 0.3%。加 origin=imported 后可选项 ≈105 条，
-      //   覆盖 100% 有知识的方法（83 个）。
-      //   ⚠️ 若将来 T2 产物经人工策展，需把其 origin 一并放行（或改成本筛选的多值版本）。
-      http.get('/methods/', { params: { page_size: 200, origin: 'imported' } }),
+      // ★ A3（2026-09-24）原写 `origin: 'imported'`：当时意图是躲开 T2 的 6.7 万条
+      //   AI 空壳方法（origin='ai_extracted'）—— 但那条理由**已经过期**：
+      //   47,761 行 draft 方法已被 ApplicationMethod 桥迁移消化，生产 Method 现为
+      //   88 行（active 83 + draft 5）。继续带这个过滤的直接后果是 A-069：
+      //   手工建的草稿方法（origin 非 imported）在产品页永远搜不到。
+      //   同时补 include_unpublished —— 否则 draft 仍被方案 B 的 status 过滤挡掉。
+      http.get('/methods/', { params: { page_size: 200, include_unpublished: 1 } }),
       http.get('/protocols/', { params: { page_size: 500 } }),
     ])
     knowledgeList.value.goals = (Array.isArray(g.data) ? g.data : (g.data?.results || []))
@@ -551,7 +561,13 @@ async function loadKnowledge() {
 
 function openInlineNew(type) {
   inlineEntityType.value = type
-  Object.assign(inlineForm, { name: '', summary: '', purpose: '', reagent: '', amount: '', duration: '' })
+  Object.assign(inlineForm, {
+    name: '', summary: '', purpose: '',
+    // ★ 2026-11-18（A-059 / A-204）：协议至少要能写目标/材料/预期结果，
+    //   否则建出来就是个只有名字的空壳（详情页 "No steps defined yet"）。
+    objective: '', materials: '', expected_results: '',
+    reagent: '', amount: '', duration: '',
+  })
   showInlineEditor.value = true
 }
 
@@ -700,7 +716,11 @@ async function searchMethodsRemote(query) {
   if (!query) { methodSearchResults.value = []; return }
   methodSearching.value = true
   try {
-    const r = await http.get('/methods/', { params: { page_size: 50, origin: 'imported', search: query } })
+    // ★ 2026-11-18（A-069）：去掉 `origin: 'imported'`（理由见 loadKnowledge 里的注释），
+    //   并放开草稿 —— 否则手工建的 draft 方法无论怎么搜都搜不到。
+    const r = await http.get('/methods/', {
+      params: { page_size: 50, search: query, include_unpublished: 1 },
+    })
     methodSearchResults.value = Array.isArray(r.data) ? r.data : (r.data?.results || [])
   } catch { methodSearchResults.value = [] } finally { methodSearching.value = false }
 }
@@ -708,7 +728,10 @@ async function searchProtocolsRemote(query) {
   if (!query) { protocolSearchResults.value = []; return }
   protocolSearching.value = true
   try {
-    const r = await http.get('/protocols/', { params: { page_size: 50, search: query } })
+    // ★ 2026-11-18：同 A-069 —— 管理端关联动作要能看到草稿协议
+    const r = await http.get('/protocols/', {
+      params: { page_size: 50, search: query, include_unpublished: 1 },
+    })
     protocolSearchResults.value = Array.isArray(r.data) ? r.data : (r.data?.results || [])
   } catch { protocolSearchResults.value = [] } finally { protocolSearching.value = false }
 }
@@ -744,6 +767,14 @@ async function saveInlineEntity() {
   const payload = { name: inlineForm.name }
   if (type === 'goal' || type === 'app') payload.summary = inlineForm.summary
   if (type === 'method') payload.purpose = inlineForm.purpose
+  if (type === 'protocol') {
+    // ★ 2026-11-18（A-059 / A-204）：改前 protocol 分支只发 `{name}` ⇒ 建出空壳协议
+    //   （详情页 "No steps defined yet"）。后端 `ProtocolWriteSerializer` 本批已能接
+    //   objective/principle/...，所以这里至少把用户能看到的那几个填进去。
+    if (inlineForm.objective) payload.objective = inlineForm.objective
+    if (inlineForm.materials) payload.materials = inlineForm.materials
+    if (inlineForm.expected_results) payload.expected_results = inlineForm.expected_results
+  }
   try {
     const resp = await http.post(apiEndpoints[type], payload)
     const newId = resp.data?.id
@@ -753,11 +784,36 @@ async function saveInlineEntity() {
         // ★ N1：刚建的方法还不存在于 /methods/ 列表里，先把名字塞进映射，避免显示成 #id
         methodLinkMap.value[newId] = { id: newId, name: inlineForm.name, is_hidden: false }
       }
-      if (type === 'protocol') protocolIds.value.push(newId)
+      if (type === 'protocol') {
+        protocolIds.value.push(newId)
+        // ★ 2026-11-18（A-157）：Method 侧早有 methodLinkMap（见上），协议侧没有等价物。
+        //   而 `displayProtocolRows` 的名字解析走 `knowledgeList.protocols`，那份列表
+        //   只含 published（方案 B）⇒ 刚建的草稿协议解析成 null，芯片显示 `#id`。
+        localProtocolNames.value[newId] = inlineForm.name
+      }
     }
     showInlineEditor.value = false
     await loadKnowledge()
-    setFeedback('success', `${type} created and linked`)
+    // ★ 2026-11-18（A-157）：按钮写的是 "Save & Link"，那就得真的落库。
+    //   改前只把 id 推进本地数组，除非用户再点页面底部的 Save，否则关联永远不存在
+    //   （刷新后回落，正是 QA 观测到的现象）。
+    //   这里只对**已存在的产品**做一次定向 PATCH：只发 `protocol_ids`/`method_ids`，
+    //   不带其它未保存字段 ⇒ 不会顺手把半改的表单写进去。
+    //   新建成品（无 id）仍只能排队，UI 已如实标注。
+    let persisted = false
+    if (newId && productId.value) {
+      const patch = {}
+      if (type === 'protocol') patch.protocol_ids = [...protocolIds.value]
+      if (type === 'method') patch.method_ids = [...methodIds.value]
+      if (Object.keys(patch).length) {
+        await http.patch(`/products/${productId.value}/`, patch)
+        persisted = true
+      }
+    }
+    await loadKnowledge()
+    setFeedback('success', persisted
+      ? `${type} created and linked`
+      : `${type} created — link queued, click Save on the page to persist`)
   } catch (e) {
     setFeedback('error', 'Save failed: ' + formatSaveError(e))
   } finally {
@@ -2693,10 +2749,16 @@ watch(
         <label>Name <AppInput v-model="inlineForm.name" style="margin-bottom:0" /></label>
         <label v-if="inlineEntityType==='goal'||inlineEntityType==='app'">Summary <AppInput v-model="inlineForm.summary" type="textarea" rows="3" style="margin-bottom:0" /></label>
         <label v-if="inlineEntityType==='method'">Purpose <AppInput v-model="inlineForm.purpose" type="textarea" rows="3" style="margin-bottom:0" /></label>
+        <template v-if="inlineEntityType==='protocol'">
+          <label>Objective <AppInput v-model="inlineForm.objective" type="textarea" rows="3" style="margin-bottom:0" /></label>
+          <label>Materials <AppInput v-model="inlineForm.materials" type="textarea" rows="3" style="margin-bottom:0" /></label>
+          <label>Expected Results <AppInput v-model="inlineForm.expected_results" type="textarea" rows="3" style="margin-bottom:0" /></label>
+          <p class="form-hint" style="margin:0">Steps 需创建后在协议详情页补充。</p>
+        </template>
         <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="showInlineEditor = false">Cancel</button>
           <button class="btn btn-primary btn-sm" @click="saveInlineEntity" :disabled="inlineSaving">
-            {{ inlineSaving ? 'Saving...' : 'Save & Link' }}
+            {{ inlineSaving ? 'Saving...' : (productId ? 'Save & Link' : 'Create (link after saving product)') }}
           </button>
         </div>
       </div>
