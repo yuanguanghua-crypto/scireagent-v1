@@ -3,7 +3,7 @@ from django.db import models
 from core.serializers import BaseModelSerializer
 from apps.knowledge.models import (
     ResearchGoal, Application, Method, Protocol, ProtocolStep, ProtocolMaterial,
-    Reference, Compatibility,
+    Reference, Compatibility, ApplicationMethod,
 )
 # ★ 2026-09-24 修 A：`MethodProtocol`（协议↔方法桥）定义在 **bridges** app，
 #   此前 `ProtocolListSerializer.create()/update()` 直接用它却**没导入** ⇒
@@ -313,6 +313,30 @@ class ProtocolListSerializer(BaseModelSerializer):
         return instance
 
 
+class ProtocolWriteSerializer(ProtocolListSerializer):
+    """协议**写**路径：List 的 7 字段 + 7 个内容字段（A-076 / A-059 / A-204）。
+
+    ## 为什么不直接把写路径切到 `ProtocolDetailSerializer`
+    Detail 里 `methods = SerializerMethodField()` 是**只读**，而读侧消费方
+    （`ProtocolDetail.vue`）依赖这个字段名拿「已关联方法」。
+    同一个名字没法既当读结构体又当写 ID 列表 ⇒ 切过去会让 ProtocolsPage 的
+    方法选择变成「选了 → 保存 → 静默丢弃」，正是本批刚在 A-063 修掉的同类缺陷。
+    故继承 List（`methods` 的 `MethodProtocol` 桥逻辑原样保留，
+    含「只刷新 explicit 桥、不动派生桥」的保护），只把内容字段补进 `fields`。
+
+    ## 实测依据（2026-11-18）
+    生产 `method_protocol` 共 14,978 条，其中 `explicit=True` 为 **0 条**
+    ⇒ 当前不存在「编辑时误删显式桥」的风险；而由于 update 只清理 explicit 桥，
+    即使将来有显式桥，未被勾选的也不会被误删派生桥。
+    """
+
+    class Meta(ProtocolListSerializer.Meta):
+        fields = ProtocolListSerializer.Meta.fields + [
+            'objective', 'principle', 'materials', 'reagents',
+            'equipment', 'troubleshooting', 'expected_results',
+        ]
+
+
 class ProtocolMaterialSerializer(BaseModelSerializer):
     """材料条目（只读）。刻意**不返回 raw_line** —— 那是内部保真校验字段，
     前端展示用 name + vendor + catalog_no 就够，返回全文会让详情接口体积翻倍。"""
@@ -509,7 +533,69 @@ class ProtocolDetailSerializer(BaseModelSerializer):
         return out
 
 
-class MethodListSerializer(BaseModelSerializer):
+class MethodApplicationWriteMixin:
+    """写路径：`application_ids` 追加进 `ApplicationMethod` 桥（**只增不删**）。
+
+    ## 为什么必须补这个（A-063，2026-11-18 实测）
+    改前 `Method{List,Detail}Serializer` 里 `application_id` 是 `SerializerMethodField()`
+    ⇒ **只读**，而 `Meta.fields` 里没有任何可写的应用关联字段。实测在生产：
+
+        PATCH /api/v1/methods/47971/  {"application_id": 30}  → 200 OK
+        响应 application_id = null，application_method 桥行数 Δ0
+        PATCH {"applications": [30]}                          → 200 OK，桥行数 Δ0
+
+    即 DRF 把未声明字段**静默丢弃**，页面「选了应用 → 保存 → 什么也没发生，也不报错」。
+    所以这不是选择器禁用的问题，是写路径根本不存在。
+
+    ## 为什么是「只增不删」而不是「整体替换」
+    方法的应用关联是多对多且**规模极大**：实测 83 个 active method 全部关联 >1 个应用，
+    Genomic DNA Extraction 关联 **1,346 个**。若按标准 M2M 语义整体替换，用户在单选
+    界面随便选一个再保存，就会静默删掉上千条真实关联 —— 属铁律 15 禁止的覆盖行为。
+    故本批只提供 append；解除关联需走显式入口（另立项，不在 S3）。
+
+    ## 为什么读侧字段名仍叫 `application_id`（单数、代表值）
+    它被 `MethodDetail.vue`、`ProductEditPage.vue`、`ProductsPage.vue` 多处消费，
+    语义是「多对多里挑一个当代表」，改名单值契约会连带打断这些读路径。
+    写字段另起名 `application_ids`（复数）正是为了不碰读契约。
+    """
+
+    def _link_applications(self, instance, applications):
+        if not applications:
+            return
+        from django.db.models import Max
+
+        existing = set(
+            ApplicationMethod.objects.filter(method=instance)
+            .values_list('application_id', flat=True)
+        )
+        order = (
+            ApplicationMethod.objects.filter(method=instance)
+            .aggregate(m=Max('display_order'))['m'] or 0
+        )
+        for app in applications:
+            if app.id in existing:
+                continue
+            order += 1
+            # update_or_create 走 unique_together(application, method) ⇒ 幂等，重复提交不炸
+            ApplicationMethod.objects.update_or_create(
+                method=instance, application=app,
+                defaults={'display_order': order, 'source': ''},
+            )
+
+    def create(self, validated_data):
+        applications = validated_data.pop('application_ids', None)
+        instance = super().create(validated_data)
+        self._link_applications(instance, applications)
+        return instance
+
+    def update(self, instance, validated_data):
+        applications = validated_data.pop('application_ids', None)
+        instance = super().update(instance, validated_data)
+        self._link_applications(instance, applications)
+        return instance
+
+
+class MethodListSerializer(MethodApplicationWriteMixin, BaseModelSerializer):
     # ★ 2026-10-30（B 方案阶段 3）：`Method.application` FK 已废弃（全为 NULL）。
     #   改为从 `ApplicationMethod` 桥取「代表应用」（display_order 最小者）。
     #   单值是妥协：M:N 下一个方法可服务多个应用，序列化只给一个代表。
@@ -520,12 +606,17 @@ class MethodListSerializer(BaseModelSerializer):
     #   `{{ method.protocol_count || 0 }}` ⇒ undefined 兜底成 0 ⇒ 全部卡片 "0 protocols"，
     #   而详情页显示 585。本次补字段，且**必须与 get_protocols 用同一个 filter**，
     #   否则就是 A-110「标签 20 of 231、按钮 Show all 20」的翻版。
+    # ★ 2026-11-18（A-063）：**写**入口。只增不删，理由见 MethodApplicationWriteMixin。
+    application_ids = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Application.objects.all(), required=False, write_only=True,
+    )
     protocol_count = serializers.SerializerMethodField()
     slug = serializers.SlugField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Method
-        fields = ['id', 'name', 'slug', 'summary', 'application_id', 'cost_band', 'timeline',
+        fields = ['id', 'name', 'slug', 'summary', 'application_id', 'application_ids',
+                  'cost_band', 'timeline',
                   'status', 'is_step_tag', 'protocol_count', 'created_at']
 
     def get_application_id(self, obj):
@@ -541,7 +632,7 @@ class MethodListSerializer(BaseModelSerializer):
         ).count()
 
 
-class MethodDetailSerializer(BaseModelSerializer):
+class MethodDetailSerializer(MethodApplicationWriteMixin, BaseModelSerializer):
     # ★ 2026-09-24 修「Method.Purpose 死字段」——**与 E1（`ResearchGoalDetailSerializer`，本文件 :43-51）同型**：
     #   `MethodViewSet.get_serializer_class()` 此前**只在 `retrieve`** 走本类，`create/update` 走
     #   `MethodListSerializer`（其 `Meta.fields` **不含 `purpose`**）⇒ MethodsPage 的 Purpose 输入框
@@ -573,11 +664,17 @@ class MethodDetailSerializer(BaseModelSerializer):
     #   83 个 active method **全部** 关联 >1 个应用，最多 1,346。
     applications_count = serializers.SerializerMethodField()
 
+    # ★ 2026-11-18（A-063）：同 MethodListSerializer，写入口只增不删。
+    application_ids = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=Application.objects.all(), required=False, write_only=True,
+    )
+
     class Meta:
         model = Method
         fields = [
             'id', 'name', 'slug', 'summary', 'purpose', 'advantages', 'limitations',
-            'cost_band', 'timeline', 'status', 'application_id', 'applications_count',
+            'cost_band', 'timeline', 'status', 'application_id', 'application_ids',
+            'applications_count',
             'application_name', 'description_status', 'specs_status', 'is_step_tag',
             'protocols', 'products', 'created_at', 'updated_at',
         ]

@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count, Prefetch, Q
 from core.mixins import EnvelopeMixin
+from core.exceptions import DuplicateEntityName
 from core.permissions import IsAdminOrReadOnly
 from core.jsonld import build_method_jsonld, build_protocol_jsonld
 from apps.knowledge.models import (
@@ -12,6 +13,7 @@ from apps.knowledge.models import (
 from apps.knowledge.api.v1.serializers import (
     ResearchGoalListSerializer, ResearchGoalDetailSerializer, ApplicationListSerializer, ApplicationDetailSerializer,
     MethodListSerializer, MethodDetailSerializer, ProtocolListSerializer, ProtocolDetailSerializer,
+    ProtocolWriteSerializer,
     ReferenceSerializer, CompatibilitySerializer,
 )
 from apps.knowledge import selectors
@@ -71,7 +73,51 @@ class AutoTagTestFixtureMixin:
 
 
 
-class ResearchGoalViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSet):
+class DuplicateNameGuardMixin:
+    """`create` 时发现同名实体 → 显式 409，不再静默建副本（A-155）。
+
+    ## 口径
+    - 比较 `name` 去首尾空白后 **大小写不敏感完全相等**（`iexact`）；
+    - `status='archived'` 的行**不算冲突** —— 归档的意义就是腾出名字；
+    - 请求带 `?allow_duplicate=1` 时跳过检查（前端二次确认后带此参数重提）。
+
+    ## 为什么是 409 + 逃生口，而不是数据库唯一约束
+    生产 Protocol 实测 **63 组同名、多余 64 行，且多为真实协议名**
+    ⇒ 加 `unique=True` 会让迁移在 `ADD CONSTRAINT` 阶段整条失败。
+    同时 A-158 显示 `Reference.doi` 是 `unique=True`（天然唯一，正确做法），
+    于是两边行为分裂：引用重 DOI 直接报错，四类实体重名静默建副本。
+    本 mixin 用「同样明确地拒绝」把口径拉齐，而不去动 DOI 那条正确约束。
+
+    ## 已知边界
+    - 并发下两个请求同时通过检查仍可能各建一条（无 DB 约束兜底）。
+      接受：管理端单用户操作，且重复数据可事后按名归档，代价远低于迁移炸库。
+    - 只在 API 层生效；`intake` 等走 service 的路径有各自的 409 逻辑，不重复拦。
+    """
+
+    def create(self, request, *args, **kwargs):
+        if str(request.query_params.get('allow_duplicate', '')).lower() in ('1', 'true', 'yes'):
+            return super().create(request, *args, **kwargs)
+
+        raw_name = request.data.get('name') if hasattr(request.data, 'get') else None
+        name = raw_name.strip() if isinstance(raw_name, str) else ''
+        if name:
+            model = self.get_queryset().model
+            qs = model.objects.filter(name__iexact=name)
+            # 归档行不算冲突（StatusMixin 与 Protocol.PublicationStatus 都有 'archived'）
+            if any(f.name == 'status' for f in model._meta.get_fields()):
+                qs = qs.exclude(status='archived')
+            hit = qs.order_by('id').values('id', 'name').first()
+            if hit is not None:
+                raise DuplicateEntityName(
+                    detail=(
+                        f'已存在同名{model._meta.verbose_name}「{hit["name"]}」(ID {hit["id"]})。'
+                        f'确认仍要再建一条，请带 allow_duplicate=1 重提。'
+                    )
+                )
+        return super().create(request, *args, **kwargs)
+
+
+class ResearchGoalViewSet(DuplicateNameGuardMixin, AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSet):
     queryset = selectors.get_research_goals_with_applications()
     serializer_class = ResearchGoalListSerializer
     permission_classes = [IsAdminOrReadOnly]
@@ -98,7 +144,7 @@ class ResearchGoalViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.Model
         )
 
 
-class ApplicationViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSet):
+class ApplicationViewSet(DuplicateNameGuardMixin, AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSet):
     # #P0-1：prefetch M2M 反向（research_goal_collections，按 id 升序）替代 FK
     # select_related，与 API 读取路径（M2M）一致，避免 N+1 且保证读序稳定。
     _rg_prefetch = Prefetch(
@@ -126,7 +172,7 @@ class ApplicationViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelV
         return ApplicationListSerializer
 
 
-class MethodViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSet):
+class MethodViewSet(DuplicateNameGuardMixin, AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Method.objects.select_related('application').all()
     serializer_class = MethodListSerializer
     permission_classes = [IsAdminOrReadOnly]
@@ -178,7 +224,7 @@ class MethodViewSet(AutoTagTestFixtureMixin, EnvelopeMixin, viewsets.ModelViewSe
         return Response(data)
 
 
-class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
+class ProtocolViewSet(DuplicateNameGuardMixin, EnvelopeMixin, viewsets.ModelViewSet):
     queryset = Protocol.objects.prefetch_related('steps').all()
     serializer_class = ProtocolListSerializer
     permission_classes = [IsAdminOrReadOnly]
@@ -258,6 +304,11 @@ class ProtocolViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return ProtocolDetailSerializer
+        # ★ 2026-11-18（A-076）：写路径单独一类 —— 补内容字段但**保留** List 的
+        #   `methods` 桥逻辑。不能直接切 Detail：那里的 `methods` 是只读方法字段，
+        #   切过去会让方法选择变成静默丢弃。详见 ProtocolWriteSerializer docstring。
+        if self.action in ('create', 'update', 'partial_update'):
+            return ProtocolWriteSerializer
         return ProtocolListSerializer
 
     @action(detail=False, methods=['get'], url_path='facets')

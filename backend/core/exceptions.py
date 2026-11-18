@@ -1,6 +1,25 @@
+from rest_framework.exceptions import APIException
 from rest_framework.views import exception_handler
 from rest_framework.response import Response
 from rest_framework import status
+
+
+class DuplicateEntityName(APIException):
+    """知识实体同名冲突（A-155：同名静默建副本 → 改为显式 409）。
+
+    ★ 为什么不改用数据库唯一约束：
+      生产 Protocol 实测已有 **63 组同名、多余 64 行，且绝大多数是真实协议名**
+      （不是测试数据）⇒ 直接 `ALTER TABLE ... ADD CONSTRAINT UNIQUE(name)`
+      会在建索引阶段整条迁移失败。故冲突判定放在写入口，代价是 API 层面仍可
+      通过 `?allow_duplicate=1` 显式覆盖 —— 这是**有意**的逃生口，不是漏洞。
+
+    与 `intake_views.AmbiguousKnowledgeName` 同型（同为 409），但语义不同：
+      那个是「按名取唯一时发现多条，拒绝任意绑定」；
+      这个是「建之前发现已有同名，问用户是否仍要建」。
+    """
+
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = 'Duplicate entity name'
 
 
 def custom_exception_handler(exc, context):
