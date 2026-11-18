@@ -152,13 +152,18 @@ def _next_revision_no(product):
 
 
 def _create_sds_revision(product, *, signal_word, pictograms, hazard_codes,
-                         precaution_codes, section_data, confidence, source_detail):
+                         precaution_codes, section_data, confidence, source_detail,
+                         identity_conflict=False, identity_conflict_detail=''):
     """统一创建 SdsRevision 草稿，并写入数据可信度与来源说明。
 
     ★ revised_at 必须用 business_today()，不能用 datetime.date.today()：
       后者取进程操作系统时区，生产容器 TZ 为 UTC 时等于 UTC 日期，
       东八区 00:00-07:59 生成的 SDS 修订日期会回退一天。
       助手在 core/ 而非 transactions —— documents 不应为此依赖交易域。
+
+    ★ identity_conflict（A-254）：标识符身份无法自洽时置 True。
+      语义见 generate_sds 的 L2 分支 —— 只有「CAS 明明给了却解析不出来、
+      只能用 SMILES/InChI 冒充」才算矛盾；approve_sds 据此硬拦发布。
     """
     next_no = _next_revision_no(product)
     sds = SdsRevision.objects.create(
@@ -173,6 +178,8 @@ def _create_sds_revision(product, *, signal_word, pictograms, hazard_codes,
         section_data=json.dumps(section_data, ensure_ascii=False),
         data_confidence=confidence,
         data_source_detail=source_detail,
+        identity_conflict=identity_conflict,
+        identity_conflict_detail=identity_conflict_detail,
     )
     return sds
 
@@ -207,6 +214,28 @@ def _build_generic_sds_data(product):
     }
 
 
+def _cas_miss_reason(cas, diag):
+    """L1 CAS 未命中时的人类可读原因，供 data_source_detail 追加留痕。
+
+    ★ A-254：CAS 与 SMILES/InChI 可能指向不同化合物（生产实测产品 5456：
+      cas=63-39-2 是 ATP，smiles=CCO 是乙醇）。若 L1 落空不写明原因，运营看到
+      「PubChem CID 702 (smiles: CCO)」无从判断 CAS 已被静默丢弃。
+    """
+    err = (diag or {}).get('error') or ''
+    if not err:
+        return f'CAS {cas} 未命中 PubChem'
+    if '404' in err or 'NotFound' in err:
+        return f'CAS {cas} 未在 PubChem 收录'
+    if 'CID 列表' in err:
+        return f'CAS {cas} 在 PubChem 无可用 CID'
+    return f'CAS {cas} 查询 PubChem 失败（{err}）'
+
+
+def _append_source_note(detail, note):
+    """把降级说明追加到来源描述末尾；note 为空时原样返回。"""
+    return f'{detail} ｜ {note}' if note else detail
+
+
 def generate_sds(product_id):
     """
     为产品生成新版本 SDS（四级降级链，不再硬 raise）。
@@ -218,6 +247,9 @@ def generate_sds(product_id):
 
     任意一级成功即创建 SdsRevision(draft) 并写 data_confidence/data_source_detail；
     四级全失败（理论上仅当无任何标识且类别/通用均异常）才 raise。
+
+    ★ 降级留痕（A-254）：L1 未命中且产品有 CAS 时，L2/L3/L4 的 data_source_detail
+      末尾追加「CAS xxx 未在 PubChem 收录」等说明，禁止静默丢弃 CAS。
     """
     from apps.commerce.models import Product
 
@@ -241,9 +273,11 @@ def generate_sds(product_id):
         )
 
     # ── L1: CAS → PubChem ──
+    cas_miss_note = ''
     if cas:
+        diag = {}
         pubchem_data = fetch_sds_data_from_pubchem(
-            cas, from_cache_fn=from_cache, save_cache_fn=save_cache
+            cas, from_cache_fn=from_cache, save_cache_fn=save_cache, diag=diag
         )
         if pubchem_data:
             return _create_sds_revision(
@@ -256,6 +290,7 @@ def generate_sds(product_id):
                 confidence=SdsRevision.DataConfidence.HIGH,
                 source_detail=f"PubChem CID {pubchem_data.get('cid')} (CAS {cas})",
             )
+        cas_miss_note = _cas_miss_reason(cas, diag)
 
     # ── L2: SMILES / InChI / 名称 → PubChem ──
     for identifier, id_type in ((smiles, 'smiles'), (inchi, 'inchi'), (name, 'name')):
@@ -263,6 +298,25 @@ def generate_sds(product_id):
             continue
         pubchem_data = fetch_sds_data(identifier, id_type=id_type)
         if pubchem_data:
+            # ★ A-254 身份矛盾判定（用户 2026-11-18 拍板 (b)）
+            #   产品给了 CAS，CAS 却在 PubChem 解析不出任何 CID，只好用 SMILES/InChI
+            #   冒充 —— 此时「这条 SDS 描述的是不是本产品」根本无法确认。
+            #   生产实例 5456：cas=63-39-2（ATP）解析失败 → smiles=CCO（乙醇）→ CID 702。
+            #   处置：草稿照存（研究员的工作区），但 identity_conflict=True ⇒ 禁发布。
+            #
+            #   ★ 反向说明（为什么 L1 命中时不比对 SMILES）：L1 命中意味着 SDS 是按
+            #     CAS 这个权威注册号生成的，描述的就是 CAS 对应化合物；此时产品记录的
+            #     SMILES 若不同，那是**产品资料**的问题，不是这份 SDS 的身份问题。
+            #   ★ 本闸门不覆盖：CAS 与结构标识**都能解析但指向不同 CID**（需额外一次
+            #     PubChem 解析，本批未做，已记录为遗留）。
+            conflict, conflict_detail = False, ''
+            if cas and id_type in ('smiles', 'inchi'):
+                conflict = True
+                conflict_detail = (
+                    f'CAS {cas} 无法在 PubChem 解析出 CID；'
+                    f"本版 SDS 由 {id_type} {identifier}（CID {pubchem_data.get('cid')}）生成，"
+                    '无法确认与本产品是同一化合物'
+                )
             return _create_sds_revision(
                 product,
                 signal_word=pubchem_data['signal_word'],
@@ -271,7 +325,12 @@ def generate_sds(product_id):
                 precaution_codes=pubchem_data['precaution_codes'],
                 section_data=pubchem_data['section_data'],
                 confidence=SdsRevision.DataConfidence.MEDIUM,
-                source_detail=f"PubChem CID {pubchem_data.get('cid')} ({id_type}: {identifier})",
+                source_detail=_append_source_note(
+                    f"PubChem CID {pubchem_data.get('cid')} ({id_type}: {identifier})",
+                    cas_miss_note,
+                ),
+                identity_conflict=conflict,
+                identity_conflict_detail=conflict_detail,
             )
 
     # ── L3: 类别模板 ──
@@ -286,7 +345,10 @@ def generate_sds(product_id):
             precaution_codes=template['precaution_codes'],
             section_data=template['section_data'],
             confidence=SdsRevision.DataConfidence.LOW,
-            source_detail=f"Category template: {template.get('category_label', category_path)}",
+            source_detail=_append_source_note(
+                f"Category template: {template.get('category_label', category_path)}",
+                cas_miss_note,
+            ),
         )
 
     # ── L4: GENERIC 兜底 ──
@@ -299,7 +361,9 @@ def generate_sds(product_id):
         precaution_codes=generic['precaution_codes'],
         section_data=generic['section_data'],
         confidence=SdsRevision.DataConfidence.VERY_LOW,
-        source_detail='Generic safety notes (no identifier matched)',
+        source_detail=_append_source_note(
+            'Generic safety notes (no identifier matched)', cas_miss_note
+        ),
     )
 
 
@@ -324,8 +388,24 @@ def approve_sds(revision_id):
 
     B1 起返回 (sds, compliance) 二元组：compliance 为软闸门合规检查结果
     （无 CAS 不阻断，仅告警——铁律 5）。
+
+    ★ A-254（2026-11-18）**硬闸门**：identity_conflict=True 的修订版直接拒绝审批。
+      与「软闸门」的区别在于闸的是什么：
+        - 软闸门（no_cas）：数据不完整，但身份无矛盾 → 告知即可（铁律 5）。
+        - 硬闸门（identity_conflict）：产品的 CAS 与结构标识指向**无法确认是否同一**
+          的化合物 → 发布出去就是一份描述错化合物的合规文件，这是合规红线，不是
+          研究员可自行权衡的偏好。
+      口径（用户 2026-11-18 拍板）：允许存草稿，禁止审批发布。
     """
     sds = SdsRevision.objects.select_related('product').get(id=revision_id)
+
+    # ── 硬闸门：身份矛盾禁止发布（草稿不受影响）──
+    if getattr(sds, 'identity_conflict', False):
+        raise ValueError(
+            '该 SDS 的身份标识互相矛盾，禁止审批发布：'
+            f'{sds.identity_conflict_detail or "CAS 与结构标识无法确认指向同一化合物"}。'
+            '请先修正产品的 CAS / SMILES / InChI，再重新生成 SDS。'
+        )
 
     # 生成 PDF
     pdf_rel_path = generate_sds_pdf(sds)

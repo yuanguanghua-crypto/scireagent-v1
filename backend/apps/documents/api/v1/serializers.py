@@ -103,11 +103,14 @@ class SdsRevisionSerializer(serializers.ModelSerializer):
             'signal_word', 'pictograms', 'hazard_codes', 'precaution_codes',
             'section_data', 'pdf_path', 'created_at',
             'data_confidence', 'data_source_detail',
+            # ★ A-254：身份矛盾（True 时禁止审批发布，前端据此禁用审批按钮）
+            'identity_conflict', 'identity_conflict_detail',
         ]
         read_only_fields = [
             'id', 'revision_no', 'status',
             'signal_word', 'pictograms', 'hazard_codes', 'precaution_codes',
             'section_data', 'pdf_path', 'created_at', 'data_confidence', 'data_source_detail',
+            'identity_conflict', 'identity_conflict_detail',
         ]
 
     def get_is_current(self, obj):

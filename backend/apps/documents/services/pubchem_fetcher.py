@@ -60,8 +60,14 @@ GENERIC_SAFETY_NOTES = {
 }
 
 
-def _pubchem_get(path):
-    """调用 PubChem REST API，返回 JSON 或 None"""
+def _pubchem_get(path, diag=None):
+    """调用 PubChem REST API，返回 JSON 或 None。
+
+    diag: 可选 dict。失败时写入 ``diag['error']``，供上层区分「未收录 / 网络失败」。
+    ★ A-254 教训：本函数原先静默返回 None，调用方无法说明「为什么没查到」，
+      导致 CAS 落空后降级到 SMILES 命中另一化合物时，data_source_detail 里
+      看不出 CAS 已被丢弃。新增 diag 为可选参数，所有既有调用点行为不变。
+    """
     url = f'{PUBCHEM_BASE}/{path}'
     try:
         req = urllib.request.Request(url, headers={'Accept': 'application/json'})
@@ -69,6 +75,8 @@ def _pubchem_get(path):
             return json.loads(resp.read().decode())
     except Exception as e:
         logger.warning(f'PubChem API error: {url} → {e}')
+        if diag is not None:
+            diag['error'] = str(e)
         return None
 
 
@@ -83,34 +91,59 @@ def _get_cid_from_cas(cas_number):
     return None
 
 
-def _get_cid_from_identifier(identifier, id_type='cas'):
+def _get_cid_from_identifier(identifier, id_type='cas', diag=None):
     """通过任意标识符获取 PubChem CID。
 
     支持 id_type:
-      - 'cas'    → /compound/name/{cas}/cids/JSON（与历史 _get_cid_from_cas 一致）
+      - 'cas'    → /compound/xref/RegistryID/{cas}/cids/JSON（CAS 专用结构化端点）
+                   失败再退回 /compound/name/{cas}/cids/JSON（历史行为，兜底）
       - 'smiles' → /compound/smiles/{smiles}/cids/JSON
       - 'inchi'  → /compound/inchi/{inchi}/cids/JSON
       - 'name'   → /compound/name/{name}/cids/JSON（名称仅作末位兜底，避免同名词冲突）
+
+    ★ A-254（2026-11-18）：旧实现把 CAS 也当「名字」查 name 端点，对 CAS 号支持很差。
+      生产实测 `63-39-2`（ATP）→ `compound/name/63-39-2/cids/JSON` 直接
+      HTTP 404 PUGREST.NotFound ⇒ L1 静默落空 ⇒ 降级到 SMILES `CCO`（乙醇）→ CID 702，
+      一份 SDS 描述的其实是另一个化合物。CAS 是注册号，必须走 xref/RegistryID。
+
+    diag: 可选 dict，透传给 _pubchem_get；另外在「响应无 CID 列表」时写 error。
 
     复用既有 _pubchem_get（urllib 标准库，无新依赖）。
     """
     if not identifier:
         return None
     id_type = (id_type or 'cas').lower()
-    if id_type == 'smiles':
-        path = f'compound/smiles/{urllib.parse.quote(identifier, safe="")}/cids/JSON'
+    quoted = urllib.parse.quote(identifier)
+    if id_type == 'cas':
+        paths = [
+            f'compound/xref/RegistryID/{quoted}/cids/JSON',
+            f'compound/name/{quoted}/cids/JSON',      # 兜底：部分 CAS 只出现在同义词里
+        ]
+    elif id_type == 'smiles':
+        paths = [f'compound/smiles/{urllib.parse.quote(identifier, safe="")}/cids/JSON']
     elif id_type == 'inchi':
-        path = f'compound/inchi/{urllib.parse.quote(identifier, safe="")}/cids/JSON'
+        paths = [f'compound/inchi/{urllib.parse.quote(identifier, safe="")}/cids/JSON']
     elif id_type == 'name':
-        path = f'compound/name/{urllib.parse.quote(identifier)}/cids/JSON'
-    else:  # cas 同 name 端点
-        path = f'compound/name/{urllib.parse.quote(identifier)}/cids/JSON'
-    data = _pubchem_get(path)
-    if data:
-        try:
-            return data['IdentifierList']['CID'][0]
-        except (KeyError, IndexError):
-            pass
+        paths = [f'compound/name/{quoted}/cids/JSON']
+    else:  # 未知类型按 name 处理（历史行为）
+        paths = [f'compound/name/{quoted}/cids/JSON']
+
+    errors = []
+    for path in paths:
+        data = _pubchem_get(path, diag=diag)
+        if data:
+            try:
+                cid = data['IdentifierList']['CID'][0]
+            except (KeyError, IndexError):
+                errors.append(f'{path}: 响应中无 CID 列表')
+                continue
+            if diag is not None:
+                diag.pop('error', None)   # 已命中，别把上一跳的失败当成本次结果
+            return cid
+        elif diag is not None and diag.get('error'):
+            errors.append(f"{path}: {diag['error']}")
+    if diag is not None and errors:
+        diag['error'] = ' | '.join(errors)
     return None
 
 
@@ -131,7 +164,8 @@ def _get_compound_properties(cid):
     return None
 
 
-def fetch_sds_data(identifier, id_type='cas', from_cache_fn=None, save_cache_fn=None):
+def fetch_sds_data(identifier, id_type='cas', from_cache_fn=None, save_cache_fn=None,
+                   diag=None):
     """
     通用入口：通过任意标识符（CAS / SMILES / InChI / 名称）从 PubChem 获取 SDS 所需数据。
 
@@ -140,6 +174,7 @@ def fetch_sds_data(identifier, id_type='cas', from_cache_fn=None, save_cache_fn=
         id_type: 'cas' | 'smiles' | 'inchi' | 'name'
         from_cache_fn: 可选，查询缓存的 callable(cas) -> dict or None（仅 cas 命中走缓存）
         save_cache_fn: 可选，保存缓存的 callable(cas, cid, data_json_str) -> None（仅 cas 写入）
+        diag: 可选 dict，失败时写入 ``diag['error']`` 说明原因（A-254 降级留痕用）
 
     返回:
         dict: 同 fetch_sds_data_from_pubchem —— 含 cid / properties / GHS / section_data(16 节)。
@@ -152,12 +187,14 @@ def fetch_sds_data(identifier, id_type='cas', from_cache_fn=None, save_cache_fn=
             return cached
 
     # 2. 查 PubChem CID
-    cid = _get_cid_from_identifier(identifier, id_type)
+    cid = _get_cid_from_identifier(identifier, id_type, diag=diag)
     if not cid:
         return None
 
     props = _get_compound_properties(cid)
     if not props:
+        if diag is not None:
+            diag['error'] = f'CID {cid} 无 property 数据'
         return None
 
     # 3. 构建 16 节 section_data
@@ -207,14 +244,16 @@ def fetch_sds_data(identifier, id_type='cas', from_cache_fn=None, save_cache_fn=
     return result
 
 
-def fetch_sds_data_from_pubchem(cas_number, from_cache_fn=None, save_cache_fn=None):
+def fetch_sds_data_from_pubchem(cas_number, from_cache_fn=None, save_cache_fn=None,
+                               diag=None):
     """
     从 PubChem 获取 SDS 所需数据（CAS 入口，向后兼容）。
 
     等价于 fetch_sds_data(cas_number, id_type='cas', ...)。
     """
     return fetch_sds_data(cas_number, id_type='cas',
-                          from_cache_fn=from_cache_fn, save_cache_fn=save_cache_fn)
+                          from_cache_fn=from_cache_fn, save_cache_fn=save_cache_fn,
+                          diag=diag)
 
 
 def _build_section_data(name, formula, mw, xlogp, tpsa, hbd, hba,

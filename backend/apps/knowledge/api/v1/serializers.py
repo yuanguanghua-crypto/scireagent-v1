@@ -188,11 +188,24 @@ class ApplicationListSerializer(ApplicationGoalSyncMixin, BaseModelSerializer):
     # 写 = FK research_goal + 同步 M2M（决策 B1，实现在 ApplicationGoalSyncMixin）。
     research_goal_name = serializers.SerializerMethodField()
     research_goals = serializers.SerializerMethodField()
+    # ★ 2026-11-18（A-103）：列表卡片需要「该应用有几个方法」。
+    #   此前后端不输出该字段，前端 `ApplicationCard.vue:48` 写
+    #   `{{ application.method_count || 0 }}` ⇒ undefined 兜底成 0 ⇒ 全部 "0 methods"，
+    #   而详情页显示 5 methods。
+    #   ★ 必须复用 resolve_application_methods（它按 name 去重），
+    #     直接 `application_methods.count()` 会把同名的多行算成多条，又造出一个新偏差。
+    method_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
         fields = ['id', 'name', 'slug', 'summary', 'sort_order', 'status',
-                  'research_goal_id', 'research_goal_name', 'research_goals', 'created_at']
+                  'research_goal_id', 'research_goal_name', 'research_goals',
+                  'method_count', 'created_at']
+
+    def get_method_count(self, obj):
+        """该应用实际展示的方法数（与详情页 get_methods 同源）。"""
+        from apps.knowledge.services.application_methods import resolve_application_methods
+        return len(resolve_application_methods(obj))
 
 
 class ApplicationDetailSerializer(ApplicationGoalSyncMixin, BaseModelSerializer):
@@ -502,16 +515,30 @@ class MethodListSerializer(BaseModelSerializer):
     #   单值是妥协：M:N 下一个方法可服务多个应用，序列化只给一个代表。
     #   写路径不再接受 application_id —— 要改关联请写桥（`ApplicationMethod`）。
     application_id = serializers.SerializerMethodField()
+    # ★ 2026-11-18（A-102）：列表页卡片需要「该方法有几个协议」。
+    #   此前后端根本不输出这个字段，前端 `MethodCard.vue:38` 写
+    #   `{{ method.protocol_count || 0 }}` ⇒ undefined 兜底成 0 ⇒ 全部卡片 "0 protocols"，
+    #   而详情页显示 585。本次补字段，且**必须与 get_protocols 用同一个 filter**，
+    #   否则就是 A-110「标签 20 of 231、按钮 Show all 20」的翻版。
+    protocol_count = serializers.SerializerMethodField()
     slug = serializers.SlugField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Method
-        fields = ['id', 'name', 'slug', 'summary', 'application_id', 'cost_band', 'timeline', 'status', 'is_step_tag', 'created_at']
+        fields = ['id', 'name', 'slug', 'summary', 'application_id', 'cost_band', 'timeline',
+                  'status', 'is_step_tag', 'protocol_count', 'created_at']
 
     def get_application_id(self, obj):
         from apps.knowledge.services.application_methods import application_of_method
         app = application_of_method(obj)
         return app.id if app else None
+
+    def get_protocol_count(self, obj):
+        """该方法下**已发布**的协议数（与 MethodDetailSerializer.get_protocols 同源）。"""
+        return Protocol.objects.filter(
+            method_protocols__method=obj,
+            status=Protocol.PublicationStatus.PUBLISHED,
+        ).count()
 
 
 class MethodDetailSerializer(BaseModelSerializer):

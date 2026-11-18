@@ -137,6 +137,132 @@ class GenerateSdsDegradationTest(TestCase):
 
 
 # ════════════════════════════════════════════════════════════════
+# A-254 降级留痕：L1 CAS 落空必须写进 data_source_detail
+# ════════════════════════════════════════════════════════════════
+class CasMissTraceabilityTest(TestCase):
+    """A-254 回归：CAS 查不到后降级，data_source_detail 必须写明 CAS 已被丢弃。
+
+    生产实测（产品 5456）：cas=63-39-2(ATP) 未收录 → 降级 smiles=CCO(乙醇)
+    → CID 702。旧实现只写「PubChem CID 702 (smiles: CCO)」，运营无从判断
+    这份 SDS 描述的根本不是本产品。本类锁定留痕行为。
+    """
+
+    @staticmethod
+    def _l1_miss_404(cas_number, from_cache_fn=None, save_cache_fn=None, diag=None):
+        """模拟 PubChem 对未收录 CAS 返回 HTTP 404 PUGREST.NotFound。"""
+        if diag is not None:
+            diag['error'] = 'HTTP Error 404: PUGREST.NotFound'
+        return None
+
+    @patch('apps.documents.services.workflow.fetch_sds_data')
+    @patch('apps.documents.services.workflow.fetch_sds_data_from_pubchem')
+    def test_cas_missed_then_smiles_hit_is_traced(self, m1, m2):
+        """CAS 落空 → SMILES 命中：detail 同时含新来源与 CAS 未收录说明。"""
+        m1.side_effect = self._l1_miss_404
+        m2.return_value = dict(PUBCHEM_HIT, cid=702)
+        product = ProductFactory(
+            catalog_no='SC8110', name='ATP', cas='63-39-2', smiles='CCO',
+        )
+        sds = generate_sds(product_id=product.id)
+        detail = sds.data_source_detail
+        self.assertEqual(sds.data_confidence, SdsRevision.DataConfidence.MEDIUM)
+        self.assertIn('PubChem CID 702', detail)
+        self.assertIn('(smiles: CCO)', detail)
+        # ★ 核心断言：CAS 已被丢弃这件事必须可见
+        self.assertIn('CAS 63-39-2', detail)
+        self.assertIn('未在 PubChem 收录', detail)
+
+    @patch('apps.documents.services.workflow.fetch_sds_data')
+    @patch('apps.documents.services.workflow.fetch_sds_data_from_pubchem')
+    def test_cas_missed_then_category_is_traced(self, m1, m2):
+        """CAS 落空 → 落到类别模板：detail 也要带 CAS 未收录说明。"""
+        m1.side_effect = self._l1_miss_404
+        m2.return_value = None
+        product = ProductFactory(
+            catalog_no='SC8111', name='Oligo3', cas='63-39-2', smiles='',
+            category_l1='Oligonucleotides',
+        )
+        sds = generate_sds(product_id=product.id)
+        self.assertEqual(sds.data_confidence, SdsRevision.DataConfidence.LOW)
+        self.assertIn('Category template', sds.data_source_detail)
+        self.assertIn('CAS 63-39-2 未在 PubChem 收录', sds.data_source_detail)
+
+    @patch('apps.documents.services.workflow.fetch_sds_data')
+    @patch('apps.documents.services.workflow.fetch_sds_data_from_pubchem')
+    def test_cas_missed_then_generic_is_traced(self, m1, m2):
+        """CAS 落空 → GENERIC 兜底：detail 也要带 CAS 未收录说明。"""
+        m1.side_effect = self._l1_miss_404
+        m2.return_value = None
+        product = ProductFactory(
+            catalog_no='SC8112', name='', cas='63-39-2', smiles='', category_l1='',
+        )
+        sds = generate_sds(product_id=product.id)
+        self.assertEqual(sds.data_confidence, SdsRevision.DataConfidence.VERY_LOW)
+        self.assertIn('Generic safety notes', sds.data_source_detail)
+        self.assertIn('CAS 63-39-2 未在 PubChem 收录', sds.data_source_detail)
+
+    @patch('apps.documents.services.workflow.fetch_sds_data')
+    @patch('apps.documents.services.workflow.fetch_sds_data_from_pubchem')
+    def test_no_cas_does_not_invent_downgrade_note(self, m1, m2):
+        """★ 反向守卫：产品本就无 CAS 时，不得凭空写「CAS 未命中」误导运营。"""
+        m1.return_value = None
+        m2.return_value = dict(PUBCHEM_HIT, cid=123)
+        product = ProductFactory(
+            catalog_no='SC8113', name='NoCas3', cas='', smiles='CCO',
+        )
+        sds = generate_sds(product_id=product.id)
+        self.assertEqual(
+            sds.data_source_detail, 'PubChem CID 123 (smiles: CCO)'
+        )
+        self.assertNotIn('未在 PubChem 收录', sds.data_source_detail)
+
+    @patch('apps.documents.services.workflow.fetch_sds_data')
+    @patch('apps.documents.services.workflow.fetch_sds_data_from_pubchem')
+    def test_cas_missed_by_network_error_is_distinguished(self, m1, m2):
+        """网络失败≠未收录：detail 必须能区分「查不到」与「没查成」。"""
+        def _l1_timeout(cas_number, from_cache_fn=None, save_cache_fn=None, diag=None):
+            if diag is not None:
+                diag['error'] = 'timed out'
+            return None
+
+        m1.side_effect = _l1_timeout
+        m2.return_value = dict(PUBCHEM_HIT, cid=702)
+        product = ProductFactory(
+            catalog_no='SC8114', name='ATP2', cas='63-39-2', smiles='CCO',
+        )
+        sds = generate_sds(product_id=product.id)
+        self.assertIn('查询 PubChem 失败', sds.data_source_detail)
+        self.assertNotIn('未在 PubChem 收录', sds.data_source_detail)
+
+
+class CasMissReasonUnitTest(TestCase):
+    """_cas_miss_reason 分支覆盖（纯函数，无 DB）。"""
+
+    def test_404_maps_to_not_indexed(self):
+        from apps.documents.services.workflow import _cas_miss_reason
+        self.assertEqual(
+            _cas_miss_reason('63-39-2', {'error': 'HTTP Error 404: PUGREST.NotFound'}),
+            'CAS 63-39-2 未在 PubChem 收录',
+        )
+
+    def test_no_error_maps_to_plain_miss(self):
+        from apps.documents.services.workflow import _cas_miss_reason
+        self.assertEqual(_cas_miss_reason('63-39-2', {}), 'CAS 63-39-2 未命中 PubChem')
+        self.assertEqual(_cas_miss_reason('63-39-2', None), 'CAS 63-39-2 未命中 PubChem')
+
+    def test_unknown_error_is_reported_verbatim(self):
+        from apps.documents.services.workflow import _cas_miss_reason
+        got = _cas_miss_reason('63-39-2', {'error': 'timed out'})
+        self.assertIn('查询 PubChem 失败', got)
+        self.assertIn('timed out', got)
+
+    def test_append_source_note_is_noop_when_empty(self):
+        from apps.documents.services.workflow import _append_source_note
+        self.assertEqual(_append_source_note('X', ''), 'X')
+        self.assertEqual(_append_source_note('X', 'Y'), 'X ｜ Y')
+
+
+# ════════════════════════════════════════════════════════════════
 # B. 权限（IsAdminOrReadOnly）
 # ════════════════════════════════════════════════════════════════
 class PermissionTest(TestCase):

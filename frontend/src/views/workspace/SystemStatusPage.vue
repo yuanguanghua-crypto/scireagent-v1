@@ -171,6 +171,8 @@ onMounted(load)
           <div class="sys-stat"><b>{{ counts.orders ?? 0 }}</b><span>orders</span></div>
           <div class="sys-stat"><b>{{ counts.rfq_total ?? 0 }}</b><span>RFQ total</span></div>
           <div class="sys-stat"><b>{{ counts.rfq_quoted ?? 0 }}</b><span>RFQ quoted</span></div>
+          <!-- ★ 2026-11-18（A-230）：补审计日志计数，供与 Audit Log 列表交叉核对 -->
+          <div class="sys-stat"><b>{{ counts.audit_logs ?? 0 }}</b><span>audit logs</span></div>
         </div>
       </section>
     </div>

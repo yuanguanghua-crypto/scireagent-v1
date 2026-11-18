@@ -34,6 +34,16 @@ const tabCounts = computed(() => {
   return counts
 })
 
+// ★ 2026-11-18（A-138）：顶部计数必须跟随当前 tab。
+//   原实现恒用 totalCount（= meta.count，**全部类型**的总条数）⇒ 切到 Protocols 时
+//   分组卡片 0 条、顶部却写「1 result(s)」，被当成自相矛盾（实测搜 5-Iodo-dUTP）。
+//   那个 1 是其他类型（product/method）的匹配，本身没错 —— 错在把它当成本 tab 的结果数。
+const summaryCount = computed(() =>
+  activeTab.value === 'all'
+    ? totalCount.value
+    : (tabCounts.value[activeTab.value] || 0)
+)
+
 const displayResults = computed(() => {
   if (activeTab.value === 'all') {
     // Flatten all groups for "All" tab
@@ -149,7 +159,7 @@ function getSubtitle(item) {
     <!-- Results -->
     <div v-else-if="totalCount > 0" class="results-container">
       <p class="result-summary">
-        <strong>{{ totalCount }}</strong> result(s) for "<em>{{ searchQuery }}</em>"
+        <strong>{{ summaryCount }}</strong> result(s) for "<em>{{ searchQuery }}</em>"
       </p>
 
       <!-- Grouped sections (All tab) -->

@@ -153,12 +153,16 @@ const availableTabs = computed(() => {
   if (displayMethods.value.length || verifiedMethods.value.length) tabs.push({ key: 'methods', label: 'Methods' })
   // ★ 2026-10-29：后端只返回前 20 条（实测该产品关联 233 条，渲染全量会卡住主线程）。
   //   标签如实写出「20 of 233」，不让人以为只有 20 条。
+  // ★ 2026-11-18（A-110）：原标签 "Protocols (20 of 231)" 与下方按钮 "Show all 20 →"
+  //   两个裸数字并置，被当成自相矛盾（SC8023/SC8011 复现）。两者其实都对：
+  //   231 是全部、20 是当前已加载并可展开的条数。加 "showing" 把语义写全，
+  //   两个数字各归各位，不再是"到底有几个"的疑问。
   if (protocols.value.length) {
     const total = detail.value?.protocols_total || protocols.value.length
     tabs.push({
       key: 'protocols',
       label: total > protocols.value.length
-        ? `Protocols (${protocols.value.length} of ${total})`
+        ? `Protocols (showing ${protocols.value.length} of ${total})`
         : 'Protocols',
     })
   }

@@ -8,7 +8,8 @@ from apps.commerce.tests.factories import ProductFactory
 from apps.knowledge.services.protocol_recommender import (
     BioProCorpusIndexer, ProtocolRetriever, ProtocolRecommender,
     get_shared_recommender, get_shared_retriever,
-    expand_protocol_query, _merge_results,
+    expand_protocol_query, expand_protocol_query_tagged,
+    core_name_tokens, _chemical_root_of, _merge_results,
 )
 
 
@@ -225,3 +226,137 @@ class ProtocolQueryExpansionTest(TestCase):
         for rec in recs:
             self.assertGreater(rec["score"], 0)
             self.assertIn("matched_query", rec)
+
+
+# ════════════════════════════════════════════════════════════════
+# N-1：碎片化召回收紧 + 核心 token 回验 + match_reason
+# ════════════════════════════════════════════════════════════════
+class FragmentGateTest(TestCase):
+    """DS 复测 `DS-A203-probe` 把 A203 / probe 当独立检索词，召回 5 条无关协议。
+
+    修法：① 碎片必须过化学词根门；② 来自产品名的命中须含核心 token；
+         ③ 每条结果写 match_reason + match_confidence。铁律：宁 miss 不错配。
+    """
+
+    # ── ① 化学词根门 ────────────────────────────────
+    def test_generic_words_not_used_as_queries(self):
+        """'probe' / 'A203' 都不得成为独立检索词（A203 只有编号、无化学身份）。"""
+        qs = expand_protocol_query("DS-A203-probe")
+        self.assertEqual(qs, ["DS-A203-probe"])
+
+    def test_chemical_fragments_survive(self):
+        """化学词根仍要保留：CTP 精确、Propargylamino 归到词根 propargyl。"""
+        qs = expand_protocol_query("5-Propargylamino-CTP")
+        self.assertIn("CTP", qs)
+        self.assertTrue(any("propargyl" in q.lower() for q in qs))
+
+    def test_other_generic_suffixes_dropped(self):
+        """kit / solution / grade / hplc 这类通用词一律不当检索词。"""
+        qs = expand_protocol_query("Biotin-Kit-Solution-Grade-HPLC")
+        self.assertIn("Biotin", qs)
+        for bad in ("Kit", "Solution", "Grade", "HPLC"):
+            self.assertNotIn(bad, qs)
+
+    def test_short_chemical_roots_are_exact_only(self):
+        """长度 ≤4 的词根只做精确匹配，避免 amp→amplification 这类误扩。"""
+        self.assertEqual(_chemical_root_of("CTP"), "CTP")
+        self.assertIsNone(_chemical_root_of("amplification"))
+        self.assertIsNone(_chemical_root_of("digital"))
+
+    def test_long_root_allows_short_modifier_tail(self):
+        """长度 ≥5 的词根允许带 ≤8 字符后缀：Biotinylated → biotin。"""
+        self.assertEqual(_chemical_root_of("Biotinylated"), "biotin")
+        self.assertEqual(
+            _chemical_root_of("Propargylamino").lower(), "propargylamino")
+
+    def test_tagged_expansion_marks_kinds(self):
+        """tagged 版本必须区分 name / fragment / category / synonym。"""
+        tagged = expand_protocol_query_tagged(
+            "5-Propargylamino-CTP",
+            category_path="RNA/cRNA Labeling | Amine-modified Nucleotides",
+        )
+        kinds = {t["kind"] for t in tagged}
+        self.assertEqual(kinds, {"name", "fragment", "category"})
+
+    # ── ② 核心 token 回验 ───────────────────────────
+    def test_core_tokens_for_garbage_name(self):
+        """'DS-A203-probe' 的核心 token 只有 a203（probe 非化学词根）。"""
+        self.assertEqual(core_name_tokens("DS-A203-probe"), ["a203"])
+
+    def test_core_tokens_for_real_product_name(self):
+        """真实产品名取到化学词根 + 无编号 token。"""
+        toks = core_name_tokens("5-Propargylamino-CTP")
+        self.assertIn("ctp", toks)
+        self.assertTrue(any("propargyl" in t for t in toks))
+
+    def test_gate_drops_protocols_without_core_token(self):
+        """★ 核心回归：整体名按通用词（labeling/reagent）命中的协议，
+        若正文不含任何化学核心 token（propargyl）⇒ 判为错配丢弃。"""
+        recommender = ProtocolRecommender()
+        recommender.retriever.indexer._entries = [
+            {"id": "noise", "title": "RNA Labeling Protocol", "source": "Bio-protocol",
+             "text": "General labeling procedure for nucleic acids.", "keywords": "RNA"},
+            {"id": "hit", "title": "Propargyl Labeling of DNA", "source": "Bio-protocol",
+             "text": "Propargyl labeling chemistry.", "keywords": "propargyl"},
+        ]
+        recs = recommender.recommend_expanded("Propargyl labeling reagent", top_k=5)
+        ids = [r["id"] for r in recs]
+        self.assertNotIn("noise", ids, "不含核心 token propargyl，必须丢弃")
+        self.assertIn("hit", ids, "含核心 token 的协议必须保留")
+
+    def test_gate_exempts_category_sourced_results(self):
+        """分类路径关键词来源豁免：产品自身分类命中不需过名字闸门。"""
+        recommender = ProtocolRecommender()
+        recommender.retriever.indexer._entries = [
+            {"id": "cat", "title": "RNA Labeling Protocol", "source": "Bio-protocol",
+             "text": "nucleotide labeling procedure.", "keywords": "RNA"},
+        ]
+        # 无分类路径 ⇒ 只靠产品名字面命中 ⇒ 被闸门丢掉
+        self.assertEqual(
+            recommender.recommend_expanded("Propargyl labeling reagent", top_k=5), [])
+        # 给了分类路径 ⇒ 分类关键词命中且豁免 ⇒ 保留
+        recs = recommender.recommend_expanded(
+            "Propargyl labeling reagent",
+            category_path="RNA Labeling | Nucleotides", top_k=5,
+        )
+        self.assertEqual([r["id"] for r in recs], ["cat"])
+
+    def test_escape_hatch_disables_gate(self):
+        """enforce_core_tokens=False 仅供排障对比，用于证明闸门确实生效。"""
+        recommender = ProtocolRecommender()
+        recommender.retriever.indexer._entries = [
+            {"id": "noise", "title": "RNA Labeling Protocol", "source": "Bio-protocol",
+             "text": "General labeling procedure.", "keywords": "RNA"},
+        ]
+        self.assertEqual(
+            recommender.recommend_expanded("Propargyl labeling reagent", top_k=5), [])
+        loose = recommender.recommend_expanded(
+            "Propargyl labeling reagent", top_k=5, enforce_core_tokens=False)
+        self.assertEqual([r["id"] for r in loose], ["noise"])
+
+    # ── ③ match_reason / 置信度 ──────────────────────
+    def test_match_reason_and_confidence_present(self):
+        """每条结果必须带 match_reason / match_kind / match_confidence。"""
+        recommender = ProtocolRecommender()
+        recommender.retriever.indexer._entries = [
+            {"id": "p1", "title": "Click Chemistry Protocol", "source": "Bio-protocol",
+             "text": "Using CTP for click labeling.", "keywords": "click chemistry, CTP"},
+        ]
+        recs = recommender.recommend_expanded("5-Propargylamino-CTP", top_k=5)
+        self.assertTrue(recs)
+        for rec in recs:
+            self.assertTrue(rec["match_reason"])
+            self.assertIn(rec["match_kind"], ("name", "fragment", "category", "synonym"))
+            self.assertIn(rec["match_confidence"], ("high", "medium", "low"))
+
+    def test_fragment_sourced_result_is_low_confidence(self):
+        """碎片猜出来的命中必须标 low，整体名命中标 high。"""
+        recommender = ProtocolRecommender()
+        recommender.retriever.indexer._entries = [
+            {"id": "frag", "title": "CTP Labeling", "source": "Bio-protocol",
+             "text": "labeling with CTP.", "keywords": "CTP"},
+        ]
+        recs = recommender.recommend_expanded("Unobtainium-CTP", top_k=5)
+        self.assertTrue(recs)
+        self.assertEqual(recs[0]["match_kind"], "fragment")
+        self.assertEqual(recs[0]["match_confidence"], "low")

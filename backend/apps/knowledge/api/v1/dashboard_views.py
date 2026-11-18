@@ -11,6 +11,7 @@ from apps.bridges.models import ProductMethod, ProductMethodRelation, MethodProt
 from apps.knowledge.models import (
     ResearchGoal, Application, Method, Protocol, ProtocolStep,
 )
+from apps.knowledge.services.counting import count_as_listed
 
 
 class DashboardStatsView(EnvelopeMixin, APIView):
@@ -38,13 +39,25 @@ class DashboardStatsView(EnvelopeMixin, APIView):
         # Coverage
         products_with_cas = live.exclude(cas="").count()
         products_with_smiles = live.exclude(smiles="").count()
-        products_with_knowledge = ProductMethod.objects.values("product_id").distinct().count()
+        # ★ 2026-11-18（A-002 同族第三条）：原写法
+        #   `ProductMethod.objects.values("product_id").distinct().count()` 未过滤归档，
+        #   实测报 14 而真实 7（Product 125 条全部 archived=true 是项目已知的有意测试数据）。
+        #   必须与 `live` 同口径，否则「有知识关联的产品数」会大于「产品总数」。
+        products_with_knowledge = (
+            ProductMethod.objects.filter(product__archived=False)
+            .values("product_id").distinct().count()
+        )
 
         # Knowledge graph counts
-        total_goals = ResearchGoal.objects.count()
-        total_apps = Application.objects.count()
-        total_methods = Method.objects.count()
-        total_protocols = Protocol.objects.count()
+        # ★ 2026-11-18（A-002）：四个 `Model.objects.count()` 裸计数已废弃 ——
+        #   它们什么都没过滤，而列表页走 apply_public_visibility(+方案B 的 status 过滤)，
+        #   实测 Goals 差 9（fixture）、Applications 差 6（fixture）、
+        #   Protocols 差 88（draft）、Methods 差 3（draft）。
+        #   ⇒ 统一走 count_as_listed，保证 Dashboard 与对应列表页永远同源。
+        total_goals = count_as_listed(ResearchGoal, request)
+        total_apps = count_as_listed(Application, request)
+        total_methods = count_as_listed(Method, request)
+        total_protocols = count_as_listed(Protocol, request)
 
         # ── 知识实体治理指标（P1-4 健康看板）──
         # verified 双 edge 状态分布（策展通道）

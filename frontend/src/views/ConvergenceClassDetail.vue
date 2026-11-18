@@ -138,7 +138,11 @@ onMounted(() => {
           >
             <el-tag type="warning" size="small" effect="plain">混合方法</el-tag>
           </el-tooltip>
-          <el-tag size="small" type="info" effect="plain">Members: {{ detail.size ?? 0 }}</el-tag>
+          <!-- ★ 2026-11-18（A-240）：原来用 detail.size（聚类时写入的**静态快照**），
+               而分页脚注用 meta.member_total（**实时 count**）。成员变动后 size 陈旧，
+               实测 ap_k011 出现「类头 Members 334 / 脚注 Total 332」自相矛盾。
+               两处必须同源 ⇒ 一律用实时 member_total；size 只作加载前的占位。 -->
+          <el-tag size="small" type="info" effect="plain">Members: {{ memberTotal || 0 }}</el-tag>
           <el-tag
             v-if="detail.avg_cos != null"
             size="small"

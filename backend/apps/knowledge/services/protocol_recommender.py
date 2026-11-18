@@ -240,23 +240,54 @@ class ProtocolRecommender:
 
     def recommend_expanded(self, product_name: str, category_path: Optional[str] = None,
                            synonyms: Optional[list] = None, top_k: int = 5,
-                           include_content: bool = False) -> list:
+                           include_content: bool = False,
+                           enforce_core_tokens: bool = True) -> list:
         """扩展查询后推荐：产品名 → 多检索串 → 分别检索 → 合并去重。
 
         解决冷门精确名（如 5-Propargylamino-CTP）原 search 整体匹配返回 0 的问题：
         碎片化产品名（CTP / Propargyl）+ jena 分类路径领域关键词
         （nucleotide / labeling / click chemistry）+ 同义词，扩大命中面。
         返回结构与 retriever.search 一致（含 matched_query 标记来源）。
+
+        ★ N-1 加固（2026-11-18）：
+          1. 碎片必须过化学词根门（见 _chemical_root_of），不再拿任意 ≥3 字母串当检索词；
+          2. **核心 token 回验**：来自产品名（整体名/词根）的命中，其标题或正文片段
+             必须含产品名任一核心 token，否则判为错配丢弃。分类/同义词来源豁免
+             —— 它们来自产品自身的 jena 分类与权威同义词，不是对名字的猜测。
+          3. 每条结果写 match_reason / match_confidence（旧实现只有 matched_query，
+             用户看到推荐却看不出为什么被推荐）。
+          enforce_core_tokens=False 仅供排障对比使用，生产路径必须保持 True。
         """
-        queries = expand_protocol_query(product_name, category_path=category_path, synonyms=synonyms)
-        if not queries:
+        tagged = expand_protocol_query_tagged(
+            product_name, category_path=category_path, synonyms=synonyms)
+        if not tagged:
             return []
+
+        core = core_name_tokens(product_name)
         lists = []
-        for q in queries:
+        dropped = 0
+        for item in tagged:
+            q, kind = item["query"], item["kind"]
             res = self.retriever.search(q, top_k=top_k, include_content=include_content)
+            kept = []
             for r in res:
                 r["matched_query"] = q
-            lists.append(res)
+                r["match_kind"] = kind
+                r["match_reason"] = _MATCH_REASON_BY_KIND[kind].format(q=q)
+                r["match_confidence"] = _MATCH_CONFIDENCE_BY_KIND[kind]
+                if enforce_core_tokens and core and kind in ("name", "fragment"):
+                    hay = f"{r.get('title') or ''} {r.get('text_snippet') or ''}".lower()
+                    if not any(tok in hay for tok in core):
+                        dropped += 1
+                        continue
+                kept.append(r)
+            lists.append(kept)
+
+        if dropped:
+            logger.info(
+                "recommend_expanded: core-token gate dropped %d result(s) for %r (core=%s)",
+                dropped, product_name, core,
+            )
         return _merge_results(lists, top_k)
 
 
@@ -265,6 +296,156 @@ class ProtocolRecommender:
 _CATEGORY_KEYWORDS = ("nucleotide", "click chemistry", "rna", "labeling",
                       "cuac", "epigenetics", "probe", "modified nucleotide")
 
+# ── 化学词根白名单（N-1，2026-11-18 立）───────────────────────────────────
+# 背景：旧实现把产品名里**任意长度 ≥3 的字母串**都当独立检索词。
+#   DS 复测 `DS-A203-probe` ⇒ `A203`、`probe` 各自成为查询 ⇒ 召回 5 条含
+#   "Probe" 的无关协议（score 恒 0.7，match_reason 为空，用户无从判断为何推荐）。
+# 纪律：**宁 miss 不错配** ⇒ 碎片必须落在「化学身份」词根上才允许检索。
+#
+# ★ 本表只收能**标识试剂身份**的词根；刻意不收 pbs / tris / probe / kit /
+#   buffer 这类"几乎每个协议正文都出现"的通用词 —— 收进来等于把噪声源装回去。
+# ★ 维护约定：新产品线（如新增染料/交联剂）需在此补词根；未补则碎片检索会
+#   主动 miss，这是**预期行为**，不要为了让召回变多而放宽匹配。
+_REAGENT_ROOTS = (
+    # 核苷酸 / 脱氧核苷酸 / 双脱氧 / 环核苷酸
+    "atp", "adp", "amp", "ctp", "cdp", "cmp", "gtp", "gdp", "gmp",
+    "ttp", "tdp", "tmp", "utp", "udp", "ump", "itp", "idp", "imp",
+    "datp", "dctp", "dgtp", "dttp", "dutp", "ddntp", "dntp", "ntp", "ndp", "nmp",
+    "nad", "fad", "fmn", "coa", "sam", "sah", "camp", "cgmp",
+    # 核酸形态
+    "dna", "rna", "cdna", "crna", "mrna", "trna", "rrna",
+    "sirna", "shrna", "mirna", "lncrna", "ncrna", "grna", "sgrna", "aso",
+    # 碱基 / 核苷 / 糖
+    "adenine", "adenosine", "cytidine", "cytosine", "guanine", "guanosine",
+    "thymidine", "thymine", "uridine", "uracil", "inosine", "xanthine",
+    "hypoxanthine", "ribose", "deoxyribose", "nucleotide", "nucleoside",
+    "nucleobase",
+    # 修饰基团 / 连接臂（本项目产品名最常见的化学前缀）
+    "propargyl", "propargylamino", "ethynyl", "vinyl", "allyl", "benzyl",
+    "azide", "azido", "diazo", "hydrazide", "hydroxylamine", "alkoxyamine",
+    "maleimide", "succinimidyl", "nhs", "thiol", "dithiol", "disulfide",
+    "phosphorothioate", "phosphoramidite", "cpg", "spacer", "linker",
+    "crosslinker", "peg", "peg4", "peg8",
+    # 点击化学
+    "dbco", "bcn", "tco", "tetrazine", "cyclooctyne", "norbornene", "alkyne",
+    # 荧光 / 淬灭 / 标记
+    "fluorescein", "fitc", "tritc", "rhodamine", "cyanine", "cy3", "cy5", "cy7",
+    "bodipy", "coumarin", "pyrene", "alexa", "atto", "quasar",
+    "fam", "hex", "joe", "rox", "tamra", "dabcyl", "bhq", "mgb",
+    "biotin", "biotinyl", "desthiobiotin", "digoxigenin", "dig",
+)
+
+# 长度 ≤4 的词根只做精确匹配，避免 amp→amplification、dig→digital 这类误扩。
+_ROOT_PREFIX_MIN_LEN = 5
+# 词根 + 修饰后缀的允许长度：propargyl(9) + amino(5) = propargylamino
+_ROOT_PREFIX_MAX_TAIL = 8
+
+
+def _chemical_root_of(fragment: Optional[str]) -> Optional[str]:
+    """判断碎片是否具备化学身份；是则返回应使用的检索词，否则 None。
+
+    规则：
+      1. 整体命中 _REAGENT_ROOTS（忽略大小写）→ 返回碎片**原样**，
+         保留 CTP / dUTP / Cy5 这类大小写形态。
+      2. 长度 ≥5 的词根作为前缀、尾部 ≤8 字符且全为字母 → 返回该词根。
+         例：Propargylamino → propargyl；Biotinylated → biotin。
+      3. 其余一律 None。**宁 miss 不错配** —— 拿不准就当没有。
+    """
+    if not fragment:
+        return None
+    low = fragment.lower()
+    if not low.isalnum():
+        return None
+    if low in _REAGENT_ROOTS:
+        return fragment
+    for root in _REAGENT_ROOTS:
+        if len(root) < _ROOT_PREFIX_MIN_LEN:
+            continue
+        if low.startswith(root):
+            tail = low[len(root):]
+            if tail.isalpha() and len(tail) <= _ROOT_PREFIX_MAX_TAIL:
+                return root
+    return None
+
+
+def core_name_tokens(product_name: Optional[str]) -> list:
+    """产品名的「核心 token」—— 化学词根 + 编号片段（如 A203 / SC8101）。
+
+    用途：**检索结果回验**。协议标题/正文里不含任一核心 token ⇒ 判为错配丢弃。
+    这正是 `DS-A203-probe` 案例的闸门：核心 token 只有 `a203`，
+    那 5 条只因含 "Probe" 而被召回、标题里没有 A203 的协议会被清掉。
+    """
+    out: list = []
+    seen = set()
+    for frag in re.findall(r"[A-Za-z][A-Za-z0-9]*", product_name or ""):
+        tok = _chemical_root_of(frag)
+        if tok:
+            tok = tok.lower()
+        elif re.fullmatch(r"[A-Za-z]{1,4}\d{2,}", frag):
+            tok = frag.lower()      # 目录号/位次编号，如 A203、SC8101
+        else:
+            continue
+        if tok not in seen:
+            seen.add(tok)
+            out.append(tok)
+    return out
+
+
+# ── 命中来源 → 理由 / 置信度（N-1：旧实现 recommend_expanded 完全不写 match_reason）──
+_MATCH_REASON_BY_KIND = {
+    "name": "协议标题/正文命中产品名「{q}」",
+    "fragment": "协议标题/正文命中产品名词根「{q}」",
+    "category": "按产品分类路径关键词「{q}」扩展命中",
+    "synonym": "按产品同义词「{q}」扩展命中",
+}
+_MATCH_CONFIDENCE_BY_KIND = {
+    "name": "high",
+    "fragment": "low",      # 词根猜测，置信度最低
+    "category": "medium",
+    "synonym": "medium",
+}
+
+
+def expand_protocol_query_tagged(product_name: Optional[str],
+                                 category_path: Optional[str] = None,
+                                 synonyms: Optional[list] = None) -> list:
+    """同 expand_protocol_query，但每个检索串带上**来源类型**。
+
+    返回 ``[{'query': str, 'kind': 'name'|'fragment'|'category'|'synonym'}, ...]``
+    ``recommend_expanded`` 用它区分「产品名字面猜测」与「产品自身分类/同义词」，
+    因为后者不该被核心 token 闸门误杀。
+    """
+    tagged: list = []
+    if product_name and product_name.strip():
+        tagged.append({"query": product_name.strip(), "kind": "name"})
+    # 碎片化：只保留过化学词根门的片段（见 _chemical_root_of）
+    for frag in re.findall(r"[A-Za-z][A-Za-z0-9]*", product_name or ""):
+        root = _chemical_root_of(frag)
+        if root:
+            tagged.append({"query": root, "kind": "fragment"})
+    # 分类路径关键词
+    if category_path:
+        for seg in category_path.split("|"):
+            seg_l = seg.lower()
+            for kw in _CATEGORY_KEYWORDS:
+                if kw in seg_l:
+                    tagged.append({"query": kw, "kind": "category"})
+    # 同义词
+    if synonyms:
+        for s in synonyms[:10]:
+            if s and str(s).strip():
+                tagged.append({"query": str(s).strip(), "kind": "synonym"})
+    # 去重保序（同串只保留首次出现的 kind）
+    seen = set()
+    out = []
+    for item in tagged:
+        q = (item["query"] or "").strip()
+        if not q or q.lower() in seen:
+            continue
+        seen.add(q.lower())
+        out.append({"query": q, "kind": item["kind"]})
+    return out
+
 
 def expand_protocol_query(product_name: Optional[str], category_path: Optional[str] = None,
                           synonyms: Optional[list] = None) -> list:
@@ -272,41 +453,14 @@ def expand_protocol_query(product_name: Optional[str], category_path: Optional[s
 
     策略：
       1. 原始产品名（精确）
-      2. 产品名碎片化：按 -/_/空格/camelCase 切分，取有意义片段（如 'CTP'、'Propargyl'）
+      2. 产品名碎片化：**仅保留过化学词根门的片段**（如 'CTP'、'Propargyl'）
       3. jena 分类路径段中的领域关键词（nucleotide / labeling / click chemistry …）
       4. 传入的同义词/系统名
+
+    实现见 expand_protocol_query_tagged；本函数保持旧签名与返回类型（list[str]）。
     """
-    queries: list = []
-    if product_name:
-        queries.append(product_name.strip())
-    # 碎片化：分离 CTP / Propargyl / dUTP 等有意义片段（按 -/_/空格/camelCase 切分，
-    # 连字符也作为分隔，使 'CTP' 成为独立检索串；丢弃过短噪声如 '5'、'd'）
-    if product_name:
-        for frag in re.findall(r"[A-Za-z][A-Za-z0-9]*", product_name):
-            fl = frag.lower()
-            if len(fl) >= 3 and fl not in ("the", "and", "for"):
-                queries.append(frag)
-    # 分类路径关键词
-    if category_path:
-        for seg in category_path.split("|"):
-            seg_l = seg.lower()
-            for kw in _CATEGORY_KEYWORDS:
-                if kw in seg_l:
-                    queries.append(kw)
-    # 同义词
-    if synonyms:
-        for s in synonyms[:10]:
-            if s and str(s).strip():
-                queries.append(str(s).strip())
-    # 去重保序
-    seen = set()
-    out = []
-    for q in queries:
-        q = (q or "").strip()
-        if q and q.lower() not in seen:
-            seen.add(q.lower())
-            out.append(q)
-    return out
+    return [item["query"] for item in expand_protocol_query_tagged(
+        product_name, category_path=category_path, synonyms=synonyms)]
 
 
 def _merge_results(result_lists: list, top_k: int) -> list:

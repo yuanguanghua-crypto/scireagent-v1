@@ -208,6 +208,20 @@ class SdsRevision(models.Model):
                   'Generic safety notes (no identifier matched)',
     )
 
+    # ── 标识符身份矛盾（A-254，2026-11-18）────────────────
+    # 产品的 CAS 与其 SMILES/InChI 在 PubChem 解析出**不同 CID** 时置 True。
+    # 语义：这份 SDS 描述的可能不是本产品（生产实例 5456：CAS 63-39-2 与 SMILES CCO
+    # 根本不是一个化合物）。纪律：允许存草稿（研究员的草稿区是工作区），
+    # **禁止审批发布**（发布=对外出具合规文件，不能建立在身份未知的匹配上）。
+    identity_conflict = models.BooleanField(
+        default=False, verbose_name='标识符身份矛盾',
+        help_text='CAS 与 SMILES/InChI 解析出的 PubChem CID 不一致；置 True 时禁止审批发布',
+    )
+    identity_conflict_detail = models.TextField(
+        blank=True, default='', verbose_name='身份矛盾详情',
+        help_text='如 CAS 63-39-2 → CID 5957；smiles CCO → CID 702',
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -154,6 +154,14 @@ class SystemStatusView(APIView):
             out['rfq_quoted'] = QuoteRequest.objects.filter(status='quoted').count()
         except Exception:
             pass
+        # ★ 2026-11-18（A-230）：原「Records」卡只报 users/products/orders/rfq 四类，
+        #   没有审计日志计数 ⇒ 运营无法与 Audit Log 列表（实测 205 条）交叉核对，
+        #   页面看不出"日志表有没有在长"。此表体量很小，直接 count 无性能顾虑。
+        try:
+            from apps.commerce.models import AuditLog
+            out['audit_logs'] = AuditLog.objects.count()
+        except Exception:
+            pass
         return out
 
 

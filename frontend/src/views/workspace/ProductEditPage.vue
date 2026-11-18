@@ -845,6 +845,16 @@ const chemAutoVerified = computed(() => {
   if (c.formula_mismatch || c.mw_mismatch) return false
   return !!c.identity_verified
 })
+// ★ N-2：Lipinski 结论只有在「化合物身份已核验」时才算数。
+// 后端 identity_verified=False 时把 passed 置为 null（不是 false，false 会被读成「不合规」），
+// 前端必须把它当「未判定」呈现，不能渲染成 PASS/FAIL —— 否则就是给错分子做合规背书。
+const lipinskiVerdict = computed(() => {
+  const lp = enrichChemical.value?.lipinski
+  if (!lp) return null
+  if (lp.passed === true) return { text: '✓ PASS', cls: 'lipinski-pass' }
+  if (lp.passed === false) return { text: '✗ FAIL', cls: 'lipinski-fail' }
+  return { text: '— UNVERIFIED', cls: 'lipinski-unverified' }
+})
 // CAS 冲突检测（P3-2）— 表单 / PubChem / jena 三源非空且去 dash 互不相同 → 警示
 const casSources = computed(() => {
   const out = []
@@ -1975,9 +1985,12 @@ watch(
       <div v-if="enrichChemical?.lipinski && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
         <h4 style="margin:0 0 6px 0;font-size:14px">💊 Lipinski Rule of Five</h4>
         <p class="lipinski-help">Rule of Five predicts oral-drug-likeness of small molecules (MW≤500, LogP≤5, HBD≤5, HBA≤10, RotB≤10). Bioreagents/oligonucleotides (e.g. Jena SC8001) typically fail — this is expected.</p>
-        <span :class="enrichChemical.lipinski.passed ? 'lipinski-pass' : 'lipinski-fail'" style="font-size:12px;font-weight:600">
-          {{ enrichChemical.lipinski.passed ? '✓ PASS' : '✗ FAIL' }}
+        <span :class="lipinskiVerdict.cls" style="font-size:12px;font-weight:600">
+          {{ lipinskiVerdict.text }}
         </span>
+        <div v-if="enrichChemical.lipinski.caveat" class="lipinski-caveat">
+          ⚠ {{ enrichChemical.lipinski.caveat }}
+        </div>
         <div v-if="enrichChemical.lipinski.violations?.length" style="font-size:11px;color:var(--color-danger);margin-top:4px">
           {{ enrichChemical.lipinski.violations.join('; ') }}
         </div>
@@ -2540,8 +2553,21 @@ watch(
                 <span>GHS: {{ formatPictograms(sds.pictograms) }}</span>
               </div>
               <div v-if="sds.data_source_detail" class="sds-source">{{ sds.data_source_detail }}</div>
+              <!-- A-254：身份矛盾 → 草稿可存，但禁止发布（后端 approve_sds 硬拦，此处提前告知并禁用按钮） -->
+              <div v-if="sds.identity_conflict" class="sds-conflict">
+                ⚠ Cannot publish — identity conflict:
+                {{ sds.identity_conflict_detail || 'CAS and structure identifiers do not reconcile' }}
+                <span class="sds-conflict-hint">Fix the product's CAS / SMILES / InChI, then regenerate.</span>
+              </div>
               <div class="sds-rev-actions">
-                <button v-if="!sds.is_current" type="button" class="btn btn-ghost btn-sm" @click="approveSdsRev(sds.id)">Approve &amp; Publish SDS</button>
+                <button
+                  v-if="!sds.is_current"
+                  type="button"
+                  class="btn btn-ghost btn-sm"
+                  :disabled="!!sds.identity_conflict"
+                  :title="sds.identity_conflict ? 'Identity conflict — publishing is blocked' : ''"
+                  @click="approveSdsRev(sds.id)"
+                >Approve &amp; Publish SDS</button>
                 <button v-if="sds.is_current" type="button" class="btn btn-ghost btn-sm" @click="withdrawSdsRev(sds.id)">Withdraw</button>
                 <button type="button" class="btn btn-ghost btn-sm" @click="previewSds(sds)">Preview</button>
                 <button v-if="sds.pdf_path" type="button" class="btn btn-ghost btn-sm" @click="downloadSds(sds.id)">Download</button>
@@ -2794,6 +2820,15 @@ html.dark .toast-error { color: #FECACA; }
 /* Lipinski rules */
 .lipinski-pass { color: var(--color-success); }
 .lipinski-fail { color: var(--color-danger); }
+/* N-2：身份未核验时不给结论 —— 用中性灰表达「未判定」，不得用红/绿暗示合规性 */
+.lipinski-unverified { color: var(--color-text-tertiary, #64748b); }
+.lipinski-caveat {
+  font-size: 11px; line-height: 1.4; margin-top: 4px;
+  color: var(--color-amber-800, #92400e);
+  background: var(--color-warning-light, #fef3c7);
+  border: 1px solid var(--color-amber-200, #fde68a);
+  border-radius: 4px; padding: 4px 8px;
+}
 .lipinski-grid { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
 .lipinski-help { font-size: 11px; line-height: 1.4; color: var(--color-text-tertiary); margin: 0 0 6px 0; }
 .lipinski-ok { font-size: 11px; background: var(--color-success-light); color: var(--color-emerald-800); border: 1px solid var(--color-success-light); border-radius: 4px; padding: 2px 8px; }
@@ -2926,6 +2961,15 @@ html.dark .lipinski-unknown { background: #1e293b; color: #94a3b8; border-color:
 .sds-confidence { font-size: 11px; color: var(--color-text-secondary); margin-left: auto; }
 .sds-rev-meta { display: flex; gap: 16px; font-size: 12px; color: var(--color-text-secondary); margin: 6px 0; }
 .sds-source { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 6px; }
+/* A-254：身份矛盾横幅（草稿可存、禁止发布） */
+.sds-conflict {
+  font-size: 11px; line-height: 1.45; margin: 6px 0;
+  padding: 6px 10px; border-radius: 4px;
+  color: var(--color-amber-800, #92400e);
+  background: var(--color-warning-light, #fef3c7);
+  border: 1px solid var(--color-amber-200, #fde68a);
+}
+.sds-conflict-hint { display: block; margin-top: 2px; opacity: .8; }
 .sds-rev-actions, .coa-card-actions, .qc-form-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .sku-coa-group { margin-top: 12px; border-top: 1px dashed var(--color-border); padding-top: 10px; }
 .sku-coa-title { font-size: 13px; font-weight: 600; color: var(--color-text); margin-bottom: 8px; }

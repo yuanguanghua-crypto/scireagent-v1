@@ -84,7 +84,7 @@ class PubChemEnhancer:
 
     # ── Lipinski 五规则 ──────────────────────────────────
 
-    def check_lipinski(self, properties: dict) -> dict:
+    def check_lipinski(self, properties: dict, identity_verified: bool = True) -> dict:
         """Lipinski 五规则检查
 
         规则:
@@ -93,9 +93,23 @@ class PubChemEnhancer:
           3. H-Bond Donor ≤ 5
           4. H-Bond Acceptor ≤ 10
           5. Rotatable Bonds ≤ 10
+
+        ★ N-2（2026-11-18）：identity_verified=False（仅名称匹配，无 CAS/结构佐证）时
+          **不给出 passed 结论** —— passed 置 None 并附 caveat。
+          理由：把未验证分子的属性算成「通过 Lipinski」，等于给错分子出具合规背书。
+          DS 复测实测 `XQZ-9987-NOMATCH` → CID 98586（N-叔丁基羟胺，完全无关）
+          且 `confidence=unverified` + `lipinski.passed=true`，用户看到的就是一组合规数据。
         """
         if not properties:
-            return {'passed': False, 'violations': ['No properties available'], 'details': {}}
+            return {
+                'passed': False,
+                'identity_verified': bool(identity_verified),
+                'violations': ['No properties available'],
+                'details': {},
+                'caveat': '' if identity_verified else (
+                    '化合物身份未经核验（仅按名称匹配，无 CAS/结构佐证）'
+                    '——以下判定仅供参考，不得作为合规或采购结论。'),
+            }
 
         mw = properties.get('molecular_weight') or 0
         logp = properties.get('xlogp')
@@ -139,9 +153,14 @@ class PubChemEnhancer:
             details['rot_ok'] = None
 
         return {
-            'passed': len(violations) == 0,
+            # 身份未核验 ⇒ 不给结论（None ≠ False：False 会被读成「不合规」）
+            'passed': (len(violations) == 0) if identity_verified else None,
+            'identity_verified': bool(identity_verified),
             'violations': violations,
             'details': details,
+            'caveat': '' if identity_verified else (
+                '化合物身份未经核验（仅按名称匹配，无 CAS/结构佐证）'
+                '——以下判定仅供参考，不得作为合规或采购结论。'),
         }
 
     # ── 相似度搜索 ──────────────────────────────────────
@@ -421,6 +440,46 @@ class PubChemEnhancer:
             set_cache("pubchem", f"{identifier}{ctx}", namespace, result, ttl_seconds=self.PUBCHEM_CACHE_TTL_FOUND)
         return result
 
+    def _name_reverse_check(self, identifier, compound) -> bool:
+        """name 查询的**名字回验**（N-2）。
+
+        PubChem 的 ``compound/name`` 端点是模糊/同义匹配，对**根本不存在的名字**
+        也可能返回一个近似化合物（DS 实测 `XQZ-9987-NOMATCH` → CID 98586
+        N-叔丁基羟胺，两者毫无关系）。
+
+        ★ 只在**同义词列表可用**时才下判断：取不到同义词（API 抖动 / 未加载）意味着
+          我们无从回验，此时放行（返回值下游仍是 requires_review + candidates，
+          绝不会被自动套用），避免因技术故障把合法匹配全部误杀。
+
+        放行条件（任一成立即 True）：
+          - 同义词列表为空 → 无法回验，放行
+          - 查询名整串（去空格/连字符/下划线、忽略大小写）出现在同义词/IUPAC名/分子式中
+          - 查询名至少一个「以字母开头且长度 ≥3」的词出现在上述文本中
+          - 查询名没有可用的 ASCII 词（如纯中文名）→ 无法回验，放行
+        """
+        try:
+            synonyms = [str(s) for s in (getattr(compound, 'synonyms', None) or [])]
+            iupac = str(getattr(compound, 'iupac_name', '') or '')
+            formula = str(getattr(compound, 'molecular_formula', '') or '')
+        except Exception:
+            return True
+        if not synonyms:
+            return True
+
+        hay = ' '.join(synonyms + [iupac, formula]).lower()
+        if not hay:
+            return True
+
+        norm_id = re.sub(r'[\s\-_]+', '', str(identifier or '')).lower()
+        norm_hay = re.sub(r'[\s\-_]+', '', hay)
+        if norm_id and norm_id in norm_hay:
+            return True
+
+        tokens = {t.lower() for t in re.findall(r'[A-Za-z][A-Za-z0-9]{2,}', str(identifier or ''))}
+        if not tokens:
+            return True
+        return any(t in hay for t in tokens)
+
     def _resolve_to_properties_impl(self, identifier: str, namespace: str = 'name',
                                  expected_cas=None, expected_formula=None,
                                  expected_mw=None) -> dict:
@@ -447,6 +506,26 @@ class PubChemEnhancer:
             if not results and namespace == 'name':
                 results = self._fallback_search_by_tokens(identifier)
                 fallback_used = bool(results)
+
+            # ── ★ N-2：name 结果必须过名字回验 ──────────────────────
+            # PubChem 的 name 端点是模糊匹配，对不存在的名字也会返回近似化合物
+            # （实测 XQZ-9987-NOMATCH → CID 98586）。凡是「回了另一个化合物」的证据
+            # 都不成立时，直接判未找到，绝不让它带着 confidence=unverified 流进下游
+            # 去驱动 Lipinski/合规展示。宁可 miss，不可错配。
+            # 适用范围：仅 name-only 查询（无 expected_cas）。给了 CAS 的查询由
+            # _validate_identity 做更强的 CAS 比对，不该被名字字面回验误杀。
+            if results and namespace == 'name' and not expected_cas:
+                kept = [c for c in results if self._name_reverse_check(identifier, c)]
+                if not kept:
+                    out = self._not_found(identifier)
+                    out['name_verification'] = 'failed'
+                    out['search_hint'] = (
+                        f'PubChem returned compound(s) unrelated to "{identifier}" '
+                        '(name reverse-check against synonyms/IUPAC name failed). '
+                        'Enter CAS/SMILES/InChI to identify the molecule instead.'
+                    )
+                    return out
+                results = kept
 
             # ── PubChem / 片段降级都没命中 → ChEMBL fallback（强制候选）──
             if not results:

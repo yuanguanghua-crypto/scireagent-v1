@@ -332,9 +332,15 @@ class ProductEnrichView(EnvelopeMixin, APIView):
                 )
 
             # ── Lipinski（本地计算，集成 Validate 能力）──
+            # ★ N-2：只有身份已核验（CAS/结构佐证）时才给 passed 结论；
+            #   仅名称匹配（identity_verified=False）时 passed 置 None + caveat，
+            #   避免把无关分子的属性算成「合规通过」。
             if chemical.get("found") and chemical.get("properties"):
                 try:
-                    chemical["lipinski"] = enhancer.check_lipinski(chemical["properties"])
+                    chemical["lipinski"] = enhancer.check_lipinski(
+                        chemical["properties"],
+                        identity_verified=bool(chemical.get("identity_verified")),
+                    )
                 except Exception as e:
                     logger.warning(f"Lipinski check failed: {e}")
                     chemical["lipinski"] = None

@@ -207,7 +207,9 @@ class ChEMBLFallbackTest(TestCase):
         mock_compound.h_bond_donor_count = 1
         mock_compound.h_bond_acceptor_count = 4
         mock_compound.rotatable_bond_count = 3
-        mock_compound.synonyms = ["50-78-2"]
+        # N-2：同义词必须含被查询名本身。真实 PubChem 对 CID 2244 返回的同义词表里
+        # 就包含 "Aspirin"；旧 mock 只写 CAS 属不真实构造，会让名字回验误判为无关化合物。
+        mock_compound.synonyms = ["Aspirin", "50-78-2"]
         # pubchempy 1.0.5 用 smiles 代替 canonical_smiles
         mock_compound.smiles = "CC(=O)OC1=CC=CC=C1C(=O)O"
 
@@ -223,7 +225,7 @@ class ChEMBLFallbackTest(TestCase):
         mock_request.assert_not_called()
 
         # synonyms 透传（Phase A：供 jena_matcher 增量匹配）
-        self.assertEqual(result["properties"]["synonyms"], ["50-78-2"])
+        self.assertEqual(result["properties"]["synonyms"], ["Aspirin", "50-78-2"])
 
     @patch("core.datasource_client.requests.request")
     @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
@@ -681,3 +683,156 @@ class PubChemGuardTest(TestCase):
                         "候选必须携带 formula_mismatch 供前端拦截")
         self.assertTrue(cand.get("requires_review"),
                         "候选必须携带 requires_review 供前端拦截")
+
+
+class PubChemNameReverseCheckTest(TestCase):
+    """N-2：PubChem name 端点是模糊匹配，必须做名字回验。
+
+    DS 复测实测：`XQZ-9987-NOMATCH` → CID 98586（N-叔丁基羟胺），
+    完全无关的化合物被当作「找到了」，还带着 lipinski.passed=true 展示。
+    修法：同义词可用时，查询名与返回化合物必须有任何可核对的公共词，否则判未找到。
+    """
+
+    def setUp(self):
+        self.enhancer = PubChemEnhancer()
+        cache.clear()
+
+    def _mock(self, cid=98586, synonyms=None, iupac="2-methylpropan-2-amine oxide"):
+        c = MagicMock()
+        c.cid = cid
+        c.molecular_formula = "C4H11NO"
+        c.molecular_weight = 89.14
+        c.iupac_name = iupac
+        c.smiles = "CC(C)(C)NO"
+        c.isomeric_smiles = "CC(C)(C)NO"
+        c.inchi = "InChI=1S/C4H11NO/c1-4(2,3)5-6/h5-6H,1-3H3"
+        c.inchikey = "FCCICDZQRBWVEH-UHFFFAOYSA-N"
+        c.xlogp = 0.3
+        c.tpsa = 32.3
+        c.h_bond_donor_count = 2
+        c.h_bond_acceptor_count = 2
+        c.rotatable_bond_count = 1
+        c.complexity = 42
+        c.exact_mass = 89.084
+        c.monoisotopic_mass = 89.084
+        c.charge = 0
+        c.heavy_atom_count = 6
+        c.synonyms = synonyms if synonyms is not None else []
+        return c
+
+    @patch("core.datasource_client.requests.request")
+    @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
+    def test_unrelated_name_hit_becomes_not_found(self, mock_get_compounds, mock_request):
+        """★ 核心回归：名字与返回化合物毫无公共词 ⇒ 判未找到，不得返回候选。"""
+        mock_get_compounds.return_value = [self._mock(
+            synonyms=["N-tert-Butylhydroxylamine", "2-Propanamine, 2-methyl-N-hydroxy-"])]
+        result = self.enhancer.resolve_to_properties("XQZ-9987-NOMATCH", namespace="name")
+        self.assertFalse(result["found"], "无关化合物必须判未找到（宁 miss 不错配）")
+        self.assertEqual(result.get("name_verification"), "failed")
+        self.assertIn("unrelated", result.get("search_hint", ""))
+
+    @patch("core.datasource_client.requests.request")
+    @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
+    def test_related_name_hit_is_kept(self, mock_get_compounds, mock_request):
+        """正向守卫：同义词里确实有该名字时必须保留（不能一刀切全判 miss）。"""
+        mock_get_compounds.return_value = [self._mock(
+            cid=2244, synonyms=["Aspirin", "Acetylsalicylic acid", "50-78-2"],
+            iupac="2-acetyloxybenzoic acid")]
+        result = self.enhancer.resolve_to_properties("Aspirin", namespace="name")
+        self.assertTrue(result["found"])
+        self.assertFalse(result["identity_verified"], "纯 name 匹配仍不得视为已验证")
+
+    @patch("core.datasource_client.requests.request")
+    @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
+    def test_skipped_when_synonyms_unavailable(self, mock_get_compounds, mock_request):
+        """同义词取不到 ⇒ 无从回验，放行（下游仍 requires_review，不会自动套用）。"""
+        mock_get_compounds.return_value = [self._mock(synonyms=[], iupac="Ethanol")]
+        result = self.enhancer.resolve_to_properties("XQZ-9987-NOMATCH", namespace="name")
+        self.assertTrue(result["found"])
+        self.assertTrue(result["requires_review"])
+        self.assertFalse(result["identity_verified"])
+
+    @patch("core.datasource_client.requests.request")
+    @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
+    def test_skipped_when_expected_cas_given(self, mock_get_compounds, mock_request):
+        """给了 expected_cas 的查询由 CAS 比对把关，不被名字字面回验误杀。"""
+        mock_get_compounds.return_value = [self._mock(
+            cid=2244, synonyms=["50-78-2", "Acetylsalicylic acid"],
+            iupac="2-acetyloxybenzoic acid")]
+        result = self.enhancer.resolve_to_properties(
+            "Some Totally Different Label", namespace="name", expected_cas="50-78-2")
+        self.assertTrue(result["found"])
+        self.assertTrue(result["identity_verified"])
+
+    @patch("core.datasource_client.requests.request")
+    @patch("apps.commerce.services.validators.pubchem_enhancer.pcp.get_compounds")
+    def test_chinese_name_not_rejected(self, mock_get_compounds, mock_request):
+        """纯中文名没有 ASCII 词可比 ⇒ 不因此误杀。"""
+        mock_get_compounds.return_value = [self._mock(
+            synonyms=["Ethanol", "64-17-5"], iupac="ethanol")]
+        result = self.enhancer.resolve_to_properties("无水乙醇", namespace="name")
+        self.assertTrue(result["found"])
+
+    def test_reverse_check_unit(self):
+        """_name_reverse_check 各分支直接单测（不经网络）。"""
+        c_related = self._mock(synonyms=["5-Propargylamino-CTP", "Propargylamino-CTP"])
+        c_unrelated = self._mock(synonyms=["N-tert-Butylhydroxylamine"])
+        # 整串归一化命中（连字符/大小写无关）
+        self.assertTrue(self.enhancer._name_reverse_check("5-propargylamino-ctp", c_related))
+        # 单 token 命中
+        self.assertTrue(self.enhancer._name_reverse_check("CTP labeling kit", c_related))
+        # 毫无公共词
+        self.assertFalse(self.enhancer._name_reverse_check("XQZ-9987-NOMATCH", c_unrelated))
+        # 同义词不可用 → 放行
+        self.assertTrue(self.enhancer._name_reverse_check(
+            "XQZ-9987-NOMATCH", self._mock(synonyms=[])))
+        # 无 ASCII token → 放行
+        self.assertTrue(self.enhancer._name_reverse_check("无水乙醇", c_unrelated))
+
+
+class LipinskiIdentityGateTest(TestCase):
+    """N-2 后半：unverified 不得驱动 lipinski.passed。
+
+    passed=False 与 passed=None 语义不同 —— 前者是「不合规」，后者是「未判定」。
+    未核验身份却给出 PASS，等于给错分子做合规背书。
+    """
+
+    PROPS = {
+        'molecular_weight': 180.16,
+        'xlogp': 1.2,
+        'h_bond_donor_count': 1,
+        'h_bond_acceptor_count': 4,
+        'rotatable_bond_count': 3,
+    }
+
+    def setUp(self):
+        self.enhancer = PubChemEnhancer()
+
+    def test_unverified_gives_no_verdict(self):
+        out = self.enhancer.check_lipinski(self.PROPS, identity_verified=False)
+        self.assertIsNone(out['passed'], "未核验身份不得给出 passed 结论")
+        self.assertFalse(out['identity_verified'])
+        self.assertTrue(out['caveat'], "必须说明这是未核验结果的参考值")
+        self.assertEqual(out['violations'], [])
+
+    def test_verified_passes(self):
+        out = self.enhancer.check_lipinski(self.PROPS, identity_verified=True)
+        self.assertIs(out['passed'], True)
+        self.assertEqual(out['caveat'], '')
+
+    def test_verified_fails_on_violation(self):
+        out = self.enhancer.check_lipinski(
+            dict(self.PROPS, molecular_weight=900), identity_verified=True)
+        self.assertIs(out['passed'], False)
+        self.assertTrue(any('Molecular weight' in v for v in out['violations']))
+
+    def test_default_keeps_backward_compat(self):
+        """既有调用不传 identity_verified 时行为不变（默认视为已核验）。"""
+        out = self.enhancer.check_lipinski(self.PROPS)
+        self.assertIs(out['passed'], True)
+        self.assertTrue(out['identity_verified'])
+
+    def test_empty_properties_still_carries_gate_fields(self):
+        out = self.enhancer.check_lipinski({}, identity_verified=False)
+        self.assertIn('identity_verified', out)
+        self.assertIn('caveat', out)
