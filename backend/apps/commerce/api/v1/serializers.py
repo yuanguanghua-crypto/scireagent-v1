@@ -14,10 +14,16 @@ from apps.commerce.services.commerce_service import CommerceService
 #   精度与下限。历史上阶梯价加了 min_value、目录价漏了，导致 -100.00 能落库
 #   （实测 SKU 963 = -5.00）。抽常量后两处引用同一值，避免第四次漂移。
 #   注意：下限是 0 不是 0.01 —— 0 是合法的"待定价"占位，不得误伤。
+# ★ A-048 / A-208（同一现象）：上限此前完全缺失，99999999 可落库。
+#   上限取 1,000,000 —— 2026-11-18 生产只读实测：SKU 共 50 条价区间
+#   0.00~989.00、阶梯价 69 条最高 899.00，`>100000` 与 `>1000000` 均为 0 条。
+#   即上限比现状最高值大 1000 倍：挡得住明显误输，也不会把既有数据打回。
 MONEY_MIN = Decimal('0')
+MONEY_MAX = Decimal('1000000')
 MONEY_MAX_DIGITS = 12
 MONEY_DECIMAL_PLACES = 2
 MONEY_PRICE_REQUIRED_MSG = '价格不能为负。'
+MONEY_PRICE_MAX_MSG = '价格超出上限：单个价格不得超过 {max_value}，请检查是否多输了位数。'
 
 
 class ProductClassSerializer(BaseModelSerializer):
@@ -54,12 +60,17 @@ class SKUCreateSerializer(serializers.ModelSerializer):
     # ★ A-017（起步档，零迁移）：目录价此前**无任何下限校验**，实测 -5.00 可落库。
     #   与 SkuTierItemSerializer.unit_price 改为共用 MONEY_* 常量，两处口径统一。
     #   0 是合法的"待定价"占位（生产有 3 条 0 价 SKU），故下限取 0 而非 0.01。
+    # ★ A-048 / A-208（本档）：补上限 max_value=MONEY_MAX，两处共用同一常量。
     price = serializers.DecimalField(
         max_digits=MONEY_MAX_DIGITS,
         decimal_places=MONEY_DECIMAL_PLACES,
         min_value=MONEY_MIN,
+        max_value=MONEY_MAX,
         required=False,
-        error_messages={'min_value': MONEY_PRICE_REQUIRED_MSG},
+        error_messages={
+            'min_value': MONEY_PRICE_REQUIRED_MSG,
+            'max_value': MONEY_PRICE_MAX_MSG,
+        },
     )
 
     class Meta:
@@ -81,10 +92,14 @@ class SkuTierItemSerializer(serializers.Serializer):
     """阶梯价单档入参。"""
     min_qty = serializers.IntegerField(min_value=1)
     # ★ A-017：与 SKU 目录价共用 MONEY_* 常量（原本这里硬编码，目录价则完全没有）
+    # ★ A-048 / A-208：上限同口径，禁止阶梯价另写一个上限值
     unit_price = serializers.DecimalField(
         max_digits=MONEY_MAX_DIGITS, decimal_places=MONEY_DECIMAL_PLACES,
-        min_value=MONEY_MIN,
-        error_messages={'min_value': MONEY_PRICE_REQUIRED_MSG},
+        min_value=MONEY_MIN, max_value=MONEY_MAX,
+        error_messages={
+            'min_value': MONEY_PRICE_REQUIRED_MSG,
+            'max_value': MONEY_PRICE_MAX_MSG,
+        },
     )
 
 
