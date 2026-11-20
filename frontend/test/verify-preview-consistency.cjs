@@ -1,8 +1,12 @@
 /**
- * 预览一致性验证 —— 用真实 Chromium 加载 sds-preview.html / coa-preview.html，
- * postMessage 一条 SC8003 的真实数据，断言：
- *   1) 所有关键字段渲染为真实记录值（映射对齐后端 ReportLab 生成器）
- *   2) 无任何 SC8001 样本残留（原串号 Bug 根因）
+ * 预览一致性验证 —— 用真实 Chromium 加载 sds-preview.html / coa-preview.html，断言：
+ *   1) 投递一条真实数据后，所有关键字段渲染为真实记录值（映射对齐后端 ReportLab 生成器）
+ *   2) 无任何样本残留
+ *   3) ★ 2026-11-20（A-052 / A-150）**未投递数据时也不得出现任何产品样本**
+ *      —— 这是原用例漏掉的失效形态：旧模板内置 SC8001 硬编码文档，
+ *      一旦 postMessage 没送达（QA 实际遇到的情况），预览就整份显示别人的 COA/SDS。
+ *      现在模板只保留中性占位，投递失败必须是空白 + 提示，而不是串号。
+ *   4) 模板会主动发 `__ready`，渲染完成后回 `__ack`（父侧握手协议的另一半）
  * 运行：node test/verify-preview-consistency.cjs
  */
 const path = require('path')
@@ -72,18 +76,48 @@ function check(label, cond) {
 
 async function renderAndGetText(browser, url, data) {
   const page = await browser.newPage()
+  // 记录模板主动发给父窗口的握手消息。
+  // 必须用 addInitScript：`__ready` 在文档脚本执行时就会发出，晚于 goto 注入就抓不到。
+  // （本文件为 file:// 顶层页，parent === window，且 targetOrigin 为 "null" 会导致
+  //   真实投递抛错并被模板自己的 try/catch 吞掉 ⇒ 这里在调用**之前**记录。）
+  await page.addInitScript(() => {
+    window.__bridgeMsgs = []
+    const orig = window.postMessage.bind(window)
+    window.postMessage = (m, o) => {
+      if (m && typeof m === 'object') {
+        if (m.__ready) window.__bridgeMsgs.push('ready')
+        else if ('__ack' in m) window.__bridgeMsgs.push('ack:' + m.__ack)
+      }
+      try { return orig(m, o) } catch (e) { return undefined }
+    }
+  })
   await page.goto(url)
   await page.evaluate((d) => { window.postMessage(d, '*') }, data)
   // 等 bridge 完成渲染
   await page.waitForTimeout(200)
   const text = await page.evaluate(() => document.body.innerText)
   const html = await page.evaluate(() => document.body.innerHTML)
+  const msgs = await page.evaluate(() => window.__bridgeMsgs || [])
   await page.close()
-  return { text, html }
+  return { text, html, msgs }
+}
+
+/** 只加载、不投递任何数据 —— 模拟"消息没送达"的失效形态。 */
+async function loadOnly(browser, url) {
+  const page = await browser.newPage()
+  await page.goto(url)
+  await page.waitForTimeout(200)
+  const text = await page.evaluate(() => document.body.innerText)
+  await page.close()
+  return { text }
 }
 
 (async () => {
-  const browser = await chromium.launch()
+  let browser
+  for (const ch of ['chrome', 'msedge']) {
+    try { browser = await chromium.launch({ channel: ch }); break } catch (e) { /* 下一种 */ }
+  }
+  if (!browser) browser = await chromium.launch()
   try {
     // ===== SDS =====
     const sds = await renderAndGetText(browser, SDS, sdsData)
@@ -133,6 +167,27 @@ async function renderAndGetText(browser, url, data) {
     check('COA: 无残留 Dr. Michael Lee', !ct.includes('Michael Lee'))
     check('COA: 无残留 COA-SC8001', !ct.includes('COA-SC8001'))
     check('COA: 无残留笔误 USP <771>', !ct.includes('USP <771>'))
+
+    // ===== 握手协议：模板必须先发 __ready，渲染后回 __ack =====
+    check('SDS: 发出 __ready', (sds.msgs || []).includes('ready'))
+    check('SDS: 渲染后回 __ack:true', (sds.msgs || []).includes('ack:true'))
+    check('COA: 发出 __ready', (coa.msgs || []).includes('ready'))
+    check('COA: 渲染后回 __ack:true', (coa.msgs || []).includes('ack:true'))
+
+    // ===== ★ 回归（A-052 / A-150）：不投递数据时也不得显示任何产品样本 =====
+    const sdsEmpty = await loadOnly(browser, SDS)
+    check('SDS 空载: 无样本 SC8001', !sdsEmpty.text.includes('SC8001'))
+    check('SDS 空载: 无样本产品名 Methyladenosine', !sdsEmpty.text.includes('Methyladenosine'))
+    check('SDS 空载: 无样本 CAS 2140-79-6', !sdsEmpty.text.includes('2140-79-6'))
+    check('SDS 空载: 无样本 CID 102211', !sdsEmpty.text.includes('102211'))
+    check('SDS 空载: 显示中性占位', sdsEmpty.text.includes('Waiting for document data'))
+
+    const coaEmpty = await loadOnly(browser, COA)
+    check('COA 空载: 无样本 SC8001', !coaEmpty.text.includes('SC8001'))
+    check('COA 空载: 无样本产品名 Methyladenosine', !coaEmpty.text.includes('Methyladenosine'))
+    check('COA 空载: 无样本纯度 99.52', !coaEmpty.text.includes('99.52'))
+    check('COA 空载: 无样本签名 Sarah Chen', !coaEmpty.text.includes('Sarah Chen'))
+    check('COA 空载: 无样本 Doc ID COA-SC8001', !coaEmpty.text.includes('COA-SC8001'))
   } finally {
     await browser.close()
   }

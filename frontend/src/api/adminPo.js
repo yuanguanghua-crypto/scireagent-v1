@@ -96,7 +96,14 @@ export function getOrganizations(params = {}) {
   return http.get('/organizations/manage/', { params })
 }
 
-/** 指定机构的订单（OrderViewSet，admin 全量，按 organization_id 过滤）。 */
+/**
+ * 指定机构的订单（OrderViewSet，admin 全量，按 organization_id 过滤）。
+ *
+ * ⚠️ 2026-11-20（S5 P-2）起 `PoOrgManagement.vue` **不再用这个包装器**：
+ *   它只取一页（`page_size:100`）且页面没有翻页手段，本地实测 org 4 有 1123 单 ⇒ 漏 1023。
+ *   现在走 `composables/useOrderQueue.fetchAllOrderPages({ organization_id })` 取全。
+ *   保留此函数供临时/调试调用，新代码请优先用 `fetchAllOrderPages`。
+ */
 export function getOrgOrders(orgId, params = {}) {
   return http.get('/orders/', { params: { organization_id: orgId, ...params } })
 }

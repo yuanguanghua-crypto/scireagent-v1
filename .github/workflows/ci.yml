@@ -375,6 +375,14 @@ jobs:
         working-directory: frontend
         run: node e2e/preflight.cjs
 
+      # ★ 2026-11-20（A-052 / A-150）：预览模板一致性闸门。
+      #   该脚本此前只存在于 test/ 下、未挂任何 npm script 与 CI ⇒ 7 月修过的
+      #   「预览串到另一个产品」没有任何自动化守卫，11 月复发时无人拦得住。
+      #   现锁两层：① 投递后字段正确且无样本残留；② **未投递时也不得出现任何产品样本**。
+      - name: 预览模板不串号（A-052/A-150）
+        working-directory: frontend
+        run: npm run test:preview
+
       - name: E2E 冒烟（81 例只读）
         working-directory: frontend
         run: npm run test:e2e:ci

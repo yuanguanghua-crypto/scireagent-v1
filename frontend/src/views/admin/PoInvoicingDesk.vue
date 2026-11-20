@@ -1,10 +1,15 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { getOrders, getOrderDetail, issueInvoice, payInvoice } from '@/api/adminPo'
+import { getOrderDetail, issueInvoice, payInvoice } from '@/api/adminPo'
+import { fetchOrderQueue } from '@/composables/useOrderQueue'
 import { PAYMENT_TERMS, PAYMENT_METHODS } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
 import { StatusBadge } from '@/components/common'
 import { verifyPayment } from '@/api/orders'
+import { useConfirm } from '@/composables/useConfirm'
+import { extractErrorMessage } from '@/utils/http'
+
+const { askText } = useConfirm()
 
 const orders = ref([])
 const loading = ref(false)
@@ -13,24 +18,35 @@ const detail = ref(null)
 const terms = reactive({})
 const pay = reactive({})
 
+/**
+ * 队列取数状态（★ S5 P-2，与 Shipment Desk 同构）。
+ *
+ * 原实现 `getOrders({page_size:200})` 拉一页再客户端筛 ⇒ 越过 200 单后被挤出的
+ * delivered/invoiced 订单**永远进不了开票队列**，且页面不提示。
+ * 现走服务端 `status__in` + 翻页取全，并显式显示队列总数。
+ */
+const QUEUE_STATUSES = ['delivered', 'invoiced']
+const queueTotal = ref(0)
+const queueTruncated = ref(false)
+const queueError = ref('')
+
 async function load() {
   loading.value = true
+  queueError.value = ''
   try {
-    const res = await getOrders({ page_size: 200 })
-    const payload = res.data || res
-    const all = payload.results || payload.data || payload || []
-    // ★ 2026-10-21 修 D3（P1）：此前是 `o.status === 'delivered' || o.invoice`，
-    //   但列表用的是 `OrderListSerializer`，其 `fields` **不含 `invoice`**
-    //   （`apps/transactions/api/v1/serializers.py:56-61`）⇒ `o.invoice` 恒 undefined（恒假）。
-    //   开票又会把订单推进成 `invoiced`（`services.py` 的 issue_invoice）
-    //   ⇒ 开票后两个条件同时不成立 ⇒ 订单从队列消失，再也进不去「Record Payment」。
-    //   现在改为**只看状态**（队列语义本就由状态机决定）：
-    //     delivered ⇒ 待开票；invoiced ⇒ 已开票待收款（部分付款仍停在 invoiced，见
-    //     `services.py:520-530`，因此必须留在队列）；paid/completed/cancelled ⇒ 已结清/已终结，离开。
-    //   不再依赖"列表 payload 里恰好带了 invoice"这种脆弱前提。
+    // ★ 2026-10-21 修 D3（P1）保留其结论：队列**只看状态**，不看 `o.invoice`
+    //   （`OrderListSerializer` 不含 `invoice`，旧判据恒假）。
+    //   delivered ⇒ 待开票；invoiced ⇒ 已开票待收款（部分付款仍停在此态，必须留队列）；
+    //   paid/completed/cancelled ⇒ 已结清/已终结，离开队列。
     //   回归：`frontend/e2e/po-invoicing-queue.spec.cjs`（正+反两条断言）。
-    const QUEUE_STATUSES = ['delivered', 'invoiced']
-    orders.value = all.filter((o) => QUEUE_STATUSES.includes(o.status))
+    const { orders: rows, total, truncated } = await fetchOrderQueue(QUEUE_STATUSES)
+    orders.value = rows
+    queueTotal.value = total
+    queueTruncated.value = truncated
+  } catch (e) {
+    // 取数失败必须落在页面上，否则空表会被读成"没有待开票订单"
+    queueError.value = extractErrorMessage(
+      e?.response?.data ?? e, 'Could not load the invoicing queue.')
   } finally {
     loading.value = false
   }
@@ -65,9 +81,23 @@ const pendingPayments = computed(() =>
   (detail.value?.invoice?.payments || []).filter((p) => p.status === 'pending'))
 
 async function doVerify(p, action) {
-  const notes = action === 'reject'
-    ? (window.prompt('Reject reason (optional)') || '')
-    : ''
+  let notes = ''
+  if (action === 'reject') {
+    // ★ 2026-11-18（S4）：`window.prompt` → 页内 `askText`。
+    //   原写法 `window.prompt(...) || ''` 把**取消**（null）和**留空确认**（''）
+    //   压成同一个空串 ⇒ 点取消也会把凭证判为 rejected。现在两者分开：
+    //   取消 ⇒ 不发请求；确认且留空 ⇒ 照常拒绝，只是没有备注。
+    const reason = await askText({
+      title: 'Reject this payment proof',
+      message: 'Why is this proof rejected?\n'
+        + 'A reason is optional, but the customer-side record keeps it for later disputes.',
+      placeholder: 'Optional reason…',
+      confirmText: 'Reject proof',
+      danger: true,
+    })
+    if (reason === null) return
+    notes = reason
+  }
   await verifyPayment(detail.value.invoice.id, {
     payment_id: p.id, action, notes,
   })
@@ -89,7 +119,15 @@ onMounted(load)
 
     <div class="po-form-grid">
       <div class="po-card">
-        <h2 class="po-section-title">Delivered / Invoiced Orders</h2>
+        <h2 class="po-section-title">
+          Delivered / Invoiced Orders
+          <span class="po-muted" data-testid="queue-total">({{ queueTotal }})</span>
+        </h2>
+        <p v-if="queueError" class="po-queue-error" data-testid="queue-error">{{ queueError }}</p>
+        <p v-if="queueTruncated" class="po-queue-warn" data-testid="queue-truncated">
+          Showing the first {{ orders.length }} of {{ queueTotal }} orders — the queue exceeds
+          the page cap, so the rest is not listed here.
+        </p>
         <table class="po-table" v-if="orders.length">
           <thead><tr><th>Order</th><th>Status</th><th>Total</th></tr></thead>
           <tbody>
@@ -160,6 +198,19 @@ onMounted(load)
 
 <style scoped>
 .po-row-selected { background: var(--color-primary-subtle); }
+/* ★ S5 P-2：队列取数失败 / 超出翻页上限，都必须留在页面上 */
+.po-queue-error {
+  margin: 0 0 10px; padding: 8px 12px;
+  border: 1px solid var(--color-danger, #dc2626); border-radius: 4px;
+  background: var(--color-danger-subtle, #fef2f2); color: var(--color-danger, #dc2626);
+  font-size: 12px; line-height: 1.45;
+}
+.po-queue-warn {
+  margin: 0 0 10px; padding: 8px 12px;
+  border: 1px solid var(--color-warning, #d97706); border-radius: 4px;
+  background: rgba(217, 119, 6, .06);
+  font-size: 12px; line-height: 1.45;
+}
 .proof-box {
   margin-top: 16px; padding: 12px; border-radius: var(--radius-md);
   border-left: 4px solid var(--color-warning, #d97706);

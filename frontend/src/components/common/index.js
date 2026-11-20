@@ -1,6 +1,7 @@
 export { default as AppButton } from './AppButton.vue'
 export { default as AppDialog } from './AppDialog.vue'
 export { default as AppToast, toast } from './AppToast.js'
+export { default as ConfirmHost } from './ConfirmHost.vue'
 
 // 保留已有——不要动其他已有 common 组件
 export { default as DataPagination } from './DataPagination.vue'

@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/components/layout/AppLayout.vue'
 import ResearchCartPanel from '@/components/navigation/ResearchCartPanel.vue'
+import ConfirmHost from '@/components/common/ConfirmHost.vue'
 </script>
 
 <template>
@@ -12,6 +13,9 @@ import ResearchCartPanel from '@/components/navigation/ResearchCartPanel.vue'
     </router-view>
   </AppLayout>
   <ResearchCartPanel />
+  <!-- ★ 2026-11-18（S4）：全局确认框宿主。必须常驻在根部 —— 任何页面
+       `await ask(...)` 都指向它；缺了它 Promise 永远不结算（点了没反应）。 -->
+  <ConfirmHost />
   <footer class="site-footer">
     <div class="site-footer-inner">
       <span>© 2026 SciReAgent. All rights reserved.</span>

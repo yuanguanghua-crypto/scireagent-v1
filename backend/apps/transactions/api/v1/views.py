@@ -2,6 +2,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from core.mixins import EnvelopeMixin
 from apps.transactions.models import Order, Quote, Basket, Wishlist
+from apps.transactions.api.v1.filters import OrderFilter
 from apps.transactions.api.v1.serializers import (
     OrderListSerializer, OrderDetailSerializer,
     QuoteListSerializer, QuoteDetailSerializer,
@@ -30,7 +31,13 @@ class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
     #   `commerce/api/v1/views.py:59` 的 `product_class_id`）+ `organization`（FK 字段规范名）。
     #   ⚠️ 不会造成提权：`get_queryset()` 先按用户收窄（客户只看自己的），过滤只在其**之上**再收窄。
     #   回归测试：`apps/transactions/tests/test_cross_org_visibility.py::OrderOrganizationFilterTest`
-    filterset_fields = ['status', 'organization', 'organization_id']
+    #
+    # ★ 2026-11-20（S5 P-2）：`filterset_fields` → `filterset_class`，为的是加 `status__in`
+    #   （多状态一次筛）。运营台原先 `page_size=200` 拉一页再客户端筛，累计单量过 200 就
+    #   静默漏单（本地实测 confirmed 漏 70/94）。三个原有过滤器的类与校验行为保持不变，
+    #   见 `filters.py` 的类注释。⚠️ DRF 不允许同时给 `filterset_fields` 与 `filterset_class`
+    #   （会 assert 失败），所以这里只能二选一。
+    filterset_class = OrderFilter
     # ★ 2026-09-24 收紧：此前未声明权限 ⇒ 匿名可写 `POST /orders/`（实测可造 `user=null` 的订单）。
     #   2026-10-21 F4 起写口**整体关闭**（`http_method_names` 只读），此条仅描述读契约。
     #   读维持原契约（匿名 GET → 200 空列表，`get_queryset` 已 `.none()`）。

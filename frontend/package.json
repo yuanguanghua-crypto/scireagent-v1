@@ -16,7 +16,8 @@
     "test:e2e:preflight": "node e2e/preflight.cjs",
     "test:e2e:ci": "node node_modules/@playwright/test/cli.js test e2e/cross-browser-smoke.spec.cjs e2e/a11y.spec.cjs e2e/visual-tokens.spec.cjs --project=chromium --retries=0 --reporter=line",
     "test:unit": "vitest run",
-    "test:unit:watch": "vitest"
+    "test:unit:watch": "vitest",
+    "test:preview": "node test/verify-preview-consistency.cjs"
   },
   "dependencies": {
     "@axe-core/playwright": "^4.12.1",
