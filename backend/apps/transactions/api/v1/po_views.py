@@ -7,6 +7,7 @@ from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
@@ -121,13 +122,59 @@ class ApproveOrderView(EnvelopeMixin, APIView):
         return self.success_response(OrderDetailSerializer(order, context={'request': request}).data)
 
 
+def _void_unreceived_shipments(order):
+    """订单被取消/拒审时，作废该单下**未签收**的发货记录（A-262）。
+
+    改前 `RejectOrderView` 与 `CancelOrderView` 都只做
+    `transition_to(CANCELLED)` + `release_for_order`，**完全不碰 ShippingRecord**
+    ⇒ 实测（QA Batch 21，TEST 单 ORD-20261115-001）：订单已 Cancelled，
+    Shipment id24 仍是 `shipped`，详情页 Shipments 区照旧显示
+    「Shipped / TEST-FU7-01-TRACK」。运营会一直去催一个已作废订单的物流。
+
+    DELIVERED 的**不动**：货已签收是物理事实，取消订单不改变"它已经到达"这件事；
+    把它改成 cancelled 反而会让对账时少了签收证据。
+
+    返回作废条数（供调用方打日志）。用 queryset.update() 而非逐条 save()：
+    无需触发任何钩子，且必须显式带 `updated_at`（auto_now 只在 save() 时生效）。
+    """
+    return ShippingRecord.objects.filter(
+        order=order,
+        status__in=[
+            ShippingRecord.Status.PREPARING,
+            ShippingRecord.Status.SHIPPED,
+            ShippingRecord.Status.IN_TRANSIT,
+        ],
+    ).update(
+        status=ShippingRecord.Status.CANCELLED,
+        updated_at=timezone.now(),
+    )
+
+
 class RejectOrderView(EnvelopeMixin, APIView):
     """POST /api/v1/orders/<id>/reject/ — → CANCELLED。"""
     permission_classes = [IsProcurementOrAdmin]
 
     def post(self, request, pk):
         order = get_object_or_404(Order, pk=pk)
-        reason = request.data.get('reason', '')
+        # ★ 2026-11-26（A-159）：拒审必须写理由。
+        #
+        #   改前 `reason = request.data.get('reason', '')` 直接带进状态机 note
+        #   ⇒ 空原因也能把 PO 单推进到 CANCELLED（实测 QA Batch 15：对 ORD-6942185F
+        #   点 Reject、原因留空，未被拦截，订单由 PO Received 变 Cancelled 并移出待审列表）。
+        #
+        #   为什么必须拦：拒审是**不可逆的状态跃迁**，理由是该单唯一的书面依据 ——
+        #   采购方追问"为什么拒"时，数据库里只留一个空 note。
+        #   前端 `PoReviewDesk.reject` 原本也是 `rejectReason[id] || ''` 直接发。
+        #
+        #   ⚠️ 只给 Reject 加，**不给 CancelOrderView 加**：`api/orders.js` 的 cancel
+        #   调用是 `http.post('/orders/<id>/cancel/')`，**完全不传 body** ⇒ 加必填会
+        #   直接把现有的"运营手动取消"打 400。
+        reason = (request.data.get('reason') or '').strip()
+        if not reason:
+            return self.error_response(
+                '拒绝订单必须填写原因（采购方会据此追问，也会写入状态日志）。',
+                code='REASON_REQUIRED', status_code=400,
+            )
         try:
             with transaction.atomic():
                 OrderStateMachine.transition_to(
@@ -139,6 +186,9 @@ class RejectOrderView(EnvelopeMixin, APIView):
                 #   而且**不会报任何错** —— 只是库存慢慢变少。
                 InventoryService.release_for_order(
                     order, reason=f'cancel:{order.order_no}')
+                # ★ 2026-11-26（A-262）：作废该单下未签收的发货记录
+                #   （DELIVERED 的不动 —— 已签收是物理事实）
+                _void_unreceived_shipments(order)
         except InvalidTransitionError as e:
             return self.error_response(str(e), code='INVALID_TRANSITION', status_code=400)
         return self.success_response(OrderDetailSerializer(order, context={'request': request}).data)
@@ -162,6 +212,9 @@ class CancelOrderView(EnvelopeMixin, APIView):
                 #   而且**不会报任何错** —— 只是库存慢慢变少。
                 InventoryService.release_for_order(
                     order, reason=f'cancel:{order.order_no}')
+                # ★ 2026-11-26（A-262）：作废该单下未签收的发货记录
+                #   （DELIVERED 的不动 —— 已签收是物理事实）
+                _void_unreceived_shipments(order)
         except InvalidTransitionError as e:
             return self.error_response(str(e), code='INVALID_TRANSITION', status_code=400)
         return self.success_response(OrderDetailSerializer(order, context={'request': request}).data)
@@ -435,3 +488,78 @@ class PoAttachmentDownloadView(EnvelopeMixin, APIView):
         fname = attachment.original_filename or os.path.basename(attachment.file.name)
         response['Content-Disposition'] = f'inline; filename="{fname}"'
         return response
+
+
+class InvoiceListView(EnvelopeMixin, APIView):
+    """GET /api/v1/invoices/ —— 发票列表（A-167，2026-11-26 新增）。
+
+    ## 改前是什么样
+    `/api/v1/invoices/` 与 `/api/v1/invoices` **都是 Resolver404** —— 路由确实不存在，
+    不是"对匿名不可见"。发票 id 只能进容器跑 ORM 才拿得到，而运营/客服对账时
+    第一句话就是"这单的发票号是什么、金额多少、付了没"。
+
+    ## 可见性
+    与 `OrderViewSet.get_queryset` 同口径：
+      · 内部人员（`is_staff` 或 role ∈ procurement/admin）看全部
+      · 客户只看**自己订单**的发票（经 `order__user` 过滤）
+    这是刻意的：发票含金额与付款记录，跨客户可见就是财务数据事故。
+
+    ## 参数
+      status —— draft / issued / paid / overdue / void，非法值 400（不静默忽略）
+      order  —— 订单 id，精确过滤（对账时按单查）
+      page / page_size —— 默认 20 / 上限 500（与 core/pagination 的同口径）
+    """
+    permission_classes = [IsAuthenticated]
+
+    DEFAULT_PAGE_SIZE = 20
+    MAX_PAGE_SIZE = 500
+
+    def get(self, request):
+        user = request.user
+        qs = (Invoice.objects
+              .select_related('order')
+              .prefetch_related('payments')
+              .order_by('-created_at'))
+
+        if not (user.is_staff or getattr(user, 'role', '') in ('procurement', 'admin')):
+            qs = qs.filter(order__user=user)
+
+        status_param = (request.query_params.get('status') or '').strip()
+        if status_param:
+            if status_param not in Invoice.Status.values:
+                return self.error_response(
+                    f'未知的发票状态：{status_param}。可选：{", ".join(Invoice.Status.values)}',
+                    code='INVALID_STATUS', status_code=400,
+                )
+            qs = qs.filter(status=status_param)
+
+        order_param = (request.query_params.get('order') or '').strip()
+        if order_param:
+            if not order_param.isdigit():
+                return self.error_response(
+                    'order 参数必须是订单 id（数字）', code='INVALID_ORDER', status_code=400,
+                )
+            qs = qs.filter(order_id=int(order_param))
+
+        try:
+            page = max(int(request.query_params.get('page', 1)), 1)
+        except (TypeError, ValueError):
+            page = 1
+        try:
+            page_size = min(int(request.query_params.get('page_size', self.DEFAULT_PAGE_SIZE)),
+                            self.MAX_PAGE_SIZE)
+        except (TypeError, ValueError):
+            page_size = self.DEFAULT_PAGE_SIZE
+        page_size = max(page_size, 1)
+
+        total = qs.count()
+        start = (page - 1) * page_size
+        rows = qs[start:start + page_size]
+
+        return self.success_response(
+            InvoiceSerializer(rows, many=True).data,
+            meta={'pagination': {
+                'count': total, 'page': page, 'page_size': page_size,
+                'next': page * page_size < total,
+            }},
+        )

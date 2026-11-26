@@ -349,6 +349,16 @@ class ShippingRecord(TimeStampedModel):
         SHIPPED = 'shipped', 'Shipped'
         IN_TRANSIT = 'in_transit', 'In Transit'
         DELIVERED = 'delivered', 'Delivered'
+        # ★ 2026-11-26（A-262）：订单被取消时，该单下未签收的发货记录必须作废。
+        #   改前 `CancelOrderView` 只做 `transition_to(CANCELLED)` + `release_for_order`，
+        #   **完全不碰 ShippingRecord** ⇒ 实测（QA Batch 21，TEST 单 ORD-20261115-001）：
+        #   订单已 Cancelled，Shipment id24 仍是 `shipped`，页面 Shipments 区照旧显示
+        #   「Shipped / TEST-FU7-01-TRACK」。
+        #   危害：发货台/详情页会一直显示一个"在路上"的批次，运营会去催物流；
+        #   而该单已作废，物流那边也不会再有更新。
+        #   为什么新增枚举而不是删记录：删是破坏性动作（且 batch 明细、轨迹都在），
+        #   而"作废"本身是业务事实，需要留痕。
+        CANCELLED = 'cancelled', 'Cancelled'
 
     order = models.ForeignKey(
         Order, on_delete=models.CASCADE, related_name='shipments', verbose_name='订单'

@@ -18,6 +18,7 @@ from apps.transactions.api.v1.po_views import (
     ConfirmQuoteView, AllocateView, ShipmentCreateView, MarkShippedView, MarkDeliveredView,
     InvoiceIssueView, PaymentCreateView, ArAgingView,
     InvoicePdfDownloadView, PoAttachmentDownloadView,
+    InvoiceListView,
 )
 
 router = DefaultRouter()
@@ -48,6 +49,9 @@ urlpatterns = [
     path('orders/<int:pk>/invoice/', InvoiceIssueView.as_view(), name='order-invoice'),
     path('shipments/<int:pk>/mark-shipped/', MarkShippedView.as_view(), name='shipment-mark-shipped'),
     path('shipments/<int:pk>/mark-delivered/', MarkDeliveredView.as_view(), name='shipment-mark-delivered'),
+    # ★ 2026-11-26（A-167）：发票列表。此前 /api/v1/invoices/ 是 Resolver404，
+    #   运营对账拿不到发票 id，只能进容器跑 ORM。
+    path('invoices/', InvoiceListView.as_view(), name='invoice-list'),
     path('invoices/<int:pk>/pay/', PaymentCreateView.as_view(), name='invoice-pay'),
     path('invoices/<int:pk>/pdf/', InvoicePdfDownloadView.as_view(), name='invoice-pdf'),
     path('orders/attachments/<int:pk>/download/', PoAttachmentDownloadView.as_view(), name='po-attachment-download'),

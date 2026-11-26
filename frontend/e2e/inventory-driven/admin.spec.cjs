@@ -20,6 +20,8 @@
 const { test, expect } = require('@playwright/test');
 const { BASE_URL, loginAsStaff } = require('../helpers/auth');
 const { attachConsoleErrorCollector } = require('../helpers/console');
+// ★ 2026-11-26（A-126）：取消订单改为页内确认框，需 DOM 驱动
+const { installConfirmCounter, waitConfirm, acceptConfirm } = require('../helpers/confirm');
 const {
   getAdminToken, getCustomerToken, getProductWithSku,
   submitPoApi, approve, advanceToDelivered, createShipmentApi, markShippedApi,
@@ -225,7 +227,12 @@ test.describe('阶段5 Admin 穷举', { tag: ['@write', '@local-only'] }, () => 
     await gotoPage(page, `/ops/orders/${po.id}`);
 
     await expect(page.locator('.btn-action', { hasText: 'Cancel Order' })).toBeVisible({ timeout: 10000 });
+    // ★ 2026-11-26（A-126）：点击后必须先过页内确认框，再断言状态徽章
+    //   （改前无确认、点一下直接取消；现在这是不可逆动作，必须显式确认）
+    await installConfirmCounter(page);
     await page.locator('.btn-action', { hasText: 'Cancel Order' }).click();
+    await waitConfirm(page);
+    await acceptConfirm(page);
     await expect(page.locator('.status-badge', { hasText: 'Cancelled' })).toBeVisible({ timeout: 10000 });
     expect(errors).toEqual([]);
   });

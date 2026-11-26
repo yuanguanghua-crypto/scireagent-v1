@@ -11,8 +11,13 @@ import { AppInput, AppSelect, LoadingSpinner } from '@/components/common'
 import { sortProtocolLinks, buildFolded, splitWeakLinks, axisBadges, unionProtocolRows } from '@/utils/protocolLinks'
 import { resolveMolecularWeight } from '@/utils/molecularWeight'
 import { selectTruncationHint } from '@/utils/selectHint'
+// ★ 2026-11-26（S5 P-4）：删 SKU 行是有副作用的动作（可能要转移默认标记），
+//   走页内确认框而不是裸 splice —— 原来点 ✕ 立即删行，无任何询问（A-255）。
+import { useConfirm } from '@/composables/useConfirm'
 
 import StructureViewer from './components/StructureViewer.vue'
+
+const { ask } = useConfirm()
 
 import MultiSourceMatchSection from './components/MultiSourceMatchSection.vue'
 import BiozEvidenceSection from './components/BiozEvidenceSection.vue'
@@ -376,7 +381,38 @@ function addSku() {
     lead_time: '', is_default: skus.value.length === 0,
   })
 }
-function removeSku(idx) { skus.value.splice(idx, 1) }
+async function removeSku(idx) {
+  // ★ 2026-11-26（A-255 + A-046）：删 SKU 行此前是裸 `splice`，点 ✕ 立即删行、
+  //   没有任何询问；若删的是**默认 SKU**，产品会落入「有 SKU 但无默认」的矛盾态
+  //   （横幅提示 "missing: Default SKU"，但产品仍是 Active —— QA Batch 5 的 A-046）。
+  //
+  //   现在两件事一起做：
+  //     1) 删之前问一次（列出要删的是哪一行、是不是默认）
+  //     2) 删默认行时**自动把剩余第一个设为默认**，不让矛盾态产生
+  //        （QA 预期是"自动设为默认"或"阻止删除"，这里选前者：运维更顺，
+  //          且删最后一行的场景仍允许 —— 那时产品本来就没有 SKU）
+  const row = skus.value[idx]
+  if (!row) return
+  const label = row.sku_code || row.sku_code_manual || `第 ${idx + 1} 行`
+  const isDefault = !!row.is_default
+  const remain = skus.value.length - 1
+
+  const ok = await ask({
+    title: '删除 SKU',
+    message: isDefault
+      ? `「${label}」是当前默认 SKU。\n\n删除后会把剩余 SKU 中的第一个自动设为默认` +
+        (remain === 0 ? '；这是最后一个 SKU，产品将没有 SKU。' : '。')
+      : `删除 SKU「${label}」？${remain === 0 ? '\n\n这是最后一个 SKU，产品将没有 SKU。' : ''}`,
+    confirmText: '删除',
+    danger: true,
+  })
+  if (!ok) return
+
+  skus.value.splice(idx, 1)
+  if (isDefault && skus.value.length) {
+    skus.value[0].is_default = true
+  }
+}
 
 // 拆分存储的 "10 µL" 字符串 → {value, unit}，用于回填 SKU 表格的分离输入
 // 非数字开头（如 "solid"）整体作为 value，无单位

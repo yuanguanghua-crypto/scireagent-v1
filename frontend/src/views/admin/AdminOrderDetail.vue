@@ -2,6 +2,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getAdminOrder, completeOrder, enterQuote, cancelOrder } from '@/api/orders'
+// ★ 2026-11-26（A-126）：取消订单是不可逆动作（置 Cancelled + 释放库存 +
+//   作废未签收发货记录），必须先问一次 —— 原来点一下就执行，无任何确认。
+import { useConfirm } from '@/composables/useConfirm'
+
+const { ask } = useConfirm()
 import {
   approveOrder, createShipment, markShipped, markDelivered,
   issueInvoice, payInvoice,
@@ -17,6 +22,8 @@ const order = ref(null)
 const loading = ref(false)
 const actionLoading = ref(false)
 const actionError = ref('')
+// ★ 2026-11-26（A-126）：动作成功后要有可见反馈（原来即使成功也完全静默）
+const actionInfo = ref('')
 // ★ 2026-10-21 修 D10：加载失败此前只 console.error ⇒ 整页空白 + 4 秒 toast
 const loadError = ref('')
 
@@ -98,6 +105,7 @@ function fmtDateTime(v) {
 async function doAction(action) {
   actionLoading.value = true
   actionError.value = ''
+  actionInfo.value = ''
   try {
     const id = order.value.id
     const o = order.value
@@ -130,8 +138,31 @@ async function doAction(action) {
     } else if (action === 'quote') {
       await enterQuote(id, quoteForm.value)
     } else if (action === 'cancel') {
+      // ★ 2026-11-26（A-126）：取消订单必须二次确认。
+      //   QA Batch 13 实测：点右上红色 Cancel Order，**无任何对话框**，订单状态直接
+      //   变 Cancelled，且无成功提示。这是不可逆动作（状态机没有"取消的取消"），
+      //   还会连带释放库存、作废未签收的发货记录 —— 误点的代价是运营要去重建整单。
+      const ok = await ask({
+        title: '取消订单',
+        message: `确定取消订单 ${o.order_no} 吗？\n\n`
+          + '· 状态将置为 Cancelled（**不可逆**）\n'
+          + '· 立即释放该单占用的库存\n'
+          + '· 未签收的发货记录会作废（已签收的保留）',
+        confirmText: '取消订单',
+        danger: true,
+      })
+      if (!ok) {
+        actionLoading.value = false
+        return
+      }
       await cancelOrder(id)
     }
+    // ★ 2026-11-26（A-126）：动作成功后要有可见反馈（此前完全静默，只能靠看状态变没变）
+    if (action === 'cancel') {
+      actionError.value = ''
+      actionInfo.value = '订单已取消，库存已释放。'
+    }
+
     // Refresh
     const res = await getAdminOrder(id)
     order.value = res.data || res
@@ -164,6 +195,8 @@ async function doAction(action) {
 
     <!-- Error -->
     <ErrorBanner :message="actionError" kind="action" />
+    <!-- ★ 2026-11-26（A-126）：成功反馈（取消订单等不可逆动作执行完必须告知） -->
+    <div v-if="actionInfo" class="admin-order-detail-info">{{ actionInfo }}</div>
 
     <!-- Action buttons based on canonical PO state machine -->
     <div class="action-bar">
@@ -356,6 +389,11 @@ async function doAction(action) {
 
 <style scoped>
 .admin-order-detail { }
+/* ★ 2026-11-26（A-126）：动作成功后的可见反馈（原来即使成功也完全静默） */
+.admin-order-detail-info {
+  margin-bottom: 16px; padding: 10px 14px; border-radius: var(--radius-md);
+  background: #ecfdf5; color: #065f46; font-size: 14px; font-weight: 600;
+}
 .order-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
 .order-title { font-size: 22px; font-weight: 800; margin: 0 0 4px; }
 .order-date { font-size: 14px; color: var(--color-text-secondary); margin: 0; }

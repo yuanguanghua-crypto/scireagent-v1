@@ -1,5 +1,7 @@
 """Admin order management endpoints."""
 from datetime import date, timedelta
+
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.views import APIView
@@ -188,20 +190,57 @@ class AdminVerifyPaymentView(APIView):
             return Response({'success': False, 'meta': {'error': {'code': 'NOT_FOUND'}}}, status=404)
 
         if data['action'] == 'verify':
-            payment.status = 'verified'
-            payment.verified_by = request.user
-            payment.verified_at = timezone.now()
-            if data.get('notes'):
-                payment.notes = data['notes']
-            payment.save()
+            # ★ 2026-11-26（A-257）：幂等保护 + 兜住状态机异常。
+            #
+            #   改前：本方法直接 `invoice.order.transition_to('paid')`，而订单**已是 paid**
+            #   时该方法抛 `InvalidTransitionError`，此处**没有捕获** ⇒ 整个请求 500。
+            #   实测触发路径（QA Batch 18）：先 `POST /invoices/{id}/pay/`
+            #   （该端点自动把 PaymentRecord 置 verified、发票置 paid），
+            #   再调本端点 verify ⇒ 必然 500。
+            #
+            #   语义上这不是"服务器错"，而是**资源当前状态不允许重复操作** ⇒ 409。
+            #   两个前置检查覆盖常见路径；atomic + except 兜住"付款/发票状态看着可核销、
+            #   但订单状态机不允许"的历史数据情形。
+            if payment.status == PaymentRecord.Status.VERIFIED:
+                return Response(
+                    {'success': False, 'meta': {'error': {
+                        'code': 'ALREADY_VERIFIED',
+                        'message': '该付款记录已核销，不能重复确认。',
+                    }}},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            if invoice.status == Invoice.Status.PAID:
+                return Response(
+                    {'success': False, 'meta': {'error': {
+                        'code': 'INVOICE_ALREADY_PAID',
+                        'message': '该发票已是付清状态，无需再次核销。',
+                    }}},
+                    status=status.HTTP_409_CONFLICT,
+                )
 
-            # Update invoice
-            invoice.status = 'paid'
-            invoice.paid_at = timezone.now()
-            invoice.save()
+            try:
+                with transaction.atomic():
+                    payment.status = PaymentRecord.Status.VERIFIED
+                    payment.verified_by = request.user
+                    payment.verified_at = timezone.now()
+                    if data.get('notes'):
+                        payment.notes = data['notes']
+                    payment.save()
 
-            # Update order
-            invoice.order.transition_to('paid')
+                    invoice.status = Invoice.Status.PAID
+                    invoice.paid_at = timezone.now()
+                    invoice.save()
+
+                    invoice.order.transition_to('paid')
+            except InvalidTransitionError as e:
+                # atomic 已回滚 ⇒ 付款记录与发票状态都没被改动
+                return Response(
+                    {'success': False, 'meta': {'error': {
+                        'code': 'INVALID_TRANSITION',
+                        'message': f'订单当前状态不允许标记为已付：{e}',
+                    }}},
+                    status=status.HTTP_409_CONFLICT,
+                )
         else:
             payment.status = 'rejected'
             if data.get('notes'):
