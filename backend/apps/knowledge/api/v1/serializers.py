@@ -615,7 +615,20 @@ class MethodListSerializer(MethodApplicationWriteMixin, BaseModelSerializer):
 
     class Meta:
         model = Method
-        fields = ['id', 'name', 'slug', 'summary', 'application_id', 'application_ids',
+        # ★ 2026-11-26（A-005 / A-027）：补 `purpose`。
+        #   此前刻意不加（`test_list_payload_does_not_include_purpose` 守着），理由是
+        #   "公开载荷膨胀 —— 全库 67k 条 method，purpose 是正文字段"。**该理由经实测不成立**：
+        #     · 全库 Method 实为 **88 条**（active 83），不是 67k；
+        #     · `purpose` 平均 **101** 字符 / 最长 153；
+        #     · 而 `summary` 平均 **302** 字符、最长 437，**本来就在本序列化器里返回**。
+        #   ⇒ 加上 purpose 等于给一个已有 302 字符正文的行再加 101 字符，
+        #     单页 20 行 JSON 11,099 → 13,468 字节（+2.4 KB）。
+        #   业务后果（QA A-027 已证明数据存在）：`MethodsPage.vue:217` 早就写了
+        #   `{{ (e.purpose || '').slice(0,120) }}`，后端不给 ⇒ 83 行全空，被误报成"数据缺失"。
+        #   注意：写路径仍走 `MethodDetailSerializer`（`views.py:get_serializer_class`），
+        #   本次只加**读**，不改变写契约。
+        fields = ['id', 'name', 'slug', 'summary', 'purpose',
+                  'application_id', 'application_ids',
                   'cost_band', 'timeline',
                   'status', 'is_step_tag', 'protocol_count', 'created_at']
 

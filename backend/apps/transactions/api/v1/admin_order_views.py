@@ -25,8 +25,10 @@ class AdminOrderListView(APIView):
 
     def get(self, request):
         # ★ 2026-10-22：列表序列化器新增 invoice/attachments 字段，需一并预取防 N+1
+        # ★ 2026-11-26（A-077）：又加 customer_name/customer_email/organization_name
+        #   ⇒ user / organization 也要 select_related，否则每行多 2 次查询
         orders = (Order.objects
-                  .select_related('invoice')
+                  .select_related('invoice', 'user', 'organization')
                   .prefetch_related('attachments', 'items')
                   .order_by('-created_at'))
         # Filters
@@ -57,7 +59,11 @@ class AdminOrderDetailView(APIView):
 
     def get(self, request, pk):
         try:
-            order = Order.objects.get(pk=pk)
+            # ★ 2026-11-26（A-077）：详情序列化器新增客户三字段 ⇒ 必须 select_related，
+            #   否则单条详情也会多 2 次查询（不影响列表，但这里顺手对齐，避免以后再漏）。
+            order = (Order.objects
+                     .select_related('user', 'organization')
+                     .get(pk=pk))
         except Order.DoesNotExist:
             return Response({'success': False, 'meta': {'error': {'code': 'NOT_FOUND'}}}, status=404)
         return Response({'success': True, 'data': OrderDetailSerializer(order).data})

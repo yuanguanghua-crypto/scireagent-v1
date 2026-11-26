@@ -17,8 +17,12 @@ import {
   getUsers, patchUser, verifyUserEmail, sendUserPasswordReset,
 } from '@/api/system'
 import { extractErrorMessage } from '@/utils/http'
+import { useConfirm } from '@/composables/useConfirm'
 
 const auth = useAuthStore()
+// ★ 2026-11-18（S4）：原生 window.confirm 换成页内确认框 —— 文案可控、
+// 危险动作有视觉等级、且 e2e 能断言「点取消后确实没写入」。
+const { ask } = useConfirm()
 
 const rows = ref([])
 const total = ref(0)
@@ -82,7 +86,15 @@ async function changeRole(r, ev) {
 
 async function toggleActive(r) {
   const next = !r.is_active
-  if (!next && !window.confirm(`停用 ${r.username}？停用后该账号所有登录凭证立即失效。`)) return
+  if (!next) {
+    const ok = await ask({
+      title: '停用账号',
+      message: `停用 ${r.username}？\n\n停用后该账号所有登录凭证立即失效，该用户将无法再登录。`,
+      confirmText: '停用',
+      danger: true,
+    })
+    if (!ok) return
+  }
   busyId.value = r.id
   error.value = ''
   try {
@@ -97,7 +109,13 @@ async function toggleActive(r) {
 }
 
 async function doVerify(r) {
-  if (!window.confirm(`把 ${r.username} 标记为邮箱已验证？\n\n这会绕过邮箱验证 —— 只在邮件通道故障或客户紧急时使用。`)) return
+  const ok = await ask({
+    title: '标记邮箱已验证',
+    message: `把 ${r.username} 标记为邮箱已验证？\n\n这会绕过邮箱验证流程 —— 只在邮件通道故障或客户紧急时使用。`,
+    confirmText: '标记已验证',
+    danger: true,
+  })
+  if (!ok) return
   busyId.value = r.id
   try {
     const res = await verifyUserEmail(r.id)
@@ -112,7 +130,12 @@ async function doVerify(r) {
 }
 
 async function doSendReset(r) {
-  if (!window.confirm(`向 ${r.email} 发送密码重置链接？`)) return
+  const ok = await ask({
+    title: '发送密码重置链接',
+    message: `向 ${r.email} 发送密码重置链接？`,
+    confirmText: '发送',
+  })
+  if (!ok) return
   busyId.value = r.id
   try {
     const res = await sendUserPasswordReset(r.id)
@@ -169,7 +192,12 @@ onMounted(async () => {
       />
       <select v-model="roleFilter" class="um-input um-input--sm" @change="load">
         <option value="">All roles</option>
-        <option v-for="r in ROLES" :key="r" :value="r">{{ r }}</option>
+        <!-- ★ 2026-11-26（A-092）：选 admin 时后端按「能进后台」判定
+             （role='admin' ∪ is_staff ∪ is_superuser），所以会带出 role 显示为
+             researcher 但实际是 staff/superuser 的账号。选项文案把这层说清楚。 -->
+        <option v-for="r in ROLES" :key="r" :value="r">
+          {{ r === 'admin' ? 'admin (+ staff/superuser)' : r }}
+        </option>
       </select>
       <select v-model="verifiedFilter" class="um-input um-input--sm" @change="load">
         <option value="">Any email state</option>
@@ -203,6 +231,12 @@ onMounted(async () => {
               >
                 <option v-for="role in ROLES" :key="role" :value="role">{{ role }}</option>
               </select>
+              <!-- ★ 2026-11-26（A-092）：「能不能进后台」有三条独立通道
+                   （role='admin' / is_staff / is_superuser），而本页下拉只能改 role。
+                   把另外两条如实标出来，这样「筛 admin 为什么会出来一个 researcher」
+                   在界面上自己就说得清，不用去翻代码。 -->
+              <span v-if="r.is_superuser" class="um-badge super" title="is_superuser=True">superuser</span>
+              <span v-else-if="r.is_staff" class="um-badge staff" title="is_staff=True">staff</span>
             </td>
             <td>
               <span class="um-badge" :class="r.is_active ? 'ok' : 'off'">
@@ -298,6 +332,9 @@ onMounted(async () => {
 .um-badge.ok { background: #dcfce7; color: #15803d; }
 .um-badge.warn { background: #fef3c7; color: #92400e; }
 .um-badge.off { background: #f3f4f6; color: #6b7280; }
+/* A-092：后台权限标记（与 role 是两回事，必须视觉上可区分） */
+.um-badge.staff { background: #e0e7ff; color: #3730a3; margin-left: 4px; }
+.um-badge.super { background: #ede9fe; color: #5b21b6; margin-left: 4px; }
 
 .um-foot { font-size: 12px; color: var(--color-text-tertiary, #6b7280); margin-top: 12px; line-height: 1.6; }
 

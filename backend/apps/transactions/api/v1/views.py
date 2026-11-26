@@ -59,8 +59,12 @@ class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
             return Order.objects.none()
         # ★ 2026-10-22：列表序列化器新增 `invoice` / `attachments` 字段（修下载中心空态），
         #   这里必须一并 select_related/prefetch，否则每行多 2 次查询（客户 100 单 = 200 次）。
+        # ★ 2026-11-26（A-077）：序列化器又加了 `customer_name` / `customer_email` /
+        #   `organization_name`（`CustomerFieldsMixin`）⇒ `user` 与 `organization` 也必须
+        #   select_related。本方法已经有 `filter(user=user)` 的分支，`user` 表其实已在 JOIN 里，
+        #   但**内部人员分支**（下面 return base.order_by）没有 ⇒ 运营看 100 单会多 200 次查询。
         base = (Order.objects
-                .select_related('invoice')
+                .select_related('invoice', 'user', 'organization')
                 .prefetch_related('attachments', 'items', 'invoice__payments'))
         # ★ 2026-10-14 修：内部人员（is_staff 或 procurement/admin）跨机构可见所有订单（审核台），
         #   客户仍只看自己的。此前仅 is_staff 可见全量 ⇒ procurement（非 staff）审核台空列表。

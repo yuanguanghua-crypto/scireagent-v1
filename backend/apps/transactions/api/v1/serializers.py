@@ -57,6 +57,46 @@ class OrderItemSerializer(BaseModelSerializer):
         return InventoryService.available_for_sku(obj.sku_id)['available']
 
 
+# ── ★ 2026-11-26（A-077）：客户身份的取值实现（列表与详情共用同一份）──
+#
+# ⚠️ 为什么是**模块级函数**而不是「mixin 里声明字段」：
+#   DRF 的 `SerializerMetaclass` 只在**直接以 Serializer 为基类**的类上构建
+#   `_declared_fields`；普通 mixin 类体里写的 `serializers.SerializerMethodField()`
+#   收集不到 ⇒ 子类 `Meta.fields` 会直接抛
+#       ImproperlyConfigured: Field name `customer_name` is not valid for model `Order`
+#   （本轮已实测踩到，整包 30 条测试全红）。
+#   所以字段声明必须写在每个序列化器**自己的类体**里 —— 与本文件既有的
+#   `knowledge` 侧 `MethodApplicationWriteMixin` 约定一致：mixin 只放方法，不放字段。
+#   取值逻辑放这里共享，避免列表与详情两份 getter 日后漂移
+#   （A-102「Method 列表 protocol_count 与详情不同源」就是这么来的）。
+#
+# 安全面：`OrderListSerializer` **同时服务客户端** `/orders/` 列表，但
+#   `OrderViewSet.get_queryset` 对非内部人员只返回 `user=request.user` 的单
+#   ⇒ 客户看到的只是**他自己的**姓名/邮箱/组织，不构成横向泄露。
+#
+# 性能：启用这两组字段的 queryset 必须 `select_related('user', 'organization')`，
+#   否则每行多 2 次查询（100 行 = 200 次）。已接的三处：
+#     · `views.py` `OrderViewSet.get_queryset`
+#     · `admin_order_views.py` `AdminOrderListView.get`
+#     · `admin_order_views.py` `AdminOrderDetailView.get`
+
+def customer_name_of(obj):
+    """客户姓名；无 first/last name 时回落用户名（本项目账号多为 username 型）。"""
+    user = obj.user
+    if not user:
+        return ''
+    return (user.get_full_name() or '').strip() or user.username or ''
+
+
+def customer_email_of(obj):
+    # 用户已明确要求列表也带邮箱（运营要在列表上直接联系客户）。
+    return (obj.user.email if obj.user else '') or ''
+
+
+def organization_name_of(obj):
+    return obj.organization.name if obj.organization else ''
+
+
 class OrderListSerializer(BaseModelSerializer):
     items_count = serializers.SerializerMethodField()
     # ★ 2026-09-24 收紧：本序列化器同时用于 `OrderViewSet` 的 **list 与 create**
@@ -80,6 +120,15 @@ class OrderListSerializer(BaseModelSerializer):
     invoice = serializers.SerializerMethodField()
     attachments = serializers.SerializerMethodField()
 
+    # ★ 2026-11-26（A-077）：客户身份三字段（取值见文件上方 `customer_name_of` 等）。
+    #   此前列表的 CUSTOMER 列渲染的是 `order.user_id`（`AdminOrdersPage.vue:117`）——
+    #   一个**裸数字 id**，而 `user` 为 NULL 时整列空白（QA Batch 8 实测 21 行全空）；
+    #   详情页（`AdminOrderDetail.vue:258-259`）也只有 "User ID 12 / Org ID 16"。
+    #   ⚠️ 字段必须在类体里声明，不能挪进 mixin（原因见文件上方注释）。
+    customer_name = serializers.SerializerMethodField()
+    customer_email = serializers.SerializerMethodField()
+    organization_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Order
         fields = [
@@ -94,7 +143,18 @@ class OrderListSerializer(BaseModelSerializer):
             #   （views.py:23），本序列化器**没有**任何写入口 ⇒ 加字段只是加读取，
             #   不引入新的可写字段。
             'grant_code', 'shipping_method', 'shipping_name', 'shipping_address',
+            # ★ 2026-11-26（A-077）：客户身份（只读派生，见上）
+            'customer_name', 'customer_email', 'organization_name',
         ]
+
+    def get_customer_name(self, obj):
+        return customer_name_of(obj)
+
+    def get_customer_email(self, obj):
+        return customer_email_of(obj)
+
+    def get_organization_name(self, obj):
+        return organization_name_of(obj)
 
     def get_items_count(self, obj):
         # 用索引访问已 prefetch 的缓存；未 prefetch 时退化为一次 COUNT（与原行为一致）
@@ -139,6 +199,11 @@ class OrderDetailSerializer(BaseModelSerializer):
     shipments = serializers.SerializerMethodField()
     status_logs = StatusLogSerializer(many=True, read_only=True)
     internal_notes = serializers.SerializerMethodField()
+    # ★ 2026-11-26（A-077）：详情页 Customer 区此前只有 "User ID 12 / Org ID 16"，
+    #   运营联系不上客户。取值与列表同源（文件上方 `customer_name_of` 等）。
+    customer_name = serializers.SerializerMethodField()
+    customer_email = serializers.SerializerMethodField()
+    organization_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -153,6 +218,9 @@ class OrderDetailSerializer(BaseModelSerializer):
             'billing_name', 'billing_address',
             'notes', 'internal_notes', 'comment',
             'items', 'invoice', 'shipments', 'status_logs',
+            # ★ 2026-11-26（A-077）：详情页 Customer 区此前只有 "User ID 12 / Org ID 16"，
+            #   运营联系不上客户。三字段由 `CustomerFieldsMixin` 提供（与列表同源）。
+            'customer_name', 'customer_email', 'organization_name',
             'created_at', 'updated_at',
         ]
 
@@ -161,6 +229,15 @@ class OrderDetailSerializer(BaseModelSerializer):
         if request and request.user and request.user.is_staff:
             return obj.internal_notes
         return None
+
+    def get_customer_name(self, obj):
+        return customer_name_of(obj)
+
+    def get_customer_email(self, obj):
+        return customer_email_of(obj)
+
+    def get_organization_name(self, obj):
+        return organization_name_of(obj)
 
     def get_invoice(self, obj):
         if hasattr(obj, 'invoice') and obj.invoice:
@@ -302,6 +379,35 @@ class ShipmentCreateSerializer(serializers.Serializer):
     notes = serializers.CharField(required=False, allow_blank=True, default='')
     # ★ 结构不对 ⇒ 400 带字段错误（不再 500）
     items = ShipmentItemSerializer(many=True, allow_empty=False)
+
+    def validate(self, attrs):
+        """★ 2026-11-18（A-095）：`carrier` 与 `tracking_number` **至少填一个** → 否则 400。
+
+        背景：两个字段原先都是 `required=False, allow_blank=True, default=''`
+        ⇒ 后端**主动接受**一次「无承运商、无单号、无备注」的发货：`ShippingRecord`
+        落一条全空记录、订单状态照样推进到 shipped，客户收到的邮件里没有任何可追踪信息。
+
+        为什么是"至少一个"而不是"两个都必填"：
+          · 真实履约里有「承运商已知、单号稍后补」（先用 DHL 揽收，晚些拿到运单号）；
+          · 也有「客户自提/本地配送」：只有承运商名字（或反之）。
+          强行两个都必填只会逼运营填 `N/A` 这种假数据，反而让记录更难用。
+          但**两个都空**在任何场景下都没有意义 —— 那条记录既追踪不了也索赔不了。
+
+        错误挂在 `non_field_errors`（跨字段规则），由 `core/exceptions.py` 的格式化器
+        直接作为 message 呈现，不加字段前缀。
+        """
+        attrs = super().validate(attrs)
+        carrier = (attrs.get('carrier') or '').strip()
+        tracking = (attrs.get('tracking_number') or '').strip()
+        if not carrier and not tracking:
+            raise serializers.ValidationError(
+                'A shipment needs at least a carrier or a tracking number — '
+                'otherwise the parcel can\'t be traced or claimed. Please fill in one of them.'
+            )
+        # 顺手把纯空格归一化成空串：`'   '` 能绕过上面的判断落库成"看起来填了"的脏值
+        attrs['carrier'] = carrier
+        attrs['tracking_number'] = tracking
+        return attrs
 
 
 class PoAttachmentSerializer(BaseModelSerializer):

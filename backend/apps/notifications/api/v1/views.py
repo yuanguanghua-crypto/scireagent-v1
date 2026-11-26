@@ -19,7 +19,7 @@ import logging
 
 from django.conf import settings
 from django.db import connection
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Q
 
 from rest_framework import serializers, status
 from rest_framework.response import Response
@@ -402,7 +402,14 @@ class EmailOutboxRowSerializer(serializers.ModelSerializer):
 
 
 class EmailOutboxListView(EnvelopeMixin, APIView):
-    """GET /api/v1/ops/email-outbox/?status=failed&limit=50"""
+    """GET /api/v1/ops/email-outbox/?status=failed&limit=50
+
+    参数（2026-11-26 增 `search`）：
+      status        —— pending / sent / failed
+      template_key  —— **精确**匹配模板键（如 `shipped`）
+      search        —— 自由文本，模糊匹配 subject / body_text / context_json
+                       用途见下（A-164）。
+    """
 
     permission_classes = [IsProcurementOrAdmin]
 
@@ -414,6 +421,31 @@ class EmailOutboxListView(EnvelopeMixin, APIView):
         key = request.query_params.get('template_key')
         if key:
             qs = qs.filter(template_key=key)
+
+        # ★ 2026-11-26（A-164）：补订单号搜索。
+        #   此前本页**只有 template_key 精确筛选**，运营手上拿到一个订单号
+        #   （QA 用例是 `ORD-AD684447`）根本没有输入框可填 —— 填进 template_key
+        #   自然 0 条（那不是模板键），于是"该订单没有任何邮件"的误判。
+        #
+        #   为什么搜这三个字段而不是加一个 order 外键：
+        #     `EmailOutbox` **没有** order FK（见 `notifications/models.py`），
+        #     订单号只以文本形式存在于：
+        #       · subject     e.g. "Purchase order received for order ORD-AD684447"
+        #       · body_text   （模板渲染后的正文）
+        #       · context_json `{"order_no": "ORD-AD684447", ...}` ← 最可靠的结构化落点
+        #   生产实测（2026-11-26，180 条 outbox）：探针单号在 subject / body_text /
+        #   context_json **各命中 6 条**，`to_emails` 命中 0 ⇒ 三个字段都要搜。
+        #   `context_json__icontains` 在 PG 上编译为 `::text ILIKE`，无索引；
+        #   本表量级 ~180 行（运营队列本就只留近期），可接受。
+        #   ⚠️ 若日后 outbox 上到十万级，这里要改成 `context_json__order_no=` 走表达式索引。
+        search = (request.query_params.get('search') or '').strip()
+        if search:
+            qs = qs.filter(
+                Q(subject__icontains=search)
+                | Q(body_text__icontains=search)
+                | Q(context_json__icontains=search)
+            )
+
         try:
             limit = min(int(request.query_params.get('limit', 50)), 300)
         except (TypeError, ValueError):

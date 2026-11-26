@@ -127,11 +127,23 @@ class MethodPurposeWriteTest(TestCase):
     """修 ①（与 E1 同型）：MethodsPage 的「Purpose」必须能读能写。
 
     根因：`MethodViewSet.get_serializer_class()` 此前**只在 `retrieve` 走 Detail**，
-    `create/update` 走 `MethodListSerializer`（`Meta.fields` **不含 `purpose`**）
+    `create/update` 走 `MethodListSerializer`（其 `Meta.fields` 当时不含 `purpose`）
     ⇒ 列表行读不到（输入框恒空）、PUT 里带的 `purpose` 被 DRF 静默忽略。
-    修法：写路径改走 `MethodDetailSerializer`（对齐 `ResearchGoalViewSet`）+ 给 Detail 补**宽容 slug**
-    （否则会 400 `slug is required` —— 与 E1 完全同型）。
-    同时钉住：**公开列表载荷不新增 `purpose`**（这是选"走 Detail"而非"往 List 加字段"的理由）。
+    修法 A（2026-09-24）：写路径改走 `MethodDetailSerializer`（对齐 `ResearchGoalViewSet`）
+    + 给 Detail 补**宽容 slug**（否则会 400 `slug is required` —— 与 E1 完全同型）。
+    当时还钉了一条"公开列表载荷不新增 `purpose`"，理由是"全库 67k 条 method，purpose 是正文字段"。
+
+    ★ 2026-11-26（A-005 / A-027）**修法 A 不足以修列表**：
+    写路径能被 Detail 读到 ≠ 列表行能被读到。`MethodsPage.vue:217` 渲染的是
+    `{{ (e.purpose || '').slice(0,120) }}`，数据源是**列表端点**，所以写完仍是 83 行全空
+    （QA 先按 A-005 报成"数据缺失"，A-027 对比编辑弹窗才定位到"列表没显示"）。
+    ⇒ 修法 B：`MethodListSerializer.Meta.fields` 补 `purpose`，并把"不得含"的断言**反转为"必须含"**。
+    **反转的依据是实测，不是为了让测试变绿**（本文件 :178 的 docstring 记了三个数）：
+      · 全库 Method 实为 **88 条**（active 83），不是 67k；
+      · `purpose` 平均 101 / 最长 153 字符；
+      · `summary` 平均 302 / 最长 437 字符，**本来就在 List 里返回**。
+      ⇒ 原"载荷膨胀"的理由不成立：给已有 302 字符正文的行再加 101 字符，
+        单页 20 行 JSON 11,099 → 13,468 字节（+2.4 KB）。
     """
 
     def setUp(self):
@@ -175,16 +187,23 @@ class MethodPurposeWriteTest(TestCase):
             Method.objects.get(id=resp.json()['data']['id']).purpose, 'created-with-purpose',
         )
 
-    def test_list_payload_does_not_include_purpose(self):
-        """★ 公开列表**不得**新增 `purpose`：写路径走 Detail 已能让它可读可写，
-        列表保持轻量（避免公开载荷膨胀 —— 全库 67k 条 method，purpose 是正文字段）。"""
+    def test_list_payload_includes_purpose(self):
+        """★ 列表必须含 `purpose`（A-005 / A-027）。
+
+        本条**反转自** `test_list_payload_does_not_include_purpose` 的相反断言。
+        反转依据是实测数据，不是为了让测试适应代码 —— 详见类 docstring 与
+        `MethodListSerializer.Meta.fields` 的注释（88 条、purpose 101 字 vs summary 302 字）。
+        """
         # 列表端点默认只返回 active（2026-10-26 方案 B），factory 默认是 draft 会被滤掉
-        MethodFactory(status='active')
+        MethodFactory(status='active', purpose='a-purpose-value-1234567890')
         resp = self.client.get('/api/v1/methods/', {'page_size': 5})
         self.assertEqual(resp.status_code, 200, resp.content[:300])
         rows = resp.json()['data']
         self.assertTrue(rows, '应有可见行')
-        self.assertNotIn('purpose', rows[0], '列表行不应含 purpose')
+        # 不止"键存在"，值也要真的传出来 —— 只断言键存在的话，
+        # 将来把字段写成 SerializerMethodField 恒返回 '' 仍会绿
+        self.assertIn('purpose', rows[0], '列表行必须含 purpose（MethodsPage 的 Purpose 列靠它）')
+        self.assertEqual(rows[0]['purpose'], 'a-purpose-value-1234567890')
 
     def test_detail_payload_includes_purpose(self):
         """Detail 端点必须含 `purpose`（前端 openEdit 靠它预填）。"""

@@ -114,7 +114,14 @@ function goToDetail(order) {
         <tbody>
           <tr v-for="order in orders" :key="order.id" @click="goToDetail(order)" class="order-row">
             <td class="mono">{{ order.order_no }}</td>
-            <td>{{ order.user_id }}</td>
+            <!-- ★ 2026-11-26（A-077）：此前这里是 `{{ order.user_id }}` —— 一个裸数字 id，
+                 user 为 NULL 的历史单整列空白，运营既联系不上客户也判断不出是谁下的。
+                 现在显示客户名 + 邮箱 + 组织名（后端 `CustomerFieldsMixin` 的同一份取值）。 -->
+            <td>
+              <div class="cust-name">{{ order.customer_name || '—' }}</div>
+              <div v-if="order.customer_email" class="cust-sub">{{ order.customer_email }}</div>
+              <div v-if="order.organization_name" class="cust-sub">{{ order.organization_name }}</div>
+            </td>
             <td class="mono">{{ order.po_number || '—' }}</td>
             <td>
               <span class="status-badge" :style="statusBadgeStyle(order.status)">
@@ -175,6 +182,9 @@ function goToDetail(order) {
 .order-row { cursor: pointer; transition: background 0.1s; }
 .order-row:hover { background: var(--color-bg); }
 .mono { font-family: var(--font-mono); font-size: 13px; }
+/* A-077：客户列的副行（邮箱 / 组织名），主行是姓名 */
+.cust-name { font-weight: 600; }
+.cust-sub { font-size: 12px; color: var(--color-text-secondary); line-height: 1.35; }
 .total-cell { font-weight: 600; font-variant-numeric: tabular-nums; }
 .view-link { color: var(--color-primary); font-weight: 600; }
 

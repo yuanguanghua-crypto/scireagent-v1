@@ -18,6 +18,7 @@ from apps.inventory.services import (
 )
 from apps.inventory.models import StockShortageAlert
 from apps.commerce.services.pricing import resolve_unit_price
+from apps.notifications.services import EmailService
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +172,42 @@ class CheckoutView(APIView):
             )
         logger.info('Checkout completed: order_no=%s user_id=%s',
                     order.order_no, order.user_id)
+
+        # ★ 2026-11-26（A-098）：补下单确认邮件。
+        #
+        #   此前本视图建完单**一封邮件都不发**（原代码此处直接 return 201），
+        #   而 `order_confirmed` 模板只有 PO 上传路径的 `ApproveOrderView`
+        #   （`po_views.py:117`）在发 ⇒ **购物车结账单永远收不到确认邮件**。
+        #   生产实测（2026-11-26）：`email_outbox` 里 `order_confirmed` 共 24 封，
+        #   全部来自 PO 路径；QA 的 `ORD-20261110-001` 只有 shipped/delivered/
+        #   invoice_issued 三封，正是这条缺口（它的 `po_submitted` 缺失是**正常的** ——
+        #   购物车单本来就没有 PO 可提交，不要一起"补"）。
+        #
+        #   ⚠️ 三个边界，改动时别踩：
+        #   1) **必须放在 `with transaction.atomic()` 之外**（本行之后）。放在块内的话，
+        #      后续任何异常回滚都会留下"订单不存在但邮件已入队"的孤儿记录；
+        #      而 outbox 是 cron 异步投递的，那条邮件真的会被发出去。
+        #   2) **quote 路径不发**。`payment_method == 'quote'` 时订单落 `QUOTE_PENDING`，
+        #      客户还没下成单，发"Your order is confirmed"是错的
+        #      （该路径的确认发生在报价被接受时，走 `ConfirmQuoteView`）。
+        #   3) 收件人取 `shipping_email` 优先、回落 `user.email`。
+        #      `ApproveOrderView` 只取 `shipping_email` 且为空时传 `[]`，
+        #      那会写出 `to_emails=''` 的空收件人记录 —— 这里不复制那个缺陷。
+        if order.payment_method != 'quote':
+            recipient = order.shipping_email or getattr(user, 'email', '') or ''
+            if recipient:
+                EmailService.enqueue(
+                    'order_confirmed',
+                    to=[recipient],
+                    ctx={'order_no': order.order_no},
+                )
+            else:
+                # 没有收件人就**不写空壳记录**；留日志以便排查"为什么这单没邮件"
+                logger.warning(
+                    'Checkout order %s has no recipient email; order_confirmed skipped',
+                    order.order_no,
+                )
+
         return Response(
             OrderDetailSerializer(order).data,
             status=status.HTTP_201_CREATED,

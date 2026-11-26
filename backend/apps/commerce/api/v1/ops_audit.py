@@ -54,9 +54,12 @@ class AuditLogListView(EnvelopeMixin, APIView):
 
     参数：
       action     —— CREATE / UPDATE / DELETE / RESTORE / HARD_DELETE
-      username   —— 操作人用户名（模糊）
+      username   —— 操作人用户名（模糊）；特殊值 `system` 表示「无操作人」那批
+                    （`user IS NULL`，UI 把 NULL 显示成 system —— A-165）
       model      —— content_type.model（如 product）
-      search     —— object_repr 模糊匹配
+      search     —— 匹配 Object 列：`object_repr` 模糊 + （纯数字时）`object_id` 精确。
+                    UI 的 Object 列是 `object_repr` 与 `#object_id` 拼接显示，
+                    只搜前者会让「搜编号」永远 0 条 —— A-166
       since/until—— ISO 日期，闭区间
       limit      —— 默认 100，上限 500
     """
@@ -73,7 +76,19 @@ class AuditLogListView(EnvelopeMixin, APIView):
 
         username = (p.get('username') or '').strip()
         if username:
-            qs = qs.filter(user__username__icontains=username)
+            # ★ 2026-11-26（A-165）：UI 把「无操作人」渲染成 "system"
+            #   （`AuditLogPage.vue:147`：`{{ r.username || 'system' }}`），
+            #   但 `user` 为 NULL 的记录 `user__username__icontains='system'` **永远匹配不上**
+            #   （NULL 的 join 不产生行）⇒ 输入 system 返回 0 条，
+            #   而页面上明明列着那批记录。生产实测（2026-11-26，241 条）：
+            #     · `user IS NULL` = **22 条**（正是 QA 说的"22 条 system 记录"）
+            #     · `user__username__icontains='system'` = **0 条**
+            #   ⇒ 输入 system 时改按 NULL 判定；同时保留 icontains 分支，
+            #     万一日后真有人把用户名取成 system_xxx，两种语义都能命中。
+            if username.lower() == 'system':
+                qs = qs.filter(Q(user__isnull=True) | Q(user__username__icontains=username))
+            else:
+                qs = qs.filter(user__username__icontains=username)
 
         model = (p.get('model') or '').strip()
         if model:
@@ -81,7 +96,23 @@ class AuditLogListView(EnvelopeMixin, APIView):
 
         search = (p.get('search') or '').strip()
         if search:
-            qs = qs.filter(Q(object_repr__icontains=search))
+            # ★ 2026-11-26（A-166）：Object 列在 UI 上是**拼出来**的，不是单一字段。
+            #   `AuditLogPage.vue:143-144` 渲染两段：
+            #       <span class="al-obj">{{ r.object_repr || '(no name)' }}</span>
+            #       <span class="al-oid">#{{ r.object_id }}</span>
+            #   ⇒ 运营看到的 "TEST-UTP-20261110-03 #5454" 里，`5454` 是 **object_id**，
+            #     `object_repr` 里根本没有 '#'（生产实测 241 条：`object_repr__icontains='#'`
+            #     = **0 条**，全部形如 'DS-A043-588100' 这种纯名称）。
+            #   而本方法此前只 `object_repr__icontains` ⇒ 搜任何编号后缀都返回 0
+            #   （QA 搜 5454 得 0、搜产品名得 26 条，正是这个原因；
+            #    生产实测 `object_id=5454` 有 **30 条**审计记录）。
+            #   修法：输入是纯数字（可带前导 '#'）时，**同时**按 object_id 精确匹配。
+            #   不用 `object_id__icontains` —— 那是整型列转字符串，PG 上会全表隐式转换。
+            q = Q(object_repr__icontains=search)
+            numeric = search.lstrip('#').strip()
+            if numeric.isdigit():
+                q |= Q(object_id=int(numeric))
+            qs = qs.filter(q)
 
         since = (p.get('since') or '').strip()
         if since:

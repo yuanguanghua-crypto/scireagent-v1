@@ -255,8 +255,18 @@ async function doAction(action) {
       <section class="detail-section">
         <h2 class="section-title">Customer</h2>
         <div class="info-grid">
-          <div class="info-item"><span class="info-label">User ID</span><span>{{ order.user_id }}</span></div>
-          <div class="info-item"><span class="info-label">Org ID</span><span>{{ order.organization_id || '—' }}</span></div>
+          <!-- ★ 2026-11-26（A-077）：此前只有 "User ID 12 / Org ID 16" 两个裸 id，
+               运营在这个页面联系不上客户（QA Batch 8）。补姓名/邮箱/组织名；
+               裸 id 保留在末尾，排查对账时仍要能拿到。 -->
+          <div class="info-item"><span class="info-label">Name</span><span>{{ order.customer_name || '—' }}</span></div>
+          <div class="info-item">
+            <span class="info-label">Email</span>
+            <a v-if="order.customer_email" :href="`mailto:${order.customer_email}`" class="cust-mail">{{ order.customer_email }}</a>
+            <span v-else>—</span>
+          </div>
+          <div class="info-item"><span class="info-label">Organization</span><span>{{ order.organization_name || '—' }}</span></div>
+          <div class="info-item"><span class="info-label">User ID</span><span class="mono">{{ order.user_id ?? '—' }}</span></div>
+          <div class="info-item"><span class="info-label">Org ID</span><span class="mono">{{ order.organization_id || '—' }}</span></div>
         </div>
       </section>
       <section class="detail-section">
@@ -384,6 +394,9 @@ async function doAction(action) {
 .info-grid { display: flex; flex-direction: column; gap: 8px; }
 .info-item { display: flex; gap: 8px; font-size: 14px; }
 .info-label { font-size: 12px; font-weight: 600; color: var(--color-text-tertiary); min-width: 80px; }
+/* A-077：客户邮箱做成可点（运营要直接发信） */
+.cust-mail { color: var(--color-primary); text-decoration: none; word-break: break-all; }
+.cust-mail:hover { text-decoration: underline; }
 
 /* ── 发货批次 / 状态时间线（2026-10-28 新增） ── */
 .shipment-card {

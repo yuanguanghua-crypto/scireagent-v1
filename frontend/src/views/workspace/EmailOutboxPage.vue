@@ -12,6 +12,9 @@
 import { onMounted, ref, computed } from 'vue'
 import { getEmailOutbox, emailOutboxAction } from '@/api/system'
 import { extractErrorMessage } from '@/utils/http'
+import { useConfirm } from '@/composables/useConfirm'
+
+const { ask } = useConfirm()
 
 const rows = ref([])
 const total = ref(0)
@@ -22,6 +25,8 @@ const busyId = ref(null)
 
 const statusFilter = ref('')
 const keyFilter = ref('')
+// ★ 2026-11-26（A-164）：订单号/主题/正文的自由文本搜索
+const searchFilter = ref('')
 
 const STATUSES = ['', 'pending', 'sent', 'failed']
 
@@ -32,6 +37,7 @@ async function load() {
     const params = { limit: 200 }
     if (statusFilter.value) params.status = statusFilter.value
     if (keyFilter.value.trim()) params.template_key = keyFilter.value.trim()
+    if (searchFilter.value.trim()) params.search = searchFilter.value.trim()
     const res = await getEmailOutbox(params)
     const payload = res.data ?? res
     rows.value = Array.isArray(payload) ? payload : (payload.results || [])
@@ -55,7 +61,17 @@ function fmtTime(v) {
 
 async function act(row, action) {
   const label = action === 'retry' ? '重试' : '丢弃（标记失败，不再重试）'
-  if (!window.confirm(`对 #${row.id} 执行「${label}」？`)) return
+  // 丢弃是不可逆的（这封信再也不会发出），所以给危险等级；重试是可重复动作。
+  const ok = await ask({
+    title: action === 'retry' ? '重试投递' : '丢弃这封信',
+    message:
+      action === 'retry'
+        ? `对 #${row.id} 执行「${label}」？`
+        : `对 #${row.id} 执行「${label}」？\n\n丢弃后这封信不会再发出，且状态无法回到待发。`,
+    confirmText: action === 'retry' ? '重试' : '丢弃',
+    danger: action !== 'retry',
+  })
+  if (!ok) return
   busyId.value = row.id
   error.value = ''
   try {
@@ -93,6 +109,17 @@ onMounted(load)
       <select v-model="statusFilter" class="ob-input" @change="load">
         <option v-for="s in STATUSES" :key="s" :value="s">{{ s || 'All statuses' }}</option>
       </select>
+      <!-- ★ 2026-11-26（A-164）：订单号搜索。
+           此前本页只能按 template_key 精确筛，运营拿着订单号（如 ORD-AD684447）
+           无处可填 —— 填进 template_key 自然 0 条，于是误判"这单没发过邮件"。
+           后端 `search` 同时模糊匹配 subject / body_text / context_json 三个字段
+           （outbox 没有 order 外键，单号只以文本形式存在）。 -->
+      <input
+        v-model.trim="searchFilter"
+        class="ob-input"
+        placeholder="Order no / subject / body (e.g. ORD-AD684447)"
+        @keyup.enter="load"
+      />
       <input
         v-model.trim="keyFilter"
         class="ob-input"

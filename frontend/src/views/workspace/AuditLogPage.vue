@@ -113,8 +113,14 @@ onMounted(load)
       <select v-model="actionFilter" class="al-input" @change="load">
         <option v-for="a in ACTIONS" :key="a.value" :value="a.value">{{ a.label }}</option>
       </select>
-      <input v-model.trim="userFilter" class="al-input al-input--sm" placeholder="Operator" @keyup.enter="load" />
-      <input v-model.trim="search" class="al-input" placeholder="Object name…" @keyup.enter="load" />
+      <!-- ★ 2026-11-26（A-165）：表里把「无操作人」显示成 system，所以这里也必须能按
+           system 搜到那批 —— 后端对 username=system 特判为 `user IS NULL`。
+           placeholder 明写，否则这个特值没人发现得了。 -->
+      <input v-model.trim="userFilter" class="al-input al-input--sm"
+             placeholder="Operator (or: system)" @keyup.enter="load" />
+      <!-- ★ 2026-11-26（A-166）：Object 列是「名称 + #id」两段拼的，所以这里既能按名称、
+           也能按编号搜（纯数字或 #数字 会同时精确匹配 object_id）。placeholder 把这点写明。 -->
+      <input v-model.trim="search" class="al-input" placeholder="Object name or #id…" @keyup.enter="load" />
       <label class="al-date">
         <span>from</span>
         <input v-model="since" type="date" class="al-input al-input--date" @change="load" />

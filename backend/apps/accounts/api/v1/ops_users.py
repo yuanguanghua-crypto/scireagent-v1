@@ -50,7 +50,11 @@ class OpsUserRowSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'username', 'email', 'role', 'is_active', 'email_verified',
-            'is_staff', 'date_joined', 'last_login', 'organization_name',
+            # ★ 2026-11-26（A-092）：加 `is_superuser`。`is_staff` 本来就有，
+            #   但"能进后台"是 staff ∪ superuser 两条通道，只给一条前端算不出准确标记。
+            #   前端用这两个布尔值在 role 列旁标 "staff" / "superuser"，
+            #   让「下拉选 admin 为什么能筛出 role=researcher 的人」这件事在界面上自解释。
+            'is_staff', 'is_superuser', 'date_joined', 'last_login', 'organization_name',
         ]
         read_only_fields = fields
 
@@ -105,8 +109,33 @@ class OpsUserListView(EnvelopeMixin, ListAPIView):
                 | Q(email__icontains=search)
                 | Q(organization__name__icontains=search)
             )
-        if p.get('role'):
-            qs = qs.filter(role=p['role'])
+        role = (p.get('role') or '').strip()
+        if role:
+            # ★ 2026-11-26（A-092）：「谁是管理员」有两套口径，此处必须合一。
+            #
+            #   能进后台的通道有**三条且互相独立**：
+            #     a) `role='admin'`（名义角色，下拉里可选的那个）
+            #     b) `is_staff=True`（Django admin / IsAdminUser 认这个）
+            #     c) `is_superuser=True`（superuser）
+            #   而本页下拉只有 4 个 role 值，此前 `filter(role='admin')` 只认 a。
+            #
+            #   生产实测（2026-11-26，32 个用户）：
+            #     · `role='admin'` 只有 **1 个** —— `smoke`（`s@e.com`，是个冒烟测试账号）
+            #     · 真正能进后台的是 **3 个** —— `admin`(id=1)、`scire02`(16)、`scire03`(17)，
+            #       而这 3 个的 `role` **全是 `researcher`**（走的是 b/c 通道）
+            #   ⇒ 选「admin」筛出来的是唯一那个假账号，三个真管理员一个都看不到
+            #     （QA A-092 报的就是这个现象；它当时看到的是 testuser2，现已清理）。
+            #
+            #   修法：选 admin 时按「能进后台」判定（a ∪ b ∪ c），
+            #   验收线 = 下拉 admin 的命中数，与 ORM 用同一条件数出来的数相等。
+            #   前端同时把 staff/superuser 账号在列表里标出来，让这个口径可见
+            #   （`UserManagementPage.vue` 的 role 列）。
+            if role == 'admin':
+                qs = qs.filter(
+                    Q(role='admin') | Q(is_staff=True) | Q(is_superuser=True)
+                )
+            else:
+                qs = qs.filter(role=role)
         for flag in ('is_active', 'email_verified', 'is_staff'):
             v = p.get(flag)
             if v in ('true', 'false'):
