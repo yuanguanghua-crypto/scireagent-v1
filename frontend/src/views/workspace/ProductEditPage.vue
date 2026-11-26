@@ -10,6 +10,7 @@ import { useDialogA11y } from '@/composables/useDialogA11y'
 import { AppInput, AppSelect, LoadingSpinner } from '@/components/common'
 import { sortProtocolLinks, buildFolded, splitWeakLinks, axisBadges, unionProtocolRows } from '@/utils/protocolLinks'
 import { resolveMolecularWeight } from '@/utils/molecularWeight'
+import { selectTruncationHint } from '@/utils/selectHint'
 
 import StructureViewer from './components/StructureViewer.vue'
 
@@ -75,6 +76,20 @@ const inlineEntityType = ref('method')
 const inlineForm = reactive({ name: '', summary: '', purpose: '', reagent: '', amount: '', duration: '' })
 const inlineSaving = ref(false)
 const knowledgeList = ref({ goals: [], apps: [], methods: [], protocols: [] })
+/**
+ * ★ A-206（2026-11-18 / S4）：四个下拉的**服务端总数**，用来把"只加载了一部分"说出来。
+ *
+ * 改前的真实缺陷比诊断件写的更严重：诊断说"搜索可达，只是首屏 50 条没提示"——
+ * 实测代码里**只有 methods / protocols 有远程搜索**（`searchMethodsRemote` /
+ * `searchProtocolsRemote`），`goals` / `apps` 两个下拉是
+ * `loadKnowledge()` 一次 `page_size: 200` 拿到的**前 200 条**，此后**再也没有任何
+ * 搜索入口** ⇒ 库里有 11,047 个 Goal、28,568 个 Application，绝大多数**根本选不到**
+ * （QA 说的"仅约 200 条"就是这个，而不是旧版枚举加载）。
+ * 所以这里不是"加一句提示"就够了：先补上 goals/apps 的远程搜索，再把截断说出来。
+ *
+ * `null` = 该端点没回分页 meta（例如数组直出），此时不显示提示（不猜数字）。
+ */
+const knowledgeTotals = ref({ goals: null, apps: null, methods: null, protocols: null })
 
 // ── Dialog accessibility (ARIA + ESC + focus 管理) ─────────────────
 const publishOverlay = ref(null)
@@ -556,6 +571,13 @@ async function loadKnowledge() {
     knowledgeList.value.apps = (Array.isArray(a.data) ? a.data : (a.data?.results || []))
     knowledgeList.value.methods = (Array.isArray(m.data) ? m.data : (m.data?.results || []))
     knowledgeList.value.protocols = (Array.isArray(p.data) ? p.data : (p.data?.results || []))
+    // ★ A-206：记录服务端总数（信封 meta.pagination.count），用于"只加载了前 N 条"的提示
+    knowledgeTotals.value = {
+      goals: g.meta?.pagination?.count ?? null,
+      apps: a.meta?.pagination?.count ?? null,
+      methods: m.meta?.pagination?.count ?? null,
+      protocols: p.meta?.pagination?.count ?? null,
+    }
   } catch { /* ignore */ }
 }
 
@@ -672,18 +694,40 @@ const hasGoalAppSelection = computed(
 // 下拉选择器状态 + 选项（与 linkMethodSelect 同范式：选中即加入 chips）
 const goalSelect = ref('')
 const appSelect = ref('')
+// ★ A-206：基础列表 ∪ 远程搜索结果（按 id 去重）—— 改前只有"前 200 条"，搜不到的全选不着
 const goalSelectOptions = computed(() => [
   { label: '— Add Research Goal —', value: '' },
-  ...knowledgeList.value.goals
+  ...dedupeById(knowledgeList.value.goals, goalSearchResults.value)
     .filter((g) => !goalIds.value.includes(g.id))
     .map((g) => ({ label: g.name, value: String(g.id) })),
 ])
 const appSelectOptions = computed(() => [
   { label: '— Add Application —', value: '' },
-  ...knowledgeList.value.apps
+  ...dedupeById(knowledgeList.value.apps, appSearchResults.value)
     .filter((a) => !appIds.value.includes(a.id))
     .map((a) => ({ label: a.name, value: String(a.id) })),
 ])
+// ★ A-206：四个下拉各自的"只是一部分"提示（空串=不显示）
+const goalSearchHint = computed(() => selectTruncationHint({
+  searched: goalSearchCount.value !== null,
+  shown: goalSearchCount.value !== null ? goalSearchResults.value.length : knowledgeList.value.goals.length,
+  total: goalSearchCount.value !== null ? goalSearchCount.value : knowledgeTotals.value.goals,
+}))
+const appSearchHint = computed(() => selectTruncationHint({
+  searched: appSearchCount.value !== null,
+  shown: appSearchCount.value !== null ? appSearchResults.value.length : knowledgeList.value.apps.length,
+  total: appSearchCount.value !== null ? appSearchCount.value : knowledgeTotals.value.apps,
+}))
+const methodSearchHint = computed(() => selectTruncationHint({
+  searched: methodSearchCount.value !== null,
+  shown: methodSearchCount.value !== null ? methodSearchResults.value.length : knowledgeList.value.methods.length,
+  total: methodSearchCount.value !== null ? methodSearchCount.value : knowledgeTotals.value.methods,
+}))
+const protocolSearchHint = computed(() => selectTruncationHint({
+  searched: protocolSearchCount.value !== null,
+  shown: protocolSearchCount.value !== null ? protocolSearchResults.value.length : knowledgeList.value.protocols.length,
+  total: protocolSearchCount.value !== null ? protocolSearchCount.value : knowledgeTotals.value.protocols,
+}))
 function addSelectedGoal(val) {
   const raw = (val != null && val !== '') ? val : goalSelect.value
   if (raw) { toggleGoalId(Number(raw)); goalSelect.value = '' }
@@ -711,9 +755,17 @@ const methodSearchResults = ref([])
 const protocolSearchResults = ref([])
 const methodSearching = ref(false)
 const protocolSearching = ref(false)
+// ★ A-206：搜索命中的服务端总数（> 结果条数即被截断），首屏默认 `null`=未搜索
+const methodSearchCount = ref(null)
+const protocolSearchCount = ref(null)
+
+/**
+ * ★ A-206（2026-11-18 / S4）：把"只显示了一部分"说出来（实现与单测在
+ *   `@/utils/selectHint`）—— 原先四个下拉都是**静默截断**，用户以为库里就这么多。
+ */
 
 async function searchMethodsRemote(query) {
-  if (!query) { methodSearchResults.value = []; return }
+  if (!query) { methodSearchResults.value = []; methodSearchCount.value = null; return }
   methodSearching.value = true
   try {
     // ★ 2026-11-18（A-069）：去掉 `origin: 'imported'`（理由见 loadKnowledge 里的注释），
@@ -722,10 +774,11 @@ async function searchMethodsRemote(query) {
       params: { page_size: 50, search: query, include_unpublished: 1 },
     })
     methodSearchResults.value = Array.isArray(r.data) ? r.data : (r.data?.results || [])
-  } catch { methodSearchResults.value = [] } finally { methodSearching.value = false }
+    methodSearchCount.value = r.meta?.pagination?.count ?? methodSearchResults.value.length
+  } catch { methodSearchResults.value = []; methodSearchCount.value = null } finally { methodSearching.value = false }
 }
 async function searchProtocolsRemote(query) {
-  if (!query) { protocolSearchResults.value = []; return }
+  if (!query) { protocolSearchResults.value = []; protocolSearchCount.value = null; return }
   protocolSearching.value = true
   try {
     // ★ 2026-11-18：同 A-069 —— 管理端关联动作要能看到草稿协议
@@ -733,7 +786,37 @@ async function searchProtocolsRemote(query) {
       params: { page_size: 50, search: query, include_unpublished: 1 },
     })
     protocolSearchResults.value = Array.isArray(r.data) ? r.data : (r.data?.results || [])
-  } catch { protocolSearchResults.value = [] } finally { protocolSearching.value = false }
+    protocolSearchCount.value = r.meta?.pagination?.count ?? protocolSearchResults.value.length
+  } catch { protocolSearchResults.value = []; protocolSearchCount.value = null } finally { protocolSearching.value = false }
+}
+
+// ★ A-206：goals / apps 的远程搜索（改前**完全没有** —— 只能从前 200 条里挑）
+//   注：`/research-goals/` 与 `/applications/` 不认 `include_unpublished`（其 ViewSet 未读该参数），
+//   staff 本来就拿到全状态、非 staff 只拿到 active —— 故**不传**，避免看起来像有开关。
+const goalSearchResults = ref([])
+const appSearchResults = ref([])
+const goalSearching = ref(false)
+const appSearching = ref(false)
+const goalSearchCount = ref(null)
+const appSearchCount = ref(null)
+
+async function searchGoalsRemote(query) {
+  if (!query) { goalSearchResults.value = []; goalSearchCount.value = null; return }
+  goalSearching.value = true
+  try {
+    const r = await http.get('/research-goals/', { params: { page_size: 50, search: query } })
+    goalSearchResults.value = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+    goalSearchCount.value = r.meta?.pagination?.count ?? goalSearchResults.value.length
+  } catch { goalSearchResults.value = []; goalSearchCount.value = null } finally { goalSearching.value = false }
+}
+async function searchAppsRemote(query) {
+  if (!query) { appSearchResults.value = []; appSearchCount.value = null; return }
+  appSearching.value = true
+  try {
+    const r = await http.get('/applications/', { params: { page_size: 50, search: query } })
+    appSearchResults.value = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+    appSearchCount.value = r.meta?.pagination?.count ?? appSearchResults.value.length
+  } catch { appSearchResults.value = []; appSearchCount.value = null } finally { appSearching.value = false }
 }
 
 // 基础列表 ∪ 远程结果（按 id 去重）
@@ -2405,9 +2488,14 @@ watch(
                     title="从本次级联中移除（不影响已关联的方法）">✕</button>
           </span>
           <span v-if="!goalIds.length" class="chip-none">None</span>
-          <AppSelect v-model="goalSelect" :options="goalSelectOptions" filterable style="max-width:260px"
+          <AppSelect v-model="goalSelect" :options="goalSelectOptions" filterable remote
+                     :remote-method="searchGoalsRemote" :loading="goalSearching"
+                     style="max-width:260px" data-testid="pe-goal-select"
                      placeholder="Add Research Goal…" @change="addSelectedGoal" />
         </div>
+        <p v-if="goalSearchHint" class="form-hint" style="margin:2px 0 0" data-testid="pe-goal-hint">
+          {{ goalSearchHint }}
+        </p>
 
         <!-- Applications chips（同上，级联入口） -->
         <div class="chip-group">
@@ -2418,9 +2506,14 @@ watch(
                     title="从本次级联中移除（不影响已关联的方法）">✕</button>
           </span>
           <span v-if="!appIds.length" class="chip-none">None</span>
-          <AppSelect v-model="appSelect" :options="appSelectOptions" filterable style="max-width:260px"
+          <AppSelect v-model="appSelect" :options="appSelectOptions" filterable remote
+                     :remote-method="searchAppsRemote" :loading="appSearching"
+                     style="max-width:260px" data-testid="pe-app-select"
                      placeholder="Add Application…" @change="addSelectedApp" />
         </div>
+        <p v-if="appSearchHint" class="form-hint" style="margin:2px 0 0" data-testid="pe-app-hint">
+          {{ appSearchHint }}
+        </p>
 
         <!-- ★ 级联影响提示：必须在选择时就说清"勾选 goal/app 会连带改写方法关联"，
              否则用户会以为这是无害的标签操作。措辞用"至少 N"——前端只按已加载的
@@ -2452,6 +2545,13 @@ watch(
           <AppSelect v-model="linkProtocolSelect" :options="protocolSelectOptions" style="margin-left:16px" filterable remote :remote-method="searchProtocolsRemote" :loading="protocolSearching" @change="addSelectedProtocol" />
           <button type="button" class="btn btn-ghost btn-sm" @click="addSelectedProtocol" :disabled="!linkProtocolSelect">Link</button>
         </div>
+        <!-- ★ A-206：截断提示（改前四个下拉都是静默截断） -->
+        <p v-if="methodSearchHint" class="form-hint" style="margin:2px 0 0" data-testid="pe-method-hint">
+          Methods — {{ methodSearchHint }}
+        </p>
+        <p v-if="protocolSearchHint" class="form-hint" style="margin:2px 0 0" data-testid="pe-protocol-hint">
+          Protocols — {{ protocolSearchHint }}
+        </p>
 
         <p class="form-hint" style="margin:2px 0 0">Select a knowledge entity above and it links to this product immediately; the “Link” button is an explicit alternative.</p>
 

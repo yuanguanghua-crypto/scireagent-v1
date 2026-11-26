@@ -1,11 +1,31 @@
 <script setup>
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { formatCurrency, getStatusType, truncate } from '@/utils/helpers'
 
 const props = defineProps({
   product: {
     type: Object,
     required: true,
+  },
+  /**
+   * ★ 2026-11-18（A-258）：该商品**当前不可购买**（已下架 / 已归档 / 未发布）。
+   *
+   * 为什么需要这个开关：收藏夹里会残留「先被收藏、后被下架」的商品 ——
+   * 写入侧只拦"收藏已归档商品"（`Product.objects.filter(archived=False)`），
+   * 但拦不住"收藏之后才归档"。这类商品在收藏夹里原本渲染成一模一样的在售卡片，
+   * 点进去却是 404（`retrieve` 对非 staff 的 archived 行抛 404）。
+   *
+   * 为 true 时：
+   *   · 根节点由 `<router-link>` 换成 `<div>` ⇒ **真的不可点**（不只是 `pointer-events:none`
+   *     那种能被键盘 Tab + Enter 绕过的假禁用）；
+   *   · 不再有 hover 抬升/指针手型，避免暗示可点击；
+   *   · `aria-disabled="true"` + 标题角标「已下架」。
+   * 默认 false ⇒ 产品列表（`ProductIndex`）行为**完全不变**。
+   */
+  unavailable: {
+    type: Boolean,
+    default: false,
   },
 })
 
@@ -15,6 +35,10 @@ const props = defineProps({
 //   顺带让中键/Ctrl+点击「新标签页打开」这类原生行为失效。
 //   router-link 渲染成 <a href>，既保留 SPA 导航，又让链接可被抓取/可右键打开。
 const to = computed(() => `/products/${props.product.slug || props.product.id}`)
+
+// 根节点标签：可售 ⇒ 链接；不可售 ⇒ 纯 div（无 href、不可聚焦为链接）
+const rootTag = computed(() => (props.unavailable ? 'div' : RouterLink))
+const rootBind = computed(() => (props.unavailable ? { 'aria-disabled': 'true' } : { to: to.value }))
 
 function getInventoryType(status) {
   const map = {
@@ -70,10 +94,13 @@ function ssChipClass(tag) {
 </script>
 
 <template>
-  <router-link
-    :to="to"
+  <component
+    :is="rootTag"
+    v-bind="rootBind"
     class="card product-card"
-    :aria-label="`Product: ${product.name}`"
+    :class="{ 'is-unavailable': unavailable }"
+    :aria-label="unavailable ? `Product: ${product.name} (unavailable)` : `Product: ${product.name}`"
+    data-testid="product-card"
   >
     <!-- Left accent bar - neutral color -->
     <div class="card-accent" aria-hidden="true"></div>
@@ -84,7 +111,18 @@ function ssChipClass(tag) {
           <span v-if="product.catalog_no" class="chem-id chem-id--primary">{{ product.catalog_no }}</span>
           <span v-if="product.cas" class="chem-id">{{ product.cas }}</span>
         </div>
-        <el-tag :type="getInventoryType(product.inventory_status)" size="small" effect="light">
+        <!-- ★ A-258：不可售时用「已下架」取代库存标签 —— 库存状态对一件下架商品毫无意义，
+             留着「In Stock」只会让人以为还能买。 -->
+        <el-tag
+          v-if="unavailable"
+          type="info"
+          size="small"
+          effect="light"
+          data-testid="product-unavailable-badge"
+        >
+          Unavailable
+        </el-tag>
+        <el-tag v-else :type="getInventoryType(product.inventory_status)" size="small" effect="light">
           {{ getInventoryLabel(product.inventory_status) }}
         </el-tag>
       </div>
@@ -126,7 +164,7 @@ function ssChipClass(tag) {
         </div>
       </div>
     </div>
-  </router-link>
+  </component>
 </template>
 
 <style scoped>
@@ -152,6 +190,17 @@ function ssChipClass(tag) {
 .product-card:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+/* ★ A-258：不可售态 —— 明确「这不是可点的商品」，但不过度灰化到看不清信息 */
+.product-card.is-unavailable {
+  cursor: default;
+  opacity: 0.72;
+}
+.product-card.is-unavailable:hover {
+  box-shadow: none;
+  border-color: var(--color-border);
+  transform: none;
 }
 
 /* Left accent */

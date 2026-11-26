@@ -4,10 +4,11 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { isInternal } from '@/utils/internalAccess'
 import { http } from '@/api/http'
-import { toast, LoadingSpinner, EmptyState } from '@/components/common'
+import { toast, LoadingSpinner, EmptyState, DataPagination } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
 import { getResearchGoals } from '@/api/researchGoals'
-import ListTruncationHint from './components/ListTruncationHint.vue'
+import { useEntityList } from '@/composables/useEntityList'
+import EntityListToolbar from './components/EntityListToolbar.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -15,10 +16,27 @@ const auth = useAuthStore()
 //   ——与后端 permissions.py IsProcurementOrAdmin 一致；普通注册用户仍被踢回首页。
 if (!isInternal(auth)) { router.replace('/') }
 
-const entities = ref([])
-const totalCount = ref(0)
-const loading = ref(true)
-const error = ref('')
+// ★ 2026-11-18（S4 / A-066 + A-014）：列表取数统一走 useEntityList。
+//   改前 `page_size: 200` ⇒ 生产 28,568 条应用，页面只渲染 200 行且无翻页手段，
+//   搜索框命中数为 0（QA 报的「只有 13 个应用」是别处硬编码常量表，见 A-075）。
+//   `publicStatus='active'`：**ApplicationViewSet 没做方案 B 过滤**
+//   （get_queryset 只有 apply_public_visibility，而它对 staff 不过滤 status），
+//   所以不显式传 status 的话，staff 看到的是含 draft/archived 的全量 ——
+//   与「Show drafts 默认关」的语义正好相反。
+const {
+  rows: entities, total: totalCount, page, pageSize, totalPages,
+  loading, error, search, showDrafts, status,
+  load, reload, goPage,
+} = useEntityList({ url: '/applications/', publicStatus: 'active' })
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'All statuses' },
+  { value: 'active', label: 'active' },
+  { value: 'draft', label: 'draft' },
+  { value: 'deprecated', label: 'deprecated' },
+  { value: 'archived', label: 'archived' },
+]
+
 const showEditor = ref(false)
 const editing = ref(null)
 const saving = ref(false)
@@ -43,18 +61,10 @@ onMounted(() => {
   searchResearchGoals('')
 })
 
+/** 刷新当前页（保留页码与筛选），并清掉行内「Confirm archive」的待确认态。 */
 async function loadList() {
-  loading.value = true
   pendingArchiveId.value = null
-  try {
-    const resp = await http.get('/applications/', { params: { page_size: 200 } })
-    entities.value = (resp.data?.results || resp.data || [])
-    totalCount.value = resp.meta?.pagination?.count ?? (Array.isArray(resp.data) ? resp.data.length : 0)
-  } catch (e) {
-    error.value = 'Failed to load'
-  } finally {
-    loading.value = false
-  }
+  return load()
 }
 
 /** 远程搜索目标（生产 11,047 条，「前 200 条枚举」等于让用户在 1.8% 的池子里选）。 */
@@ -115,7 +125,13 @@ async function save() {
     }
     showEditor.value = false
     allowDuplicate.value = false
-    await loadList()
+    const wasEditing = !!editing.value
+    // 新建 ⇒ 回第 1 页；编辑 ⇒ 留在当前页
+    await (wasEditing ? loadList() : reload())
+    // ★ 本页表单没有 status 字段，新建的 Application 由 StatusMixin 默认成 draft
+    //   （backend/core/models.py:46 `default=Status.DRAFT`）⇒ 开关关着看不到。
+    toast.success(`${wasEditing ? '已保存' : '已创建'}「${form.value.name}」`
+      + (wasEditing || showDrafts.value ? '' : ' · 新记录默认是 draft，勾选 Show drafts 可见'))
   } catch (e) {
     // ★ A-155：同名冲突改由后端 409 显式拒绝（改前一模一样地建副本）
     if (e.response?.status === 409) {
@@ -154,7 +170,15 @@ async function archiveRow(e) {
       <button class="btn btn-primary btn-sm" @click="openNew">+ New Application</button>
     </div>
 
-    <ListTruncationHint :count="totalCount" :shown="entities.length" />
+    <EntityListToolbar
+      v-model:search="search"
+      v-model:showDrafts="showDrafts"
+      v-model:status="status"
+      :status-options="STATUS_OPTIONS"
+      placeholder="Search applications…"
+      :loading="loading"
+      @submit="reload"
+    />
 
     <LoadingSpinner v-if="loading" text="Loading..." />
     <div v-else-if="error" class="error">{{ error }}</div>
@@ -176,6 +200,15 @@ async function archiveRow(e) {
       </tbody>
     </table>
     <EmptyState v-else title="No applications yet" icon="FolderOpened" />
+
+    <DataPagination
+      v-if="totalPages > 1"
+      :current-page="page"
+      :page-size="pageSize"
+      :total="totalCount"
+      layout="total, prev, pager, next"
+      @update:current-page="goPage"
+    />
 
     <div v-if="showEditor" ref="overlay" class="dialog-overlay" v-bind="dialogAttrs" @click.self="showEditor = false">
       <div class="dialog">

@@ -82,6 +82,9 @@
 import { ref, onMounted } from 'vue'
 import * as bridgesApi from '@/api/bridges'
 import { toast } from '@/components/common'
+import { useConfirm } from '@/composables/useConfirm'
+
+const { ask, askText } = useConfirm()
 
 const tabs = [
   { key: 'review', label: 'Review' },
@@ -126,7 +129,15 @@ function switchTab(key) {
 }
 
 async function approve(r) {
-  if (!window.confirm(`Approve "${r.method_name}" as verified applicable for "${r.product_name}"?\nThis publishes it to the public product page.`)) return
+  const ok = await ask({
+    title: 'Approve verified applicable',
+    message:
+      `Approve "${r.method_name}" as verified applicable for "${r.product_name}"?\n` +
+      'This publishes it to the public product page.',
+    confirmText: 'Approve & publish',
+    danger: true,
+  })
+  if (!ok) return
   try {
     await bridgesApi.approveVerified(r.id)
     toast.success('Approved')
@@ -137,7 +148,19 @@ async function approve(r) {
 }
 
 async function reject(r) {
-  const note = window.prompt(`Reject "${r.method_name}" for "${r.product_name}" — reason (optional):`, '') ?? ''
+  // ★ 2026-11-18（S4）：`window.prompt` → 页内 `askText`。
+  //   原写法是 `window.prompt(...) ?? ''` —— **取消也返回 `''`**（`null ?? ''`），
+  //   于是"点了取消"照样把这条草稿标成 rejected。现在 `null` 明确表示取消：
+  //   取消 ⇒ 一个请求都不发；确认且留空 ⇒ 照常拒绝，只是没有理由。
+  const note = await askText({
+    title: 'Reject this applicability',
+    message: `Reject "${r.method_name}" for "${r.product_name}"?\n`
+      + 'A reason is optional, but it is what the reviewer sees later.',
+    placeholder: 'Optional reason…',
+    confirmText: 'Reject',
+    danger: true,
+  })
+  if (note === null) return
   try {
     await bridgesApi.rejectVerified(r.id, note)
     toast.success('Rejected')

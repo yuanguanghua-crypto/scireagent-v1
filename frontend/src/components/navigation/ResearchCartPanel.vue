@@ -5,6 +5,7 @@
  */
 import { useRouter } from 'vue-router'
 import { useResearchPathStore } from '@/stores/researchPath'
+import { toast } from '@/components/common'
 
 const router = useRouter()
 const cart = useResearchPathStore()
@@ -38,8 +39,10 @@ function goToRFQ() {
 
 function copyToClipboard() {
   const text = cart.toText()
+  // ★ 2026-11-18（S4）：`alert` → `toast`。原生 alert 会阻塞主线程、按钮文案随
+  // 浏览器语言走，且不进 DOM ⇒ e2e/单测都断言不到。
   navigator.clipboard?.writeText(text).then(() => {
-    alert('Research path copied to clipboard!')
+    toast.success('Research path copied to clipboard!')
   })
 }
 </script>

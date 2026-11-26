@@ -1,10 +1,11 @@
 <script setup>
-import { reactive, ref, computed, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { submitPo, getOrderDetail, getMyQuotes } from '@/api/poPortal'
 import { getProducts, getProductDetail } from '@/api/products'
 import { SHIPPING_METHODS } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
+import { toast } from '@/components/common'
 
 const router = useRouter()
 const route = useRoute()
@@ -17,6 +18,51 @@ const reorderSourceId = ref('')
 // 交付日期下限：本地时区的今天（YYYY-MM-DD）。
 // 用 toLocaleDateString('en-CA') 取本地时区日期，规避 toISOString() 的 UTC 偏移导致少一天。
 const minDeliveryDate = ref(new Date().toLocaleDateString('en-CA'))
+
+/**
+ * ★ 2026-11-20（S4 / A-189）：日期与邮箱的**应用层**校验状态。
+ *
+ * ## 为什么必须自己做（而不是留给浏览器）
+ * 本页表单里有三条 HTML5 原生约束：`#po-f5` 的 `min`、`#po-f9` 的 `type=email`、
+ * 明细行数量框的 `min="1"`。只要任一不满足，浏览器就**直接吃掉 submit 事件** ——
+ * `handleSubmit` 一行都不执行 ⇒ 无 toast、无横幅、无跳转、**0 个网络请求**。
+ * QA 报的「提交按钮静默失效」就是这个签名（实测 6 场景已坐实，见
+ * `_s4work/probe_a189.cjs`：过去日期/非法邮箱/数量 0 全部 0 请求、0 提示）。
+ *
+ * 原生的那个气泡虽然会弹，但它会飘走、不可追溯、也不在应用反馈区内，
+ * 且**不做任何记录** —— 用户点完提交只看到"什么都没发生"。
+ *
+ * ## 做法
+ * 表单加 `novalidate`（约束属性**保留**：日期选择器仍不许选过去、邮箱键盘不变），
+ * 把拦截权收回到 `handleSubmit`，由 `validateDateAndEmail` 判定并落**行内常驻提示**
+ * + 按钮旁汇总行。提交失败从此一定看得见。
+ */
+const formErrors = reactive({ date: '', email: '' })
+const dateEl = ref(null)
+const emailEl = ref(null)
+
+// HTML5 `type=email` 的等价近似（要求有且仅有一个 @，两侧非空且无空格）。
+// 刻意不写更严格的"必须带点"版本：原生 type=email 允许 `a@b`，
+// 收紧会让原本能提交的地址被前端拦下（后端 EmailField 会另有更严的校验兜底）。
+const EMAIL_RE = /^[^\s@]+@[^\s@]+$/
+
+function validateDateAndEmail() {
+  formErrors.date = ''
+  formErrors.email = ''
+  // 日期：ISO 字符串直接比大小即等价于 rangeUnderflow（`:min` 用的也是 YYYY-MM-DD）
+  const d = String(form.requested_delivery_date || '').trim()
+  if (d && d < minDeliveryDate.value) {
+    formErrors.date = `Requested delivery date cannot be earlier than ${minDeliveryDate.value} (today).`
+  }
+  // 邮箱：允许留空（后端 required=False）
+  const e = String(form.shipping_email || '').trim()
+  if (e && !EMAIL_RE.test(e)) {
+    formErrors.email = 'Please enter a valid email address, e.g. name@lab.edu.'
+  }
+  return !formErrors.date && !formErrors.email
+}
+
+const firstFormError = computed(() => formErrors.date || formErrors.email || '')
 
 onMounted(() => {
   if (route.query.reorder) {
@@ -54,6 +100,15 @@ const form = reactive({
   billing_address: '',
   notes: '',
 })
+
+// 用户一改就重算（只在本就有错时算，避免边打字边冒红字）。
+// 放在 `form` 之后：`watch` 本身惰性求值，但写成 immediate 的一天就会踩到 TDZ。
+watch(
+  () => [form.requested_delivery_date, form.shipping_email],
+  () => {
+    if (formErrors.date || formErrors.email) validateDateAndEmail()
+  },
+)
 
 const items = ref([])
 const files = ref([])
@@ -162,20 +217,26 @@ async function loadReorder() {
 
 async function handleSubmit() {
   if (items.value.length === 0) {
-    alert('Add at least one line item.')
+    // ★ 2026-11-18（S4）：表单校验提示 `alert` → `toast.error`。
+    //   原生 alert 阻塞主线程：连点两次提交会卡住两秒，且用户必须手点「确定」
+    //   才能继续填表 —— 表单校验本该是"即时、可叠加、不打断输入"的反馈。
+    toast.error('Add at least one line item.')
     return
   }
   const invalid = items.value.some((it) => !it.skuId || !it.quantity || !it.unitPrice)
   if (invalid) {
-    alert('Each line item requires a SKU, quantity and unit price.')
+    toast.error('Each line item requires a SKU, quantity and unit price.')
     return
   }
-  // ★ 2026-10-21 修 D8：这里原本还有第三条 `alert('Requested delivery date cannot be in the past.')`，
-  //   但 `#po-f5` 带了 `:min="minDeliveryDate"`（模板 :232），浏览器会先做 **HTML5 约束校验**
-  //   并直接吃掉 submit 事件 ⇒ `handleSubmit` 根本不执行 ⇒ 那段是**死代码**（实测：
-  //   `validity.rangeUnderflow === true`、`/api/v1/orders/po/` 请求数 0）。
-  //   ⇒ 删除，把"过去日期"交给原生校验（提示更早、还带本地化文案）。
-  //   回归：`e2e/order-error-paths.spec.cjs` 里固化了「原生 rangeUnderflow 拦截 + 0 次请求」。
+  // ★ 2026-11-20（S4 / A-189）：日期与邮箱改为**应用层校验**，不再让浏览器原生校验吃掉 submit。
+  //   见文件上方 `formErrors` 的说明。
+  if (!validateDateAndEmail()) {
+    // 把焦点送到第一个出错的字段：报错在页中部，常驻汇总在按钮旁，
+    // 不聚焦的话用户得自己在长表单里找（原生气泡唯一做对的就是这件事）。
+    const target = formErrors.date ? dateEl.value : emailEl.value
+    if (target && typeof target.focus === 'function') target.focus()
+    return
+  }
   submitting.value = true
   try {
     const payload = {
@@ -219,6 +280,9 @@ function resetForNewPo() {
   successOrderNo.value = ''
   shortages.value = []
   shortageMessage.value = ''
+  // 新单不该继承上一张单的校验红字（watch 也会清，这里是显式保证）
+  formErrors.date = ''
+  formErrors.email = ''
   items.value = []
   files.value = []
   Object.assign(form, {
@@ -276,7 +340,10 @@ function resetForNewPo() {
       </table>
     </div>
 
-    <form class="po-card" @submit.prevent="handleSubmit">
+    <!-- ★ 2026-11-20（S4 / A-189）：`novalidate` —— 交给 handleSubmit 做应用层校验。
+         `:min` / `type="email"` / `min="1"` 三个约束属性**全部保留**（选择器与键盘行为不变），
+         只是不再允许浏览器用它们悄悄吃掉 submit。详见 script 里 formErrors 的注释。 -->
+    <form class="po-card" novalidate @submit.prevent="handleSubmit">
       <h2 class="po-section-title">PO Information</h2>
       <div class="po-form-grid">
         <div class="po-field">
@@ -305,7 +372,12 @@ function resetForNewPo() {
         </div>
         <div class="po-field">
           <label class="po-label" for="po-f5">Requested Delivery Date</label>
-          <input id="po-f5" v-model="form.requested_delivery_date" type="date" class="po-input" :min="minDeliveryDate" />
+          <input id="po-f5" ref="dateEl" v-model="form.requested_delivery_date" type="date" class="po-input" :min="minDeliveryDate"
+                 :aria-invalid="formErrors.date ? 'true' : 'false'"
+                 :aria-describedby="formErrors.date ? 'po-f5-error' : undefined" />
+          <p v-if="formErrors.date" id="po-f5-error" class="po-field-error" data-testid="po-date-error">
+            {{ formErrors.date }}
+          </p>
         </div>
       </div>
 
@@ -325,7 +397,12 @@ function resetForNewPo() {
         </div>
         <div class="po-field">
           <label class="po-label" for="po-f9">Email</label>
-          <input id="po-f9" v-model="form.shipping_email" type="email" class="po-input" />
+          <input id="po-f9" ref="emailEl" v-model="form.shipping_email" type="email" class="po-input"
+                 :aria-invalid="formErrors.email ? 'true' : 'false'"
+                 :aria-describedby="formErrors.email ? 'po-f9-error' : undefined" />
+          <p v-if="formErrors.email" id="po-f9-error" class="po-field-error" data-testid="po-email-error">
+            {{ formErrors.email }}
+          </p>
         </div>
       </div>
 
@@ -407,6 +484,15 @@ function resetForNewPo() {
         <span class="po-total-value">{{ formatCurrency(grandTotal) }}</span>
       </div>
 
+      <!-- ★ 2026-11-20（S4 / A-189）：按钮旁的**常驻**失败原因。
+           为什么在这里再写一遍（字段旁已有行内提示）：日期字段在页面中部，
+           用户点的是底部按钮 —— 原先靠原生气泡"跳到出错字段"，气泡一飘就没了；
+           这里保证「点了没成功」在按钮旁边就有解释，且不会自动消失。
+           role="alert" 给读屏器（原生气泡本来就有的那点好处，这里保留）。 -->
+      <p v-if="firstFormError" class="po-submit-error" role="alert" data-testid="po-submit-error">
+        {{ firstFormError }}
+      </p>
+
       <div class="po-row" style="margin-top:16px">
         <!-- ★ 成功后禁用，避免重复提交同一张 PO（见 resetForNewPo 注释） -->
         <button type="submit" class="po-btn po-btn-accent po-btn-lg"
@@ -424,6 +510,24 @@ function resetForNewPo() {
 </template>
 
 <style scoped>
+/* ★ 2026-11-20（S4 / A-189）：行内校验提示。用「错误色 + 常驻」而不是 toast —— 
+   toast 3 秒消失，而用户需要照着它改字段。 */
+.po-field-error {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #b91c1c;
+}
+.po-submit-error {
+  margin: 12px 0 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-sm, 4px);
+}
 .po-search-pop {
   position: absolute;
   z-index: 20;

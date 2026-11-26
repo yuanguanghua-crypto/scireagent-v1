@@ -1163,6 +1163,16 @@ body {
   width: 100%;
   box-shadow: var(--shadow-modal);
   animation: dialog-slide-up var(--duration-normal, 0.2s) var(--ease-out, ease-out);
+  /* ★ 2026-11-18（S4 实测）：对话框比视口高时，底部按钮永久不可达。
+     `.dialog-overlay` 是 `position: fixed` + flex 居中且**没有滚动**，
+     所以内容一旦超过 100vh，就成了「上下同时溢出、滚又滚不动」的状态。
+     实测最典型的是协议编辑框（Name/Status/Methods + 7 个 textarea + 按钮 ≈ 800px+）：
+     在 720px 高的视口里 Save/Cancel 完全在屏幕外，用户只能按 Esc 退出，
+     Playwright 则恒报 "element is not visible/stable"（fixed 容器内 scrollIntoView 无效）。
+     ⇒ 给对话框自身封顶视口高度并内部滚动。正常高度的对话框（< 视口）完全不受影响，
+        因为 max-height 只在超高时才生效。 */
+  max-height: calc(100vh - 2 * var(--spacing-2, 8px));
+  overflow-y: auto;
 }
 
 .dialog--wide { max-width: 640px; }

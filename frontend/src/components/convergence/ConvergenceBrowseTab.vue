@@ -1,7 +1,8 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getConvergenceClasses } from '@/api/convergence'
+import { useAuthStore } from '@/stores/auth'
 
 // 收敛类聚合浏览 Tab（Step 3）
 // 用于 RG/AP 列表页的「Browse by Class」Tab：三级导航第一级（类列表）。
@@ -28,6 +29,18 @@ const sourceOptions = [
   { label: 'High Frequency', value: 'high_freq' },
   { label: 'KMeans', value: 'kmeans' },
 ]
+
+// ── 身份守卫（S4 / A-123）──────────────────────────────────────────────
+// Class ID / Source / Avg Cos 是**治理侧内部产物**：聚类算法的来源标签、
+// 聚类 id、平均余弦内聚度。研究者需要的是「这一类比有哪些、包含几个应用」，
+// 而不是算法怎么切出来的、切得多干净。因此非 staff 只保留 Class Name + Members。
+//
+// ⚠️ 边界说明（别把它当权限）：这只是**视线遮挡**。后端
+// `ConvergenceClassListView` 用的是 `IsAdminOrReadOnly` ⇒ GET 对匿名开放，
+// 且 `_ITEM_FIELDS` 仍然返回 source/quality/avg_cos。要真隔离必须改投影，
+// 但那会改掉 API 契约与 4 处测试断言，属待拍板事项（见 S4 汇报）。
+const auth = useAuthStore()
+const isStaff = computed(() => auth.isStaff)
 
 // ── 来源徽标映射 ──
 const sourceBadgeMap = {
@@ -121,10 +134,14 @@ onMounted(() => {
           <el-icon><Search /></el-icon>
         </template>
       </el-input>
+      <!-- ★ 2026-11-18（S4 / A-123）：来源筛选是治理侧维度（curated/high_freq/kmeans），
+           非 staff 不渲染。绑定的 sourceFilter 保持 ''，请求不会带上 source 参数。 -->
       <el-select
+        v-if="isStaff"
         v-model="sourceFilter"
         placeholder="Source"
         class="convergence-source"
+        data-testid="convergence-source-filter"
         @change="handleSourceChange"
       >
         <el-option
@@ -173,10 +190,12 @@ onMounted(() => {
           </template>
         </el-table-column>
 
-        <el-table-column prop="class_id" label="Class ID" width="120" />
+        <!-- ★ 2026-11-18（S4 / A-123）：Class ID 仅供治理侧核对（也是详情页 URL 的段落），
+             对研究者无意义。非 staff 隐藏。 -->
+        <el-table-column v-if="isStaff" prop="class_id" label="Class ID" width="120" />
 
-        <!-- 来源徽标 -->
-        <el-table-column label="Source" width="110">
+        <!-- 来源徽标（内部：算法来源） -->
+        <el-table-column v-if="isStaff" label="Source" width="110">
           <template #default="{ row }">
             <el-tag
               :type="sourceBadgeMap[row.source]?.type || 'info'"
@@ -194,8 +213,8 @@ onMounted(() => {
           </template>
         </el-table-column>
 
-        <!-- avg_cos：仅 kmeans 类显示实际值，其余显示 — -->
-        <el-table-column label="Avg Cos" width="100" align="center">
+        <!-- avg_cos：仅 kmeans 类显示实际值，其余显示 —（内部：聚类内聚度） -->
+        <el-table-column v-if="isStaff" label="Avg Cos" width="100" align="center">
           <template #default="{ row }">
             <span class="cos-value">{{ formatAvgCos(row) }}</span>
           </template>

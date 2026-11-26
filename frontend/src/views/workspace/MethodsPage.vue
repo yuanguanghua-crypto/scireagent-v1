@@ -4,10 +4,11 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { isInternal } from '@/utils/internalAccess'
 import { http } from '@/api/http'
-import { toast, LoadingSpinner, EmptyState } from '@/components/common'
+import { toast, LoadingSpinner, EmptyState, DataPagination } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
 import { getApplications } from '@/api/applications'
-import ListTruncationHint from './components/ListTruncationHint.vue'
+import { useEntityList } from '@/composables/useEntityList'
+import EntityListToolbar from './components/EntityListToolbar.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -15,10 +16,26 @@ const auth = useAuthStore()
 //   ——与后端 permissions.py IsProcurementOrAdmin 一致；普通注册用户仍被踢回首页。
 if (!isInternal(auth)) { router.replace('/') }
 
-const entities = ref([])
-const totalCount = ref(0)
-const loading = ref(true)
-const error = ref('')
+// ★ 2026-11-18（S4 / A-066 + A-014）：列表取数统一走 useEntityList。
+//   改前是 `http.get('/methods/', { params: { page_size: 200 } })` —— 没有搜索框、
+//   没有分页、也没有「看草稿」的开关；而 MethodViewSet 的 list 端点对 staff 也套了
+//   方案 B 过滤 ⇒ 本页 83 行、Dashboard 86，差的 3 条草稿在界面上无法触达。
+//   `publicStatus='active'`：开关关着时**显式**传 status=active，使四页口径一致
+//   （Applications / ResearchGoals 后端没做方案 B，不显式传就挡不住草稿）。
+const {
+  rows: entities, total: totalCount, page, pageSize, totalPages,
+  loading, error, search, showDrafts, status,
+  load, reload, goPage,
+} = useEntityList({ url: '/methods/', publicStatus: 'active' })
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'All statuses' },
+  { value: 'active', label: 'active' },
+  { value: 'draft', label: 'draft' },
+  { value: 'deprecated', label: 'deprecated' },
+  { value: 'archived', label: 'archived' },
+]
+
 const showEditor = ref(false)
 const editing = ref(null)
 const saving = ref(false)
@@ -49,18 +66,10 @@ onMounted(() => {
   searchApplications('')
 })
 
+/** 刷新当前页（保留页码与筛选），并清掉行内「Confirm archive」的待确认态。 */
 async function loadList() {
-  loading.value = true
   pendingArchiveId.value = null
-  try {
-    const resp = await http.get('/methods/', { params: { page_size: 200 } })
-    entities.value = (resp.data?.results || resp.data || [])
-    totalCount.value = resp.meta?.pagination?.count ?? (Array.isArray(resp.data) ? resp.data.length : 0)
-  } catch (e) {
-    error.value = 'Failed to load'
-  } finally {
-    loading.value = false
-  }
+  return load()
 }
 
 /** 远程搜索应用（2.8 万条，「前 200 条枚举」在这个量级上没有意义）。 */
@@ -131,7 +140,17 @@ async function save() {
     }
     showEditor.value = false
     allowDuplicate.value = false
-    await loadList()
+    const wasEditing = !!editing.value
+    // 新建 ⇒ 回第 1 页（新记录按后端 ordering 落在前面）；
+    // 编辑 ⇒ 留在当前页，别把人从第 5 页踢回第 1 页。
+    await (wasEditing ? loadList() : reload())
+    // ★ A-066 的连带体验：草稿默认被 Show drafts 挡住，存完不提示的话
+    //   用户会以为「没建成」（正是 QA 观测到的「保存后列表里没有」）。
+    if (!showDrafts.value && form.value.status !== 'active') {
+      toast.success(`已保存「${form.value.name}」· 当前为 ${form.value.status}，勾选 Show drafts 可见`)
+    } else {
+      toast.success(`${wasEditing ? '已保存' : '已创建'}「${form.value.name}」`)
+    }
   } catch (e) {
     // ★ A-155：同名冲突现在返回 409（改前一模一样地建副本、无任何提示）
     if (e.response?.status === 409) {
@@ -177,7 +196,15 @@ async function archiveRow(e) {
       <button class="btn btn-primary btn-sm" @click="openNew">+ New Method</button>
     </div>
 
-    <ListTruncationHint :count="totalCount" :shown="entities.length" />
+    <EntityListToolbar
+      v-model:search="search"
+      v-model:showDrafts="showDrafts"
+      v-model:status="status"
+      :status-options="STATUS_OPTIONS"
+      placeholder="Search methods…"
+      :loading="loading"
+      @submit="reload"
+    />
 
     <LoadingSpinner v-if="loading" text="Loading..." />
     <div v-else-if="error" class="error">{{ error }}</div>
@@ -199,6 +226,15 @@ async function archiveRow(e) {
       </tbody>
     </table>
     <EmptyState v-else title="No methods yet" icon="Tools" />
+
+    <DataPagination
+      v-if="totalPages > 1"
+      :current-page="page"
+      :page-size="pageSize"
+      :total="totalCount"
+      layout="total, prev, pager, next"
+      @update:current-page="goPage"
+    />
 
     <div v-if="showEditor" ref="overlay" class="dialog-overlay" v-bind="dialogAttrs" @click.self="showEditor = false">
       <div class="dialog">

@@ -16,6 +16,9 @@ import {
   previewEmailTemplate, sendTestEmail,
 } from '@/api/system'
 import { extractErrorMessage } from '@/utils/http'
+import { useConfirm } from '@/composables/useConfirm'
+
+const { ask } = useConfirm()
 
 const list = ref([])
 const loadingList = ref(false)
@@ -57,7 +60,16 @@ async function loadList() {
 }
 
 async function select(key) {
-  if (dirty.value && !window.confirm('当前有未保存的修改，切换模板会丢失。继续？')) return
+  if (dirty.value) {
+    const ok = await ask({
+      title: '放弃未保存的修改',
+      message: '当前有未保存的修改，切换模板会丢失。继续？',
+      confirmText: '放弃修改',
+      cancelText: '留在此页',
+      danger: true,
+    })
+    if (!ok) return
+  }
   loadingDetail.value = true
   preview.value = null
   error.value = ''
@@ -114,7 +126,12 @@ async function save() {
 
 async function sendTest() {
   if (!current.value) return
-  if (!window.confirm('发一封测试邮件到你自己的邮箱？\n（使用当前草稿内容，不改动已保存的版本）')) return
+  const ok = await ask({
+    title: '发送测试邮件',
+    message: '发一封测试邮件到你自己的邮箱？\n（使用当前草稿内容，不改动已保存的版本）',
+    confirmText: '发送',
+  })
+  if (!ok) return
   sending.value = true
   error.value = ''
   try {

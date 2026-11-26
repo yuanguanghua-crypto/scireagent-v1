@@ -71,12 +71,17 @@ watch(
       </el-input>
 
       <!-- ★ 2026-10-26 删除 status 下拉（用户拍板）。
-           它从来就没生效过：ResearchGoalViewSet 没配 filterset_fields，
+           它当时从来就没生效过：ResearchGoalViewSet 没配 filterset_fields，
            `?status=` 被 DjangoFilterBackend 直接丢弃 —— 实测匿名传
            active/draft/archived 全部返回 11036，选了等于没选。
            而且选项里的 `completed` 不是任何模型的合法状态
-           （PublicationStatus 只有 draft/published/superseded/archived）。
-           留着只会让人以为能筛。要恢复必须先在后端加 filterset_fields。 -->
+           （PublicationStatus 只有 draft/published/superseded/archived）。 -->
+      <!-- ★ 2026-11-18（S4）更正上一段的前提：后端**已**补上
+           `filterset_fields = ['status']`，`?status=draft` 现在真的会筛
+           （实测 11038 → 1）。但本页**仍然不恢复**下拉，理由变了：
+           本页是面向研究者的公开列表，只该有「公开态」一种语义，
+           给一个 Draft 选项等于给一个永远空表的控件。
+           有状态的治理视图在 `/workspace/goals`（配 Show drafts 开关 + 状态筛选）。 -->
     </div>
 
     <div v-if="store.loading && !store.goals.length" class="loading-state">

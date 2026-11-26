@@ -1,25 +1,34 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useApplicationsStore } from '@/stores/applications'
+import { useAuthStore } from '@/stores/auth'
 import ApplicationCard from '@/components/cards/ApplicationCard.vue'
 import ConvergenceBrowseTab from '@/components/convergence/ConvergenceBrowseTab.vue'
 
 const router = useRouter()
 const route = useRoute()
 const store = useApplicationsStore()
+const auth = useAuthStore()
 
 // 双层结构 Step 3：页面顶部加 el-tabs
 // Tab 1「All Applications」（原卡片内容），Tab 2「Browse by Class」（收敛类聚合浏览）
 // 支持 ?tab=class 查询参数定位聚合 Tab（从收敛类详情页返回时使用）
 const activeTab = ref(route.query.tab === 'class' ? 'class' : 'all')
 
-const statusFilters = [
+// ★ 2026-11-18（S4 / A-123）：状态芯片加 isStaff 守卫。
+//   后端对非 staff 的 list 一律只返回 active（`fixture_visibility.apply_public_visibility`，
+//   Application 的 public_statuses = ['active']），所以对研究者而言
+//   「All」和「Active」两个芯片点下去是**同一批结果**，「Draft」「Deprecated」则是
+//   永远空表 —— 三个芯片是纯噪声，且会让人误以为站内有草稿/已弃用的应用。
+//   因此非 staff 不渲染芯片栏（只剩「全部公开应用」这一种语义）。
+const statusFiltersAll = [
   { key: 'all', label: 'All' },
   { key: 'active', label: 'Active' },
   { key: 'draft', label: 'Draft' },
   { key: 'deprecated', label: 'Deprecated' },
 ]
+const statusFilters = computed(() => (auth.isStaff ? statusFiltersAll : []))
 
 const activeFilter = ref('all')
 
@@ -27,13 +36,39 @@ onMounted(() => {
   store.fetchApplications()
 })
 
+/**
+ * ★ 2026-11-20（S4 / A-141 收口）：把「改条件 → 重取数据」收成两个**显式**处理器，
+ * 并**删掉对 `filters.search` 的 watch**。原实现有两处毛病，其实是同一个病：
+ *
+ * ① 状态芯片是死控件（QA A-141 报的现象）：`handleFilter` 只 `setFilters({status})`
+ *    不发请求，而 `watch` 只盯 `filters.search`、不盯 `status`
+ *    ⇒ 点「Draft」「Deprecated」后列表纹丝不动，看上去像筛选没生效。
+ *
+ * ② 搜索框三条路管同一件事：`v-model="store.filters.search"` + `@input="handleSearch"`
+ *    + `watch(() => store.filters.search)` ⇒ **每敲一个字符发两次一模一样的请求**
+ *    （handleSearch 一次、watch 一次）。两个响应谁后到谁覆盖，翻页时还会错页。
+ *
+ * 现在与 `MethodIndex.vue:58-72` / `ProtocolIndex.vue:117-126` 同构：
+ * 本地事件显式触发，一个事件 = 一次请求，没有隐式 watch。
+ *
+ * 后端无需改：`ApplicationFilter.Meta.fields` 已含 `status`
+ * （`backend/apps/knowledge/api/v1/filters.py:22`），且 `apply_public_visibility`
+ * 对 **staff 绕过** status 公开态过滤（`.../fixture_visibility.py:84`
+ * `if statuses and not is_staff_request(request)`），所以 staff 点 Draft 真的能拿到草稿。
+ * 芯片本身只对 staff 渲染（见上方 A-123 注释），匿名访客拿不到这条路径。
+ */
 function handleSearch() {
+  // 换关键词必须回第 1 页：否则停在第 3 页输入新关键词会拿到一个空表，
+  // 而结果总数又显示有命中 —— 看起来像搜索坏了。
+  store.setPage(1)
   store.fetchApplications()
 }
 
 function handleFilter(key) {
   activeFilter.value = key
+  // setFilters 内部已把 page 重置为 1，不必再 setPage
   store.setFilters({ status: key === 'all' ? '' : key })
+  store.fetchApplications()
 }
 
 function handleCardClick(application) {
@@ -45,10 +80,6 @@ function handlePageChange(page) {
   store.fetchApplications()
 }
 
-watch(
-  () => store.filters.search,
-  () => { store.fetchApplications() }
-)
 </script>
 
 <template>
@@ -81,11 +112,14 @@ watch(
           </template>
         </el-input>
       </div>
-      <div class="filter-chips">
+      <!-- ★ 2026-11-18（S4 / A-123）：容器也要 v-if，否则非 staff 会留下一条空的
+           `.filter-chips`（flex + gap），在页面上表现为一段莫名的空白。 -->
+      <div v-if="statusFilters.length" class="filter-chips" data-testid="status-chips">
         <button
           v-for="f in statusFilters"
           :key="f.key"
           class="filter-chip"
+          :data-testid="`status-chip-${f.key}`"
           :class="{ active: activeFilter === f.key }"
           @click="handleFilter(f.key)"
         >

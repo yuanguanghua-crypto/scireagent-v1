@@ -3,6 +3,9 @@ import { onMounted, reactive, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAddressesStore } from '@/stores/addresses'
 import { ADDRESS_TYPES } from '@/config/poConstants'
+import { useConfirm } from '@/composables/useConfirm'
+
+const { ask } = useConfirm()
 
 const store = useAddressesStore()
 const { addresses, loading } = storeToRefs(store)
@@ -56,7 +59,13 @@ async function save() {
 }
 
 async function remove(id) {
-  if (confirm('Delete this address?')) await store.removeAddress(id)
+  const ok = await ask({
+    title: 'Delete address',
+    message: 'Delete this address?',
+    confirmText: 'Delete',
+    danger: true,
+  })
+  if (ok) await store.removeAddress(id)
 }
 
 onMounted(() => store.fetchAddresses())

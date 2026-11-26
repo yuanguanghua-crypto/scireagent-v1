@@ -6,7 +6,7 @@ import { respondToQuote } from '@/api/orders'
 import { downloadInvoicePdf, uploadPaymentProof } from '@/api/poPortal'
 import { statusBadgeStyle, formatStatus } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
-import { LoadingSpinner, ErrorBanner, StatusBadge } from '@/components/common'
+import { LoadingSpinner, ErrorBanner, StatusBadge, toast } from '@/components/common'
 
 const route = useRoute()
 const router = useRouter()
@@ -122,7 +122,8 @@ async function handleQuoteAction(action) {
     await respondToQuote(order.value.id, action)
     store.fetchOrder(route.params.id)
   } catch (err) {
-    alert(err?.data?.meta?.error?.message || 'Action failed')
+    // ★ 2026-11-18（S4）：`alert` → `toast.error`（不阻塞、可断言）
+    toast.error(err?.data?.meta?.error?.message || 'Action failed')
   }
 }
 </script>

@@ -4,9 +4,10 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { isInternal } from '@/utils/internalAccess'
 import { http } from '@/api/http'
-import { toast, LoadingSpinner, EmptyState } from '@/components/common'
+import { toast, LoadingSpinner, EmptyState, DataPagination } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
-import ListTruncationHint from './components/ListTruncationHint.vue'
+import { useEntityList } from '@/composables/useEntityList'
+import EntityListToolbar from './components/EntityListToolbar.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -15,10 +16,26 @@ const auth = useAuthStore()
 if (!isInternal(auth)) { router.replace('/') }
 
 const entityType = 'goals'
-const entities = ref([])
-const totalCount = ref(0)
-const loading = ref(true)
-const error = ref('')
+// ★ 2026-11-18（S4 / A-066 + A-014）：列表取数统一走 useEntityList。
+//   改前 `page_size: 200` ⇒ 生产 11,047 个目标只渲染 200 行且无翻页、无搜索框。
+//   `publicStatus='active'`：ResearchGoalViewSet 同样**没做方案 B 过滤**，
+//   不显式传 status 时 staff 看到的是含 draft/archived 的全量。
+//   ⚠️ 该端点原先**没有 filterset**（`filterset_fields` 缺失）⇒ `?status=` 被静默忽略。
+//   本次已在 `ResearchGoalViewSet` 补上 `filterset_fields = ['status']`（纯新增，见后端注释）。
+const {
+  rows: entities, total: totalCount, page, pageSize, totalPages,
+  loading, error, search, showDrafts, status,
+  load, reload, goPage,
+} = useEntityList({ url: '/research-goals/', publicStatus: 'active' })
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'All statuses' },
+  { value: 'active', label: 'active' },
+  { value: 'draft', label: 'draft' },
+  { value: 'deprecated', label: 'deprecated' },
+  { value: 'archived', label: 'archived' },
+]
+
 const showEditor = ref(false)
 const editing = ref(null)
 const saving = ref(false)
@@ -38,18 +55,10 @@ const dialogAttrs = useDialogA11y(showEditor, overlay, {
 
 onMounted(loadList)
 
+/** 刷新当前页（保留页码与筛选），并清掉行内「Confirm archive」的待确认态。 */
 async function loadList() {
-  loading.value = true
   pendingArchiveId.value = null
-  try {
-    const resp = await http.get('/research-goals/', { params: { page_size: 200 } })
-    entities.value = (resp.data?.results || resp.data || [])
-    totalCount.value = resp.meta?.pagination?.count ?? (Array.isArray(resp.data) ? resp.data.length : 0)
-  } catch (e) {
-    error.value = 'Failed to load'
-  } finally {
-    loading.value = false
-  }
+  return load()
 }
 
 function openNew() {
@@ -108,7 +117,12 @@ async function save() {
     }
     showEditor.value = false
     allowDuplicate.value = false
-    await loadList()
+    const wasEditing = !!editing.value
+    // 新建 ⇒ 回第 1 页（ResearchGoal 按 priority 排序）；编辑 ⇒ 留在当前页
+    await (wasEditing ? loadList() : reload())
+    // ★ 本页表单没有 status 字段，新建的 ResearchGoal 由 StatusMixin 默认成 draft
+    toast.success(`${wasEditing ? '已保存' : '已创建'}「${form.value.name}」`
+      + (wasEditing || showDrafts.value ? '' : ' · 新记录默认是 draft，勾选 Show drafts 可见'))
   } catch (e) {
     // ★ A-155：同名冲突改由后端 409 显式拒绝（改前一模一样地建副本）
     if (e.response?.status === 409) {
@@ -147,7 +161,15 @@ async function archiveRow(e) {
       <button class="btn btn-primary btn-sm" @click="openNew">+ New Goal</button>
     </div>
 
-    <ListTruncationHint :count="totalCount" :shown="entities.length" />
+    <EntityListToolbar
+      v-model:search="search"
+      v-model:showDrafts="showDrafts"
+      v-model:status="status"
+      :status-options="STATUS_OPTIONS"
+      placeholder="Search research goals…"
+      :loading="loading"
+      @submit="reload"
+    />
 
     <LoadingSpinner v-if="loading" text="Loading..." />
     <div v-else-if="error" class="error">{{ error }}</div>
@@ -173,6 +195,15 @@ async function archiveRow(e) {
     </table>
     <EmptyState v-else title="No goals yet" icon="Flag" />
 
+    <DataPagination
+      v-if="totalPages > 1"
+      :current-page="page"
+      :page-size="pageSize"
+      :total="totalCount"
+      layout="total, prev, pager, next"
+      @update:current-page="goPage"
+    />
+
     <!-- Editor dialog -->
     <div v-if="showEditor" ref="overlay" class="dialog-overlay" v-bind="dialogAttrs" @click.self="showEditor = false">
       <div class="dialog">
@@ -180,9 +211,18 @@ async function archiveRow(e) {
         <label>Name <input v-model="form.name" class="input-full" /></label>
         <label>Summary <textarea v-model="form.summary" rows="4" class="input-full"></textarea></label>
         <label>Curated Protocols
+          <!-- ★ 2026-11-18（S4 连带，实测出来的真缺陷）：补 `collapse-tags`。
+               改前这里是裸 `multiple` —— 每个已选协议渲染成一个 tag。生产数据里
+               `RNA Analysis` 一个目标就挂了**几百条**协议，编辑它时这些 tag 全部
+               铺开，把 `.dialog` 撑到 **15,261px** 高、Cancel/Save 跑到 y=7938
+               （视口只有 720px 高）⇒ 用户根本点不到按钮，只能按 Esc。
+               实测证据：Playwright 在该对话框上点 Cancel 恒报 "element is not stable"，
+               探针打印 `dialogBox={x:420,y:-7271,h:15261}`、`cancelBox={x:701,y:7938}`。
+               MethodsPage / ProtocolsPage 的同款选择器早就带了这两个属性，唯独本页漏了。 -->
           <el-select
             v-model="form.protocols"
-            multiple filterable remote
+            multiple collapse-tags collapse-tags-tooltip
+            filterable remote
             :remote-method="searchProtocols"
             :loading="protocolSearching"
             placeholder="Search protocols to curate"

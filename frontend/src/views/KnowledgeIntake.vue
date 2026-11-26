@@ -3,9 +3,12 @@
  * KnowledgeIntake — Online form for postdoc to fill in knowledge content.
  * Similar to PIT (Product Intake Tool) but for knowledge layer.
  */
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http from '@/utils/http'
+import { useConfirm } from '@/composables/useConfirm'
+
+const { ask } = useConfirm()
 
 const route = useRoute()
 const router = useRouter()
@@ -39,25 +42,124 @@ const form = ref({
   confidence: 'high',
 })
 
-/* ── Options ── */
-const GOAL_OPTIONS = [
-  'RNA Analysis', 'DNA Sequencing', 'Click Chemistry', 'Protein Engineering',
-  'RNA Modification', 'RNA Therapeutics', 'Epigenetics', 'Cell Biology',
+/* ── Options ──
+ *
+ * ★ A-075 / A-218（2026-11-18 / S4）：三组选项从**硬编码常量**改为**远程搜索 + 可新建**。
+ *
+ * ## 改前的缺陷（诊断件实测数字：8 / 12 / 11）
+ * `GOAL_OPTIONS`(8) / `APP_OPTIONS`(12) / `METHOD_OPTIONS`(11) 是写死的字符串数组，
+ * 与库里的 11,047 个 Goal、28,568 个 Application、88 个 Method **完全脱钩**：
+ * 无论产品是什么，任何人看到的永远是同样那 8 / 12 / 11 个按钮，
+ * **任何新建的实体永远进不去**这个页面。QA 报的"只加载前 200 条"其实是这套常量。
+ *
+ * ## 为什么不是单纯的 `el-select remote`（关键取舍）
+ * 原常量表虽然荒谬，但它**隐含保留了一个真实能力**：可以录入"库里还没有"的名字 ——
+ * 后端 `/knowledge-intake/` 是按 name `get_or_create` 的，这是研究员录新知识的主路径。
+ * 若只换成"从库里搜索并选择"，这个能力会**静默消失**（而且没有任何报错，只是没法录了）。
+ * 所以这里保留 chips 形态，并显式给出「＋ Create “…”」入口：
+ *   · 输入框 ⇒ 服务端 `?search=`（与 ProductEditPage 已验证的模式一致，含 `include_unpublished: 1`）；
+ *   · 候选里没有你输入的名字 ⇒ 出现「＋ Create」按钮，点一下即作为新名字加入；
+ *   · 已选中的名字即使不在当前搜索结果里也**始终显示**（否则搜一次就再也取消不掉了）。
+ */
+const OPTION_LIMIT = 30
+const SEARCH_DEBOUNCE_MS = 250
+
+/** 三组选择器的元数据（模板用 v-for 渲染，避免三份重复标记） */
+const GROUPS = [
+  {
+    key: 'research_goals',
+    label: 'Research Goals',
+    testid: 'goal',
+    endpoint: '/research-goals/',
+    placeholder: 'Search all research goals — type a new name to create one',
+  },
+  {
+    key: 'applications',
+    label: 'Applications',
+    testid: 'app',
+    endpoint: '/applications/',
+    placeholder: 'Search all applications — type a new name to create one',
+  },
+  {
+    key: 'methods',
+    label: 'Methods',
+    testid: 'method',
+    endpoint: '/methods/',
+    // ★ 管理端要能挂草稿：`include_unpublished` 只对 staff 生效（`fixture_visibility.py`），
+    //   非 staff 传了也等于没传 —— 与 ProductEditPage 的两处远程搜索同口径。
+    extra: { include_unpublished: 1 },
+    placeholder: 'Search all methods — type a new name to create one',
+  },
 ]
 
-const APP_OPTIONS = [
-  'RNA Fluorescent Labeling', 'RNA Biotin Labeling', 'RNA Quantification',
-  'RNA Imaging', 'Sanger Sequencing', 'NGS Library Preparation',
-  'CuAAC Bioconjugation', 'SPAAC Bioconjugation', 'Protein Fluorescent Labeling',
-  'mRNA Modification', 'DNA Probe Synthesis', 'FISH',
-]
+function makePicker(g) {
+  return reactive({
+    endpoint: g.endpoint,
+    extra: g.extra || {},
+    placeholder: g.placeholder,
+    options: [],      // 服务端返回的名字（当前 query 的前 OPTION_LIMIT 条）
+    search: '',
+    searching: false,
+    error: '',
+    count: 0,         // 当前 query 的服务端命中总数（> options.length 即被截断）
+  })
+}
 
-const METHOD_OPTIONS = [
-  'CuAAC Click Chemistry', 'SPAAC Click Chemistry', 'NHS-Ester Conjugation',
-  'Enzymatic Incorporation', 'BigDye Terminator Sequencing', 'Nextera DNA Library Prep',
-  'RiboGreen Quantification', 'Cy3/Cy5 Protein Labeling', 'Maleimide Conjugation',
-  'Biotin-Streptavidin Capture', 'In Vitro Transcription',
-]
+const pickers = reactive(
+  Object.fromEntries(GROUPS.map((g) => [g.key, makePicker(g)])),
+)
+
+async function fetchPickerOptions(p) {
+  p.searching = true
+  p.error = ''
+  try {
+    const params = { page_size: OPTION_LIMIT, ...p.extra }
+    const q = p.search.trim()
+    if (q) params.search = q
+    const r = await http.get(p.endpoint, { params })
+    const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+    p.options = rows.map((x) => x.name).filter(Boolean)
+    p.count = r.meta?.pagination?.count ?? p.options.length
+  } catch (e) {
+    p.error = 'Could not load options — check your connection and try again.'
+    p.options = []
+    p.count = 0
+  } finally {
+    p.searching = false
+  }
+}
+
+const _timers = {}
+function onPickerInput(key) {
+  const p = pickers[key]
+  clearTimeout(_timers[key])
+  _timers[key] = setTimeout(() => fetchPickerOptions(p), SEARCH_DEBOUNCE_MS)
+}
+
+/** 当前分区的 chips = 已选 ∪ 当前候选。已选必须在列，否则搜走后无法取消。 */
+function chipsFor(key) {
+  const selected = form.value[key] || []
+  return [...new Set([...selected, ...pickers[key].options])]
+}
+
+/** 输入的名字是否可作为**新实体**创建（未被候选覆盖，且不是纯空白/单字符） */
+function canCreate(key) {
+  const p = pickers[key]
+  const name = (p.search || '').trim()
+  if (name.length < 2) return false
+  return !p.options.some((n) => n.toLowerCase() === name.toLowerCase())
+}
+
+function createCandidate(key) {
+  const p = pickers[key]
+  const name = (p.search || '').trim()
+  if (!name) return
+  const arr = form.value[key]
+  if (!arr.includes(name)) arr.push(name)
+  p.search = ''
+  clearTimeout(_timers[key])
+  fetchPickerOptions(p)
+}
 
 const DIFFICULTY_OPTIONS = ['Beginner', 'Intermediate', 'Advanced']
 const CONFIDENCE_OPTIONS = ['high', 'medium', 'low']
@@ -72,6 +174,8 @@ onMounted(async () => {
     message.value = { type: 'err', text: 'Failed to load products' }
   }
   loading.value = false
+  // 首屏默认候选（不带 search）—— 让三个分区进来就有东西可点，而不是空白等输入
+  GROUPS.forEach((g) => fetchPickerOptions(pickers[g.key]))
 })
 
 /* ── Filtered products ── */
@@ -110,6 +214,16 @@ function selectProduct(p) {
     key_limitations: '',
     confidence: 'high',
   }
+  // ★ A-075/218：换产品时把三组搜索框也清掉 —— 否则上一个产品搜的 "CRISPR" 会留在
+  //   输入框里，新产品的可见候选被一个看不见原因的过滤条件窄化。
+  GROUPS.forEach((g) => {
+    const p = pickers[g.key]
+    if (p.search) {
+      p.search = ''
+      clearTimeout(_timers[g.key])
+      fetchPickerOptions(p)
+    }
+  })
 }
 
 /* ── Toggle multi-select option ── */
@@ -170,9 +284,11 @@ async function copyToSimilar() {
     return
   }
   // (2) 写前确认：明确告知将被写入的目标条数；用户取消则**不做任何写入**。
-  const proceed = window.confirm(
-    `Copy knowledge to ${similar.length} similar product(s)?`
-  )
+  const proceed = await ask({
+    title: 'Copy knowledge',
+    message: `Copy knowledge to ${similar.length} similar product(s)?`,
+    confirmText: `Copy to ${similar.length}`,
+  })
   if (!proceed) return
   // (3) 逐条计数：成功/失败分别累计，结束时如实汇报（不再只丢一句 "Copy failed"）。
   saving.value = true
@@ -244,55 +360,53 @@ async function copyToSimilar() {
         </div>
 
         <form @submit.prevent="save" class="ki-form">
-          <!-- Research Goals -->
-          <div class="ki-section">
-            <h3 class="ki-section-title">Research Goals</h3>
-            <div class="ki-chips">
-              <button
-                v-for="opt in GOAL_OPTIONS"
-                :key="opt"
-                type="button"
-                class="ki-chip"
-                :class="{ 'ki-chip-active': form.research_goals.includes(opt) }"
-                @click="toggleOption('research_goals', opt)"
-              >
-                {{ opt }}
-              </button>
-            </div>
-          </div>
+          <!-- Research Goals / Applications / Methods：远程搜索 + 可新建（★ A-075 / A-218） -->
+          <div v-for="g in GROUPS" :key="g.key" class="ki-section"
+               :data-testid="`ki-${g.testid}-section`">
+            <h3 class="ki-section-title">{{ g.label }}</h3>
 
-          <!-- Applications -->
-          <div class="ki-section">
-            <h3 class="ki-section-title">Applications</h3>
-            <div class="ki-chips">
+            <div class="ki-picker">
+              <input
+                v-model="pickers[g.key].search"
+                class="ki-input"
+                :placeholder="pickers[g.key].placeholder"
+                :data-testid="`ki-${g.testid}-search`"
+                @input="onPickerInput(g.key)"
+                @keyup.enter.prevent="createCandidate(g.key)"
+              />
               <button
-                v-for="opt in APP_OPTIONS"
-                :key="opt"
+                v-if="canCreate(g.key)"
                 type="button"
-                class="ki-chip"
-                :class="{ 'ki-chip-active': form.applications.includes(opt) }"
-                @click="toggleOption('applications', opt)"
-              >
-                {{ opt }}
-              </button>
+                class="ki-create-btn"
+                :data-testid="`ki-${g.testid}-create`"
+                @click="createCandidate(g.key)"
+              >＋ Create “{{ pickers[g.key].search.trim() }}”</button>
             </div>
-          </div>
 
-          <!-- Methods -->
-          <div class="ki-section">
-            <h3 class="ki-section-title">Methods</h3>
-            <div class="ki-chips">
+            <p v-if="pickers[g.key].error" class="ki-hint ki-hint-err"
+               :data-testid="`ki-${g.testid}-error`">{{ pickers[g.key].error }}</p>
+
+            <div class="ki-chips" :class="{ 'ki-chips-busy': pickers[g.key].searching }">
               <button
-                v-for="opt in METHOD_OPTIONS"
+                v-for="opt in chipsFor(g.key)"
                 :key="opt"
                 type="button"
                 class="ki-chip"
-                :class="{ 'ki-chip-active': form.methods.includes(opt) }"
-                @click="toggleOption('methods', opt)"
+                :class="{ 'ki-chip-active': form[g.key].includes(opt) }"
+                @click="toggleOption(g.key, opt)"
               >
                 {{ opt }}
               </button>
             </div>
+            <p v-if="!pickers[g.key].searching && !chipsFor(g.key).length" class="ki-hint">
+              Nothing loaded yet — type above to search.
+            </p>
+            <!-- ★ A-206 同族：截断必须说出来，否则用户以为"库里就这么多" -->
+            <p v-if="pickers[g.key].count > pickers[g.key].options.length"
+               class="ki-hint" :data-testid="`ki-${g.testid}-truncated`">
+              Showing first {{ pickers[g.key].options.length }} of
+              {{ pickers[g.key].count }} matches — keep typing to narrow down.
+            </p>
           </div>
 
           <!-- Protocol -->
@@ -445,6 +559,20 @@ async function copyToSimilar() {
 .ki-chip { padding: 4px 12px; border: 1px solid var(--color-border); border-radius: 16px; font-size: 12px; cursor: pointer; background: var(--color-surface); color: var(--color-text); font-family: var(--font-sans); transition: all 0.15s; }
 .ki-chip:hover { border-color: var(--color-primary); }
 .ki-chip-active { background: var(--color-primary); border-color: var(--color-primary); color: white; }
+
+/* ★ A-075 / A-218：远程搜索选择器 */
+.ki-picker { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.ki-picker .ki-input { flex: 1; min-width: 220px; }
+/* 「＋ Create …」刻意**不带** `.ki-chip` class —— 它不是候选项，是"新建"动作；
+   混进 `.ki-chip` 会让按选项遍历的逻辑（含 e2e 的候选筛选）把它当实体名。 */
+.ki-create-btn {
+  padding: 6px 12px; border: 1px dashed var(--color-primary); border-radius: 16px;
+  font-size: 12px; cursor: pointer; background: transparent; color: var(--color-primary);
+  font-family: var(--font-sans); white-space: nowrap;
+}
+.ki-create-btn:hover { background: var(--color-primary-subtle); }
+.ki-chips-busy { opacity: .5; }
+.ki-hint-err { color: var(--color-danger, #dc2626); }
 
 /* Actions */
 .ki-actions { display: flex; gap: 12px; padding-top: 16px; border-top: 1px solid var(--color-border); }

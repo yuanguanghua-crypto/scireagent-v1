@@ -37,6 +37,22 @@ const count = computed(() => products.value.length)
 /** 当前收藏的产品 id（PATCH 前的「读」） */
 const productIds = computed(() => products.value.map((p) => p.id))
 
+/**
+ * ★ 2026-11-18（A-258）：该商品是否**已不可售**。
+ *
+ * 两条独立轴都要看（后端 `Product` 就是这么设计的）：
+ *   · `archived === true` —— 回收站轴（`DELETE` 置位）。写侧只拦「收藏已归档商品」，
+ *     拦不住「收藏之后才被归档」，所以收藏夹里会残留。
+ *   · `status !== 'active'` —— 业务状态轴（draft / deprecated / archived）。
+ * 缺任一条都会漏判：生产那批 `archived=True 且 status='active'` 的历史数据就只命中第一条。
+ */
+function isUnavailable(p) {
+  return p.archived === true || (p.status || '') !== 'active'
+}
+
+/** 收藏夹里有多少件已经不能买了 */
+const unavailableCount = computed(() => products.value.filter(isUnavailable).length)
+
 async function loadWishlist() {
   if (!authStore.isAuthenticated) {
     loading.value = false
@@ -143,21 +159,33 @@ onMounted(loadWishlist)
       <router-link to="/products" class="wl-empty-link">去逛逛产品目录 →</router-link>
     </div>
 
-    <!-- 产品网格 -->
-    <div v-else class="wl-grid">
-      <div v-for="p in products" :key="p.id" class="wl-item">
-        <ProductCard :product="p" />
-        <button
-          type="button"
-          class="wl-remove"
-          :disabled="busy"
-          :aria-label="`移除 ${p.name}`"
-          @click.stop="removeProduct(p)"
-        >
-          移除
-        </button>
+    <!-- ★ A-258：下架提醒。不静默隐藏 —— 用户得知道「它不是我删的，是卖不了了」。
+         必须包在 <template v-else> 里，否则会打断上面那条 v-if/v-else 状态链。 -->
+    <template v-else>
+      <p
+        v-if="unavailableCount > 0"
+        class="wl-notice-line"
+        data-testid="wishlist-unavailable-note"
+      >
+        其中 <strong>{{ unavailableCount }}</strong> 件商品已下架，仍保留在你的收藏夹中（不可购买，可随时移除）。
+      </p>
+
+      <!-- 产品网格 -->
+      <div class="wl-grid">
+        <div v-for="p in products" :key="p.id" class="wl-item">
+          <ProductCard :product="p" :unavailable="isUnavailable(p)" />
+          <button
+            type="button"
+            class="wl-remove"
+            :disabled="busy"
+            :aria-label="`移除 ${p.name}`"
+            @click.stop="removeProduct(p)"
+          >
+            移除
+          </button>
+        </div>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
@@ -190,6 +218,23 @@ onMounted(loadWishlist)
 .wl-count {
   font-size: 13px;
   color: var(--color-text-secondary);
+}
+
+/* ★ A-258：下架提醒条 —— 用中性色而非警告色，这不是错误，只是状态变化 */
+.wl-notice-line {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-text-tertiary);
+  border-radius: var(--radius-md, 8px);
+  background: var(--color-bg);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+.wl-notice-line strong {
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Notice / error ── */

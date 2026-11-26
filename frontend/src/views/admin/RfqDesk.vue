@@ -52,11 +52,35 @@ async function load() {
     const payload = res.data ?? res
     rows.value = Array.isArray(payload) ? payload : (payload.results || [])
     total.value = res.meta?.pagination?.count ?? rows.value.length
+    // ★ 2026-11-18（A-090）：「筛选后详情还停在旧行」的根因。
+    //   右侧详情是**按 id 单独取**的，不跟着列表走 ⇒ 换了筛选条件后，
+    //   详情仍显示一个已经不在列表里的单子。运营会以为"这条还在当前视图里"，
+    //   在看不见的行上填报价、甚至给错误的单子报价。
+    //   ⇒ 列表一旦换批，就检查详情是否还在其中；不在则清空（`openRow` 里才有的旧逻辑管不到这里）。
+    if (detail.value && !rows.value.some((r) => r.id === detail.value.id)) {
+      detail.value = null
+      detailError.value = ''
+      resetQuoteForm()
+    }
   } catch (e) {
     error.value = extractErrorMessage(e?.response?.data ?? e, "Couldn't load quote requests.")
   } finally {
     loading.value = false
   }
+}
+
+/**
+ * ★ 2026-11-18（A-220 / A-222）：Refresh = **回到无筛选的初始视图**后重取。
+ *
+ * 原先 Refresh 直接绑 `load()`，于是它只是"按当前筛选再查一遍"——
+ * 运营点了 Refresh 却发现状态筛选还停在 `pending`、搜索词还在，
+ * 与"刷新 = 重新开始"的心理模型不符（QA 报的"Refresh 保留筛选"就是这个）。
+ * 「Apply」按钮保持绑 `load()`：它的语义本来就是"按当前条件查"，不受影响。
+ */
+async function refresh() {
+  search.value = ''
+  statusFilter.value = ''
+  await load()
 }
 
 async function openRow(r) {
@@ -147,10 +171,17 @@ async function submitQuote() {
       notify_customer: true,
     }
     const res = await saveQuote(detail.value.id, payload)
-    quoteResult.value = res.data ?? res
+    const saved = res.data ?? res
     const id = detail.value.id
-    await openRow({ id })   // 重新拉详情，状态以后端为准
+    // ★ 2026-11-18（A-090 连带修）：顺序必须是 **先 load() 再 openRow()**。
+    //   反过来时，若当前筛选是 `status=pending`，报完价这一单已变 `quoted`
+    //   ⇒ load() 会让它掉出列表 ⇒ 刚打开的详情又被 load() 的"清旧详情"逻辑清掉。
     await load()
+    await openRow({ id })   // 详情按 id 单独取，即使已不在当前筛选里也能看
+    // ★ 必须放在 openRow **之后**：openRow 会调 resetQuoteForm()，把 quoteResult 置空。
+    //   原实现先赋值再 openRow ⇒ 页面上的「✓ Saved and emailed to …」**永远渲染不出来**
+    //   （明明存成功了却零反馈）。这是 A-096 同族的"操作后无成功提示"。
+    quoteResult.value = saved
   } catch (e) {
     quoteError.value = extractErrorMessage(
       e?.response?.data ?? e, "Couldn't save the quotation.",
@@ -170,7 +201,12 @@ onMounted(load)
         <h1 class="po-page-title">RFQ Inbox</h1>
         <p class="po-page-subtitle">{{ subtitle }} · customer quote requests</p>
       </div>
-      <button class="po-btn po-btn-outline" @click="load" :disabled="loading">Refresh</button>
+      <button
+        class="po-btn po-btn-outline"
+        data-testid="rfq-refresh"
+        @click="refresh"
+        :disabled="loading"
+      >Refresh</button>
     </div>
 
     <ErrorBanner :message="error" title="Couldn't load quote requests" kind="load" />
@@ -181,12 +217,19 @@ onMounted(load)
         class="po-input"
         style="max-width: 280px"
         placeholder="Search name, email, company…"
+        data-testid="rfq-search"
         @keyup.enter="load"
       />
-      <select v-model="statusFilter" class="po-input" style="max-width: 180px" @change="load">
+      <select
+        v-model="statusFilter"
+        class="po-input"
+        style="max-width: 180px"
+        data-testid="rfq-status-filter"
+        @change="load"
+      >
         <option v-for="o in STATUS_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
       </select>
-      <button class="po-btn po-btn-primary" @click="load" :disabled="loading">Apply</button>
+      <button class="po-btn po-btn-primary" data-testid="rfq-apply" @click="load" :disabled="loading">Apply</button>
     </div>
 
     <div class="rfq-grid">
@@ -226,7 +269,7 @@ onMounted(load)
       </div>
 
       <!-- 右：详情 -->
-      <div class="po-card" v-if="detailLoading || detail || detailError">
+      <div class="po-card" v-if="detailLoading || detail || detailError" data-testid="rfq-detail">
         <div v-if="detailLoading" class="po-empty">Loading…</div>
         <ErrorBanner v-else-if="detailError" :message="detailError" title="Couldn't load this quote request" kind="load" />
         <template v-else-if="detail">

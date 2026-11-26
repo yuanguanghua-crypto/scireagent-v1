@@ -4,10 +4,11 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { isInternal } from '@/utils/internalAccess'
 import { http } from '@/api/http'
-import { toast, LoadingSpinner, EmptyState } from '@/components/common'
+import { toast, LoadingSpinner, EmptyState, DataPagination } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
 import { getMethods } from '@/api/methods'
-import ListTruncationHint from './components/ListTruncationHint.vue'
+import { useEntityList } from '@/composables/useEntityList'
+import EntityListToolbar from './components/EntityListToolbar.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -15,10 +16,27 @@ const auth = useAuthStore()
 //   ——与后端 permissions.py IsProcurementOrAdmin 一致；普通注册用户仍被踢回首页。
 if (!isInternal(auth)) { router.replace('/') }
 
-const entities = ref([])
-const totalCount = ref(0)
-const loading = ref(true)
-const error = ref('')
+// ★ 2026-11-18（S4 / A-066 + A-014）：列表取数统一走 useEntityList。
+//   改前是 `page_size: 500` 一把梭 + 横幅 "Showing first 500 of 13807 records" ——
+//   把截断说出口，却不给任何翻页手段；且 ProtocolViewSet 的 list 端点对 staff
+//   也套方案 B 过滤 ⇒ 13904 - 13807 = 97 条非 published 在这儿无法触达
+//   （QA 报的 TEST 协议 14244 直链 404 就是被这一段挡掉的）。
+//   `publicStatus='published'`：Protocol 用自有 PublicationStatus，公开态是 published
+//   而非 active（`active` 在 Protocol 上恒为 0，传错等于筛出空表）。
+const {
+  rows: entities, total: totalCount, page, pageSize, totalPages,
+  loading, error, search, showDrafts, status,
+  load, reload, goPage,
+} = useEntityList({ url: '/protocols/', publicStatus: 'published' })
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'All statuses' },
+  { value: 'published', label: 'published' },
+  { value: 'draft', label: 'draft' },
+  { value: 'superseded', label: 'superseded' },
+  { value: 'archived', label: 'archived' },
+]
+
 const showEditor = ref(false)
 const editing = ref(null)
 const saving = ref(false)
@@ -58,18 +76,10 @@ onMounted(() => {
   loadMethods()
 })
 
+/** 刷新当前页（保留页码与筛选），并清掉行内「Confirm archive」的待确认态。 */
 async function loadList() {
-  loading.value = true
   pendingArchiveId.value = null
-  try {
-    const resp = await http.get('/protocols/', { params: { page_size: 500 } })
-    entities.value = (resp.data?.results || resp.data || [])
-    totalCount.value = resp.meta?.pagination?.count ?? (Array.isArray(resp.data) ? resp.data.length : 0)
-  } catch (e) {
-    error.value = 'Failed to load'
-  } finally {
-    loading.value = false
-  }
+  return load()
 }
 
 async function loadMethods() {
@@ -150,7 +160,16 @@ async function save() {
     }
     showEditor.value = false
     allowDuplicate.value = false
-    await loadList()
+    const wasEditing = !!editing.value
+    // 新建 ⇒ 回第 1 页（Protocol 的 ordering 是 -version，新记录未必在首位，
+    //   但回到第 1 页至少让用户从确定的起点开始找）；编辑 ⇒ 留在当前页。
+    await (wasEditing ? loadList() : reload())
+    // ★ A-066 的连带体验：非 published 的存稿默认被 Show drafts 挡住。
+    if (!showDrafts.value && form.value.status !== 'published') {
+      toast.success(`已保存「${form.value.name}」· 当前为 ${form.value.status}，勾选 Show drafts 可见`)
+    } else {
+      toast.success(`${wasEditing ? '已保存' : '已创建'}「${form.value.name}」`)
+    }
   } catch (e) {
     // ★ A-155：同名冲突改由后端 409 显式拒绝（生产已有 63 组真实同名，不能加唯一约束）
     if (e.response?.status === 409) {
@@ -190,7 +209,15 @@ async function archiveRow(e) {
       <h2>Protocols</h2>
       <button class="btn btn-primary btn-sm" @click="openNew">+ New Protocol</button>
     </div>
-    <ListTruncationHint :count="totalCount" :shown="entities.length" />
+    <EntityListToolbar
+      v-model:search="search"
+      v-model:showDrafts="showDrafts"
+      v-model:status="status"
+      :status-options="STATUS_OPTIONS"
+      placeholder="Search protocols…"
+      :loading="loading"
+      @submit="reload"
+    />
 
     <LoadingSpinner v-if="loading" text="Loading..." />
     <div v-else-if="error" class="error">{{ error }}</div>
@@ -211,6 +238,15 @@ async function archiveRow(e) {
       </tbody>
     </table>
     <EmptyState v-else title="No protocols yet" icon="Document" />
+
+    <DataPagination
+      v-if="totalPages > 1"
+      :current-page="page"
+      :page-size="pageSize"
+      :total="totalCount"
+      layout="total, prev, pager, next"
+      @update:current-page="goPage"
+    />
 
     <div v-if="showEditor" ref="overlay" class="dialog-overlay" v-bind="dialogAttrs" @click.self="showEditor = false">
       <div class="dialog">

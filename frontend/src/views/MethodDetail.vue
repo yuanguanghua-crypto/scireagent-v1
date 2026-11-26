@@ -8,6 +8,7 @@ import UnifiedCTA from '@/components/navigation/UnifiedCTA.vue'
 import ResearchBreadcrumb from '@/components/navigation/ResearchBreadcrumb.vue'
 import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
 import { useResearchPathStore } from '@/stores/researchPath'
+import { useAuthStore } from '@/stores/auth'
 import { LoadingSpinner } from '@/components/common'
 import {
   costBandLabel,
@@ -20,9 +21,34 @@ const route = useRoute()
 const router = useRouter()
 const store = useMethodsStore()
 const researchCart = useResearchPathStore()
+const auth = useAuthStore()
 
 const method = computed(() => store.currentMethod)
 const methodId = computed(() => route.params.id)
+
+/**
+ * ★ A-116（2026-11-18 / S4，拍板 ①(b)）：「未审的 AI 初稿不对外」。
+ *
+ * ## 背景与决策链（两轮口径，别按其中一轮单看）
+ * · 2026-10-30：**有意披露** —— AI 生成的描述必须标注 "AI-generated draft · pending
+ *   expert review"，不能让客户把未审初稿当定论。QA 把这条标注当成缺陷报了（A-116）。
+ * · 2026-11-18（本轮拍板 ①(b)）：**升级为不展示内容本身**。理由：给未审内容打个补丁式
+ *   标注，仍然是"对外发布了未审内容"；不审的内容不对外，比"对外但加标注"干净，
+ *   也正是 QA 的原始诉求。staff 照常看到全部内容 + 标注（内部要能审）。
+ *
+ * ## 两组字段的边界（按后端语义，不是按页面视觉）
+ * `description_status` 管 **summary + purpose**（同一批「方法名 + 协议标题」产物）；
+ * `specs_status` 管 **advantages / limitations / timeline**（另一批「原文证据 + 正则耗时
+ * + LLM 判档」产物）。两批独立审核、各自有时间戳 ⇒ 必须**分开判**：
+ * 专家可能确认了描述却没看四字段，合并成一个开关会让未审规格以「已审」面貌出现。
+ * `cost_band` 不属于任何一批，不在此列。
+ */
+const descVisible = computed(
+  () => auth.isStaff || method.value?.description_status !== 'ai_draft',
+)
+const specsVisible = computed(
+  () => auth.isStaff || method.value?.specs_status !== 'ai_draft',
+)
 
 /* ── Navigation data ── */
 const upstreamEntities = computed(() => {
@@ -104,22 +130,24 @@ onUnmounted(() => { store.clearCurrent() })
     <div class="detail-hero">
       <h1 class="detail-title">{{ method.name }}</h1>
       <span class="detail-badge" :class="`badge-${method.status}`">{{ method.status }}</span>
-      <p v-if="method.summary" class="detail-summary">{{ method.summary }}</p>
-      <p v-if="method.purpose" class="detail-purpose"><strong>Purpose:</strong> {{ method.purpose }}</p>
-      <!-- ★ 2026-10-30：AI 生成的描述必须标注，不能让客户把未审初稿当定论。
-           后端 description_status: '' = 无描述 / 'ai_draft' = AI 初稿未审 / 'reviewed' = 已确认 -->
-      <p v-if="method.description_status === 'ai_draft'" class="desc-draft-note">
+      <!-- ★ A-116：summary / purpose 属 `description_status` 批次；未审时对非 staff 不渲染 -->
+      <p v-if="method.summary && descVisible" class="detail-summary">{{ method.summary }}</p>
+      <p v-if="method.purpose && descVisible" class="detail-purpose"><strong>Purpose:</strong> {{ method.purpose }}</p>
+      <!-- ★ 2026-10-30 的标注**保留给 staff**（内部审阅要看）。
+           2026-11-18（A-116 / ①(b)）：非 staff 现在看不到未审内容本身 ⇒ 这条标注对他们
+           既无对象也无意义，故只对 staff 显示。 -->
+      <p v-if="method.description_status === 'ai_draft' && auth.isStaff" class="desc-draft-note">
         AI-generated draft · pending expert review
       </p>
     </div>
 
     <!-- Specs -->
-    <div class="specs-row" v-if="method.cost_band || method.timeline">
+    <div class="specs-row" v-if="method.cost_band || (method.timeline && specsVisible)">
       <div class="spec" v-if="method.cost_band">
         <span class="spec-label">Cost Band</span>
         <span class="spec-val">{{ costBandLabel(method.cost_band) }}</span>
       </div>
-      <div class="spec" v-if="method.timeline">
+      <div class="spec" v-if="method.timeline && specsVisible">
         <span class="spec-label">Timeline</span>
         <span class="spec-val">{{ timelineLabel(method.timeline) }}</span>
       </div>
@@ -132,12 +160,13 @@ onUnmounted(() => { store.clearCurrent() })
       Common step — this technique appears inside other methods rather than standing alone
     </p>
 
-    <p v-if="method.specs_status === 'ai_draft'" class="spec-draft-note">
+    <!-- ★ A-116（①(b)）：非 staff 看不到未审四字段本身 ⇒ 同 description 的处理，标注只给 staff -->
+    <p v-if="method.specs_status === 'ai_draft' && auth.isStaff" class="spec-draft-note">
       Advantages, limitations and timeline are AI-generated drafts · pending expert review
     </p>
 
     <!-- Advantages / Limitations -->
-    <div class="detail-columns" v-if="method.advantages || method.limitations">
+    <div class="detail-columns" v-if="specsVisible && (method.advantages || method.limitations)">
       <section class="detail-col" v-if="method.advantages">
         <h3 class="col-title">Advantages</h3>
         <ul class="col-list">

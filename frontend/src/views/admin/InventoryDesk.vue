@@ -55,21 +55,45 @@
       </div>
     </div>
 
+    <!-- ★ A-260：脱管被拒 ⇒ 三个数落页（原先只有 3 秒 toast，抄不下来） -->
+    <div v-if="stopError" class="po-callout danger" data-testid="inv-stop-error"
+         style="margin-bottom: 12px">
+      <div class="po-between">
+        <strong data-testid="inv-stop-error-title">
+          Could not stop tracking {{ stopError.skuCode }}
+        </strong>
+        <button class="po-btn po-btn-outline po-btn-sm" data-testid="inv-stop-error-dismiss"
+                @click="stopError = null">Dismiss</button>
+      </div>
+      <p class="po-muted" style="margin:6px 0 10px">{{ stopError.message }}</p>
+      <div class="po-row" style="gap:28px">
+        <span>available: <b class="po-mono" data-testid="inv-stop-available">{{ stopError.available }}</b></span>
+        <span>allocated: <b class="po-mono" data-testid="inv-stop-allocated">{{ stopError.allocated }}</b></span>
+        <span>reserved allocations:
+          <b class="po-mono" data-testid="inv-stop-reserved">{{ stopError.reserved }}</b></span>
+      </div>
+      <p class="po-muted" style="margin:10px 0 0">
+        Clear them first — adjust the stock to 0, or release the reservations from the order side.
+      </p>
+    </div>
+
     <div class="po-card">
       <table class="po-table" data-testid="inv-table">
         <thead>
           <tr>
             <th>SKU</th><th>Product</th><th>Lot</th><th>Location</th>
             <th style="text-align:right">Available</th><th style="text-align:right">Allocated</th>
-            <th style="text-align:right">On hand</th><th>Actions</th>
+            <th style="text-align:right">On hand</th><th>Tracked</th><th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading"><td colspan="8" style="text-align:center">Loading…</td></tr>
-          <tr v-else-if="!rows.length"><td colspan="8" style="text-align:center">No inventory rows.</td></tr>
+          <tr v-if="loading"><td colspan="9" style="text-align:center">Loading…</td></tr>
+          <tr v-else-if="!rows.length"><td colspan="9" style="text-align:center">No inventory rows.</td></tr>
           <tr v-for="r in rows" :key="r.id" :data-testid="'inv-row-' + r.sku_code"
               :data-location="r.location"
-              :class="{ 'po-row-low': r.available <= lowStockThreshold }">
+              :data-tracked="r.is_stock_tracked === false ? 'no' : 'yes'"
+              :class="{ 'po-row-low': r.is_stock_tracked !== false && r.available <= lowStockThreshold,
+                        'po-row-untracked': r.is_stock_tracked === false }">
             <td class="po-mono">{{ r.sku_code }}</td>
             <td>{{ r.product_name }}</td>
             <td>{{ r.lot_number || '—' }}</td>
@@ -77,6 +101,12 @@
             <td style="text-align:right" class="po-mono">{{ r.available }}</td>
             <td style="text-align:right" class="po-mono">{{ r.allocated }}</td>
             <td style="text-align:right" class="po-mono">{{ r.on_hand }}</td>
+            <!-- ★ A-260：`is_stock_tracked === false` 才显示 No。字段缺失（老响应/缓存）
+                 时按 Yes 处理 —— 与后端默认值一致，宁可"看起来正常"也不误标成脱管。 -->
+            <td class="po-mono" data-testid="inv-tracked-cell">
+              <span v-if="r.is_stock_tracked === false" data-testid="inv-tracked-no">No</span>
+              <span v-else data-testid="inv-tracked-yes">Yes</span>
+            </td>
             <td style="white-space: nowrap">
               <button class="po-btn po-btn-primary po-btn-sm" data-testid="inv-receipt-btn"
                       @click="openReceipt(r)">Receipt</button>
@@ -84,8 +114,11 @@
                       @click="openAdjust(r)">Adjust</button>
               <button class="po-btn po-btn-outline po-btn-sm" data-testid="inv-detail-btn"
                       @click="openDetail(r)">History</button>
-              <button class="po-btn po-btn-outline po-btn-sm" data-testid="inv-untrack-btn"
-                      @click="stopTracking(r)">Stop tracking</button>
+              <!-- ★ A-260：已脱管的行不再渲染「Stop tracking」—— 点了后端是 no-op 却返回 200，
+                   正是 QA 报的"点了没任何反应"。 -->
+              <button v-if="r.is_stock_tracked !== false" class="po-btn po-btn-outline po-btn-sm"
+                      data-testid="inv-untrack-btn" @click="stopTracking(r)">Stop tracking</button>
+              <span v-else class="po-muted" data-testid="inv-untracked-note">Not tracked</span>
             </td>
           </tr>
         </tbody>
@@ -208,6 +241,11 @@ import {
   adjustStock, getInventoryDetail, getInventoryList,
   getTrackedGaps, receiptStock, setStockTracked,
 } from '@/api/inventory'
+import { useConfirm } from '@/composables/useConfirm'
+import { toast } from '@/components/common'
+import { extractErrorMessage } from '@/utils/http'
+
+const { ask } = useConfirm()
 
 const lowStockThreshold = 10
 const loading = ref(false)
@@ -216,6 +254,20 @@ const rows = ref([])
 // ★ 2026-10-28（4a）：已纳管但无库存行的 SKU
 const gaps = ref({ count: 0, items: [] })
 const filters = reactive({ search: '', location: '', lowStock: '' })
+
+/**
+ * ★ A-260（2026-11-18 / S4）：脱管被拒的**持久**落位。
+ *
+ * 为什么不能只靠 toast：`POST /inventory/track/` 被拒时后端返回 400 + `STOCK_NOT_EMPTY`，
+ * 响应体里其实已经把三个数算好了（`meta.error.details[0]`：
+ * `available / allocated / reserved_allocations`）。但原先前端只读了
+ * `meta.error.message`，然后 `toast.error(...)` —— 3 秒就没了。
+ * 运营要照着这三个数去"调平库存 / 释放占用"，必须能在页面上**边看边操作**，
+ * 所以三个数必须落页，而不是从一句滚动消失的提示里抄。
+ *
+ * 形状：`{ skuCode, message, available, allocated, reserved }`；`null` = 无错误。
+ */
+const stopError = ref(null)
 
 async function load() {
   loading.value = true
@@ -243,18 +295,41 @@ async function loadGaps() {
 
 /** 脱管：后端要求该 SKU 无库存、无占用，否则 400 STOCK_NOT_EMPTY。 */
 async function stopTracking(row) {
-  const ok = window.confirm(
-    `Stop tracking ${row.sku_code}?\n\n` +
-    'It will no longer be validated against stock on checkout ' +
-    '(treated as made-to-order / unlimited). ' +
-    'Blocked if it still holds stock or allocations.')
+  const ok = await ask({
+    title: 'Stop tracking stock',
+    message:
+      `Stop tracking ${row.sku_code}?\n\n` +
+      'It will no longer be validated against stock on checkout ' +
+      '(treated as made-to-order / unlimited). ' +
+      'Blocked if it still holds stock or allocations.',
+    confirmText: 'Stop tracking',
+    danger: true,
+  })
   if (!ok) return
+  stopError.value = null
   try {
     await setStockTracked(row.sku_id, false)
+    toast.success(`Stopped tracking ${row.sku_code}`)
+    // 脱管**不会删掉 Inventory 行**（后端只翻 SKU.is_stock_tracked）⇒ 行会带着
+    // `is_stock_tracked=false` 重新出现在表里，前端标 No 并置灰。这正是要的行为：
+    // 行消失会让人以为数据被删了。
     await Promise.all([load(), loadGaps()])
   } catch (e) {
-    const msg = e?.response?.data?.meta?.error?.message || e?.message || 'Failed'
-    window.alert(msg)
+    const data = e?.response?.data ?? e
+    const err = data?.meta?.error || {}
+    const d = Array.isArray(err.details) ? (err.details[0] || {}) : {}
+    // ⚠️ 这里**刻意不再** `toast.error(...)`：`utils/http.js` 的响应拦截器
+    //    已经对每个失败响应弹过一次 `ElMessage.error(extractErrorMessage(...))`。
+    //    原先 `alert → toast` 那一轮改出来的 `toast.error` 与拦截器叠加，会一次失败
+    //    弹两条一模一样的红条（实测代码路径：http.js 错误分支 → 直接 reject）。
+    //    持久信息由下面的 `stopError` 横幅承担，瞬时不重复。
+    stopError.value = {
+      skuCode: row.sku_code,
+      message: extractErrorMessage(data, 'Could not stop tracking this SKU.'),
+      available: d.available,
+      allocated: d.allocated,
+      reserved: d.reserved_allocations,
+    }
   }
 }
 
@@ -306,7 +381,13 @@ async function pickProduct(p) {
 }
 
 async function submitReceipt() {
-  if (!receipt.skuId || receipt.quantity < 1 || !receipt.reason) return
+  // ★ A-260 顺带修（同一类"点了没反应"）：原先这里静默 return —— 一个请求都不发，
+  //   页面也没有任何提示，用户只会觉得按钮坏了。失败响应的 toast 由 http 拦截器负责，
+  //   这里只补**根本没发请求**的那条路径。
+  if (!receipt.skuId || receipt.quantity < 1 || !receipt.reason) {
+    toast.warning('Pick a SKU, enter a quantity ≥ 1, and fill in the reason.')
+    return
+  }
   submitting.value = true
   try {
     await receiptStock({
@@ -328,7 +409,12 @@ function openAdjust(row) {
 }
 
 async function submitAdjust() {
-  if (!adjust.delta || !adjust.reason) return
+  // 同上：`delta=0` 后端也会 400（`delta 不能为 0`），但那是白跑一次请求；
+  // 这里前置拦下并说明原因，避免"点了没反应"。
+  if (!adjust.delta || !adjust.reason) {
+    toast.warning('Enter a non-zero delta and fill in the reason.')
+    return
+  }
   submitting.value = true
   try {
     await adjustStock(adjust.id, { delta: adjust.delta, reason: adjust.reason })
@@ -357,6 +443,8 @@ async function openDetail(row) {
 .po-filter-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .po-filter-row .po-field { display: flex; flex-direction: column; gap: 4px; }
 .po-row-low td { background: rgba(255, 99, 71, 0.08); }
+/* ★ A-260：已脱管（SKU 不再参与缺货校验）—— 置灰，别让它看起来像一行普通库存 */
+.po-row-untracked td { opacity: .55; }
 .po-modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex;
   align-items: flex-start; justify-content: center; z-index: 60; padding-top: 8vh; }
 .po-modal { width: min(560px, 92vw); max-height: 82vh; overflow: auto; }
