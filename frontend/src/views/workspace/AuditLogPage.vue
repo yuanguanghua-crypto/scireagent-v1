@@ -92,7 +92,8 @@ onMounted(load)
     <div class="al-header">
       <div>
         <h1 class="al-title">Audit Log</h1>
-        <p class="al-sub">{{ total }} record(s) · newest first</p>
+        <!-- ★ 2026-11-26（A-012）：加载中说 Loading…，不要显示 0 条 -->
+        <p class="al-sub">{{ loading ? 'Loading…' : `${total} record(s) · newest first` }}</p>
       </div>
       <button class="al-btn" :disabled="loading" @click="load">
         {{ loading ? 'Refreshing…' : 'Refresh' }}

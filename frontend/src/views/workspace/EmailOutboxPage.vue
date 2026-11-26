@@ -95,7 +95,8 @@ onMounted(load)
     <div class="ob-header">
       <div>
         <h1 class="ob-title">Delivery Queue</h1>
-        <p class="ob-sub">{{ total }} record(s) · 收件人已脱敏</p>
+        <!-- ★ 2026-11-26（A-012）：加载中说 Loading…，不要显示 0 条 -->
+        <p class="ob-sub">{{ loading ? 'Loading…' : `${total} record(s) · 收件人已脱敏` }}</p>
       </div>
       <button class="ob-btn" :disabled="loading" @click="load">
         {{ loading ? 'Refreshing…' : 'Refresh' }}

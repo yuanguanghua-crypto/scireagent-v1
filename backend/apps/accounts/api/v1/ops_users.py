@@ -155,6 +155,66 @@ class OpsUserListView(EnvelopeMixin, ListAPIView):
             meta={'pagination': {'count': total, 'page': 1, 'page_size': page_size}},
         )
 
+    def post(self, request, *args, **kwargs):
+        """POST /api/v1/ops/users/ —— 管理员建号（A-030，2026-11-26 新增）。
+
+        ## 为什么现在才做
+        本页原先明确"不支持建号"，理由是「密码由本人通过邮件设置」——
+        但那条限制针对的是**设置密码**，不是**创建账号**。QA Batch 3 的痛点是
+        管理员无法代建测试/业务账号，只能让对方自助注册再改角色
+        （而自助注册一律落 researcher，多绕一步且容易忘改）。
+
+        ## 安全边界（**没有放宽**）
+        - 新账号用 `set_unusable_password()` ⇒ 拿不到任何可用密码
+        - 随即签发一封 `password_reset` 邮件，密码**仍由本人设置**
+        - 因此"管理员能设密码 = 能冒充用户"这条防线原样保留
+        - 入参里**没有 password 字段**（有就是漏洞）
+
+        ## 两个刻意的决定
+        1. `email_verified=True`：管理员建号意味着邮箱已线下确认过；
+           若沿用"自助注册需点验证链接"，用户既收不到验证邮件又进不去，
+           账号等于废的（且本系统注册的邮箱验证本身有降级路径，见 A-133）。
+        2. `role` 允许指定：建号的目的就是给特定岗位开号（测试/采购/销售）；
+           自助注册落 researcher 那条规则针对的是**公开入口**，不适用于管理员。
+        """
+        ser = OpsUserCreateSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        d = ser.validated_data
+
+        org = None
+        if d.get('organization_id'):
+            from apps.accounts.models import Organization
+            org = Organization.objects.filter(pk=d['organization_id']).first()
+
+        user = User(
+            username=d['username'],
+            email=d['email'],
+            role=d.get('role') or User.Role.RESEARCHER,
+            organization=org,
+            email_verified=True,
+        )
+        user.set_unusable_password()   # ★ 关键：不设可用密码
+        user.save()
+
+        mailed, reset_url, expires_hours = _issue_password_reset(user, request)
+        logger.info('[ops] %s 建号 user=%s role=%s（密码待本人邮件设置）',
+                    request.user.pk, user.pk, user.role)
+
+        return self.success_response(
+            {
+                'id': user.pk,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role,
+                'organization_id': user.organization_id,
+                'password_reset_queued': mailed,
+                # 邮件没入队时把链接给出来，管理员可人工转达（与重发端点同口径）
+                'reset_url': None if mailed else reset_url,
+                'expires_hours': expires_hours,
+            },
+            status_code=201,
+        )
+
 
 class OpsUserDetailView(EnvelopeMixin, APIView):
     """PATCH /api/v1/ops/users/:id/ — 改 role 或启停。
@@ -258,6 +318,82 @@ class OpsUserVerifyEmailView(EnvelopeMixin, APIView):
         })
 
 
+def _issue_password_reset(user, request):
+    """给 user 签发一次密码重置令牌并入队邮件。返回 (mailed, reset_url, expires_hours)。
+
+    ★ 这是本项目**唯一**的"设置密码"通路。
+      管理员不能直接设密码（能设 = 能冒充用户，审计上"谁操作的"不再可信），
+      只能发这封邮件让本人自己设。建号（A-030）与手动重发（OpsUserSendResetView）
+      共用本函数，保证两条入口签发的令牌与文案完全一致。
+    """
+    from django.conf import settings
+    from django.utils import timezone
+    from datetime import timedelta
+    from apps.accounts.models import PasswordReset
+    import uuid
+
+    expires_hours = getattr(settings, 'PASSWORD_RESET_EXPIRE_HOURS', 1)
+    reset, _ = PasswordReset.objects.update_or_create(
+        user=user,
+        defaults={
+            'token': uuid.uuid4(),
+            'expires_at': timezone.now() + timedelta(hours=expires_hours),
+            'requested_ip': request.META.get('REMOTE_ADDR'),
+        },
+    )
+    reset_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?token={reset.token}"
+
+    mailed = False
+    try:
+        EmailService.enqueue(
+            'password_reset',
+            to=[user.email],
+            ctx={
+                'username': user.username,
+                'reset_url': reset_url,
+                'expire_hours': expires_hours,
+            },
+        )
+        mailed = True
+    except Exception:
+        logger.exception('[ops] 为用户 %s 触发重置邮件失败', user.pk)
+
+    return mailed, reset_url, expires_hours
+
+
+class OpsUserCreateSerializer(serializers.Serializer):
+    """管理员建号的入参（A-030）。
+
+    **没有 password 字段，这是刻意的** —— 见 `_issue_password_reset` 的说明。
+    管理员只决定「有这个人 / 什么角色 / 哪个机构」，密码由本人邮件设置。
+    """
+
+    username = serializers.CharField(max_length=150)
+    email = serializers.EmailField()
+    role = serializers.ChoiceField(choices=User.Role.choices, required=False)
+    organization_id = serializers.IntegerField(required=False, allow_null=True)
+
+    def validate_username(self, value):
+        v = value.strip()
+        if User.objects.filter(username__iexact=v).exists():
+            raise serializers.ValidationError('该用户名已被占用。')
+        return v
+
+    def validate_email(self, value):
+        v = value.strip()
+        if User.objects.filter(email__iexact=v).exists():
+            raise serializers.ValidationError('该邮箱已被占用。')
+        return v
+
+    def validate_organization_id(self, value):
+        if value is None:
+            return None
+        from apps.accounts.models import Organization
+        if not Organization.objects.filter(pk=value).exists():
+            raise serializers.ValidationError('机构不存在。')
+        return value
+
+
 class OpsUserSendResetView(EnvelopeMixin, APIView):
     """POST /api/v1/ops/users/:id/send-password-reset/ — 触发一封重置邮件。
 
@@ -282,37 +418,7 @@ class OpsUserSendResetView(EnvelopeMixin, APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from django.conf import settings
-        from django.utils import timezone
-        from datetime import timedelta
-        from apps.accounts.models import PasswordReset
-        import uuid
-
-        expires_hours = getattr(settings, 'PASSWORD_RESET_EXPIRE_HOURS', 1)
-        reset, _ = PasswordReset.objects.update_or_create(
-            user=user,
-            defaults={
-                'token': uuid.uuid4(),
-                'expires_at': timezone.now() + timedelta(hours=expires_hours),
-                'requested_ip': request.META.get('REMOTE_ADDR'),
-            },
-        )
-        reset_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?token={reset.token}"
-
-        mailed = False
-        try:
-            EmailService.enqueue(
-                'password_reset',
-                to=[user.email],
-                ctx={
-                    'username': user.username,
-                    'reset_url': reset_url,
-                    'expire_hours': expires_hours,
-                },
-            )
-            mailed = True
-        except Exception:
-            logger.exception('[ops] 为用户 %s 触发重置邮件失败', user.pk)
+        mailed, reset_url, expires_hours = _issue_password_reset(user, request)
 
         return self.success_response({
             'id': user.pk,

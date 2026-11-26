@@ -20,6 +20,18 @@ export function getUsers(params = {}) {
 }
 
 /** 只接受 { role, is_active }；传其它字段后端会 400（不静默忽略）。 */
+/**
+ * 管理员建号（A-030，2026-11-26）。
+ *
+ * ⚠️ payload **没有 password 字段**，这是刻意的：后端用
+ * `set_unusable_password()` 建号，随即签发一封 password_reset 邮件，
+ * 密码仍由本人设置 —— "管理员能设密码 = 能冒充用户"这条防线不能破。
+ * payload: { username, email, role?, organization_id? }
+ */
+export function createUser(payload) {
+  return http.post('/ops/users/', payload)
+}
+
 export function patchUser(id, payload) {
   return http.patch(`/ops/users/${id}/`, payload)
 }

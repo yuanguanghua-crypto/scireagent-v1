@@ -14,9 +14,10 @@
 import { onMounted, ref, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import {
-  getUsers, patchUser, verifyUserEmail, sendUserPasswordReset,
+  getUsers, patchUser, verifyUserEmail, sendUserPasswordReset, createUser,
 } from '@/api/system'
 import { extractErrorMessage } from '@/utils/http'
+// ★ 2026-11-26（A-030）：管理员建号（不含密码，密码由本人邮件设置）
 import { useConfirm } from '@/composables/useConfirm'
 
 const auth = useAuthStore()
@@ -38,6 +39,45 @@ const verifiedFilter = ref('')
 const ROLES = ['researcher', 'procurement', 'editor', 'admin']
 
 const myId = computed(() => auth.user?.id ?? null)
+
+// ★ 2026-11-26（A-030）：建号表单。**没有 password 字段** —— 见 api/system.js 的说明
+const showCreate = ref(false)
+const creating = ref(false)
+const createForm = ref({ username: '', email: '', role: 'researcher' })
+const createError = ref('')
+
+function openCreate() {
+  createForm.value = { username: '', email: '', role: 'researcher' }
+  createError.value = ''
+  showCreate.value = true
+}
+
+async function submitCreate() {
+  const { username, email, role } = createForm.value
+  if (!username.trim() || !email.trim()) {
+    createError.value = '用户名与邮箱都必填。'
+    return
+  }
+  creating.value = true
+  createError.value = ''
+  try {
+    const res = await createUser({
+      username: username.trim(), email: email.trim(), role,
+    })
+    const d = res.data || res
+    showCreate.value = false
+    say(
+      d.password_reset_queued
+        ? `已建号 ${d.username}，设置密码的邮件已发出。`
+        : `已建号 ${d.username}，但重置邮件未发出 — 请手动点该行的「Send reset」。`,
+    )
+    await load()
+  } catch (e) {
+    createError.value = extractErrorMessage(e?.response?.data ?? e, 'Could not create this user.')
+  } finally {
+    creating.value = false
+  }
+}
 
 async function load() {
   loading.value = true
@@ -172,14 +212,56 @@ onMounted(async () => {
       <div>
         <h1 class="um-title">Users &amp; Roles</h1>
         <p class="um-sub">
-          {{ total }} account(s) · 只能改角色/启停/验证邮箱；密码由本人通过邮件设置
+          <!-- ★ 2026-11-26（A-012）：加载中不能显示 "0 record(s)" ——
+               那是"还没取到"被当成"结果是空"，用户会以为筛选没匹配到。
+               与 RfqDesk 的 subtitle 用同一写法（loading 时只说 Loading…）。 -->
+          {{ loading ? 'Loading…' : `${total} account(s) · 只能改角色/启停/验证邮箱；密码由本人通过邮件设置` }}
         </p>
       </div>
-      <button class="um-btn" :disabled="loading" @click="load">
-        {{ loading ? 'Refreshing…' : 'Refresh' }}
-      </button>
+      <div class="um-header-actions">
+        <!-- ★ 2026-11-26（A-030）：建号入口。此前只能让对方自助注册再改角色 -->
+        <button class="um-btn um-btn--primary" @click="openCreate">+ New User</button>
+        <button class="um-btn" :disabled="loading" @click="load">
+          {{ loading ? 'Refreshing…' : 'Refresh' }}
+        </button>
+      </div>
     </div>
 
+    <!-- ★ 2026-11-26（A-030）：建号对话框。刻意**没有密码输入框** ——
+         后端 set_unusable_password() + 发重置邮件，密码由本人设。 -->
+    <div v-if="showCreate" class="um-modal-overlay" @click.self="showCreate = false">
+      <div class="um-modal">
+        <h3>New User</h3>
+        <p class="um-modal-hint">
+          建号后系统会给该邮箱发一封「设置密码」邮件。
+          <strong>管理员无法设定密码</strong> —— 这是为了让操作日志里的"谁做的"始终可信。
+        </p>
+        <label class="um-field">
+          <span>Username</span>
+          <input v-model="createForm.username" class="um-input" autocomplete="off" />
+        </label>
+        <label class="um-field">
+          <span>Email</span>
+          <input v-model="createForm.email" class="um-input" type="email" autocomplete="off" />
+        </label>
+        <label class="um-field">
+          <span>Role</span>
+          <select v-model="createForm.role" class="um-input">
+            <option v-for="r in ROLES" :key="r" :value="r">{{ r }}</option>
+          </select>
+        </label>
+        <p v-if="createError" class="um-alert um-alert--err">{{ createError }}</p>
+        <div class="um-modal-actions">
+          <button class="um-btn" :disabled="creating" @click="showCreate = false">Cancel</button>
+          <button class="um-btn um-btn--primary" :disabled="creating" @click="submitCreate">
+            {{ creating ? 'Creating…' : 'Create & send reset link' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ★ 2026-11-26（A-030）：建号对话框。刻意**没有密码输入框** ——
+         后端 set_unusable_password() + 发重置邮件，密码由本人设。 -->
     <div v-if="error" class="um-alert um-alert--err">{{ error }}</div>
     <div v-if="flash" class="um-alert um-alert--ok">{{ flash }}</div>
 
@@ -331,6 +413,23 @@ onMounted(async () => {
 .um-badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
 .um-badge.ok { background: #dcfce7; color: #15803d; }
 .um-badge.warn { background: #fef3c7; color: #92400e; }
+.um-header-actions { display: flex; gap: 8px; }
+/* ★ 2026-11-26（A-030）：建号对话框 */
+.um-modal-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 50;
+}
+.um-modal {
+  background: var(--color-surface); border-radius: var(--radius-md, 8px);
+  padding: 20px 22px; width: 100%; max-width: 420px;
+  max-height: 85vh; overflow-y: auto;
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.22);
+}
+.um-modal h3 { margin: 0 0 8px; font-size: 17px; }
+.um-modal-hint { font-size: 12px; color: var(--color-text-secondary); margin: 0 0 14px; line-height: 1.5; }
+.um-field { display: block; margin-bottom: 12px; }
+.um-field > span { display: block; font-size: 12px; font-weight: 600; color: var(--color-text-tertiary); margin-bottom: 4px; }
+.um-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
 .um-badge.off { background: #f3f4f6; color: #6b7280; }
 /* A-092：后台权限标记（与 role 是两回事，必须视觉上可区分） */
 .um-badge.staff { background: #e0e7ff; color: #3730a3; margin-left: 4px; }
