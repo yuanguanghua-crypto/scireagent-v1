@@ -38,11 +38,10 @@ if os.path.exists(r):
 else:
     raise SystemExit('缺少 READ_ME_FIRST.md')
 
-# ★ 2026-10-31：改用 gold_questions（题目，无答案）。
-#   gold_answers.jsonl 里是答案，**绝不能放进这个包** —— 放进去就不是盲测了。
-g = os.path.join(BASE, 'gold_questions.jsonl')
-if os.path.exists(g):
-    items.append((g, '2_上传给Claude/gold_questions.jsonl'))
+# ★ 2026-10-31（独立判断版）：不发任何校准/答案文件。
+#   62 条一致性样本已自然分布在 30 个分片里，模型判完我们再按 (method_id,
+#   protocol_id) 回配比对。发 questions 会让它察觉"有标准答案"，
+#   发 answers 更是直接泄漏。所以两者都不进包。
 
 parts = sorted(f for f in os.listdir(PARTS) if f.endswith('.jsonl'))
 for f in parts:
