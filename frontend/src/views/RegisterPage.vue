@@ -15,6 +15,13 @@ const successMessage = ref('')
 const loading = ref(false)
 // 注册成功后进入「请查收验证邮件」内联页（不发 token，账户未验证前无法登录）
 const registeredEmail = ref('')
+// ★ 2026-11-26（A-133）：后端在「验证邮件发不出去」时会**降级放行**（把账号直接标为已验证，
+//   并在响应里带回 `email_verified: true` + `detail` 说明原因）。
+//   改前前端完全忽略这两个字段，一律显示 "We've sent a verification link" ——
+//   用户去查邮箱永远等不到（生产实测 2026-10-23：Resend 域名未验证，403）。
+//   现在如实区分：能发 ⇒ 说"已发送"；发不出去 ⇒ 说"账号已就绪，可直接登录"。
+const registeredVerified = ref(false)
+const registeredDetail = ref('')
 const resending = ref(false)
 const resendMessage = ref('')
 
@@ -294,6 +301,9 @@ async function handleSubmit() {
     // 注册成功但不发 token：账户处于未验证状态，登录会被硬拦截（403）。
     // 直接进入「请查收验证邮件」内联页，不再跳登录（跳过去也无法登录）。
     registeredEmail.value = result?.email || form.email.trim()
+    // 后端降级时 email_verified=true（账号已可直接登录）；正常时 false（等验证邮件）
+    registeredVerified.value = result?.email_verified === true
+    registeredDetail.value = result?.detail || ''
     resendMessage.value = ''
   } catch (err) {
     // Parse backend error into user-friendly message
@@ -378,8 +388,8 @@ watch(orgTab, () => {
         <span class="auth-logo-text">SciReagent</span>
       </div>
 
-      <h1 class="auth-title">{{ registeredEmail ? 'Check your email' : 'Create Account' }}</h1>
-      <p class="auth-subtitle">{{ registeredEmail ? 'One last step to activate your account' : 'Join the SciReagent platform' }}</p>
+      <h1 class="auth-title">{{ !registeredEmail ? 'Create Account' : (registeredVerified ? 'Your account is ready' : 'Check your email') }}</h1>
+      <p class="auth-subtitle">{{ !registeredEmail ? 'Join the SciReagent platform' : (registeredVerified ? 'You can sign in right away' : 'One last step to activate your account') }}</p>
 
       <!-- Step Indicator -->
       <div class="step-indicator">
@@ -417,11 +427,23 @@ watch(orgTab, () => {
             <path d="M9 14l3.5 3.5L19 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
-        <p class="verify-pending__title">We've sent a verification link</p>
-        <p class="verify-pending__desc">
-          We sent a verification link to <strong>{{ registeredEmail }}</strong>.
-          Click the link in that email to activate your account, then sign in.
-        </p>
+        <template v-if="registeredVerified">
+          <!-- ★ 2026-11-26（A-133）：降级态 —— 邮件通道不可用，账号已被直接激活。
+               绝不在这里说 "We've sent a verification link"：那封信根本没发出去。 -->
+          <p class="verify-pending__title">Email verification is temporarily unavailable</p>
+          <p class="verify-pending__desc">
+            We couldn't send the verification email for <strong>{{ registeredEmail }}</strong>,
+            so your account has been activated for now — you can sign in immediately.
+            Please verify your email later from account settings once the mail channel is back.
+          </p>
+        </template>
+        <template v-else>
+          <p class="verify-pending__title">We've sent a verification link</p>
+          <p class="verify-pending__desc">
+            We sent a verification link to <strong>{{ registeredEmail }}</strong>.
+            Click the link in that email to activate your account, then sign in.
+          </p>
+        </template>
         <div v-if="resendMessage" class="auth-success-banner">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5" />
@@ -429,7 +451,8 @@ watch(orgTab, () => {
           </svg>
           <span>{{ resendMessage }}</span>
         </div>
-        <div class="verify-pending__resend">
+        <!-- ★ A-133：降级态下邮件通道本就不可用，重发按钮只会再失败一次 ⇒ 隐藏 -->
+        <div v-if="!registeredVerified" class="verify-pending__resend">
           <span class="verify-pending__resend-label">Didn't receive it?</span>
           <button type="button" class="verify-pending__resend-btn" :disabled="resending" @click="handleResend">
             <svg v-if="resending" class="spinner" width="16" height="16" viewBox="0 0 18 18" fill="none">
@@ -438,7 +461,9 @@ watch(orgTab, () => {
             <span v-else>Resend verification email</span>
           </button>
         </div>
-        <router-link to="/login" class="auth-link verify-pending__signin">Already verified? Sign in</router-link>
+        <router-link to="/login" class="auth-link verify-pending__signin">
+          {{ registeredVerified ? 'Sign in now' : 'Already verified? Sign in' }}
+        </router-link>
       </div>
 
       <template v-else>
