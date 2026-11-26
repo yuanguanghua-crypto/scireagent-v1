@@ -100,8 +100,19 @@ class KnowledgeIntakeView(EnvelopeMixin, APIView):
                 methods.append(method)
 
             # 4. Create ProductMethod bridges
+            # ★ 2026-11-26（A-256）：分别计"新建"与"已存在"。
+            #   QA 实测（TC-0624）：链接确实加上了（ProductMethod 5456 → 47973），
+            #   但保存响应只有 `methods_created`（那是**方法名个数**，不是新建的链接数），
+            #   前端 toast 只说 "Saved as draft" ⇒ 用户不知道这次保存到底把什么挂上了。
+            method_links_created = 0
+            method_links_existing = 0
             for method in methods:
-                ProductMethod.objects.get_or_create(product=product, method=method)
+                _, was_created = ProductMethod.objects.get_or_create(
+                    product=product, method=method)
+                if was_created:
+                    method_links_created += 1
+                else:
+                    method_links_existing += 1
 
             # 5. Create/Get Protocols
             #
@@ -198,6 +209,9 @@ class KnowledgeIntakeView(EnvelopeMixin, APIView):
                 'goals_created': len(goals),
                 'apps_created': len(apps),
                 'methods_created': len(methods),
+                # ★ 2026-11-26（A-256）：链接层面的增量（前端据此给"链接已添加"的明确提示）
+                'method_links_created': method_links_created,
+                'method_links_existing': method_links_existing,
                 'protocols_created': protocols_created,
                 'protocols_reused': protocols_reused,
                 'steps_created': steps_created,

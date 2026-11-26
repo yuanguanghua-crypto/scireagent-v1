@@ -10,6 +10,8 @@ const BUCKETS = [
   { key: 'current', label: 'Current', color: '#22C55E' },
   { key: '30', label: '1–30 Days', color: '#F59E0B' },
   { key: '60', label: '31–60 Days', color: '#D97706' },
+  // ★ 2026-11-26（A-009）：61–90 与 90+ 拆开 —— 催收动作不同档
+  { key: '90', label: '61–90 Days', color: '#B45309' },
   { key: '90_plus', label: '90+ Days', color: '#DC2626' },
 ]
 

@@ -29,3 +29,17 @@ export function getQuoteRequestDetail(id) {
 export function saveQuote(id, payload) {
   return http.post(`/quote-requests/${id}/quote/`, payload)
 }
+
+/**
+ * 关闭询价（A-223，2026-11-26）。
+ *
+ * 为什么需要：`Status.CLOSED` 在枚举里一直存在，但**没有任何写入口**——
+ * 已报价的 RFQ 在运营台上找不到关闭按钮，收件箱只增不减。
+ * 客户撤回、重复提交、明显无效的询价都清不出去。
+ *
+ * payload: { reason? } —— 可选，会以 `[关闭]` 前缀追加到 notes（不覆盖客户原文）
+ * 已关闭的再关返回 409 `ALREADY_CLOSED`。
+ */
+export function closeQuoteRequest(id, reason = '') {
+  return http.post(`/quote-requests/${id}/close/`, { reason })
+}

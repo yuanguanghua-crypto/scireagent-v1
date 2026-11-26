@@ -111,24 +111,41 @@ class ArAgingTest(TestCase):
     def test_empty_aging_all_buckets_zero(self):
         data = self._get_aging(self.procurement)
         buckets = data['buckets']
-        for b in ('current', '30', '60', '90_plus'):
+        for b in ('current', '30', '60', '90', '90_plus'):
             self.assertEqual(buckets[b]['count'], 0)
             self.assertEqual(buckets[b]['amount'], 0)
         self.assertEqual(data['total_outstanding'], 0.0)
         self.assertIn('as_of', data)
 
     def test_bucket_assignment_by_due_date(self):
-        # current（未到期，未来 10 天）、30（逾期 10 天）、60（逾期 40 天）、90_plus（逾期 90 天）
-        self._make_invoice('INV-CUR', due_days=+10)
-        self._make_invoice('INV-30', due_days=-10)
-        self._make_invoice('INV-60', due_days=-40)
-        self._make_invoice('INV-90', due_days=-90)
+        # ★ 2026-11-26（A-009）：61–90 与 90+ 已拆开，五档逐档验证。
+        #   改前 90 天会落进 90_plus（61-90 无归属），所以下面的 -90 现在应落 '90'。
+        self._make_invoice('INV-CUR', due_days=+10)    # current
+        self._make_invoice('INV-30', due_days=-10)     # 1-30
+        self._make_invoice('INV-60', due_days=-40)     # 31-60
+        self._make_invoice('INV-90', due_days=-90)     # 61-90 ← 本轮新增的一档
+        self._make_invoice('INV-120', due_days=-120)   # >90
         buckets = self._get_aging(self.procurement)['buckets']
         self.assertEqual(buckets['current']['count'], 1)
         self.assertEqual(buckets['30']['count'], 1)
         self.assertEqual(buckets['60']['count'], 1)
-        self.assertEqual(buckets['90_plus']['count'], 1)
+        self.assertEqual(buckets['90']['count'], 1, '逾期 90 天应落 61-90 档')
+        self.assertEqual(buckets['90_plus']['count'], 1, '逾期 120 天才落 90+ 档')
         self.assertEqual(buckets['30']['amount'], 100.0)
+
+    def test_sixty_one_to_ninety_is_its_own_bucket(self):
+        """★ A-009 核心：逾期第 61 天起必须离开 '60' 档、且不要直接跳到 '90_plus'。"""
+        self._make_invoice('INV-61', due_days=-61)
+        b = self._get_aging(self.procurement)['buckets']
+        self.assertEqual(b['90']['count'], 1, '逾期 61 天应进 61-90 档')
+        self.assertEqual(b['60']['count'], 0, '逾期 61 天不该还在 31-60 档')
+        self.assertEqual(b['90_plus']['count'], 0, '逾期 61 天不该被算作 90+')
+
+    def test_ninety_one_goes_to_90_plus(self):
+        self._make_invoice('INV-91', due_days=-91)
+        b = self._get_aging(self.procurement)['buckets']
+        self.assertEqual(b['90_plus']['count'], 1)
+        self.assertEqual(b['90']['count'], 0)
 
     def test_paid_invoice_excluded(self):
         self._make_invoice('INV-PAID', due_days=-10, status=Invoice.Status.PAID)

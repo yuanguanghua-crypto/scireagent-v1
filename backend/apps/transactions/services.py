@@ -621,11 +621,17 @@ class PaymentArService:
         unpaid = Invoice.objects.filter(
             status__in=[Invoice.Status.ISSUED, Invoice.Status.OVERDUE]
         ).select_related('order')
+        # ★ 2026-11-26（A-009）：补 61–90 桶。
+        #   改前只有 current / 30 / 60 / 90_plus 四桶，`else → 90_plus` 把
+        #   **逾期 61–90 天**的应收和"逾期 90 天以上"混在一档 —— 这两段的催收动作
+        #   完全不同（61-90 是电话催收窗口，90+ 通常要转法务/计提坏账），
+        #   混在一起等于让运营看不出哪批该先动手（QA Batch 1 实测：61-90 无处归类）。
         buckets = {
             'current': {'count': 0, 'amount': 0},
             '30': {'count': 0, 'amount': 0},
             '60': {'count': 0, 'amount': 0},
-            '90_plus': {'count': 0, 'amount': 0},
+            '90': {'count': 0, 'amount': 0},        # 61–90 天
+            '90_plus': {'count': 0, 'amount': 0},   # > 90 天
         }
         for inv in unpaid:
             age = (today - inv.due_date).days
@@ -635,6 +641,8 @@ class PaymentArService:
                 b = '30'
             elif age <= 60:
                 b = '60'
+            elif age <= 90:
+                b = '90'
             else:
                 b = '90_plus'
             buckets[b]['count'] += 1

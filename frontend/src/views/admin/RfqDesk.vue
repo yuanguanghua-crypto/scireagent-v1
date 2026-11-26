@@ -11,9 +11,11 @@
  * （此前 `QUOTED` 只在枚举里定义、全仓没有代码会写它 —— 运营点得到"已报价"状态但永远走不到。）
  */
 import { onMounted, ref, computed } from 'vue'
-import { getQuoteRequests, getQuoteRequestDetail, saveQuote } from '@/api/rfq'
+import { getQuoteRequests, getQuoteRequestDetail, saveQuote, closeQuoteRequest } from '@/api/rfq'
 import { extractErrorMessage } from '@/utils/http'
 import ErrorBanner from '@/components/common/ErrorBanner.vue'
+// ★ 2026-11-26（A-223）：关闭询价是不可逆动作（离开待处理队列），走页内确认框
+import { useConfirm } from '@/composables/useConfirm'
 
 const rows = ref([])
 const total = ref(0)
@@ -26,6 +28,10 @@ const statusFilter = ref('')
 const detail = ref(null)
 const detailLoading = ref(false)
 const detailError = ref('')
+// ★ 2026-11-26（A-223）：关闭询价的进行中状态
+const closing = ref(false)
+
+const { ask } = useConfirm()
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
@@ -192,6 +198,35 @@ async function submitQuote() {
 }
 
 onMounted(load)
+// ★ 2026-11-26（A-223）：关闭询价。
+//   改前 `Status.CLOSED` 在枚举里一直存在，但**没有任何写入口** ——
+//   已报价的 RFQ 在页面上找不到关闭按钮，收件箱只增不减。
+async function closeRfq() {
+  if (!detail.value) return
+  const id = detail.value.id
+  const who = detail.value.contact_name || detail.value.contact_email || `#${id}`
+  const ok = await ask({
+    title: '关闭询价',
+    message: `关闭 #${id}（${who}）？\n\n`
+      + '关闭后它不再出现在「待处理」里。\n'
+      + '已经发给客户的报价邮件不受影响 —— 那是既成事实。',
+    confirmText: '关闭',
+  })
+  if (!ok) return
+  closing.value = true
+  detailError.value = ''
+  try {
+    await closeQuoteRequest(id)
+    await load()
+    // 关闭后重新取该条，让右侧面板显示 closed（若它已因筛选离开列表，openRow 会自己处理）
+    await openRow({ id })
+  } catch (e) {
+    detailError.value = extractErrorMessage(e?.response?.data ?? e, 'Could not close this request.')
+  } finally {
+    closing.value = false
+  }
+}
+
 </script>
 
 <template>
@@ -363,7 +398,16 @@ onMounted(load)
               <span v-else-if="quoteResult" class="rfq-quote-ok">
                 ✓ Saved
               </span>
-            </div>
+            
+              <!-- ★ 2026-11-26（A-223）：关闭询价。此前枚举有 CLOSED 但无任何写入口，
+                   已报价的 RFQ 无法从「待处理」里清出去。 -->
+              <button
+                v-if="detail.status !== 'closed'"
+                class="po-btn rfq-close-btn"
+                :disabled="closing"
+                @click="closeRfq"
+              >{{ closing ? 'Closing…' : 'Close request' }}</button>
+</div>
           </div>
         </template>
       </div>
@@ -427,6 +471,10 @@ onMounted(load)
 }
 .rfq-field--full { width: 100%; }
 .rfq-field textarea { resize: vertical; font-family: inherit; }
+.rfq-close-btn {
+  background: #fff; color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
 .rfq-quote-actions {
   display: flex;
   align-items: center;

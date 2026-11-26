@@ -248,6 +248,14 @@ async function save() {
     //   只显示 "Saved" 会让人以为步骤写进去了 —— 告警必须一起显示出来。
     const d = (res && res.data) || {}
     const parts = [`Saved as draft for ${selectedProduct.value.catalog_no}`]
+    // ★ 2026-11-26（A-256）：明确告知「方法链接」增删了多少 ——
+    //   此前只报协议/步骤，用户看不出这次保存有没有把方法挂上去。
+    if ('method_links_created' in d) {
+      const c = d.method_links_created ?? 0
+      const e = d.method_links_existing ?? 0
+      if (c > 0) parts.push(`方法链接 新增 ${c} 条`)
+      else if (e > 0) parts.push(`方法链接 ${e} 条（原本已关联）`)
+    }
     if ('protocols_created' in d || 'steps_created' in d) {
       parts.push(
         `协议 新建 ${d.protocols_created ?? 0} / 复用 ${d.protocols_reused ?? 0}｜步骤 ${d.steps_created ?? 0} 条`

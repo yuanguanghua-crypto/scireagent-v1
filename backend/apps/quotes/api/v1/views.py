@@ -17,6 +17,7 @@
   若不放宽，列表看得见、点进去 404。
 """
 from django.conf import settings
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Q
 from rest_framework import generics, status
@@ -233,3 +234,44 @@ class QuoteRequestQuoteView(EnvelopeMixin, APIView):
             'quoted_currency': quote_request.quoted_currency,
             'customer_notified': mailed,
         })
+
+
+class QuoteRequestCloseView(EnvelopeMixin, APIView):
+    """POST /api/v1/quote-requests/<id>/close/ —— 关闭询价（A-223，2026-11-26 新增）。
+
+    ## 改前是什么样
+    已报价的 RFQ **没有任何关闭入口**（QA Batch 16 实测：RFQ #10 状态 `quoted`，
+    详情面板找不到关闭按钮）。`Status.CLOSED` 在枚举里定义了，但**全仓没有写它的
+    代码路径** —— 与 `QUOTED` 当年"枚举有、能力无"的情况完全一样。
+
+    后果：收件箱只增不减。客户撤回、重复提交、明显无效的询价都清不出去，
+    运营的待办列表会一直堆着已经处理完的单子。
+
+    ## 状态机
+    `pending` / `quoted` → `closed`；已 `closed` 再关 ⇒ **409**（幂等，不重复写）。
+    为什么允许从 `pending` 关闭：垃圾询价/客户撤回也要能清出去，
+    否则"待处理"这个数字永远只增不减。
+
+    ## 留痕
+    可选 `reason` 追加到 `notes`（前缀 `[关闭]`）。不覆盖原备注 ——
+    客户填的需求描述是原始事实，不能被后加的运营备注冲掉。
+    """
+
+    permission_classes = [IsProcurementOrAdmin]
+
+    def post(self, request, pk):
+        q = get_object_or_404(QuoteRequest, pk=pk)
+        if q.status == QuoteRequest.Status.CLOSED:
+            return self.error_response(
+                '该询价已关闭，无需重复操作。', code='ALREADY_CLOSED', status_code=409,
+            )
+
+        reason = (request.data.get('reason') or '').strip()
+        q.status = QuoteRequest.Status.CLOSED
+        if reason:
+            q.notes = (q.notes + '\n' if q.notes else '') + f'[关闭] {reason}'
+            q.save(update_fields=['status', 'notes'])
+        else:
+            q.save(update_fields=['status'])
+
+        return self.success_response(QuoteRequestDetailSerializer(q).data)
