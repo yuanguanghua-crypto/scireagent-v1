@@ -18,6 +18,17 @@ export function approveOrder(id) {
 }
 
 /** → CANCELLED，body: { reason } */
+/**
+ * 可指派的 Rep 候选（A-160，2026-11-26）。
+ *
+ * 改前审核台只能手填数字 user id，而运营既不知道该填谁、也无从知道有谁可选。
+ * 返回 [{ id, username, email, role }]，只含 procurement / admin 的 active 账号
+ * （`assigned_rep` 的语义是"应收催款责任人"，与研究员职责无关）。
+ */
+export function getAssignableReps() {
+  return http.get('/orders/assignable-reps/')
+}
+
 export function rejectOrder(id, reason = '') {
   return http.post(`/orders/${id}/reject/`, { reason })
 }

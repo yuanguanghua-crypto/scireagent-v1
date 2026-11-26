@@ -220,6 +220,40 @@ class CancelOrderView(EnvelopeMixin, APIView):
         return self.success_response(OrderDetailSerializer(order, context={'request': request}).data)
 
 
+class AssignableRepListView(EnvelopeMixin, APIView):
+    """GET /api/v1/orders/assignable-reps/ —— 可指派的 Rep 候选（A-160，2026-11-26 新增）。
+
+    ## 改前是什么样
+    审核台要求运营**手填数字 user id**（`<input placeholder="Rep ID">`），而
+    `AssignRepView` 只接受 `role in ['procurement','admin']`。QA Batch 15 实测：
+    填 `REP-TEST-20261112` → "Action failed"；填 `1` → "Invalid rep_id"。
+    运营既不知道该填谁，也无从知道有哪些人可选 —— 这个功能上线以来**一次都没被用过**
+    （生产 66 单里 0 单有 assigned_rep）。
+
+    ## 为什么不放开到所有角色
+    `assigned_rep` 的业务语义是"这笔应收的催款责任人" —— 证据见 `test_ar_assign.py`
+    把 assign-rep 与 AR 账龄放在同一个测试文件里。与研究员的职责无关；
+    放开到所有角色会让这个字段彻底失去含义。
+
+    ## 为什么"不过滤测试账号"，而是把 email 一并给出
+    `User` **没有** `is_test_fixture` 之类的字段，无法可靠区分测试号与真号
+    （生产实测两个候选 `smoke`/`s@e.com`、`proc_mgr`/`proc@example.com` 都是占位邮箱）。
+    与其用不可靠的规则误删真实账号，不如把 username + email 一起返回，
+    让运营自己判断 —— 占位邮箱一眼可辨。
+    """
+
+    permission_classes = [IsProcurementOrAdmin]
+
+    def get(self, request):
+        qs = (User.objects
+              .filter(role__in=['procurement', 'admin'], is_active=True)
+              .order_by('username'))
+        return self.success_response([
+            {'id': u.pk, 'username': u.username, 'email': u.email, 'role': u.role}
+            for u in qs
+        ])
+
+
 class AssignRepView(EnvelopeMixin, APIView):
     """POST /api/v1/orders/<id>/assign-rep/ — 分配/改派 Rep（Admin）。"""
     permission_classes = [IsAdmin]

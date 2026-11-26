@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue'
-import { getPendingReviews, approveOrder, rejectOrder, assignRep, getOrderDetail } from '@/api/adminPo'
+import { getPendingReviews, approveOrder, rejectOrder, assignRep, getOrderDetail, getAssignableReps } from '@/api/adminPo'
 import { formatCurrency } from '@/utils/helpers'
 import { StatusBadge } from '@/components/common'
 
@@ -9,6 +9,17 @@ const loading = ref(false)
 const rejectReason = ref({})
 const assignRepId = ref({})
 const repInput = ref('')
+// ★ 2026-11-26（A-160）：Rep 候选。改前这里是手填数字 id 的输入框，
+//   而运营既不知道填谁、也不知道有谁可选（QA Batch 15：填名字报 Action failed、填 1 报 Invalid rep_id）。
+const repOptions = ref([])
+async function loadRepOptions() {
+  try {
+    const res = await getAssignableReps()
+    repOptions.value = res.data || res || []
+  } catch (e) {
+    repOptions.value = []
+  }
+}
 
 // ★ P1-1 库存匹配：展开订单时拉明细（含 sku_available），缺货行高亮
 const expandedItems = ref({})
@@ -92,11 +103,13 @@ async function reject(id) {
 async function assign(id) {
   const rep = assignRepId.value[id]
   if (!rep) return
-  await assignRep(id, rep)
+  // ★ 2026-11-26（A-160）：select 的 value 是字符串，后端要求数字 pk。
+  //   直接传字符串会撞 `User.objects.get(pk='11')` 的类型问题（Postgres 上可能报错）。
+  await assignRep(id, Number(rep))
   load()
 }
 
-onMounted(load)
+onMounted(() => { load(); loadRepOptions() })
 </script>
 
 <template>
@@ -157,7 +170,15 @@ onMounted(load)
         <button class="po-btn po-btn-primary" @click="approve(o.id)">Approve</button>
         <input v-model="rejectReason[o.id]" class="po-input" style="width:220px" placeholder="Reject reason" />
         <button class="po-btn po-btn-danger" @click="reject(o.id)">Reject</button>
-        <input v-model="assignRepId[o.id]" class="po-input" style="width:100px" placeholder="Rep ID" />
+        <!-- ★ 2026-11-26（A-160）：从手填数字 id 改为下拉选人。
+             选项来自 /orders/assignable-reps/（procurement/admin 的 active 账号）；
+             同时显示 email —— 本系统没有可靠的"测试账号"标记，占位邮箱交给运营自己判断。 -->
+        <select v-model="assignRepId[o.id]" class="po-input" style="width:200px">
+          <option value="">— Select rep —</option>
+          <option v-for="r in repOptions" :key="r.id" :value="r.id">
+            {{ r.username }}{{ r.email ? ` (${r.email})` : '' }}
+          </option>
+        </select>
         <button class="po-btn po-btn-outline" @click="assign(o.id)">Assign Rep</button>
         <button class="po-btn po-btn-outline" @click="toggleItems(o)">
           {{ expanded[o.id] ? 'Hide Items' : 'View Items' }}
