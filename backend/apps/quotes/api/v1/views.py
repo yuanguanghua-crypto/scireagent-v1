@@ -1,7 +1,9 @@
 """RFQ（询价单）API —— 客户提交 + 内部查询。
 
 ## 两条面刻意分开（改动前先读）
-1. **创建面**（`POST /quote-requests/`）：**匿名**可提交，无认证、无权限。这是获客入口。
+1. **创建面**（`POST /quote-requests/`）：**匿名**可提交，无认证、权限显式声明为 `AllowAny`。
+   这是获客入口；放行意图写在代码里（`permission_classes = [AllowAny]`），
+   不靠「没设 DEFAULT_PERMISSION_CLASSES」这类隐式默认，也不写成语义含糊的空列表 `[]`。
 2. **查询面**（`GET /quote-requests/manage/`）：**仅内部人员**（`IsProcurementOrAdmin`）。
    2026-10-22 之前**没有任何查询入口** —— 详情按 `contact_email == user.email` 过滤，
    连 staff 也是 404，运营只能进 Django admin 看客户询价。本端点补的就是这个入口。
@@ -18,7 +20,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.db.models import Q
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -52,7 +54,7 @@ def _is_internal(user) -> bool:
 class QuoteRequestCreateView(generics.CreateAPIView):
     """POST /api/v1/quote-requests/ — 创建报价请求（无需登录）"""
     serializer_class = QuoteRequestCreateSerializer
-    permission_classes = []  # AllowAny — anonymous users can submit RFQ
+    permission_classes = [AllowAny]  # 匿名询价是有意公开的获客入口，显式写死放行，不用 [] 也不用隐式默认
     authentication_classes = []
 
     def create(self, request, *args, **kwargs):

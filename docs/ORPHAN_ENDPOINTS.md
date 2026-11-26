@@ -56,7 +56,7 @@
 
 | 端点 | 由谁替代（已核实） |
 |---|---|
-| `ANY /orders/{X}/allocate/` | PO 流程走 `InventoryService.allocate_for_order`（`po_views.py:209`）**自动分配**，无需独立 UI |
+| `POST /api/v1/orders/{X}/allocate/`（`AllocateView`） | **以代码为准（2026-11-11 修订）**：库存锁定由后端服务层 `InventoryService.reserve_for_order`（`backend/apps/inventory/services.py:122`）在进程内自动完成 —— 购物车结账 `checkout_views.py:156`（`reason='checkout:…'`）、PO 运营 Approve `po_views.py:111`（`reason='approve:…'`），**两条主流程都不发 HTTP、不经过本端点**。`InventoryService.allocate_for_order`（`services.py:77`，需显式指定 `inventory_id`）只在本端点的 `AllocateView.post`（`po_views.py:267`）内被手动调用；且 2026-10-28 起已自动锁库的订单再手点会返回 `ALREADY_ALLOCATED` 400（`po_views.py:253-262`）。⇒ 本端点**无生产调用方，保留为备用管理端点（非主流程）**，不是「后端内部调用的活端点」 |
 | `DELETE/GET/PATCH/PUT /coas/{X}/` | COA 用列表数据 + 子端点（`approve`/`withdraw`/`qc-results`/`download`），不需单独取详情 |
 | `GET/POST /skus/`、`/skus/{X}/` | SKU 在 `ProductEditPage.vue` 内作为**嵌套数组**编辑，无需独立端点 |
 
@@ -73,7 +73,7 @@
 `sds-revisions/{X}`、`quote-requests/{X}`、`quotes/{X}`、`batches/{X}`、`documents`、`pdf-files`、`catalog-groups`、`product-classes/{X}`、`compatibility`、`products/{X}/faq`、`products/{X}/related`、`methods/{X}/products`
 
 > ⚠️ D 类每一条都要先回答：**是不是已有替代路径**（参考 B 类的三个反例）。
-> 不要因为"端点无调用"就判定"功能缺失" —— `/orders/{X}/allocate` 就是这样被误判的。
+> 不要因为"端点无调用"就判定"功能缺失" —— `/orders/{X}/allocate` 就是典型：端点确实没有生产调用方，但库存锁定功能由服务层 `reserve_for_order` 承担（详见 B 类该行，2026-11-11 已按代码修订）。「端点无调用」与「功能不存在」是两件事。
 
 ---
 
