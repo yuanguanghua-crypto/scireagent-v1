@@ -6,12 +6,15 @@ import { isInternal } from '@/utils/internalAccess'
 import { http } from '@/api/http'
 import { toast, LoadingSpinner, EmptyState } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
+// ★ 2026-11-26（A-028）：导入落库是不可逆批量写入，需二次确认
+import { useConfirm } from '@/composables/useConfirm'
 import { archiveProduct, reactivateProduct, deleteProduct, getArchivedProducts, discontinueProduct, batchRestoreProducts } from '@/api/workspace/products'
 import { batchValidate, batchRecommendLiterature } from '@/api/aiTools'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
+const { ask } = useConfirm()
 
 // ★ 内部人员判定收敛到 utils/internalAccess.js（口径= is_staff || role∈(procurement,admin)）
 //   ——与后端 permissions.py IsProcurementOrAdmin 一致；普通注册用户仍被踢回首页。
@@ -182,6 +185,156 @@ const filteredProducts = computed(() => {
 // ── Q1：空态分场景 ────────────────────────────────
 // 单一文案会误导：回收站为空与「筛选条件」无关；而「在售视图为空但库里有产品」
 // 意味着全部进了回收站（当前生产就是这个状态）—— 必须给出明确出口。
+
+// ══════════════════════════════════════════════════════════════════════
+// A-028 产品 CSV 导出 / 导入（2026-11-26）
+// ══════════════════════════════════════════════════════════════════════
+
+//: 导出列（顺序即 CSV 列序）。中文表头，Excel 直接打开可读。
+const CSV_COLUMNS = [
+  ['catalog_no', '目录号'],
+  ['name', '产品名称'],
+  ['cas', 'CAS号'],
+  ['smiles', 'SMILES'],
+  ['inchi', 'InChI'],
+  ['formula', '分子式'],
+  ['molecular_weight', '分子量'],
+  ['purity', '纯度'],
+  ['concentration', '浓度'],
+  ['storage', '储存条件'],
+  ['shipping', '运输条件'],
+  ['lead_time', '货期'],
+  ['shelf_life', '保质期'],
+  ['research_use_only', '仅限研究用途'],
+  ['product_class_name', '分类（只读）'],
+]
+
+function csvCell(v) {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'boolean') return v ? 'true' : 'false'
+  const s = String(v)
+  // 含逗号/引号/换行 ⇒ 用引号包裹并转义（否则列会错位）
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+/**
+ * 导出**当前筛选结果**为 CSV。
+ *
+ * ★ 为什么在前端生成而不用后端 `/products/export/`：
+ *   本页有**客户端独有筛选**（完整度：is_complete / no-cas / no-smiles /
+ *   no-link / no-category），后端只支持 search / product_class_id / research_use_only。
+ *   走后端会导出「比屏幕上多一批」的数据，直接破坏"导出即所见"。
+ *   前端生成保证**逐行等于 filteredProducts**。
+ */
+function exportCsv() {
+  const rows = filteredProducts.value
+  if (!rows.length) {
+    toast('当前筛选结果为空，没有可导出的产品。', 'warn')
+    return
+  }
+  const lines = [CSV_COLUMNS.map(([, label]) => csvCell(label)).join(',')]
+  for (const p of rows) {
+    lines.push(CSV_COLUMNS.map(([key]) => csvCell(p[key])).join(','))
+  }
+  // \ufeff = BOM，Excel 双击打开中文不乱码
+  // ★ 导出的是**已加载**的产品。若后端还有更多（totalCount > allProducts.length），
+  //   必须告知 —— 否则用户会以为导出的是全部（列表侧已有 truncated 提示，导出口径要一致）。
+  if (truncated.value && totalCount.value) {
+    toast(`已导出 ${rows.length} 个（后端共 ${totalCount.value} 个，导出仅含已加载部分）`, 'warn')
+  }
+  const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `products-${new Date().toISOString().slice(0, 10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.URL.revokeObjectURL(url)
+  if (!truncated.value) toast(`已导出 ${rows.length} 个产品`, 'ok')
+}
+
+// ── 导入 ────────────────────────────────────────────────────────────
+const importDialogOpen = ref(false)
+const importFile = ref(null)
+const importBusy = ref(false)
+const importReport = ref(null)
+const importError = ref('')
+
+function openImport() {
+  importFile.value = null
+  importReport.value = null
+  importError.value = ''
+  importDialogOpen.value = true
+}
+
+function onImportFileChange(e) {
+  const f = e.target.files && e.target.files[0]
+  importFile.value = f || null
+  importReport.value = null
+  importError.value = ''
+}
+
+/** 上传并校验（dry_run）。★ 不写库 —— 用户看过报告再决定是否 apply。 */
+async function runImportDryRun() {
+  if (!importFile.value || importBusy.value) return
+  importBusy.value = true
+  importError.value = ''
+  try {
+    const res = await http.post('/products/import/', (() => {
+      const fd = new FormData()
+      fd.append('file', importFile.value)
+      return fd
+    })(), { headers: { 'Content-Type': 'multipart/form-data' } })
+    importReport.value = res.data || res
+  } catch (e) {
+    importError.value = e?.response?.data?.meta?.error?.message
+      || e?.data?.meta?.error?.message || e.message || 'Import check failed'
+  } finally {
+    importBusy.value = false
+  }
+}
+
+/** 确认导入（apply）。仅当 dry-run 无错误时才可点。 */
+async function confirmImport() {
+  if (!importFile.value || importBusy.value) return
+  const rpt = importReport.value
+  if (rpt && (rpt.errors || []).length) return
+  const ok = await ask({
+    title: 'Import products',
+    message: `将更新 ${rpt?.will_update ?? 0} 个产品（按目录号匹配）。\n\n`
+      + '这是不可撤销的批量写入，建议先导出当前数据留底。',
+    confirmText: 'Import',
+    danger: true,
+  })
+  if (!ok) return
+  importBusy.value = true
+  importError.value = ''
+  try {
+    const fd = new FormData()
+    fd.append('file', importFile.value)
+    const res = await http.post('/products/import/?apply=1', fd, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    const d = res.data || res
+    if (d.applied) {
+      toast(`已导入：更新 ${d.will_update} 个产品`, 'ok')
+      importDialogOpen.value = false
+      // 列表的统一加载入口（含 archived，前端按 viewMode 分区）
+      applyProductsResponse(await getArchivedProducts())
+    } else {
+      importReport.value = d
+      importError.value = '导入未执行（存在错误行，整批未写入）'
+    }
+  } catch (e) {
+    importError.value = e?.response?.data?.meta?.error?.message
+      || e?.data?.meta?.error?.message || e.message || 'Import failed'
+  } finally {
+    importBusy.value = false
+  }
+}
+
+
 const emptyKind = computed(() => {
   if (allProducts.value.length === 0) return 'none-at-all'
   if (products.value.length === 0) {
@@ -657,6 +810,14 @@ function litKeywords(list) {
           <option v-for="o in completenessOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
         </select>
         <span class="filter-count">{{ filteredProducts.length }} products</span>
+        <!-- ★ 2026-11-26（A-028）：导出/导入入口。
+             导出在前端生成（本页有客户端独有筛选）；导入走后端（需解析+校验+写库）。 -->
+        <button class="btn btn-ghost btn-sm" @click="exportCsv" title="导出当前筛选结果为 CSV">⬇ Export CSV</button>
+        <button class="btn btn-ghost btn-sm" @click="openImport" title="按目录号更新已有产品（CSV）">⬆ Import CSV</button>
+        <!-- ★ 2026-11-26（A-028）：导出/导入入口。
+             导出在前端生成（本页有客户端独有筛选）；导入走后端（需解析+校验+写库）。 -->
+        <button class="btn btn-ghost btn-sm" @click="exportCsv" title="导出当前筛选结果为 CSV">⬇ Export CSV</button>
+        <button class="btn btn-ghost btn-sm" @click="openImport" title="按目录号更新已有产品（CSV）">⬆ Import CSV</button>
         <template v-if="selectedCount > 0">
           <template v-if="viewMode === 'active'">
             <button class="btn btn-ghost btn-sm" @click="openBatchLink">Batch Link</button>
@@ -940,6 +1101,100 @@ function litKeywords(list) {
       </div>
     </div>
   </div>
+  <!-- ★ 2026-11-26（A-028）：CSV 导入对话框。两段式 —— 先校验出报告，确认后才落库。 -->
+  <div v-if="importDialogOpen" class="io-overlay" @click.self="importDialogOpen = false">
+    <div class="io-modal">
+      <h3>Import products (CSV)</h3>
+      <p class="io-hint">
+        按<strong>目录号</strong>匹配已有产品并更新；<strong>本版不支持新建</strong>（新建请走页面）。
+        <br />状态 / 归档 / slug 不能通过导入修改。空单元格表示<strong>不修改</strong>该字段。
+      </p>
+
+      <input type="file" accept=".csv,text/csv" @change="onImportFileChange" class="io-file" />
+      <p v-if="importFile" class="io-file-info">已选：{{ importFile.name }}</p>
+
+      <div class="io-actions">
+        <button class="btn btn-ghost btn-sm" @click="importDialogOpen = false">Cancel</button>
+        <button class="btn btn-ghost btn-sm" :disabled="!importFile || importBusy" @click="runImportDryRun">
+          {{ importBusy ? 'Checking…' : 'Check (dry-run)' }}
+        </button>
+        <button
+          class="btn btn-primary btn-sm"
+          :disabled="!importReport || importBusy || (importReport.errors && importReport.errors.length)"
+          @click="confirmImport"
+        >{{ importBusy ? 'Importing…' : 'Import' }}</button>
+      </div>
+
+      <div v-if="importError" class="io-alert io-alert--err">{{ importError }}</div>
+
+      <div v-if="importReport" class="io-report">
+        <p class="io-stats">
+          共 {{ importReport.total }} 行 ·
+          匹配 {{ importReport.matched }} ·
+          将更新 <strong>{{ importReport.will_update }}</strong> ·
+          无变化 {{ importReport.unchanged }}
+          <span v-if="importReport.applied" class="io-ok">· 已写入</span>
+        </p>
+        <div v-if="importReport.errors && importReport.errors.length" class="io-alert io-alert--err">
+          <p><strong>{{ importReport.errors.length }} 行有问题 —— 整批不会写入：</strong></p>
+          <ul class="io-err-list">
+            <li v-for="(e, i) in importReport.errors.slice(0, 20)" :key="i">
+              第 {{ e.line }} 行（{{ e.catalog_no || '—' }}）：{{ e.field }} — {{ e.error }}
+            </li>
+          </ul>
+          <p v-if="importReport.errors.length > 20">…另有 {{ importReport.errors.length - 20 }} 条</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ★ 2026-11-26（A-028）：CSV 导入对话框。两段式 —— 先校验出报告，确认后才落库。 -->
+  <div v-if="importDialogOpen" class="io-overlay" @click.self="importDialogOpen = false">
+    <div class="io-modal">
+      <h3>Import products (CSV)</h3>
+      <p class="io-hint">
+        按<strong>目录号</strong>匹配已有产品并更新；<strong>本版不支持新建</strong>（新建请走页面）。
+        <br />状态 / 归档 / slug 不能通过导入修改。空单元格表示<strong>不修改</strong>该字段。
+      </p>
+
+      <input type="file" accept=".csv,text/csv" @change="onImportFileChange" class="io-file" />
+      <p v-if="importFile" class="io-file-info">已选：{{ importFile.name }}</p>
+
+      <div class="io-actions">
+        <button class="btn btn-ghost btn-sm" @click="importDialogOpen = false">Cancel</button>
+        <button class="btn btn-ghost btn-sm" :disabled="!importFile || importBusy" @click="runImportDryRun">
+          {{ importBusy ? 'Checking…' : 'Check (dry-run)' }}
+        </button>
+        <button
+          class="btn btn-primary btn-sm"
+          :disabled="!importReport || importBusy || (importReport.errors && importReport.errors.length)"
+          @click="confirmImport"
+        >{{ importBusy ? 'Importing…' : 'Import' }}</button>
+      </div>
+
+      <div v-if="importError" class="io-alert io-alert--err">{{ importError }}</div>
+
+      <div v-if="importReport" class="io-report">
+        <p class="io-stats">
+          共 {{ importReport.total }} 行 ·
+          匹配 {{ importReport.matched }} ·
+          将更新 <strong>{{ importReport.will_update }}</strong> ·
+          无变化 {{ importReport.unchanged }}
+          <span v-if="importReport.applied" class="io-ok">· 已写入</span>
+        </p>
+        <div v-if="importReport.errors && importReport.errors.length" class="io-alert io-alert--err">
+          <p><strong>{{ importReport.errors.length }} 行有问题 —— 整批不会写入：</strong></p>
+          <ul class="io-err-list">
+            <li v-for="(e, i) in importReport.errors.slice(0, 20)" :key="i">
+              第 {{ e.line }} 行（{{ e.catalog_no || '—' }}）：{{ e.field }} — {{ e.error }}
+            </li>
+          </ul>
+          <p v-if="importReport.errors.length > 20">…另有 {{ importReport.errors.length - 20 }} 条</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </template>
 
 <style scoped>
@@ -1021,4 +1276,50 @@ function litKeywords(list) {
 .batch-ai-refs__src { color: var(--color-text-tertiary); margin-left: 6px; }
 .batch-ai-empty, .batch-ai-loading { font-size: 13px; color: var(--color-text-secondary); }
 .batch-ai-loading { padding: 8px 0; }
+/* ★ 2026-11-26（A-028）：CSV 导入对话框 */
+.io-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 60;
+}
+.io-modal {
+  background: var(--color-surface); border-radius: var(--radius-md, 8px);
+  padding: 20px 22px; width: 100%; max-width: 560px;
+  max-height: 85vh; overflow-y: auto; box-shadow: 0 18px 45px rgba(15,23,42,.22);
+}
+.io-modal h3 { margin: 0 0 10px; font-size: 17px; }
+.io-hint { font-size: 12px; line-height: 1.6; color: var(--color-text-secondary); margin: 0 0 14px; }
+.io-file { font-size: 13px; margin-bottom: 8px; }
+.io-file-info { font-size: 12px; color: var(--color-text-tertiary); margin: 0 0 10px; }
+.io-actions { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
+.io-report { margin-top: 10px; }
+.io-stats { font-size: 13px; margin: 0 0 8px; }
+.io-ok { color: #15803d; font-weight: 600; }
+.io-alert { font-size: 12px; padding: 8px 10px; border-radius: 6px; margin-top: 8px; }
+.io-alert--err { background: #fef2f2; color: #991b1b; }
+.io-err-list { margin: 6px 0 0 16px; padding: 0; }
+.io-err-list li { margin-bottom: 2px; }
+
+/* ★ 2026-11-26（A-028）：CSV 导入对话框 */
+.io-overlay {
+  position: fixed; inset: 0; background: rgba(15, 23, 42, 0.45);
+  display: flex; align-items: center; justify-content: center; z-index: 60;
+}
+.io-modal {
+  background: var(--color-surface); border-radius: var(--radius-md, 8px);
+  padding: 20px 22px; width: 100%; max-width: 560px;
+  max-height: 85vh; overflow-y: auto; box-shadow: 0 18px 45px rgba(15,23,42,.22);
+}
+.io-modal h3 { margin: 0 0 10px; font-size: 17px; }
+.io-hint { font-size: 12px; line-height: 1.6; color: var(--color-text-secondary); margin: 0 0 14px; }
+.io-file { font-size: 13px; margin-bottom: 8px; }
+.io-file-info { font-size: 12px; color: var(--color-text-tertiary); margin: 0 0 10px; }
+.io-actions { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
+.io-report { margin-top: 10px; }
+.io-stats { font-size: 13px; margin: 0 0 8px; }
+.io-ok { color: #15803d; font-weight: 600; }
+.io-alert { font-size: 12px; padding: 8px 10px; border-radius: 6px; margin-top: 8px; }
+.io-alert--err { background: #fef2f2; color: #991b1b; }
+.io-err-list { margin: 6px 0 0 16px; padding: 0; }
+.io-err-list li { margin-bottom: 2px; }
+
 </style>

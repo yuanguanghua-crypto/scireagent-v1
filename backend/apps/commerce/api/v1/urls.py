@@ -1,5 +1,8 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from apps.commerce.api.v1.product_io_views import (
+    ProductExportView, ProductImportView,
+)
 from apps.commerce.api.v1.views import (
     ProductViewSet, SKUViewSet, ProductClassViewSet, CatalogGroupViewSet,
     ProductDocumentViewSet, ProductDetailAPIView, SkuPriceTierView,
@@ -50,5 +53,10 @@ urlpatterns = [
     #   必须排在 include(router.urls) 之前，否则可能被 /skus/<pk>/ 先匹配。
     path('skus/<int:pk>/price-tiers/', SkuPriceTierView.as_view(),
          name='sku-price-tiers'),
+    # ★ 2026-11-26（A-028）：产品 CSV 导出/导入。
+    #   必须排在 include(router.urls) 之前，否则 products/export/ 会被
+    #   router 的 products/<pk>/ 先匹配（pk 默认匹配任意字符串）。
+    path('products/export/', ProductExportView.as_view(), name='product-export'),
+    path('products/import/', ProductImportView.as_view(), name='product-import'),
     path('', include(router.urls)),
 ]
