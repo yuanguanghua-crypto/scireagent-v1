@@ -83,6 +83,17 @@ class ConvergenceClassListAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
 
+    def _staff_client(self):
+        """staff 身份客户端。
+
+        ★ 2026-11-18（S4 / A-123）：内部字段（source / quality / avg_cos）自本版起
+        只对 staff 返回，匿名拿不到。凡是要断言这些字段的用例，必须走这个客户端 ——
+        否则不是"测到隐藏了"，而是 KeyError。
+        """
+        client = APIClient()
+        client.force_authenticate(user=UserFactory(is_staff=True))
+        return client
+
     def test_default_returns_sorted_by_size_desc(self):
         resp = self.client.get('/api/v1/convergence-classes')
         self.assertEqual(resp.status_code, 200)
@@ -96,11 +107,48 @@ class ConvergenceClassListAPITest(TestCase):
         # 最大类 ap_k011(size=334) 应排第一
         self.assertEqual(items[0]['class_id'], 'ap_k011')
         self.assertEqual(items[0]['size'], 334)
-        # 列表项字段白名单：class_id/group/name/source/quality/size/avg_cos
+        # 匿名只拿到公开白名单（内部三项不下发）
         self.assertEqual(
             set(items[0].keys()),
+            {'class_id', 'group', 'name', 'size'},
+        )
+
+    def test_internal_fields_not_exposed_to_anonymous(self):
+        """★ 安全断言：匿名响应里**不得**出现 source / quality / avg_cos。
+
+        这三项是治理侧内部产物（算法来源、质量判定、平均余弦内聚度）。
+        改前它们对匿名开放（实测 curl 可拿到 avg_cos=0.7273），前端 `v-if="isStaff"`
+        只是视线遮挡。这条用例就是那次修复的守卫 —— 一旦有人把白名单改回单份，
+        它会红。
+        """
+        resp = self.client.get('/api/v1/convergence-classes', {'group': 'ap'})
+        items = resp.json()['data']['items']
+        self.assertTrue(items)
+        for item in items:
+            for leaked in ('source', 'quality', 'avg_cos'):
+                self.assertNotIn(
+                    leaked, item,
+                    f'匿名响应不得包含内部字段 {leaked}（实际 keys={sorted(item)}）',
+                )
+            # 导航所需的 class_id 必须保留：它是 /applications/classes/:class_id 的路由参数
+            self.assertIn('class_id', item)
+            self.assertIn('size', item)
+
+    def test_staff_sees_internal_fields(self):
+        """正对照：同一端点换 staff 身份，内部三项必须回来。
+
+        缺了这条，"匿名看不到"也可能只是因为服务层根本没产出这些字段 ——
+        那就成了假绿。
+        """
+        resp = self._staff_client().get('/api/v1/convergence-classes', {'group': 'ap'})
+        self.assertEqual(resp.status_code, 200)
+        item = resp.json()['data']['items'][0]
+        self.assertEqual(
+            set(item.keys()),
             {'class_id', 'group', 'name', 'source', 'quality', 'size', 'avg_cos'},
         )
+        self.assertIn('source', item)
+        self.assertIn('avg_cos', item)
 
     def test_group_filter(self):
         resp = self.client.get('/api/v1/convergence-classes', {'group': 'rg'})
@@ -126,7 +174,8 @@ class ConvergenceClassListAPITest(TestCase):
         self.assertEqual(data['data']['total'], 0)
 
     def test_source_filter(self):
-        resp = self.client.get('/api/v1/convergence-classes', {'source': 'kmeans'})
+        # source 是内部字段 ⇒ 该用例必须走 staff 客户端（见 _staff_client 注释）
+        resp = self._staff_client().get('/api/v1/convergence-classes', {'source': 'kmeans'})
         self.assertEqual(resp.status_code, 200)
         items = resp.json()['data']['items']
         self.assertTrue(items)
@@ -136,7 +185,7 @@ class ConvergenceClassListAPITest(TestCase):
         self.assertEqual(resp.json()['data']['total'], 476)
 
     def test_avg_cos_null_for_non_kmeans(self):
-        resp = self.client.get('/api/v1/convergence-classes', {'source': 'curated'})
+        resp = self._staff_client().get('/api/v1/convergence-classes', {'source': 'curated'})
         items = resp.json()['data']['items']
         self.assertTrue(items)
         self.assertTrue(all(it['avg_cos'] is None for it in items))
@@ -183,6 +232,11 @@ class ConvergenceClassDetailAPITest(TestCase):
     def setUp(self):
         self.client = APIClient()
 
+    def _staff_client(self):
+        client = APIClient()
+        client.force_authenticate(user=UserFactory(is_staff=True))
+        return client
+
     def test_detail_existing_class(self):
         resp = self.client.get('/api/v1/convergence-classes/rg_c001')
         self.assertEqual(resp.status_code, 200)
@@ -193,12 +247,25 @@ class ConvergenceClassDetailAPITest(TestCase):
         self.assertEqual(d['group'], 'rg')
         self.assertEqual(d['name'], 'RNA Analysis')
         self.assertIsInstance(d['members'], list)
+        # 匿名：公开白名单 + members（内部三项不下发）
         self.assertEqual(set(d.keys()),
-                         {'class_id', 'group', 'name', 'source', 'quality',
-                          'size', 'avg_cos', 'members'})
+                         {'class_id', 'group', 'name', 'size', 'members'})
         self.assertIn('member_total', data['meta'])
         self.assertIn('page', data['meta'])
         self.assertIn('page_size', data['meta'])
+
+    def test_detail_staff_sees_internal_fields(self):
+        """正对照：detail 同样按身份分流，staff 必须拿到 source/quality/avg_cos。
+
+        详情与列表共用同一个 `_project_item`，若不测这里，后端把详情漏改
+        （例如某天有人给详情单独拼字段）就不会被发现。
+        """
+        resp = self._staff_client().get('/api/v1/convergence-classes/rg_c001')
+        self.assertEqual(resp.status_code, 200)
+        d = resp.json()['data']
+        self.assertEqual(set(d.keys()),
+                         {'class_id', 'group', 'name', 'source', 'quality',
+                          'size', 'avg_cos', 'members'})
 
     def test_detail_trailing_slash_url_reachable(self):
         """detail 带尾斜杠 URL 必须可达。"""

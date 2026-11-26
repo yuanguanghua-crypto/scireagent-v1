@@ -8,7 +8,7 @@
  * | /orders/:id       | OrderDetailPage | ① 详情接口 500 ⇒ toast + 无内容；② 报价动作 500 ⇒ 原生 alert('Action failed') |
  * | /ops/orders       | AdminOrdersPage | 列表接口 500 ⇒ toast + 空态（无数据行） |
  * | /ops/orders/:id   | AdminOrderDetail| ① 详情接口 500 ⇒ toast + 无内容；② Approve 动作 500 ⇒ **持久** .error-banner |
- * | /po/submit        | PoSubmit        | 3 条原生 alert 校验（空行项目 / 行项目缺 SKU / 交付日期早于今天） |
+ * | /po/submit        | PoSubmit        | ①空行项目 ②行项目缺 SKU ③交付日期早于今天（①②为 toast；③为行内常驻提示，见 A-189） |
  *
  * ## 错误 UI 的真相（先读码，不猜选择器）
  * - **全局 toast**：`frontend/src/utils/http.js` 的响应拦截器。任何非 2xx 都会
@@ -20,13 +20,19 @@
  *   - `stores/orders.js:22-24` `catch` 只 `console.error`，页面因此落 `EmptyState`；
  *   - `AdminOrdersPage.vue:33-35` 同样只 `console.error`。
  *   ⇒ 这两页的「alert 错误」可观测面 = **全局 toast**，断言里额外验证「数据没渲染」。
- * - **`/orders/:id`**：`OrderDetailPage.vue:33` `alert(err?.data?.meta?.error?.message || 'Action failed')`
- *   —— 这是**浏览器原生弹框**（`page.on('dialog')`），不是 DOM。
+ * - **`/orders/:id`**：`OrderDetailPage.vue` 报价动作 catch 里 `toast.error(...)`
+ *   —— ★ 2026-11-18（S4）起**不再是浏览器原生 alert**。改前它 `alert(...)`，
+ *   断言要靠 `page.on('dialog')`；现在走 Element Plus `ElMessage`，
+ *   可观测面 = `.el-message--error`。本文件的对话弹框监听已反转成**否定断言**
+ *   （dialogs 必须为 0），专门守"别再退回原生弹框"。
  * - **`/ops/orders/:id`**：`AdminOrderDetail.vue:125` `<div v-if="actionError" class="error-banner">`
  *   （样式 :301）—— **持久横幅**，只在动作（approve/ship/…）失败时出现；加载失败只有 toast（:39-40 仅 console.error）。
  *   `approveOrder(id)` 打到 `POST /api/v1/orders/<id>/approve/`（`api/adminPo.js:16-18`）。
- * - **`/po/submit`**：`PoSubmit.vue:147-159` 三条 `alert(...)` 守卫，**全部 return 在发请求之前**
- *   ⇒ 走自然路径即可，且**零写入**。
+ * - **`/po/submit`**：`PoSubmit.vue` 三条校验守卫（空行项目 / 缺 SKU·数量·单价 / 过去日期），
+ *   **全部 return 在发请求之前** ⇒ 走自然路径即可，且**零写入**。
+ *   ★ 2026-11-18（S4）起前两条提示从原生 `alert` 改为 `toast.error`；
+ *   ★ 2026-11-20（S4 / A-189）起第三条改为**应用层行内提示**：表单加 `novalidate`，
+ *     不再让 `#po-f5` 的 `min` 把 submit 吃掉（此前 0 请求 0 提示 = QA 报的「静默失效」）。
  *
  * ## 拟人化 / 零写入
  * - 全部通过真实点击推进；故障注入用 `page.route(...).fulfill(500)`，**请求不出浏览器**
@@ -214,43 +220,41 @@ test.describe('客户侧订单错误路径', () => {
     await expect(sharedPage.locator('.loading-spinner')).toHaveCount(0);
   });
 
-  test('/po/submit 原生 alert 校验 + 提交失败 toast（全程不发真实 PO，零写入）', async () => {
+  test('/po/submit 校验提示（两条 toast + 一条行内常驻）+ 提交失败 toast（全程不发真实 PO，零写入）', async () => {
     await sharedPage.goto(`${BASE_URL}/po/submit`, { waitUntil: 'domcontentloaded' });
     await expect(sharedPage.locator('h1.po-page-title')).toContainText('Submit Purchase Order');
 
-    // 原生 alert 不是 DOM ⇒ 用 page.on('dialog') 捕获（Playwright 默认会自动 dismiss，
-    // 这里显式 dismiss 并记录，避免弹框阻塞后续操作）
-    // ⚠️ 用 on/off + try/finally，而不是 once：once 在「没弹框」时不会被消费，会残留到后续用例。
-    async function clickAndReadAlert(clickFn) {
-      let captured = null;
-      const h = async (d) => {
-        captured = { type: d.type(), message: d.message() };
-        await d.dismiss();
-      };
-      sharedPage.on('dialog', h);
-      try {
-        await clickFn();
-        await expect.poll(() => captured && captured.message, { timeout: 5000 }).toBeTruthy();
-      } finally {
-        sharedPage.off('dialog', h);
-      }
-      return captured;
+    // ★ 2026-11-18（S4）：两条校验提示已从原生 `alert` 改为 `toast.error`
+    //   （Element Plus ElMessage ⇒ `.el-message--error`）。断言方式随之改为读 DOM；
+    //   同时把原生 dialog 监听**反转成否定断言**：只要还有 alert 漏网，这里就会红。
+    let nativeDialogs = 0;
+    const countDialog = async (d) => { nativeDialogs += 1; await d.dismiss(); };
+    sharedPage.on('dialog', countDialog);
+
+    async function clickAndExpectErrorToast(clickFn, expected) {
+      await clickFn();
+      const t = sharedPage.locator('.el-message--error').filter({ hasText: expected }).last();
+      await expect(t, `应出现错误 toast：${expected}`).toBeVisible({ timeout: 5000 });
     }
 
-    // ① PoSubmit.vue:147-150 —— 一条行项目都没有
-    const d1 = await clickAndReadAlert(() =>
-      sharedPage.getByRole('button', { name: 'Submit PO' }).click(),
-    );
-    expect(d1.type).toBe('alert');
-    expect(d1.message).toBe('Add at least one line item.');
+    try {
+      // ① PoSubmit.vue —— 一条行项目都没有
+      await clickAndExpectErrorToast(
+        () => sharedPage.getByRole('button', { name: 'Submit PO' }).click(),
+        'Add at least one line item.',
+      );
 
-    // ② PoSubmit.vue:151-155 —— 有行项目但没选 SKU
-    await sharedPage.getByRole('button', { name: '+ Add Line Item' }).click();
-    await expect(sharedPage.locator('.po-table')).toBeVisible();
-    const d2 = await clickAndReadAlert(() =>
-      sharedPage.getByRole('button', { name: 'Submit PO' }).click(),
-    );
-    expect(d2.message).toBe('Each line item requires a SKU, quantity and unit price.');
+      // ② PoSubmit.vue —— 有行项目但没选 SKU
+      await sharedPage.getByRole('button', { name: '+ Add Line Item' }).click();
+      await expect(sharedPage.locator('.po-table')).toBeVisible();
+      await clickAndExpectErrorToast(
+        () => sharedPage.getByRole('button', { name: 'Submit PO' }).click(),
+        'Each line item requires a SKU, quantity and unit price.',
+      );
+      expect(nativeDialogs, '校验提示不得回退到原生 alert').toBe(0);
+    } finally {
+      sharedPage.off('dialog', countDialog);
+    }
 
     // 把行项目填「完整」，否则后面会被 ② 先拦下（校验顺序见源码 :147-159）
     const row = sharedPage.locator('.po-table tbody tr').first();
@@ -266,14 +270,20 @@ test.describe('客户侧订单错误路径', () => {
     await row.locator('input[type="number"]').fill('2');
     await row.locator('input[placeholder="0.00"]').fill('10');
 
-    // ③ 交付日期在过去 —— ⚠️ 实测发现：`#po-f5` 带 `:min="minDeliveryDate"`（PoSubmit.vue:232），
-    //    填过去日期后浏览器先做 **HTML5 约束校验**并直接拦住 submit，
-    //    `handleSubmit` 根本不会执行 ⇒ `PoSubmit.vue:156-159` 的 alert 在 UI 路径上**不可达**（死代码）。
-    //    这里把「真实行为」断言下来，而不是假装能测到第三条 alert。
+    // ③ 交付日期在过去 —— ★ 2026-11-20（S4 / A-189）：**机制已变更，判据随之升级**
+    //    原机制：`#po-f5` 的 `:min` 让浏览器先做 HTML5 约束校验、直接吃掉 submit
+    //            ⇒ `handleSubmit` 不执行 ⇒ 页面上**什么都没发生**（0 请求、0 提示）。
+    //            QA 报的「提交按钮静默失效」就是这个（实测六场景已坐实：
+    //            过去日期 / 非法邮箱 / 数量 0 全部 0 请求 0 提示）。
+    //    现机制：form 加 `novalidate`，submit 一定进 `handleSubmit`，由应用层校验
+    //            拦下并落**行内常驻提示**（日期字段旁 `po-date-error` +
+    //            按钮旁 `po-submit-error`）。之前这条断言的是"没有新提示"，
+    //            修完之后那个断言会变成**假绿**（提示本来就该出现）。
+    //    ⇒ 判据升级为：必须看得见原因，**且**仍然 0 请求。
     await sharedPage.locator('#po-f5').fill('2000-01-01');
     expect(
       await sharedPage.locator('#po-f5').evaluate((el) => el.validity.rangeUnderflow),
-      '过去日期应被 input[type=date][min] 判为 rangeUnderflow',
+      '过去日期仍应被判 rangeUnderflow（约束属性保留，只是不再由它吃掉 submit）',
     ).toBe(true);
 
     // 统计「真的发出 PO 提交请求」的次数（/api/v1/orders/po/，poPortal.js:43/65）
@@ -283,31 +293,32 @@ test.describe('客户侧订单错误路径', () => {
     };
     sharedPage.on('request', onRequest);
 
-    // 注意：这里必须用 on/off（不能用 once）—— 因为本用例期望**没有**弹框，
-    // once 监听器会一直挂着，污染下一条用例的 dialog 处理（实测：下一条用例
-    // 两个监听器同时 dismiss ⇒ "Cannot dismiss dialog which is already handled"）。
-    let blockedDialog = null;
-    const blockHandler = async (d) => {
-      blockedDialog = d.message();
-      await d.dismiss();
-    };
-    sharedPage.on('dialog', blockHandler);
     await sharedPage.getByRole('button', { name: 'Submit PO' }).click();
-    // 有界等待：这是**否定断言**（确认「没有提交、没有弹框」）所需的观察窗口
-    await sharedPage.waitForTimeout(800);
-    sharedPage.off('dialog', blockHandler);
-    expect(blockedDialog, '过去日期应被浏览器原生校验拦住，不应弹出 JS alert').toBeNull();
-    expect(poSubmitRequests, '过去日期被拦截时不应发出 PO 提交请求').toBe(0);
+    // ① 字段旁要有原因（用户得知道改哪个字段）
+    await expect(
+      sharedPage.locator('[data-testid="po-date-error"]'),
+      '过去日期必须给出字段级行内提示（这是 A-189 的修复本体：不能静默）',
+    ).toBeVisible({ timeout: 5000 });
+    // ② 按钮旁也要有原因（日期字段在页中部，用户点的是底部按钮）
+    await expect(sharedPage.locator('[data-testid="po-submit-error"]')).toBeVisible();
+    await expect(sharedPage.locator('[data-testid="po-submit-error"]')).toContainText('cannot be earlier than');
+    // ③ 仍然一个请求都不许发
+    expect(poSubmitRequests, '过去日期被应用层拦下时不应发出 PO 提交请求').toBe(0);
     await expect(sharedPage.locator('.po-callout')).toHaveCount(0);
 
-    // ④ 清空日期让表单合法，注入 500 ⇒ 走 PoSubmit.vue:174-176 的失败分支（拦截器 toast）
+    // ④ 清空日期让表单合法，注入 500 ⇒ 走 PoSubmit 的提交失败分支（拦截器 toast）
     await sharedPage.locator('#po-f5').fill('');
     await inject500(RX.poSubmit);
     await sharedPage.getByRole('button', { name: 'Submit PO' }).click();
 
     // 请求确实发出去了（证明走到了提交分支），但没有到达后端（被 fulfill 掉）⇒ 零写入
     await expect.poll(() => poSubmitRequests, { timeout: 10000 }).toBe(1);
-    await expect(sharedPage.locator('.el-message--error')).toContainText(FAIL_TEXT, { timeout: 10000 });
+    // ★ 必须 `.last()`：①②两条校验提示现在是**会叠加的 DOM toast**（存活 3s），
+    //   到这里通常还有 2 个残留在页面上 ⇒ 裸 locator 会触发 Playwright strict mode
+    //   （实测 "resolved to 3 elements"）。要断言的是**最新**那条提交失败提示。
+    await expect(
+      sharedPage.locator('.el-message--error').last(),
+    ).toContainText(FAIL_TEXT, { timeout: 10000 });
     // 失败后不出现成功横幅，按钮复位（submitting=false），URL 不变
     await expect(sharedPage.locator('.po-callout')).toHaveCount(0);
     await expect(sharedPage.getByRole('button', { name: 'Submit PO' })).toBeEnabled();
@@ -316,7 +327,7 @@ test.describe('客户侧订单错误路径', () => {
     sharedPage.off('request', onRequest);
   });
 
-  test('/orders/:id 报价动作 500 ⇒ 原生 alert("Action failed")（quoted 单，零写入）', async () => {
+  test('/orders/:id 报价动作 500 ⇒ 错误 toast("Action failed")（quoted 单，零写入）', async () => {
     const rows = await fetchMyOrders('quoted');
     const quoted = rows.find((r) => r.status === 'quoted');
     expect(quoted, '共享库里找不到 e2e_customer 名下 status=quoted 的订单，无法触发报价动作错误分支').toBeTruthy();
@@ -324,22 +335,25 @@ test.describe('客户侧订单错误路径', () => {
     await inject500(RX.confirmQuote);
 
     await sharedPage.goto(`${BASE_URL}/orders/${quoted.id}`, { waitUntil: 'domcontentloaded' });
-    // OrderDetailPage.vue:52 `v-if="order.status === 'quoted'"` 才渲染动作条
+    // OrderDetailPage.vue `v-if="order.status === 'quoted'"` 才渲染动作条
     await expect(sharedPage.locator('.action-bar')).toBeVisible({ timeout: 10000 });
 
-    let captured = null;
-    const dialogHandler = async (d) => {
-      captured = { type: d.type(), message: d.message() };
-      await d.dismiss();
-    };
-    sharedPage.on('dialog', dialogHandler);
-    await sharedPage.getByRole('button', { name: 'Reject Quote' }).click();
-    await expect.poll(() => captured && captured.message, { timeout: 5000 }).toBeTruthy();
-    sharedPage.off('dialog', dialogHandler);
-
-    expect(captured.type).toBe('alert');
-    // OrderDetailPage.vue:33 —— err.data 在 5xx 时为空 ⇒ 落到兜底文案 'Action failed'
-    expect(captured.message).toBe('Action failed');
+    // ★ 2026-11-18（S4）：这一处从原生 `alert` 改成了 `toast.error`
+    //   ⇒ 可观测面从 `page.on('dialog')` 变成 `.el-message--error`。
+    //   同时保留反向闸门：dialogs 必须为 0（退回原生弹框即红）。
+    let nativeDialogs = 0;
+    const countDialog = async (d) => { nativeDialogs += 1; await d.dismiss(); };
+    sharedPage.on('dialog', countDialog);
+    try {
+      await sharedPage.getByRole('button', { name: 'Reject Quote' }).click();
+      // OrderDetailPage.vue —— 5xx 时 err.data 为空 ⇒ 落到兜底文案 'Action failed'
+      await expect(
+        sharedPage.locator('.el-message--error').filter({ hasText: 'Action failed' }).last(),
+      ).toBeVisible({ timeout: 5000 });
+    } finally {
+      sharedPage.off('dialog', countDialog);
+    }
+    expect(nativeDialogs, '错误提示不得回退到原生 alert').toBe(0);
 
     // 请求被 fulfill 掉、没到后端 ⇒ 订单仍是 quoted（零写入证据）
     await expect(sharedPage.locator('.action-bar')).toBeVisible();

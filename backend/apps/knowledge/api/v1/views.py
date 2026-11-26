@@ -123,6 +123,12 @@ class ResearchGoalViewSet(DuplicateNameGuardMixin, AutoTagTestFixtureMixin, Enve
     permission_classes = [IsAdminOrReadOnly]
     search_fields = ['name', 'summary']
     ordering_fields = ['priority', 'name']
+    # ★ 2026-11-18（S4 / A-066 + A-014 连带）：补 `status` 筛选。
+    #   改前本 ViewSet **没有 filterset** ⇒ `?status=draft` 被 DRF 静默忽略，
+    #   后台目标的「Show drafts + 状态筛选」会变成一个点下去毫无反应的假控件。
+    #   纯新增能力：无参数时 queryset 与改前逐字节一致（仍返回 staff 全量），
+    #   全仓 grep 过没有任何调用方给 `/research-goals/` 传 `status=`。
+    filterset_fields = ['status']
 
     def get_serializer_class(self):
         # #495 轻量版：详情/写入走 Detail（暴露并可写策展 protocols）；

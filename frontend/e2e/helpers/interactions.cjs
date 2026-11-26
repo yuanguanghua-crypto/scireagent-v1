@@ -5,7 +5,13 @@
  *  - 弹窗：自定义 `.dialog` + `.dialog-overlay`（也可用 `.modal-*` 变体），非 el-dialog
  *  - Toast：自定义 `.toast` / `.save-message` / `.ki-toast` + Element Plus `.el-message`
  *          （`.el-message--error` / `.el-message--success`）
- *  - 原生 alert / confirm：PoSubmit / PoAddressList / OrderDetailPage / AdminOrderDetail
+ *  - 原生 alert / confirm / prompt：★ 2026-11-18（S4）起**全部下线** ——
+ *          `confirm` 已换成页内 `<ConfirmHost>`（见 helpers/confirm.cjs），
+ *          `alert` 已换成 `toast`（ElMessage），
+ *          `prompt` 已换成页内输入框 `askText()`（同一宿主，`[data-testid="confirm-input"]`，
+ *          用 `fillConfirmInput(page, text)` 驱动）。原两处调用方是
+ *          `PoInvoicingDesk`（Reject reason）与 `VerifiedPage`（Reject note）。
+ *          ⇒ `page.on('dialog', ...)` 在本仓**再没有任何用途**，写了也不会触发。
  *  - 排序：`<th class="sortable" @click>`
  *  - 分页：`<DataPagination>`（`:total` / `:page-size` / `@current-change`）
  *  - 选择：少量 el-select；多选/分类用原生 <select> 或 AppSelect
@@ -65,7 +71,8 @@ async function waitForToast(page, text, { timeout = 8000, type = null } = {}) {
 }
 
 async function handleDialog(page, { accept = true } = {}) {
-  // 处理原生 alert / confirm
+  // ⚠️ 2026-11-18（S4）后本仓已无原生 alert / confirm / prompt —— 此函数仅作兜底保留
+  //    （若某个第三方组件仍弹原生框）。不要用它来驱动本仓的确认框，那永远不会触发。
   page.on('dialog', async (d) => {
     if (accept) await d.accept();
     else await d.dismiss();

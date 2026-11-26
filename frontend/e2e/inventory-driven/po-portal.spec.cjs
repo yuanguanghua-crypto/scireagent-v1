@@ -76,14 +76,22 @@ test.describe('阶段4 PO 门户穷举', () => {
     expect(errors).toEqual([]);
   });
 
-  test('PoSubmit: 空 PO 号提交 → 原生 alert 校验', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
+  test('PoSubmit: 空 PO 号提交 → 页内错误提示（不再是原生 alert）', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
-    page.on('dialog', async (d) => { await d.accept(); });
+    // ★ 2026-11-18（S4）：PoSubmit 的两条校验提示已从 `alert` 改成 `toast.error`。
+    //   原来这里的 `page.on('dialog', accept)` 现在一次都不会触发 ⇒ 留着会让人
+    //   误以为"弹框已被处理"，实际什么也没发生。
+    let nativeDialogs = 0;
+    page.on('dialog', async (d) => { nativeDialogs += 1; await d.accept(); });
     await loginAsCustomer(page);
     await gotoPage(page, '/po/submit');
     await page.locator('button', { hasText: 'Submit PO' }).click();
-    // 校验触发后仍在提交页（未跳转），且 alert 已处理
+    // 校验触发后仍在提交页（未跳转），且错误提示以 DOM toast 出现
     await expect(page).toHaveURL(/\/po\/submit/, { timeout: 8000 });
+    await expect(
+      page.locator('.el-message--error').filter({ hasText: 'Add at least one line item.' }).last(),
+    ).toBeVisible({ timeout: 8000 });
+    expect(nativeDialogs, '校验提示不得回退到原生 alert').toBe(0);
     expect(errors).toEqual([]);
   });
 

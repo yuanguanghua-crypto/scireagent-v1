@@ -20,7 +20,10 @@
  * ⚠️ 关键实测（2026-09-23，dev sqlite，只读核对）——与任务书的「6 表各 Δ+1」一致，但**有前提**：
  *   · GOAL_OPTIONS / APP_OPTIONS / METHOD_OPTIONS 里多数名字**在库中已存在或重名**；
  *   · 后端用 `_get_or_create_unique(name=...)`：**已存在的名字只复用（Δ0）、重名的名字直接 409**。
- *     故写路径用例**现算「库中不存在的候选」再点**（`pickAbsent`），否则断不出 Δ+1；
+ *     故写路径用例需要一个**库里不存在的名字**，否则断不出 Δ+1。
+ *     ⚠️ 2026-11-18（S4 / A-075+A-218）：三组选项已改为**远程搜索 + 可新建**，
+ *        chips 全部来自库 ⇒ 旧写法 `pickAbsent`（挑库里不存在的 chip）失效，
+ *        K4 改走页面「＋ Create」入口（`pickNew`）；判据未变。
  *     B 用例则**现算「库中真实重名」**的名字再 POST（不硬编码某条重名，如 34/3443 之类）。
  *
  * 本机跑法（`e2e/README.md §1`）——必须串行、输出重定向到文件、显式 `--project=chromium`：
@@ -38,6 +41,10 @@ const { getToken, apiContext } = require('./helpers/api')
 const { expectApi, expectDelta, zeroSpec, expectNoWrites, consoleErrors } = require('./helpers/assertions.cjs')
 const { dbQuery } = require('./helpers/db-snapshot.cjs')
 const { RUN_TS } = require('./fixtures/index.cjs')
+// S4：确认框改页内实现，原生 dialog 不再触发 —— 统一用这个 helper 驱动
+const {
+  installConfirmCounter, confirmCount, waitConfirm, acceptConfirm,
+} = require('./helpers/confirm.cjs')
 
 const WL = ['wasm streaming compile failed', 'falling back to ArrayBuffer instantiation']
 const WL2 = [...WL, 'Failed to load resource']
@@ -98,13 +105,33 @@ const rowFingerprint = (gid, aid, mid, pid) =>
       `'pm_role': ProductMethod.objects.filter(method_id=${mid}).values_list('role', flat=True).first(),` +
       `}))`
   )
-/** 从一组 chip 中现算「库中不存在」的第一个可点选项（保证 get_or_create 真新建 ⇒ Δ+1） */
+/** ★ 2026-11-18（S4 / A-075+A-218）后**无调用方**：三组选项已从硬编码常量改为
+ *  「远程搜索 + 可新建」，chips 里的名字**全部来自数据库** ⇒ "挑一个库里不存在的 chip"
+ *  这个前提不再成立。写路径改走页面上的「＋ Create “…”」入口（见 K4 的 `pickNew`）。
+ *  保留本函数是为了让"为什么不能再用它"这件事留在代码里，而不是只留在提交信息里。 */
 async function pickAbsent(model, chipLoc) {
   const labels = (await chipLoc.allInnerTexts()).map((s) => s.trim())
   const counts = nameCounts(model, labels)
   const hit = labels.find((l) => counts[l] === 0)
   expect(hit, `${model} 需存至少一个「库中不存在」的候选（否则 get_or_create 复用，断不出 Δ+1）`).toBeTruthy()
   return hit
+}
+
+/**
+ * ★ A-075/A-218 新机制下的「录入一个库里不存在的新名字」：
+ *   搜索框输入 ⇒ 候选为空 ⇒ 出现「＋ Create “<name>”」⇒ 点它。
+ * 断言判据与旧机制完全一致（该名字进入 form 并被选中），只是**录入方式**变了。
+ */
+async function pickNew(sec, testid, name) {
+  const input = sec.getByTestId(`ki-${testid}-search`)
+  await expect(input, `${testid} 搜索框应可见`).toBeVisible({ timeout: 15000 })
+  await input.fill(name)
+  const createBtn = sec.getByTestId(`ki-${testid}-create`)
+  await expect(createBtn, `${testid} 输入库里没有的名字后应出现「＋ Create」入口`)
+    .toBeVisible({ timeout: 15000 })
+  await createBtn.click()
+  await expect(sec.locator('.ki-chip-active'), `${testid} 新建后应自动选中该名字`)
+    .toHaveText(name)
 }
 /** 现算某知识表中**真实重名**（count>1）的名字与重名数（B 用例用；不硬编码 34 之类）。
  *  返回 {name, c}；若无重名返回 null（B 用例将如实失败，而不是被放宽）。 */
@@ -251,20 +278,32 @@ test.describe('Knowledge Intake（/workspace/knowledge-intake）', () => {
       const methods = section(page, 'Methods')
       const conf = confSection(page)
 
-      // ★ 现算「库中不存在」的候选 ⇒ get_or_create 才会真新建
-      goalName = await pickAbsent('ResearchGoal', goals.locator('.ki-chip'))
-      appName = await pickAbsent('Application', apps.locator('.ki-chip'))
-      methodName = await pickAbsent('Method', methods.locator('.ki-chip'))
-      await goals.getByRole('button', { name: goalName, exact: true }).click()
-      await apps.getByRole('button', { name: appName, exact: true }).click()
-      await methods.getByRole('button', { name: methodName, exact: true }).click()
+      // ★ 2026-11-18（S4 / A-075+A-218）：三组选项已从**硬编码常量**（8/12/11 个写死名字）
+      //   改为**远程搜索 + 可新建**，chips 全部来自数据库。于是旧写法
+      //   `pickAbsent(... chips)`（从 chips 里挑一个"库里不存在"的名字）在新机制下
+      //   **永远找不到候选**，K4 会当场红。这里改为走页面的「＋ Create」入口：
+      //   输入库里不存在的名字 ⇒ 点 Create ⇒ 该名字进入表单。
+      //   ⚠️ 判据**没有任何放宽**：下面 6 表 Δ+1、四行 draft、bridge role=reagent、
+      //      匿名不可见/staff 可见，一条都没动 —— 变的只是"怎么造出一个新名字"。
+      goalName = `E2E-KI-Goal-${RUN_TS}`
+      appName = `E2E-KI-App-${RUN_TS}`
+      methodName = `E2E-KI-Method-${RUN_TS}`
+      await pickNew(goals, 'goal', goalName)
+      await pickNew(apps, 'app', appName)
+      await pickNew(methods, 'method', methodName)
       await expect(goals.locator('.ki-chip-active')).toHaveCount(1)
       await expect(apps.locator('.ki-chip-active')).toHaveCount(1)
       await expect(methods.locator('.ki-chip-active')).toHaveCount(1)
       console.log(`__E2E__ K4_PICK ${J({ cat, goalName, appName, methodName, protoName })}`)
 
       await page.getByPlaceholder('e.g. CuAAC RNA Labeling Protocol').fill(protoName)
-      await page.getByPlaceholder('1. Prepare RNA 2. Add reagents 3. Incubate 4. Purify').fill('E2E step 1; E2E step 2')
+      // ★ 2026-11-18（S4 连带，实测发现这是**本轮之前就已失效**的用例）：
+      //   原先写死 `getByPlaceholder('1. Prepare RNA 2. Add reagents 3. Incubate 4. Purify')`，
+      //   但应用里的 placeholder 早已改成多行版（`1. Prepare RNA\n2. Add reagents\n
+      //   3. Incubate 30 min…` + 中文说明），`git show HEAD` 即可证实。
+      //   串不匹配 ⇒ getByPlaceholder 一直等到 120s 超时，整个 K4 卡死在这里。
+      //   改用正则做**子串匹配**：对 placeholder 的长度、换行、后缀说明都不敏感。
+      await page.getByPlaceholder(/Prepare RNA/).fill('E2E step 1; E2E step 2')
       await page.getByPlaceholder('CuSO4, THPTA, ascorbate, dye').fill('E2E materials')
       await page.getByPlaceholder('2 hours').fill('2 hours')
       await page.locator('select.ki-input').selectOption({ label: 'Advanced' })
@@ -284,7 +323,25 @@ test.describe('Knowledge Intake（/workspace/knowledge-intake）', () => {
       // A 断言：APIView + EnvelopeMixin ⇒ 成功 200（非 201）
       await expectApi(resp, { status: 200, label: 'K4 intake POST' })
       // U 断言：成功 toast 含所选集货号
-      await expect(page.locator('.ki-toast.ok'), 'K4 toast 应含 catalog_no').toContainText(cat)
+      // ★ 2026-11-18（S4 连带，实测发现这又是一处**本轮之前就失效**的断言）：
+      //   原先硬断言 `.ki-toast.ok`。但 A-070 之后，保存成功时若后端回传
+      //   warnings（实测：`protocol_time, protocol_difficulty 暂无法落库`），
+      //   组件会把它渲染成 `.ki-toast.err` —— 于是 `.ok` 这个 class 根本不存在，
+      //   用例在"保存其实成功了"的情况下红掉。
+      //   这里改为按**语义**断言：必须出现保存成功文案 + 货号 + 告警原文，
+      //   不绑定 ok/err 这个视觉类（视觉类的取舍属产品决定，不该由测试锁死）。
+      const toast = page.locator('.ki-toast')
+      await expect(toast, 'K4 toast 应出现').toBeVisible({ timeout: 10000 })
+      await expect(toast, 'K4 toast 应含 catalog_no').toContainText(cat)
+      await expect(toast, 'K4 toast 应表明保存成功').toContainText('Saved as draft for')
+      // A-070 的核心诉求：告警不得被吞掉。
+      // 注意**不锁具体措辞**（今天是 "protocol_time, protocol_difficulty 暂无法落库"）：
+      // 一旦将来把这两列补上，硬断言会变成假红。这里只守「有 ⚠️ 就必须有原因」。
+      const toastText = (await toast.innerText()).trim()
+      if (toastText.includes('⚠️')) {
+        const afterWarn = toastText.split('⚠️').slice(1).join('⚠️').trim()
+        expect(afterWarn.length, 'A-070：⚠️ 之后必须说明原因，不能只丢一个标记').toBeGreaterThan(10)
+      }
 
       // D 断言：6 表各 Δ+1
       const after = kiSnapshot()
@@ -322,16 +379,31 @@ test.describe('Knowledge Intake（/workspace/knowledge-intake）', () => {
       //   正对照：同一检索用 staff 会话必须命中 1 ⇒ 证明「0」是**可见性过滤**而非「检索没匹配上」。
       //   口径：列表端点 `data` 是数组、总数在 `meta.pagination.count`（见契约）。
       const anon = await apiContext(null)
-      const named = (arr, name) => (Array.isArray(arr) ? arr : []).filter((r) => (r.name || '') === name).length
+      // ★ 2026-11-18（S4 连带，实测）：原 `named()` 只认 `data` 是数组的形态，
+      //   而 `/protocols/` 是**分页**端点（`data = {results:[...]}`）⇒ 无论可见性如何
+      //   都恒返回 0。那条 "staff 应命中 1" 因此**永远不可能通过**，
+      //   而 "匿名应命中 0" 则是**恒真的假绿**（根本没在数）。
+      const rowsOf = (body) => {
+        const d = body?.data
+        if (Array.isArray(d)) return d
+        if (Array.isArray(d?.results)) return d.results
+        return []
+      }
+      const named = (body, name) => rowsOf(body).filter((r) => (r.name || '') === name).length
       const anonGoalBody = await (await anon.get('/research-goals/', { params: { search: goalName, page_size: 50 } })).json()
       const anonProtoBody = await (await anon.get('/protocols/', { params: { search: protoName, page_size: 50 } })).json()
       const staffGoalBody = await (await api.get('/research-goals/', { params: { search: goalName, page_size: 50 } })).json()
-      const staffProtoBody = await (await api.get('/protocols/', { params: { search: protoName, page_size: 50 } })).json()
+      // ★ 方案 B（2026-10-26）：staff 的 Protocol **列表**默认也只返回 published。
+      //   要看自己刚建的 draft，必须显式 include_unpublished=1 —— 与
+      //   workspace-entity-crud.spec.cjs 里的同一处口径保持一致。
+      const staffProtoBody = await (await api.get('/protocols/', {
+        params: { search: protoName, page_size: 50, include_unpublished: 1 },
+      })).json()
       const vis = {
-        anonGoal: named(anonGoalBody.data, goalName),
-        anonProtocol: named(anonProtoBody.data, protoName),
-        staffGoal: named(staffGoalBody.data, goalName),
-        staffProtocol: named(staffProtoBody.data, protoName),
+        anonGoal: named(anonGoalBody, goalName),
+        anonProtocol: named(anonProtoBody, protoName),
+        staffGoal: named(staffGoalBody, goalName),
+        staffProtocol: named(staffProtoBody, protoName),
       }
       console.log(`__E2E__ K4_VISIBILITY ${J(vis)}`)
       await anon.dispose()
@@ -454,8 +526,11 @@ test.describe('Knowledge Intake（/workspace/knowledge-intake）', () => {
         body: J({ success: true, data: {}, meta: {} }) })
     })
     page.on('dialog', (d) => { dialogs++; d.accept() })
-
     await goto(page, '/workspace/knowledge-intake')
+    // ★ 必须在**导航之后**装计数器：page.evaluate 注入的 MutationObserver
+    //   挂在当前 document 上，goto 会换掉 document、observer 随之消失
+    //   （实测 dialogs 恒为 0，而确认框其实弹过、也被点掉了）。
+    await installConfirmCounter(page)
     const items = page.locator(ITEM)
     await expect(items.first(), 'KE1 伪造列表应渲染').toBeVisible({ timeout: 15000 })
     expect(await items.count(), 'KE1 恰好 2 个产品').toBe(2)
@@ -463,10 +538,15 @@ test.describe('Knowledge Intake（/workspace/knowledge-intake）', () => {
     await expect(page.locator('.ki-form-area')).toBeVisible()
 
     await page.locator('button.ki-btn-outline').click()
+    // ★ S4：确认框已改页内实现 ⇒ 必须点 DOM 按钮，原生 dialog 不再触发。
+    await waitConfirm(page)
+    await acceptConfirm(page)
     await expect(page.locator('.ki-toast.ok'), 'KE1 结果文案').toHaveText('Copied to 1 of 1 (0 failed)', { timeout: 10000 })
+    dialogs = await confirmCount(page)
     console.log(`__E2E__ KE1 ${J({ posts, dialogs })}`)
     expect(posts, 'KE1 POST /knowledge-intake 应恰好 1 次').toBe(1)
-    expect(dialogs, 'KE1 应弹 1 次 confirm').toBe(1)
+    expect(dialogs, 'KE1 应弹 1 次页内确认框').toBe(1)
+    expect(dialogs, 'KE1 不得回退到原生 window.confirm').toBeGreaterThan(0)
     expectDelta(before, kiSnapshot(), zeroSpec(before), 'KE1 未真写库 Δ0')
     expect(errors).toEqual([])
   })
@@ -487,8 +567,11 @@ test.describe('Knowledge Intake（/workspace/knowledge-intake）', () => {
         body: J({ success: true, data: {}, meta: {} }) })
     })
     page.on('dialog', (d) => { dialogs++; d.accept() })
-
     await goto(page, '/workspace/knowledge-intake')
+    // ★ 必须在**导航之后**装计数器：page.evaluate 注入的 MutationObserver
+    //   挂在当前 document 上，goto 会换掉 document、observer 随之消失
+    //   （实测 dialogs 恒为 0，而确认框其实弹过、也被点掉了）。
+    await installConfirmCounter(page)
     const items = page.locator(ITEM)
     await expect(items.first(), 'KE2 伪造列表应渲染').toBeVisible({ timeout: 15000 })
     expect(await items.count(), 'KE2 恰好 52 个产品').toBe(52)
@@ -500,9 +583,12 @@ test.describe('Knowledge Intake（/workspace/knowledge-intake）', () => {
     await expect(toast, 'KE2 应出错误提示').toBeVisible({ timeout: 10000 })
     await expect(toast, 'KE2 提示应含实际同类数 51').toContainText('51')
     await expect(toast, 'KE2 提示应含硬上限 50').toContainText('50')
+    // ★ S4：超限分支要在**弹确认之前**就返回 ⇒ 页内确认框必须一次都没出现。
+    //   这里不能用原生 dialog 计数 —— 那已经不触发了，断言会永远成立（假绿）。
+    dialogs = await confirmCount(page)
     console.log(`__E2E__ KE2 ${J({ posts, dialogs, text: (await toast.innerText()).trim() })}`)
     expect(posts, 'KE2 超限不得发起任何 POST').toBe(0)
-    expect(dialogs, 'KE2 超限不得弹 confirm（实现是「先判上限再弹确认」）').toBe(0)
+    expect(dialogs, 'KE2 超限不得弹确认框（实现是「先判上限再弹确认」）').toBe(0)
     expectDelta(before, kiSnapshot(), zeroSpec(before), 'KE2 未真写库 Δ0')
     expect(errors).toEqual([])
   })
@@ -559,7 +645,7 @@ test.describe('Knowledge Intake（/workspace/knowledge-intake）', () => {
  * #1【记录】「一次 POST ⇒ 6 表各 Δ+1」**有前提**：`intake_views.py` 用
  *     `_get_or_create_unique(name=...)`（commit 1777fb3）⇒ **已存在的名字只复用（Δ0）、重名的名字 409**
  *     （旧版 `get_or_create` 遇重名会 `MultipleObjectsReturned`(500)，现被显式拒收）。
- *     ⇒ 本 spec 的写路径**现算「库中不存在」的候选再点**（`pickAbsent`）；
+ *     ⇒ 本 spec 的写路径需要一个**库里不存在的名字**（A-075/218 后改为页面「＋ Create」入口，见 `pickNew`）；
  *     B 用例**现算「库中真实重名」的名字**再 POST（`pickDuplicate`），重名数亦现算比对其消息。
  *     这是断言口径（逐条现算），不是放宽。
  *

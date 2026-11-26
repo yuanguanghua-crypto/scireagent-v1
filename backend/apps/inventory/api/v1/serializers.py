@@ -17,12 +17,22 @@ class InventoryListSerializer(BaseModelSerializer):
     product_name = serializers.CharField(source='sku.product.name', read_only=True)
     lot_number = serializers.CharField(source='batch.lot_number', read_only=True)
     on_hand = serializers.IntegerField(read_only=True)
+    # ★ A-260（2026-11-18 / S4）：库存台必须能看出「这一行的 SKU 还在不在纳管状态」。
+    #
+    # 为什么需要：`Stop tracking` 只翻 `SKU.is_stock_tracked`，**不动 Inventory 行**
+    # ⇒ 脱管成功后那一行仍然在表里，且长得和普通库存行一模一样（available=0 而已）。
+    # 运营会以为「还有一行 0 库存的货」，看不出它其实已经退出缺货校验（≡ 不限量）。
+    # 前端据此渲染 `Tracked: Yes/No` 并对未纳管行置灰。
+    #
+    # 这是**纯追加字段**：不动任何既有键，列表/入库/调整/详情四个消费方逐字节兼容。
+    is_stock_tracked = serializers.BooleanField(source='sku.is_stock_tracked', read_only=True)
 
     class Meta:
         model = Inventory
         fields = [
             'id', 'sku_id', 'sku_code', 'product_name', 'batch_id', 'lot_number',
-            'location', 'available', 'allocated', 'on_hand', 'updated_at',
+            'location', 'available', 'allocated', 'on_hand', 'is_stock_tracked',
+            'updated_at',
         ]
 
 

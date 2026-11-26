@@ -231,6 +231,39 @@ class ProductNumberConflict(APIException):
     default_code = 'product_number_conflict'
 
 
+class ProductRecycleBinPublishRejected(APIException):
+    """回收站里的产品被要求改成「在售」→ 409（附可操作出路）。A-152，2026-11-18。
+
+    为什么是 **409 而不是 400**：请求本身字段合法，是**资源当前状态**不允许这个跃迁
+    （与 `ProductNumberConflict` 同源语义）。
+
+    为什么必须拦：`Product` 有**两条互不相干的归档轴** ——
+      · `archived`（布尔，回收站：`DELETE` 置 True / `POST restore/` 置 False）
+      · `status`（枚举，业务状态：`POST archive/` 置 archived / Republish 回 active）
+    旧实现让两条轴**完全脱钩**：躺在回收站的行可以被 PATCH 成 `status='active'`，
+    库里留下 `archived=True 且 status='active'` 的矛盾态（生产 141 行里成批存在）。
+    矛盾态在前台**不可见**（列表默认 `exclude(archived=True)`、详情对非 staff 404），
+    但**任何忘记过滤 `archived` 的读取路径都会把它当在售商品** —— 收藏夹就是这样
+    （A-258），回收站产品被渲染成可点可买的卡片。
+
+    ★ 只拦**新写入**，不回溯清理历史数据：那批历史行是「归档只改 archived 不改 status」
+      的真实结果，贸然批量改 `status` 等于替运营做决定（可能是他们要复用的）。
+    ★ 不拦 `draft`/`deprecated`：只有 `active` 会让它「看起来在售」，降级不必堵。
+    ★ 文案面向研究员，不吐端点路径、不吐 `relist` 这类内部名（呼应 R7 口径）。
+    """
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = '该产品在回收站中，不能直接设为在售'
+    default_code = 'product_recycle_bin_publish_rejected'
+
+    def __init__(self):
+        super().__init__(
+            '这个产品还在「回收站」里，不能直接设为在售。'
+            '① 确实要卖 → 先到产品列表右上角的「回收站」把它还原，再发布；'
+            '② 只是本来就想扔掉 → 无需任何操作，它已经不在售了；'
+            '③ 想保留但永不上架 → 把状态改为「已弃用」即可。'
+        )
+
+
 class ProductHasDependents(APIException):
     """被 `PROTECT` 关联挡住、无法彻底删除 → **409**（附带可操作出路）。
 
@@ -436,9 +469,24 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         - 命中**回收站行** → 409 + 可操作出路（回收站还原 / 换编号 / 找管理员彻底删除）
         - 命中**未被软删的行** → 400（真重复）
         - 更新时自身编号未改动 → 不误报
+
+        ★ 2026-11-18（A-152）：本方法同时是「回收站产品不得静默发布」的闸门。
+          放在 `validate()` 而非 `update()` 有两个必要理由：
+            ① **无部分写入**：validate 抛异常时整个 payload 都不落库。若放在 update()
+               里，`save()` 之后才抛，就得靠事务回滚兜底（历史上正是这样漏过）。
+            ② **不留幻影审计**：`perform_update` 在 save 之后写 UPDATE 审计；
+               validate 阶段拒绝 ⇒ 审计根本不会被调用。
         """
         attrs = super().validate(attrs)
         instance = self.instance
+
+        # ── A-152：回收站（archived=True）的产品不得跃迁为 active ──────────────
+        # 只认 `active`：`draft` / `deprecated` 都不会让它看起来在售，属降级，不拦。
+        # 不回溯清理历史矛盾行；`restore/` 之后本闸门自然放行（见正向出路用例）。
+        if (instance is not None and instance.archived
+                and attrs.get('status') == Product.Status.ACTIVE):
+            raise ProductRecycleBinPublishRejected()
+
         for field in ('catalog_no', 'slug'):
             if field not in attrs:
                 continue                      # 本次未提交该字段 → 不校验

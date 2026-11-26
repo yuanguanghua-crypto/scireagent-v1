@@ -35,12 +35,24 @@ async function pageGetToken(page) {
 }
 
 // 按唯一名/标题从 API 列表查出并删除（尽力清理，失败不阻断）。
+/**
+ * 按名字清理夹具。
+ *
+ * ★ 2026-11-18（S4 实测）：必须带 `include_test_fixtures=1`。
+ *   本文件的夹具命名是 `__e2e_<key>_<ts>__`，而 `AutoTagTestFixtureMixin`
+ *   （`apps/knowledge/api/v1/views.py:28` `TEST_FIXTURE_NAME_PREFIX = '__'`）
+ *   会在**写入时**就把 `__` 开头的实体标成 `is_test_fixture=True`，
+ *   默认读路径一律过滤掉它们 ⇒ 不带这个参数时**永远找不到要删的行**，
+ *   清理等于没做（本地库因此积了几十条 `__e2e_*__` 残骸）。
+ */
 async function cleanupEntity(page, ep, uniqueName) {
   const token = await pageGetToken(page);
   if (!token) return;
   const ctx = await apiContext(token);
   try {
-    const resp = await ctx.get(`/${ep}/`, { params: { page_size: 500 } });
+    const resp = await ctx.get(`/${ep}/`, {
+      params: { page_size: 500, include_test_fixtures: 1, include_unpublished: 1 },
+    });
     const body = await resp.json().catch(() => ({}));
     const list = Array.isArray(body) ? body : (body?.data?.results || body?.results || []);
     for (const e of list) {
@@ -253,11 +265,27 @@ test.describe('阶段3 Workspace 研究员穷举', () => {
       // UI 侧：弹层关闭
       await expect(page.locator('#entity-editor-title')).toHaveCount(0, { timeout: 8000 });
       // 写库证据：按唯一名走 API 的存在性断言（总数大、page_size=200 ⇒ 首屏不含新行）
+      // ★ 2026-11-18（S4 实测）：**两个参数都必须带**，各挡一层过滤：
+      //   · `include_test_fixtures=1` —— `unique` 以 `__` 开头，`AutoTagTestFixtureMixin`
+      //     在写入时就把这条标成测试夹具，默认读路径过滤掉它
+      //     （实测：POST 201 得 id 13279，随后 GET /research-goals/13279/ 返回 404）。
+      //   · `include_unpublished=1` —— 新建实体 `status` 默认 `draft`
+      //     （StatusMixin / Protocol.PublicationStatus 都是 default=draft），而
+      //     Method/Protocol 的 list 端点对 staff 也套「方案 B」过滤
+      //     （实测：只加上一条时 goals/apps 转绿，methods/protocols 仍 0 条）。
+      //   两个参数对四个端点都无害 —— 本用例验的是「写进去了」，不是「对外可见」。
       const token = await pageGetToken(page);
       const ctx = await apiContext(token);
       let arr = [];
       try {
-        const resp = await ctx.get(`/${p.ep}/`, { params: { search: unique, page_size: 20 } });
+        const resp = await ctx.get(`/${p.ep}/`, {
+          params: {
+            search: unique,
+            page_size: 20,
+            include_test_fixtures: 1,
+            include_unpublished: 1,
+          },
+        });
         const body = await resp.json().catch(() => ({}));
         const d = body?.data;
         arr = Array.isArray(d) ? d : (d?.results || []);

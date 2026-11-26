@@ -135,42 +135,37 @@ test.describe('@po-submit PO 提交页的状态分支', { tag: ['@local-only'] }
     // 空表单态：PoSubmit.vue:326 `<p v-else class="po-muted">No line items yet.</p>`
     await expect(page.getByText('No line items yet.')).toBeVisible()
 
-    // PoSubmit.vue:147-150 —— items 为空时 alert 并 return（不发请求）
-    let msg = null
-    const onDialog = async (d) => {
-      msg = d.message()
-      await d.dismiss()
-    }
-    page.on('dialog', onDialog)
+    // PoSubmit.vue —— items 为空时弹错误提示并 return（不发请求）
+    // ★ 2026-11-18（S4）：提示已从原生 `alert` 改为 `toast.error`
+    //   （ElMessage ⇒ `.el-message--error`）。原来靠 `page.on('dialog')` 读文案，
+    //   改造后那样读恒为 null、用例会一直等到超时。
     let posted = 0
     const onReq = (r) => {
       if (/\/api\/v1\/orders\/po\/?$/.test(r.url())) posted += 1
     }
     page.on('request', onReq)
     await page.getByRole('button', { name: 'Submit PO' }).click()
-    await expect.poll(() => msg, { timeout: 10000 }).toBe('Add at least one line item.')
-    page.off('dialog', onDialog)
+    await expect(
+      page.locator('.el-message--error').filter({ hasText: 'Add at least one line item.' }).last(),
+    ).toBeVisible({ timeout: 10000 })
     page.off('request', onReq)
     expect(posted, '空行项目不应发出提交请求').toBe(0)
     await expect(page.locator('.po-callout')).toHaveCount(0)
   })
 
-  test('有行项目但未选 SKU ⇒ alert「Each line item requires a SKU, quantity and unit price.」', { tag: ['@readonly'] }, async ({ page }) => {
+  test('有行项目但未选 SKU ⇒ 错误提示「Each line item requires a SKU, quantity and unit price.」', { tag: ['@readonly'] }, async ({ page }) => {
     await asCustomer(page)
     await go(page, PAGES.poSubmit.path)
-    await page.locator('.po-btn', { hasText: '+ Add Line Item' }).click() // PoSubmit.vue:327
+    await page.locator('.po-btn', { hasText: '+ Add Line Item' }).click() // PoSubmit.vue
     await expect(page.locator('.po-table tbody tr')).toHaveCount(1)
 
-    // PoSubmit.vue:151-155 —— skuId/quantity/unitPrice 任一为空即 alert 并 return
-    let msg = null
-    const onDialog = async (d) => {
-      msg = d.message()
-      await d.dismiss()
-    }
-    page.on('dialog', onDialog)
+    // PoSubmit.vue —— skuId/quantity/unitPrice 任一为空即提示并 return
+    // ★ 2026-11-18（S4）：同上去原生化，改读 toast。
     await page.getByRole('button', { name: 'Submit PO' }).click()
-    await expect.poll(() => msg, { timeout: 10000 }).toBe('Each line item requires a SKU, quantity and unit price.')
-    page.off('dialog', onDialog)
+    await expect(
+      page.locator('.el-message--error')
+        .filter({ hasText: 'Each line item requires a SKU, quantity and unit price.' }).last(),
+    ).toBeVisible({ timeout: 10000 })
     await expect(page.locator('.po-callout')).toHaveCount(0)
   })
 

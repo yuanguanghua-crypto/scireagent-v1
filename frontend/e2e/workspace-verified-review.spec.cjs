@@ -33,6 +33,11 @@ const path = require('node:path');
 const { loginAsStaff, BASE_URL } = require('./helpers/auth.cjs');
 const { apiContext, getToken } = require('./helpers/api.cjs');
 const { runSync } = require('./helpers/sync-spawn.cjs');
+// S4：approve 前确认框已改页内实现，原生 dialog 不再触发
+const {
+  installConfirmCounter, confirmCount, waitConfirm, waitConfirmGone,
+  acceptConfirm, dismissConfirm, fillConfirmInput,
+} = require('./helpers/confirm.cjs');
 
 const PRODUCT_ID = 66;
 const SYNTH_PMID = '99999999';
@@ -131,8 +136,15 @@ test.describe('C3 Workspace Verified Review', { tag: ['@write', '@local-only'] }
     await page.goto(`${BASE_URL}/workspace/verified`, { waitUntil: 'domcontentloaded' });
     await page.locator('.wv-table').waitFor({ timeout: 15000 });
     const row = page.locator('.wv-table tbody tr', { hasText: method.name }).first();
-    page.on('dialog', (d) => d.accept());
+    // ★ S4：approve 前的确认框已改页内实现 —— 原来的
+    //   `page.on('dialog', d => d.accept())` 不再触发，approve 压根不会发出，
+    //   C3-02 会变成"点了一下、什么都没发生"却仍然通过（假绿），
+    //   并连带让依赖它的 C3-03（公开页应出现已验证卡片）失败。
+    await installConfirmCounter(page);
     await row.locator('.wv-btn-approve').click();
+    await waitConfirm(page);
+    expect(await confirmCount(page), 'approve 应恰好弹 1 次页内确认框').toBe(1);
+    await acceptConfirm(page);
     // 行不再处于 review（切到 Review tab 后该行消失 / 或状态徽标变化）
     await expect(page.locator('.wv-badge-review', { hasText: method.name }))
       .toHaveCount(0, { timeout: 15000 });
@@ -278,13 +290,20 @@ test.describe('C4 Verified Applicability — coverage gaps (decoupled)', { tag: 
         approveCalls.push(r.url());
       }
     });
-    page.on('dialog', (d) => d.dismiss()); // 取消 confirm
-
     const row = page.locator('.wv-table tbody tr').filter({
       has: page.locator('.wv-chip', { hasText: 'PMID: 77770001' }),
     });
     await expect(row).toBeVisible();
+    // ★ S4：改为驱动页内确认框并**点取消**。
+    //   旧写法 `page.on('dialog', d => d.dismiss())` 在新实现下永远不触发，
+    //   于是 approve 请求根本不会发出 ⇒ "零写入"恒成立，负向闸门形同虚设。
+    //   现在必须证明「确认框确实弹了、点了取消、然后才没有请求」。
+    await installConfirmCounter(page);
     await row.locator('.wv-btn-approve').click();
+    await waitConfirm(page);
+    expect(await confirmCount(page), 'approve 应弹 1 次确认框（否则下面的零写入毫无意义）').toBe(1);
+    await dismissConfirm(page);
+    await waitConfirmGone(page);
 
     await page.waitForTimeout(1500); // 给潜在写请求一个暴露窗口
 
@@ -304,23 +323,30 @@ test.describe('C4 Verified Applicability — coverage gaps (decoupled)', { tag: 
     await page.locator('.wv-table').waitFor({ timeout: 15000 });
 
     const NOTE = `e2e-gap-reject-note-${Date.now()}`;
-    page.on('dialog', (d) => {
-      if (d.type() === 'prompt') d.accept(NOTE);
-      else d.accept();
-    });
 
     const row = page.locator('.wv-table tbody tr').filter({
       has: page.locator('.wv-chip', { hasText: 'PMID: 77770003' }),
     });
     await expect(row).toBeVisible();
 
+    // ★ 2026-11-18（S4）：`window.prompt` 已换成页内输入框（`askText`）——
+    //   旧写法 `page.on('dialog', d => d.accept(NOTE))` 现在**一次都不会触发**，
+    //   于是 reject 请求根本不会发出，下面会以"等不到响应"超时的方式红掉。
+    //   改为：点 Reject ⇒ 等页内确认框 ⇒ 填输入框 ⇒ 点确认（同时等响应）。
+    await installConfirmCounter(page);
+    await row.locator('.wv-btn-reject').click();
+    await waitConfirm(page);
+    expect(await confirmCount(page), 'reject 应弹 1 次页内确认框').toBe(1);
+    await fillConfirmInput(page, NOTE);
+
     const [resp] = await Promise.all([
       page.waitForResponse(
         (r) => r.request().method() === 'POST' && r.url().includes(`/verified/${draftRej.id}/reject/`),
       ),
-      row.locator('.wv-btn-reject').click(),
+      acceptConfirm(page),
     ]);
     expect(resp.status()).toBe(200);
+    await waitConfirmGone(page);
 
     // toast.success('Rejected')（element-plus：.el-message--success / .el-message__content）
     await expect(page.locator('.el-message--success').first()).toContainText('Rejected');

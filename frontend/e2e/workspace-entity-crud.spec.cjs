@@ -28,26 +28,52 @@ const rows = (page) => page.locator('table.entity-table tbody tr')
 const dlg = (page) => page.locator('.dialog')
 const nameInput = (page) => dlg(page).locator('input.input-full').first()
 
-/** 计数用 **API 现算**（禁硬编码；也不猜模型类名/表名） */
-async function countViaApi(api, path) {
-  const body = await (await api.get(path, { params: { page_size: 500 } })).json()
+/** 计数用 **API 现算**（禁硬编码；也不猜模型类名/表名）
+ *  ★ 2026-11-18：`params` 必须传**页面自己的口径** —— ReferencesPage 的列表带
+ *    `include_test_fixtures=1`（它要显示/清理夹具残骸），而本函数不传时拿到的是
+ *    排除夹具后的数量。实测差异：reference 表 219 行，排除 32 条夹具后 API=187，
+ *    页面 DOM 却渲染 200 ⇒ `dom0 <= n0` 断言假红（与渲染无关，纯口径不一致）。 */
+async function countViaApi(api, path, params = {}) {
+  const body = await (await api.get(path, { params: { page_size: 500, ...params } })).json()
   const d = body?.data
   return (Array.isArray(d) ? d : d?.results || []).length
 }
 
-/** 总数用 **`meta.pagination.count`** 现算 —— 与组件所读的信封字段**同源**（禁硬编码 11028 之类） */
-async function totalViaApi(api, path) {
-  const body = await (await api.get(path, { params: { page_size: 1 } })).json()
+/** 总数用 **`meta.pagination.count`** 现算 —— 与组件所读的信封字段**同源**（禁硬编码 11028 之类）
+ *  `params` 用于复现**页面自己的口径**（★ 2026-11-18：四页默认只看公开态，
+ *  见下方 `publicStatus`；不传的话拿到的是 staff 全量，与页面上的数字不是同一个东西）。 */
+async function totalViaApi(api, path, params = {}) {
+  const body = await (await api.get(path, { params: { page_size: 1, ...params } })).json()
   return body?.meta?.pagination?.count ?? null
 }
 
+/**
+ * ★ 2026-11-18（S4 / A-066 + A-014）新增三个字段：
+ *  · `publicStatus` —— 页面「Show drafts」关着时显式传的 status（四页各自模型的公开态）。
+ *    Protocol 用自有 `PublicationStatus`（公开态是 `published`，`active` 恒为 0）；
+ *    其余三个用 `StatusMixin`（公开态是 `active`）。
+ *  · `paginated` —— 该页是否已改真分页。`Reference` 本轮**未改造**，仍是
+ *    「page_size=200 + 静默截断横幅」的旧行为，故保留旧断言分支。
+ *  · `apiParams` —— 页面自己额外带的查询参数（目前只有 ReferencesPage 的
+ *    `include_test_fixtures=1`），用于让 API 现算与 DOM 口径对齐。
+ */
 const ENTITIES = [
-  { noun: 'Goal', page: '/workspace/goals', api: '/research-goals/' },
-  { noun: 'Application', page: '/workspace/applications', api: '/applications/' },
-  { noun: 'Method', page: '/workspace/methods', api: '/methods/' },
-  { noun: 'Protocol', page: '/workspace/protocols', api: '/protocols/' },
-  { noun: 'Reference', page: '/workspace/references', api: '/references/' },
+  { noun: 'Goal', page: '/workspace/goals', api: '/research-goals/', publicStatus: 'active', paginated: true },
+  { noun: 'Application', page: '/workspace/applications', api: '/applications/', publicStatus: 'active', paginated: true },
+  { noun: 'Method', page: '/workspace/methods', api: '/methods/', publicStatus: 'active', paginated: true },
+  { noun: 'Protocol', page: '/workspace/protocols', api: '/protocols/', publicStatus: 'published', paginated: true },
+  {
+    noun: 'Reference',
+    page: '/workspace/references',
+    api: '/references/',
+    publicStatus: null,
+    paginated: false,
+    apiParams: { include_test_fixtures: 1 },
+  },
 ]
+
+/** 治理页一页多少行（`useEntityList` 的 `pageSize` 默认值，改动需同步本常量） */
+const PAGE_SIZE = 50
 
 for (const e of ENTITIES) {
   // ★ `Goal` 曾因**真实缺陷 E1**（Detail 序列化器把 slug 视为必填、而表单无此字段 ⇒ 新建必 400）标 fixme；
@@ -67,7 +93,7 @@ for (const e of ENTITIES) {
       // ① 列表渲染行数 —— **轮询**等待（`v-else-if="entities.length"` ⇒ 数据到达前无表格）
       //   ★ 实测：渲染上限**并非统一 200**（Goals/Apps/Methods=200，Protocol 达 500）⇒ **不假设上限**，
       //     只断"渲染出了行" 且 "不超过 API 总数"，并把 API/DOM 打印出来**记录各页实际上限**（供后续核查）。
-      const n0 = await countViaApi(api, e.api)
+      const n0 = await countViaApi(api, e.api, e.apiParams)
       await expect
         .poll(async () => rows(page).count(), { timeout: 25000, intervals: [300, 600, 1000] })
         .toBeGreaterThan(0)
@@ -75,20 +101,44 @@ for (const e of ENTITIES) {
       expect(dom0, `${e.noun} 渲染行数不应超过 API 总数`).toBeLessThanOrEqual(n0)
       console.log(`__E2E__ ${e.noun} 列表 API=${n0} DOM=${dom0}${dom0 < n0 ? '（有渲染上限，静默截断）' : '（全量渲染）'}`)
 
-      // ①b 截断提示（`[data-testid="truncation-hint"]`）——**仅当 API 总数 > 实际渲染行数**时出现。
-      //    文案里两个数字**都用现算**：总数 = `meta.pagination.count`，行数 = 当前 DOM 行数 ⇒ **禁硬编码 11028 之类**。
-      //    反向用例：未截断的页（如 dev 的 references 193/193）该元素**必须不存在**。
-      const total0 = await totalViaApi(api, e.api)
-      const hint = page.locator('[data-testid="truncation-hint"]')
-      const expectTruncated = total0 > dom0
-      if (expectTruncated) {
-        await expect(hint, `${e.noun} 有静默截断时应显示提示`).toBeVisible({ timeout: 10000 })
-        await expect(hint, `${e.noun} 提示文案应为「Showing first <DOM> of <API> records」`)
-          .toHaveText(`Showing first ${dom0} of ${total0} records`)
-      } else {
-        await expect(hint, `${e.noun} 未截断时不应出现提示`).toHaveCount(0)
+      // ①b 分页 / 截断提示
+      //    ★ 2026-11-18（S4 / A-014）行为已变更：Goals/Applications/Methods/Protocols
+      //      四页从「page_size 硬编码 200/500 + 一句 Showing first N of M records」
+      //      改为**真分页**（50/页 + el-pagination）。用户终于能翻到第 N+1 行。
+      //      ⇒ 截断横幅必须**消失**：留着等于把「有 28568 条但你只看得到 50 条」说了两遍，
+      //        且两处数字来源不同（横幅读 API count、分页器读同一 count 的人工派生）⇒ 必然打架。
+      //      ⇒ 总量超过一页时必须渲染分页器（否则等于换了皮、仍然没有翻页能力）。
+      //    Reference 页本轮未改造，走下面的旧分支（保留它对「静默截断」的既有闸门）。
+      // ★ 口径必须**两个都带**：页面自己的额外参数（Reference 的 include_test_fixtures）
+      //   与页面默认的公开态过滤。只带后者会让 Reference 的 total 少 32 条夹具，
+      //   于是 `expectTruncated` 判成 false，反过来要求一个明明存在的横幅消失。
+      const pageParams = {
+        ...(e.apiParams || {}),
+        ...(e.publicStatus ? { status: e.publicStatus } : {}),
       }
-      console.log(`__E2E__ ${e.noun} 截断提示 API=${total0} DOM=${dom0} 显示=${expectTruncated}`)
+      const total0 = await totalViaApi(api, e.api, pageParams)
+      const hint = page.locator('[data-testid="truncation-hint"]')
+      if (e.paginated) {
+        await expect(hint, `${e.noun} 已改真分页，不应再有静默截断横幅`).toHaveCount(0)
+        if (total0 > PAGE_SIZE) {
+          await expect(
+            page.locator('.entity-page .el-pagination'),
+            `${e.noun} 总数 ${total0} > 一页(${PAGE_SIZE}) 时必须渲染分页器`,
+          ).toHaveCount(1, { timeout: 10000 })
+        }
+        console.log(`__E2E__ ${e.noun} 分页 API=${total0} DOM=${dom0} 每页=${PAGE_SIZE}`)
+      } else {
+        // ★ 旧行为（Reference）：未截断的页该元素必须不存在；有截断则文案两个数字都用现算。
+        const expectTruncated = total0 > dom0
+        if (expectTruncated) {
+          await expect(hint, `${e.noun} 有静默截断时应显示提示`).toBeVisible({ timeout: 10000 })
+          await expect(hint, `${e.noun} 提示文案应为「Showing first <DOM> of <API> records」`)
+            .toHaveText(`Showing first ${dom0} of ${total0} records`)
+        } else {
+          await expect(hint, `${e.noun} 未截断时不应出现提示`).toHaveCount(0)
+        }
+        console.log(`__E2E__ ${e.noun} 截断提示 API=${total0} DOM=${dom0} 显示=${expectTruncated}`)
+      }
 
       // ② `+ New <X>` ⇒ 编辑器出现，标题为 New 形态
       await newBtn.click()
@@ -96,10 +146,10 @@ for (const e of ENTITIES) {
       await expect(dlg(page).locator('h3'), '新建态标题应含 New').toContainText('New')
 
       // ④ `Cancel` ⇒ 关闭 **且零写入**
-      const nBeforeCancel = await countViaApi(api, e.api)
+      const nBeforeCancel = await countViaApi(api, e.api, e.apiParams)
       await dlg(page).getByRole('button', { name: 'Cancel' }).click()
       await expect(dlg(page), 'Cancel 后编辑器应关闭').toHaveCount(0, { timeout: 10000 })
-      expect(await countViaApi(api, e.api), 'Cancel 不得产生任何写入').toBe(nBeforeCancel)
+      expect(await countViaApi(api, e.api, e.apiParams), 'Cancel 不得产生任何写入').toBe(nBeforeCancel)
 
       // ⑤ Save（新建）⇒ POST 2xx + API 计数 Δ+1
       //   ⚠️ 不断"列表出现新行"：本页只渲染前 200 行，新行**可能没被渲染** ⇒ 断它会得到与实现无关的假失败。
@@ -118,7 +168,15 @@ for (const e of ENTITIES) {
       createdId = (await resp.json())?.data?.id ?? null
       // ★ 写库证据**不用"总计数 Δ+1"**：本数据集已达 500+，而 `page_size` **封顶 500** ⇒ 总数**测不出 Δ**（我的测法有错）。
       //   改用**存在性**：按唯一名检索应恰好 1 条 —— 这是"真写进去了"的可靠证据，且与总量无关。
-      const body = await (await api.get(e.api, { params: { search: uniq, page_size: 20 } })).json()
+      //   ★ 2026-11-18（S4）：**必须带 `include_unpublished=1`**。新建实体的 `status` 默认是
+      //     `draft`（`core/models.py` StatusMixin / Protocol.PublicationStatus 都是 default=draft），
+      //     而 MethodViewSet / ProtocolViewSet 的 list 端点对 staff 也套「方案 B」过滤
+      //     ⇒ 不带这个参数时，刚建好的草稿**检索不到**（实测 Method/Protocol 恒 0 条，
+      //     Goal/Application 因为后端没做方案 B 才侥幸为 1）。这是**检索口径**问题，
+      //     不是「没写进去」—— 本用例要验的是后者。
+      const body = await (await api.get(e.api, {
+        params: { search: uniq, page_size: 20, include_unpublished: 1 },
+      })).json()
       const arr = Array.isArray(body?.data) ? body.data : body?.data?.results || []
       expect(arr.filter((x) => (x.name || x.title) === uniq).length,
         `${e.noun} 新建后应能按唯一名检索到 1 条`).toBe(1)
@@ -332,7 +390,12 @@ test('Protocol 治理页：自建夹具 Edit → Save 走 PUT 且落库（零残
       const methodId = mArr[0].id
 
       const cResp = await api.post('/protocols/', {
-        data: { name: uniq, version: '9999', methods: [methodId] },
+        // ★ 2026-11-18（S4 / A-066）：**必须显式给 `status: 'published'`**。
+        //   Protocol 的 `status` 默认是 `draft`（`models.py:522`），而本用例靠
+        //   「按唯一名定位列表行 → 点 Edit」来跑，行必须真的渲染出来。
+        //   页面「Show drafts」默认关（与后端 list 端点的方案 B 过滤同口径）
+        //   ⇒ draft 夹具不可见 ⇒ 定位恒 0 条。这是**夹具设定问题**，不是页面缺陷。
+        data: { name: uniq, version: '9999', status: 'published', methods: [methodId] },
       })
       if (cResp.status() >= 300) {
         console.log(`__E2E__ Protocol 夹具创建 ${cResp.status()} BODY=${String(await cResp.text()).slice(0, 400)}`)
@@ -373,7 +436,11 @@ test('Protocol 治理页：自建夹具 Edit → Save 走 PUT 且落库（零残
       // ── Cleanup：删夹具 ⇒ MethodProtocol 级联删除 ⇒ 桥零残留 ──
       if (fixtureId != null) {
         const dResp = await api.delete(`/protocols/${fixtureId}/`).catch(() => null)
-        const after = await (await api.get('/protocols/', { params: { search: uniq, page_size: 20 } })).json()
+        // ★ 2026-11-18：带 `include_unpublished=1`，否则**永远查不到 draft 夹具** ⇒
+        //   "残留 = 0" 会无条件成立，是个假绿闸门（这条断言的全部意义就是查残留）。
+        const after = await (await api.get('/protocols/', {
+          params: { search: uniq, page_size: 20, include_unpublished: 1 },
+        })).json()
         const arr = Array.isArray(after?.data) ? after.data : after?.data?.results || []
         const left = arr.filter((x) => String(x.name || '').startsWith(uniq)).length
         console.log(`__E2E__ Protocol 夹具回收 id=${fixtureId} delete=${dResp ? dResp.status() : 'ERR'} 残留=${left}`)

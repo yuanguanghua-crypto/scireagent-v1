@@ -17,8 +17,31 @@ from core.permissions import IsAdminOrReadOnly
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
 
-# 列表/详情项的对外输出字段白名单（避免泄露 entity_ids/representative_id 等内部字段）
-_ITEM_FIELDS = ('class_id', 'group', 'name', 'source', 'quality', 'size', 'avg_cos')
+# ── 对外字段白名单 ──────────────────────────────────────────────────────────
+# ★ 2026-11-18（S4 / A-123 后端半边）：按身份分流，不再"一个白名单发给所有人"。
+#
+# 背景（产品实测）：`permission_classes = IsAdminOrReadOnly` ⇒ GET 对**匿名开放**，
+# 而原白名单把 `source`（算法来源）/`quality`（质量判定）/`avg_cos`（平均余弦内聚度）
+# 一并返回。匿名 curl 即可拿到 `avg_cos: 0.7273` —— 这三项是**治理侧内部产物**，
+# 描述的是"聚类切得多干净"，不是研究者需要的信息。
+# 只在前端 `v-if="isStaff"` 隐藏列，等于视线遮挡：任何人绕过前端就能拿到。
+#
+# 口径：非 staff 只给「这类叫什么、有几个成员」；staff 保留全部。
+# ⚠️ `class_id` 必须对非 staff 保留 —— 它是详情页路由参数
+#   （`/applications/classes/:class_id`），去掉会直接打断导航。
+_FIELDS_PUBLIC = ('class_id', 'group', 'name', 'size')
+_FIELDS_STAFF = ('class_id', 'group', 'name', 'source', 'quality', 'size', 'avg_cos')
+
+
+def _is_staff(request):
+    user = getattr(request, 'user', None)
+    return bool(user and user.is_authenticated and user.is_staff)
+
+
+def _project_item(cls, staff):
+    """把服务层类 dict 投影为对外字段白名单（按身份取不同白名单）。"""
+    keys = _FIELDS_STAFF if staff else _FIELDS_PUBLIC
+    return {k: cls.get(k) for k in keys}
 
 
 def _parse_page_params(request):
@@ -44,16 +67,12 @@ def _paginate(items, page, page_size):
     return items[start:start + page_size]
 
 
-def _project_item(cls):
-    """把服务层类 dict 投影为对外字段白名单。"""
-    return {k: cls.get(k) for k in _ITEM_FIELDS}
-
-
 class ConvergenceClassListView(EnvelopeMixin, APIView):
     """GET /api/v1/convergence-classes/?group=&source=&search=&page=&page_size=
 
     响应：{success, data: {items, total}, meta: {page, page_size}}
-    items 每项含 class_id/group/name/source/quality/size/avg_cos（非 kmeans 类 avg_cos 为 null）。
+    items 每项含 class_id/group/name/size；staff 额外含 source/quality/avg_cos
+    （见 `_FIELDS_PUBLIC` / `_FIELDS_STAFF`）。
     """
     permission_classes = [IsAdminOrReadOnly]
 
@@ -62,8 +81,9 @@ class ConvergenceClassListView(EnvelopeMixin, APIView):
         source = request.query_params.get('source') or None
         search = request.query_params.get('search') or None
         page, page_size = _parse_page_params(request)
+        staff = _is_staff(request)
         classes = convergence_service.list_classes(group=group, source=source, search=search)
-        items = [_project_item(c) for c in _paginate(classes, page, page_size)]
+        items = [_project_item(c, staff) for c in _paginate(classes, page, page_size)]
         return self.success_response(
             {'items': items, 'total': len(classes)},
             {'page': page, 'page_size': page_size},
@@ -89,9 +109,7 @@ class ConvergenceClassDetailView(EnvelopeMixin, APIView):
                 status_code=404,
             )
         # staff（已登录且 is_staff）可看全量（含草稿）；其余仅 ACTIVE
-        staff = bool(
-            request.user and request.user.is_authenticated and request.user.is_staff
-        )
+        staff = _is_staff(request)
         page, page_size = _parse_page_params(request)
         members_map = convergence_service.get_members(
             cls.get('entity_ids'), cls.get('group'), include_inactive=staff,
@@ -102,7 +120,7 @@ class ConvergenceClassDetailView(EnvelopeMixin, APIView):
             for eid in (cls.get('entity_ids') or [])
             if eid in members_map
         ]
-        data = {**_project_item(cls), 'members': _paginate(ordered, page, page_size)}
+        data = {**_project_item(cls, staff), 'members': _paginate(ordered, page, page_size)}
         return self.success_response(
             data,
             {'member_total': len(ordered), 'page': page, 'page_size': page_size},
