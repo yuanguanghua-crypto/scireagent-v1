@@ -446,18 +446,33 @@ test.describe('阶段1 公开页交互穷举', () => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
     await gotoPage(page, '/products');
     await page.locator('.product-grid').first().locator(':scope > *').first().click();
-    await page.waitForURL(/\/products\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' });
+    // ★ 2026-11-26：详情 URL 现在是 **slug**，实测 `/products/sc8047-2-azido-datp`。
+    //   原断言只认纯数字 `/products/\d+` ⇒ 必然 10s 超时（而页面其实已经跳过去了）。
+    //   改为「/products/ 后跟任意非空段」，slug 与数字 id 都能容纳。
+    await page.waitForURL(/\/products\/[^/?#]+/, { timeout: 10000, waitUntil: 'domcontentloaded' });
     expect(errors).toEqual([]);
   });
 
   // ============ ResearchGoalIndex `/research-goals` ============
-  test('ResearchGoals: 状态 el-select 筛选', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
-    const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
-    await gotoPage(page, '/research-goals');
-    await selectElOption(page, 'Status', 'Active');
-    await expect(page.locator('.el-select').first()).toContainText('Active');
-    expect(errors).toEqual([]);
-  });
+  // ★ 2026-11-26 改写：`ResearchGoalIndex.vue:73` 明写
+  //   「★ 2026-10-26 删除 status 下拉（用户拍板）」—— 该控件是**有意删除**的，
+  //   spec 一直在找它，必然超时。改为断言新形态：状态信息以表格列呈现，
+  //   且页面上不再有任何带 Status 文案的下拉。
+  test('ResearchGoals: 状态筛选已移除，状态改为表格列呈现',
+    { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
+      const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
+      await gotoPage(page, '/research-goals');
+      // ⚠️ 页面上有 **2 个** `.el-table`（第二个是「Browse by Class」标签页里 0×0 的隐藏表），
+      //    不加 `.first()` 会触发 Playwright 的 strict mode 直接判失败 —— 不是"不可见"。
+      await expect(page.locator('.el-table').first()).toBeVisible({ timeout: 15000 });
+      // 信息没丢：Status 仍然是表格的一列
+      await expect(
+        page.locator('.el-table th', { hasText: 'Status' }).first(),
+      ).toBeVisible();
+      // 但不再是"可筛选的下拉"
+      await expect(page.locator('.el-select', { hasText: 'Status' })).toHaveCount(0);
+      expect(errors).toEqual([]);
+    });
 
   test('ResearchGoals: 搜索框输入生效', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });

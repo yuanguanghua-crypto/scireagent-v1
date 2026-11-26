@@ -23,6 +23,10 @@
 const { test, expect } = require('@playwright/test');
 const { BASE_URL, loginAsCustomer, loginAsStaff } = require('../helpers/auth');
 const { attachConsoleErrorCollector } = require('../helpers/console');
+// ★ 2026-11-26：删除按钮走页内确认框（S4 起原生 confirm 已下线），需用 DOM 驱动
+const {
+  installConfirmCounter, waitConfirm, acceptConfirm,
+} = require('../helpers/confirm');
 const {
   getAdminToken, getCustomerToken, getProductWithSku,
   submitPoApi, findOrderIdByPo, approve, advanceToDelivered, cancelOrder,
@@ -152,22 +156,42 @@ test.describe('阶段4 PO 门户穷举', () => {
   // ============ 客户侧：PoAddressList ============
   // /addresses/ 是 P1 未实现（源码明文 warn），Save 走错误提示且不持久化。
   // 测试只断言：页面渲染 + P1 提示可见 + 表单可开 + 填后 Save 不崩溃（页面仍在）。
-  test('PoAddressList: 渲染 + P1 提示 + 表单可开 + Save 不崩溃', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
+  // ★ 2026-11-26 重写：原用例断言「`.po-callout.warn` P1 未实现提示可见」+「Save 不崩溃」。
+  //   实测（2026-11-26）该提示已随功能落地而移除，且地址 CRUD **完全可用**：
+  //     · API：POST /api/v1/addresses/ → 201、DELETE → 204、列表条数 0→1→0
+  //     · UI：填三字段点 Save → 新地址真的出现在列表（带 Edit/Delete），pageErrors 为空
+  //   ⇒ 旧断言等于"只验页面不崩"，现在改为**验功能真的通**，判据更强：
+  //     渲染 → 表单可开 → Save 落库（按唯一标记匹配）→ Delete 清理 → 回到空态。
+  //   为什么必须自己清理：本用例会真写库（@local-only 允许），不清就污染后续计数型断言。
+  test('PoAddressList: 渲染 + 新建地址真的落库 + 删除清理', { tag: ['@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
-    page.on('dialog', async (d) => { await d.accept(); });
     await loginAsCustomer(page);
     await gotoPage(page, '/po/addresses');
     await expect(page.locator('.po-page-title')).toHaveText('Address Book');
-    await expect(page.locator('.po-callout.warn').first()).toBeVisible({ timeout: 8000 });
+    // 不再断言 warn：功能已实现，该提示已移除（见上方说明）
+    await expect(page.locator('.po-callout.warn')).toHaveCount(0);
+
     await page.locator('button', { hasText: '+ New Address' }).click();
     await expect(page.locator('.po-card', { hasText: 'New Address' })).toBeVisible({ timeout: 8000 });
-    const ts = Date.now();
-    await page.locator('.po-field', { hasText: 'Address Line 1' }).locator('input').fill('1 E2E Addr ' + ts);
+
+    const marker = 'E2EAddr' + Date.now();
+    await page.locator('.po-field', { hasText: 'Address Line 1' }).locator('input').fill('1 E2E Addr ' + marker);
     await page.locator('.po-field', { hasText: 'City' }).locator('input').fill('E2ECity');
     await page.locator('.po-field', { hasText: 'Postal Code' }).locator('input').fill('00000');
+
+    await installConfirmCounter(page);
     await page.locator('button', { hasText: 'Save' }).click();
-    // 不崩溃：页面标题仍在，且未跳转离开
-    await expect(page.locator('.po-page-title')).toHaveText('Address Book', { timeout: 8000 });
+
+    // ① 真的落库：新地址按唯一标记出现在列表
+    const row = page.locator('.po-table tbody tr', { hasText: marker });
+    await expect(row).toBeVisible({ timeout: 15000 });
+
+    // ② 清理：点该行 Delete → 页内确认框 → 断言消失
+    await row.locator('button', { hasText: 'Delete' }).click();
+    await waitConfirm(page);
+    await acceptConfirm(page);
+    await expect(page.locator('.po-table tbody tr', { hasText: marker })).toHaveCount(0, { timeout: 15000 });
+
     expect(errors).toEqual([]);
   });
 

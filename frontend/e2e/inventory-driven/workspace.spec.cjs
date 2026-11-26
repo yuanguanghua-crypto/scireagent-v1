@@ -81,7 +81,10 @@ test.describe('阶段3 Workspace 研究员穷举', () => {
     await loginAsStaff(page);
     await expect(page.locator('.stat-card').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByRole('link', { name: '+ New Product' })).toBeVisible();
-    await expect(page.getByText('Knowledge Graph')).toBeVisible();
+    // ★ 2026-11-26：图谱已于 2026-10-30 移除，该区块正名为「Knowledge Entities」
+    //   （`DashboardPage.vue:172` 的注释写明「这里只是四个计数，不是图谱」）。
+    //   原断言找的 'Knowledge Graph' 在改动前后**都是 0 次出现**，属 spec 陈旧。
+    await expect(page.getByText('Knowledge Entities')).toBeVisible();
     // 近期表或空态二选一
     const recentOrEmpty = page.locator('.recent-table, .empty-state').first();
     await expect(recentOrEmpty).toBeVisible();
