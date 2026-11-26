@@ -503,7 +503,8 @@ test.describe('Knowledge Intake（/workspace/knowledge-intake）', () => {
   // ── KE（commit 28446c8 / 0f0640e）Copy to Similar：上限内逐条、超限先拒──────
   //   ★ 用 `page.route()` 伪造 `/api/v1/products/` 列表来构造「同类产品数」⇒ **不依赖 dev 库**；
   //     同时拦截 `POST /api/v1/knowledge-intake/` ⇒ **绝不真写库**（只数请求数），跑完 6 表 Δ0。
-  //   同类数定义（`KnowledgeIntake.vue:135-138`）：同 `product_class_id` 且 `id !== 选中项`。
+  //   同类数定义（`KnowledgeIntake.vue` 里 computed「同类产品」那段，约 :135 起）：
+  //     同 `product_class_id` 且 `id !== 选中项`。
   const fakeProducts = (n, cls) =>
     Array.from({ length: n }, (_, i) => ({
       id: 900000 + cls + i, catalog_no: `E2E-FAKE-${cls}-${i}`, name: `E2E Fake Product ${cls}-${i}`,
