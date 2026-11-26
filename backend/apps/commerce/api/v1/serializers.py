@@ -392,6 +392,32 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             return set()
         return set(Method.objects.filter(q).values_list('id', flat=True))
 
+    @staticmethod
+    def _freeze_snapshots_before_sku_delete(sku_ids):
+        """删除 SKU 前，把商品标识冻结进仍引用它的历史订单明细（A-080 止损）。
+
+        只填**快照为空**的行：已有快照记录的是下单当时的编码，不能被现值覆盖。
+        用 `queryset.update()` 而非逐行 `save()` —— 后者会重算 `subtotal`
+        （`OrderItem.save()` 里有 `subtotal = unit_price * quantity`），
+        对有折扣/手工调价的历史行会造成静默改写。
+        """
+        from apps.transactions.models import OrderItem
+
+        for sku_id in sku_ids:
+            rows = OrderItem.objects.filter(sku_id=sku_id).select_related('sku')
+            for it in rows:
+                fields = {}
+                if not it.sku_code_snapshot:
+                    fields['sku_code_snapshot'] = it.sku.sku_code
+                if not it.sku_spec_snapshot:
+                    spec = ' · '.join(x for x in (it.sku.pack_size, it.sku.concentration) if x)
+                    if spec:
+                        fields['sku_spec_snapshot'] = spec
+                if not it.product_name_snapshot and it.product_id:
+                    fields['product_name_snapshot'] = it.product.name
+                if fields:
+                    OrderItem.objects.filter(pk=it.pk).update(**fields)
+
     def _merge_method_ids(self, method_ids, research_goal_ids, application_ids):
         """返回 `(desired_ids, cascaded_ids)` —— **两者语义不同，不可再混成一个集合**。
 
@@ -624,6 +650,20 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             # 删除前端未包含的 SKU（用户移除的），级联删其 Batch/Coa
             stale_ids = [sid for sid in existing_by_id if sid not in matched_existing_ids]
             if stale_ids:
+                # ★ 2026-11-26（A-080 止损）：删除前先把引用关系**冻结进历史明细**。
+                #
+                #   这里原本是裸 `delete()`，而 `OrderItem.sku` 是 `SET_NULL`
+                #   ⇒ 一删 SKU，历史订单明细就永久失去商品标识。生产实测：
+                #   89 行明细里 32 行（36%）的 sku_id 与 product_id 同时为 NULL，
+                #   涉及 16 单、合计占全库 GMV 的 99%（对账/发货/退货全部做不了）。
+                #
+                #   有了 `sku_code_snapshot` 等字段后，正确动作**不是禁止删除**
+                #   （那会打断正常的 SKU 维护），而是**删之前把标识拷进明细**：
+                #   这些明细的快照一旦补齐，删 SKU 就只断开关联、不丢信息。
+                #
+                #   ⚠️ 只补 `sku_code_snapshot` 为空的那些行 —— 已有快照的行
+                #      记录的是**下单当时**的编码，不能被现在的值覆盖。
+                self._freeze_snapshots_before_sku_delete(stale_ids)
                 instance.skus.filter(id__in=stale_ids).delete()
 
         # Sync method bridges only if any method-related field was explicitly provided.

@@ -22,9 +22,19 @@ PO_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024
 # ── Order ──
 
 class OrderItemSerializer(BaseModelSerializer):
-    product_name = serializers.CharField(source='product.name', read_only=True)
-    sku_code = serializers.CharField(source='sku.sku_code', read_only=True)
-    pack_size = serializers.CharField(source='sku.pack_size', read_only=True)
+    # ★ 2026-11-26（A-080 止损）：三个商品标识字段改为**快照优先、实时回退**。
+    #
+    #   改前是纯实时 join（`source='sku.sku_code'` / `source='product.name'`），
+    #   而 `sku` / `product` 都是 `SET_NULL` ⇒ 主数据一删，这些字段就永远返回空，
+    #   前端渲染成 "—"。生产实测：89 行明细里 32 行（36%）已经变成空白，
+    #   涉及 16 单、合计占全库 GMV 的 99%。
+    #
+    #   回退顺序：快照（下单那一刻拷贝的）→ 实时 join → 空串。
+    #   老数据没有快照但主数据还在时，仍能正常显示（快照字段由 save() 自动补，
+    #   存量行用 `backfill_order_item_snapshots` 命令回填）。
+    product_name = serializers.SerializerMethodField()
+    sku_code = serializers.SerializerMethodField()
+    pack_size = serializers.SerializerMethodField()
     sku_available = serializers.SerializerMethodField()  # ★ P1-1：审核台库存可分配量
     # ★ 2026-10-21 修 D6（P1·合规误标）：前端 `PoOrderDetail.vue:105` 用
     #   `order.items?.some(it => it.is_ruo !== false)` 决定是否显示
@@ -41,6 +51,24 @@ class OrderItemSerializer(BaseModelSerializer):
             'id', 'product_id', 'product_name', 'sku_id', 'sku_code', 'pack_size',
             'quantity', 'unit_price', 'subtotal', 'sku_available', 'is_ruo',
         ]
+
+    def get_product_name(self, obj):
+        if obj.product_name_snapshot:
+            return obj.product_name_snapshot
+        return obj.product.name if obj.product_id else ''
+
+    def get_sku_code(self, obj):
+        if obj.sku_code_snapshot:
+            return obj.sku_code_snapshot
+        return obj.sku.sku_code if obj.sku_id else ''
+
+    def get_pack_size(self, obj):
+        """规格：快照优先（SKU 被删后仍可读），回退 SKU 实时值。"""
+        if obj.sku_spec_snapshot:
+            return obj.sku_spec_snapshot
+        if not obj.sku_id:
+            return ''
+        return ' · '.join(x for x in (obj.sku.pack_size, obj.sku.concentration) if x)
 
     def get_is_ruo(self, obj):
         """产品是否「仅限研究用途」。字段来源 `Product.research_use_only`

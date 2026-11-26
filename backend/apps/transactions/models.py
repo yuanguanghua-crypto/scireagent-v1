@@ -214,6 +214,24 @@ class OrderItem(TimeStampedModel):
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='单价')
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0, verbose_name='小计')
 
+    # ★ 2026-11-26（A-080 止损）：下单那一刻的**商品标识快照**。
+    #
+    #   为什么必须加：`sku` 与 `product` 都是 `on_delete=SET_NULL`，一旦 Product 或 SKU
+    #   被删除，历史订单明细就**永久失去商品标识**。生产实测（2026-11-26）：
+    #   89 行明细里 **32 行（36%）的 sku_id 与 product_id 同时为 NULL**，涉及 16 个订单、
+    #   合计 **7,730,065.00**（占全库订单总额的 99%）—— 这些单现在只剩「数量 + 单价」，
+    #   说不出卖的是什么，对账 / 发货 / 退货 / COA 追溯全部做不了。
+    #   QA A-080 报的「PO 明细 SKU 列全是 —」只是这件事的**表面现象**。
+    #
+    #   与 `unit_price` 同一思路：下单时拷贝，此后与主数据解耦。
+    #   ⚠️ 上面那 32 行**无法回填**（源对象已不存在），本字段只能止损、防未来再发生。
+    sku_code_snapshot = models.CharField(
+        max_length=100, blank=True, default='', verbose_name='SKU 编码快照')
+    product_name_snapshot = models.CharField(
+        max_length=255, blank=True, default='', verbose_name='产品名快照')
+    sku_spec_snapshot = models.CharField(
+        max_length=120, blank=True, default='', verbose_name='规格快照')
+
     class Meta:
         db_table = 'order_item'
         verbose_name = '订单明细'
@@ -221,10 +239,24 @@ class OrderItem(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         self.subtotal = self.unit_price * self.quantity
+        # ★ 2026-11-26（A-080 止损）：首次保存时补齐商品标识快照。
+        #   放在 save() 而不是三处创建点，是因为全仓有 3 个 `OrderItem` 创建位置
+        #   （checkout_views / PoSubmissionService 两处），将来还会新增 ——
+        #   每个调用方都要记得传，漏一处就等于没做。写在 save() 里自动全覆盖。
+        #   只在快照为空时取，避免覆盖已有值（回填过的行不会被主数据的后续改动带跑）。
+        if self.sku_id and not self.sku_code_snapshot:
+            self.sku_code_snapshot = self.sku.sku_code
+            spec = ' · '.join(x for x in (self.sku.pack_size, self.sku.concentration) if x)
+            if spec:
+                self.sku_spec_snapshot = spec
+        if self.product_id and not self.product_name_snapshot:
+            self.product_name_snapshot = self.product.name
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'{self.order} - {self.product} x{self.quantity}'
+        # 快照优先：SKU/Product 被删后 __str__ 也不能变成 "None"
+        return (f'{self.order} - '
+                f'{self.product_name_snapshot or self.product} x{self.quantity}')
 
 
 class Invoice(TimeStampedModel):
