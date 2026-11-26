@@ -2108,9 +2108,29 @@ watch(
         <span v-else-if="pubchemEnrichResult && pubchemEnrichResult.error" class="word-status word-err">
           {{ pubchemEnrichResult.error }}
         </span>
+        <!-- ★ 2026-11-26（A-018 止损）："找到了但身份不符被拒"与"根本没找到"必须分开说。
+             改前 rejected 也返回 found=True，前端把空壳当成功渲染出 `CID: None`；
+             现在后端 rejected 时 found=False + rejected=True，这里给专门文案。 -->
+        <span v-else-if="pubchemEnrichResult && enrichChemical?.rejected" class="word-status word-err">
+          ✗ 查到的是另一个化合物，与输入的 CAS / 结构不符 — 已拒绝，未套用任何属性
+        </span>
+        <!-- ★ 2026-11-26（A-018 止损）："找到了但身份不符被拒"与"根本没找到"必须分开说。
+             改前 rejected 也返回 found=True，前端把空壳当成功渲染出 `CID: None`；
+             现在后端 rejected 时 found=False + rejected=True，这里给专门文案。 -->
+        <span v-else-if="pubchemEnrichResult && enrichChemical?.rejected" class="word-status word-err">
+          ✗ 查到的是另一个化合物，与输入的 CAS / 结构不符 — 已拒绝，未套用任何属性
+        </span>
         <span v-else-if="pubchemEnrichResult && !enrichChemical?.found && !pubchemEnrichResult.error" class="word-status word-warn">
           ✗ Not found in PubChem or ChEMBL
         </span>
+        <!-- 后端对「输入是 CAS 号」的场景给了专门提示（CAS 无法作为检索键） -->
+        <div v-if="pubchemEnrichResult && !enrichChemical?.found && enrichChemical?.search_hint" class="ai-warn-banner">
+          💡 {{ enrichChemical.search_hint }}
+        </div>
+        <!-- 后端对「输入是 CAS 号」的场景给了专门提示（CAS 无法作为检索键） -->
+        <div v-if="pubchemEnrichResult && !enrichChemical?.found && enrichChemical?.search_hint" class="ai-warn-banner">
+          💡 {{ enrichChemical.search_hint }}
+        </div>
       </div>
       <!-- Preview -->
       <!-- Enrich format: { chemical: {...}, literature: {...}, protocols: [...] } -->

@@ -562,9 +562,17 @@ class PubChemEnhancer:
 
             if confidence == 'rejected':
                 # 返回化合物与输入身份（CAS/结构）不符 → 拒绝，绝不套用
+                #
+                # ★ 2026-11-26（A-018 止损）：这里原来返回 `found: True`，
+                #   于是前端 `if (chem.found) push('properties')` 把"被拒绝"当成
+                #   "找到了"，渲染出 `CID: None / Resolved Name: —` 的空预览 ——
+                #   QA 报的"返回 4 个错误候选"就是这条路径的旧形态。
+                #   **`found` 的语义必须是"找到了可用结果"**；"找到了但被拒"是
+                #   否定结论，用独立的 `rejected` 标记表达，前端据此给专门文案。
                 return {
                     'source': 'pubchem',
-                    'found': True,
+                    'found': False,
+                    'rejected': True,
                     'namespace': namespace,
                     'candidates': [],
                     'fallback_used': fallback_used,
@@ -664,7 +672,12 @@ class PubChemEnhancer:
     # ── ChEMBL REST API Fallback ────────────────────────────
 
     CHEMBL_SEARCH_URL = "https://www.ebi.ac.uk/chembl/api/data/molecule/search"
-    CHEMBL_TIMEOUT = 30  # seconds — ChEMBL 搜索端点响应慢，需要更长超时
+    # ★ 2026-11-26（A-018 止损）：30s × 3 次重试 = 最坏 90s+，实测一次 AUTO MATCH
+    #   白等 44s 才返回（生产日志：ebi.ac.uk SSL UNEXPECTED_EOF，重试 3 次全失败）。
+    #   ChEMBL 可达时通常 1–2s 就返回，30s 的超时对"响应慢"没有帮助，
+    #   只会在**不可达**时放大等待。降到 8s + 只试 1 次：
+    #   不可达时最多等 8s（用户可接受），可达时行为完全不变。
+    CHEMBL_TIMEOUT = 8  # seconds
 
     def _chembl_search(self, identifier: str) -> dict:
         """PubChem 搜不到时，用 ChEMBL REST API 作为 fallback。
@@ -682,6 +695,7 @@ class PubChemEnhancer:
                 self.CHEMBL_SEARCH_URL,
                 source="chembl",
                 timeout=self.CHEMBL_TIMEOUT,
+                retries=1,      # ★ A-018：不可达时不重试（原来 3 次 × 30s）
                 params=params,
             )
             if not resp.ok:
@@ -776,19 +790,44 @@ class PubChemEnhancer:
             logger.warning(f"ChEMBL fallback failed for {identifier}: {e}")
             return self._not_found(identifier)
 
+    #: CAS 号形态（如 63-39-2 / 2140-79-6）。用形态判断而非白名单，覆盖任意 CAS。
+    _CAS_RE = re.compile(r"^\d{2,7}-\d{2}-\d$")
+
     def _not_found(self, identifier: str) -> dict:
-        """统一未找到响应"""
+        """统一未找到响应。
+
+        ★ 2026-11-26（A-056 止损）：identifier 是 CAS 号时给**专用提示**。
+          实测（2026-11-26 生产）：PubChem 的 4 个 PUG REST 端点
+          （`name` / `synonym` / `xref/RegistryID` / `xref/RN`）**全部不支持按 CAS 检索**
+          （`name` → PUGREST.NotFound、`synonym` → Unrecognized identifier namespace、
+          `xref/*` → No CIDs found）；三条替代路径也不可用：autocomplete 只做前缀匹配
+          （拿 63-39-2 去查会返回**另一个 CAS 63142-39-2**）、CAS Common Chemistry 需 API key
+          （401）、NCI CACTUS 已下线（404）。
+
+          ⇒ 「仅凭 CAS 查不到」不是匹配逻辑的缺陷，是数据源的客观限制。
+            原来的提示让用户以为是自己填错了，现在明确告知「CAS 不能作为检索键」。
+        """
+        is_cas = bool(self._CAS_RE.match(identifier.strip()))
+        if is_cas:
+            hint = (
+                f'"{identifier}" 看起来是 CAS 号。**PubChem / ChEMBL 都不支持按 CAS 号检索**'
+                f'（已实测 PUG REST 的 name / synonym / xref 端点全部查不到）。'
+                f'请改用**化合物名称**（如 uridine triphosphate）或 **SMILES**，'
+                f'或到 pubchem.ncbi.nlm.nih.gov 按 CAS 手工确认后复制名称过来。'
+            )
+        else:
+            hint = (
+                f'"{identifier}" not found in PubChem or ChEMBL. '
+                "Try: (1) enter SMILES/FW manually, "
+                "(2) check the compound name on pubchem.ncbi.nlm.nih.gov "
+                "or ebi.ac.uk/chembl."
+            )
         return {
             "source": "pubchem",
             "found": False,
             "namespace": "name",
             "candidates": [],
-            "search_hint": (
-                f'"{identifier}" not found in PubChem or ChEMBL. '
-                "Try: (1) enter SMILES/FW manually, "
-                "(2) check the compound name on pubchem.ncbi.nlm.nih.gov "
-                "or ebi.ac.uk/chembl."
-            ),
+            "search_hint": hint,
         }
 
     # ── RDKit 属性函数 ─────────────────────────────────────
