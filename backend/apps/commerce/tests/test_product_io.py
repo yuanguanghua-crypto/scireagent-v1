@@ -180,6 +180,17 @@ class ProductImportTest(TestCase):
         self.p.refresh_from_db()
         self.assertEqual(self.p.name, 'English Name')
 
+    def test_forbidden_field_reported_even_when_catalog_missing(self):
+        """★ 生产自检发现的瑕疵：原先 catalog_no 不存在时会 `continue`，
+        掩盖同一行里的 status 违规。两个错误必须**同时**报出来。"""
+        header = HEADER + ',status'
+        row = self._row(catalog_no='SC-NOT-EXIST') + ',archived'
+        r = self._post(_csv([row], header=header))
+        d = r.json()['data']
+        fields = {e['field'] for e in d['errors']}
+        self.assertIn('catalog_no', fields, f'应报目录号不存在：{d["errors"]}')
+        self.assertIn('status', fields, f'同时应报 status 违规：{d["errors"]}')
+
     def test_missing_key_column_rejected(self):
         r = self._post(_csv(['x,y'], header='name,cas'))
         self.assertEqual(r.status_code, 400, r.content[:300])

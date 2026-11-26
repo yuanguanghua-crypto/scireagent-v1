@@ -196,6 +196,17 @@ class ProductImportView(EnvelopeMixin, APIView):
                         return (row[key] or '').strip()
                 return ''
 
+            # ★ 2026-11-26：禁止字段校验必须在**匹配之前**做。
+            #   原先放在匹配成功之后，而 catalog_no 不存在时会 `continue`
+            #   ⇒ 同一行里的 status/archived/slug 违规**不再被报告**，
+            #   与"明确报错、不静默忽略"的承诺不符（生产自检实测发现）。
+            for field in FORBIDDEN - {'catalog_no'}:
+                if field in field_names and get(field):
+                    errors.append({
+                        'line': idx, 'catalog_no': get('catalog_no'), 'field': field,
+                        'error': f'{field} 是状态机字段，不能通过导入修改（请走产品页）',
+                    })
+
             catalog_no = get('catalog_no')
             if not catalog_no:
                 errors.append({'line': idx, 'catalog_no': '', 'field': 'catalog_no',
@@ -237,14 +248,6 @@ class ProductImportView(EnvelopeMixin, APIView):
                     val = raw_val
                 if getattr(product, field) != val:
                     updates[field] = val
-
-            # 禁止字段：给了值就明确报错（不静默忽略）
-            for field in FORBIDDEN - {'catalog_no'}:
-                if field in field_names and get(field):
-                    errors.append({
-                        'line': idx, 'catalog_no': catalog_no, 'field': field,
-                        'error': f'{field} 是状态机字段，不能通过导入修改（请走产品页）',
-                    })
 
             if updates:
                 will_update += 1
