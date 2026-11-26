@@ -26,6 +26,9 @@ const { test, expect, request } = require('@playwright/test');
 const {
   BASE_URL, loginAsProcurement, PROC_USER, PROC_PASS,
 } = require('./helpers/auth.cjs');
+const {
+  installConfirmCounter, confirmCount, waitConfirm, acceptConfirm,
+} = require('./helpers/confirm.cjs');
 
 const ROOT = 'http://localhost:8000';
 const API = '/api/v1';
@@ -160,9 +163,14 @@ test.describe('@local-only /po/addresses · CRUD 闭环', { tag: ['@local-only']
     await expect(editedRow).toContainText('Cambridge');
     await expect(page.locator('tbody tr').filter({ hasText: tag }).filter({ hasNotText: editedTag })).toHaveCount(0);
 
-    /* ── ③ 删除（window.confirm 需 accept） ── */
-    page.once('dialog', (d) => d.accept());
+    /* ── ③ 删除（S4：确认框已改页内实现，须点 DOM 按钮） ── */
+    // 原实现 `page.once('dialog', d => d.accept())` 在改造后**一次都不会触发**，
+    // 删除按钮变成"点了没反应"，随后等行消失会超时。
+    await installConfirmCounter(page);
     await editedRow.getByRole('button', { name: 'Delete' }).click();
+    await waitConfirm(page);
+    expect(await confirmCount(page), '删除应恰好弹 1 次页内确认框').toBe(1);
+    await acceptConfirm(page);
 
     // 断言效果 5：该行从列表消失
     await expect(page.locator('tbody tr').filter({ hasText: editedTag })).toHaveCount(0, { timeout: 15000 });
