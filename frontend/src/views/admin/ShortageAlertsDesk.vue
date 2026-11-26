@@ -200,7 +200,14 @@ onMounted(() => load({ page: 1 }))
                         :disabled="busyId === r.id" @click="mark(r, 'dismissed')">Dismiss</button>
                 <button v-else class="po-btn po-btn-outline po-btn-sm"
                         :disabled="busyId === r.id" @click="mark(r, 'new')">Reopen</button>
-                <router-link to="/ops/inventory" class="po-btn po-btn-accent po-btn-sm">
+                <!-- ★ 2026-11-27（S6 A-082 / A-228）：跳转必须带上该警报的 SKU 筛选。
+                     改前是裸 `to="/ops/inventory"` ⇒ 库存台打开的是默认列表（且默认只 20 行），
+                     运营得自己再搜一遍 SKU，很容易在错的 SKU 上入库
+                     （A-228 报的就是"跳过去没按 SC8011-3 筛选"）。 -->
+                <router-link
+                  :to="{ path: '/ops/inventory', query: r.sku_code ? { search: r.sku_code } : {} }"
+                  class="po-btn po-btn-accent po-btn-sm"
+                >
                   Restock →
                 </router-link>
               </div>

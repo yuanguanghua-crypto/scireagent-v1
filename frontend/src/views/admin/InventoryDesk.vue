@@ -220,7 +220,10 @@
               <td class="po-mono">{{ m.kind }}</td>
               <td class="po-mono">{{ m.delta_available }}</td>
               <td class="po-mono">{{ m.delta_allocated }}</td>
-              <td>{{ m.reason || '—' }}</td>
+              <!-- ★ 2026-11-27（S6 A-086）：reason 里有机器占位符（`PLACEHOLDER:100`），
+                   直接铺到表格里运营看不懂。做一层人类可读映射，未知格式仍原样显示
+                   （不吞信息）。 -->
+              <td>{{ humanReason(m.reason) }}</td>
               <td class="po-mono">{{ (m.created_at || '').slice(0, 19).replace('T', ' ') }}</td>
             </tr>
           </tbody>
@@ -269,10 +272,30 @@ const filters = reactive({ search: '', location: '', lowStock: '' })
  */
 const stopError = ref(null)
 
+/**
+ * 把 `InventoryMovement.reason` 的机器写法翻成人类可读（S6 A-086）。
+ *
+ * 现状：占位库存的 reason 是 `PLACEHOLDER:100` —— 表格里原样显示，运营看不懂
+ * 这是"初始占位 100 件"还是"某次真实入库"。
+ * 其它已知格式（`receipt:*` / `adjust:*` / `cancel:*` / `timeout:168h:*`）本来就带业务含义，
+ * 保持原样；**未知格式一律原样返回**，不做猜测、不吞信息。
+ */
+function humanReason(raw) {
+  const r = (raw || '').trim()
+  if (!r) return '—'
+  const m = /^PLACEHOLDER:(\d+)$/.exec(r)
+  if (m) return `初始占位 ${m[1]} 件（未真实入库，上线前需替换）`
+  return r
+}
+
 async function load() {
   loading.value = true
   try {
-    const params = {}
+    // ★ 2026-11-27（S6 A-227）：**必须显式要满页**。
+    //   改前 params 里没有 page_size ⇒ 后端用默认 20 行 ⇒ 生产 25 行库存只显示 20 行，
+    //   剩下 5 行（含 7 个无库存行的 SKU 中排在后面的）永远看不到。
+    //   与 S5 P-2 修的"运营台只取一页导致漏单"完全同族。
+    const params = { page_size: 500 }
     if (filters.search) params.search = filters.search
     if (filters.location) params.location = filters.location
     if (filters.lowStock !== '' && filters.lowStock !== null) params.low_stock = filters.lowStock

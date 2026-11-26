@@ -54,11 +54,29 @@ function applyPreset(key) {
 }
 
 async function load() {
+  // ★ 2026-11-27（S6 A-248）：日期不完整时不发请求。
+  //   `<input type="date" @change="load">` 在用户**改年份/手输**的过程中会触发 change，
+  //   此时值可能是空串或只改了一半 ⇒ 原来直接打后端，拿回 400 后把后端那句
+  //   技术性错误当成"异常提示"显示给运营。
+  //   现在：空 ⇒ 静默不发（不发就不会有错）；起止倒置 ⇒ 给一句人话。
+  const s0 = (start.value || '').trim()
+  const e0 = (end.value || '').trim()
+  if (!s0 || !e0) {
+    err.value = ''
+    loading.value = false
+    return
+  }
+  if (s0 > e0) {
+    err.value = '开始日期不能晚于结束日期'
+    loading.value = false
+    return
+  }
+
   loading.value = true
   err.value = ''
   try {
     const res = await http.get('/ops/sales-report/', {
-      params: { start: start.value, end: end.value },
+      params: { start: s0, end: e0 },
     })
     data.value = res.data || res
   } catch (e) {
@@ -68,7 +86,10 @@ async function load() {
   }
 }
 
-onMounted(() => { applyPreset('mtd') })
+// ★ 2026-11-27（S6 A-229）：默认范围由「本月」改为「最近 30 天」。
+//   「本月」在月初只有几天数据，运营打开会以为业绩断崖；30 天滚动窗口对"最近表现"更直观。
+//   若确实需要"本月"口径，改回 'mtd' 即可（一行）。
+onMounted(() => { applyPreset('30d') })
 
 const summary = computed(() => data.value?.summary || {})
 const trend = computed(() => data.value?.trend || [])

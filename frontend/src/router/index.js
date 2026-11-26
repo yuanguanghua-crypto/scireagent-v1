@@ -365,7 +365,11 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  document.title = `${to.meta.title || 'SciReagent'} - LabPro Global`
+  // ★ 2026-11-27（S6 A-015）：**这里不再设 document.title**。
+  //   原先这里用旧品牌 `- LabPro Global`，而 `afterEach` 又用 `| ${SITE_NAME}` 设一次
+  //   ⇒ SPA 内跳转时会先闪一下旧品牌再被覆盖（QA Batch 1 报的"跳转瞬间闪现"）。
+  //   统一由 `afterEach` 独占设置（它保证在导航成功后执行，且用的是当前品牌常量）。
+  //   注：`next(false)` 取消导航时 afterEach 不跑，但那时 URL 没变、标题本来也不该变。
 
   const hasToken = !!localStorage.getItem('token')
   const auth = useAuthStore()
