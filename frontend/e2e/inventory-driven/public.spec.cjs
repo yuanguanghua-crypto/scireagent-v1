@@ -208,13 +208,53 @@ test.describe('阶段1 公开页交互穷举', () => {
     expect(errors).toEqual([]);
   });
 
-  test('Applications: 过滤 chips Active', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
-    const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
-    await gotoPage(page, '/applications');
-    await page.locator('.filter-chip', { hasText: 'Active' }).click();
-    await expect(page.locator('.filter-chip.active')).toContainText('Active');
-    expect(errors).toEqual([]);
-  });
+  // ★ 2026-11-26 改写：原断言「匿名能点状态筛选按钮」与 S4 起的「staff-only」设计冲突。
+  //   实测依据（本地 dev 库，2026-11-26）：
+  //     匿名 → All 28,566 条、Active 28,566 条（**完全相同**）、Draft 0、Deprecated 0
+  //     staff → All 28,567 条、Active 28,566 条、Draft 1 条
+  //   ⇒ 对访客这三个/四个按钮没有任何信息增量（默认态与 All 同结果、其余恒空），
+  //     存在本身还会让人误以为站内有草稿/已弃用内容。
+  //   故改为**断言新设计**（不是删断言、不是放宽）：
+  //     · 访客侧必须完全没有这排按钮，且列表照常渲染
+  //     · staff 侧必须有，且点 Draft **真的发出带 status 的请求**（A-141 的核心判据）
+  //   ⚠️ 必须点 Draft 而不是 Active/Published：后两者是「默认公开态」，
+  //      `buildParams()` 故意**不传 status**，用它验证不了请求是否真带上参数。
+  test('Applications: 状态筛选按钮对访客隐藏（staff-only 设计）',
+    { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
+      const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
+      await gotoPage(page, '/applications');
+      // ① 访客侧不应出现这排按钮
+      await expect(page.locator('.filter-chips')).toHaveCount(0);
+      // ② 但不能"按钮隐藏了、列表也空了" —— 列表必须照常渲染
+      await expect(
+        page.locator('.card-grid').first().locator(':scope > *').first(),
+      ).toBeVisible({ timeout: 15000 });
+      expect(errors).toEqual([]);
+    });
+
+  test('Applications: staff 可见状态筛选按钮，且点 Draft 真的带上 status 参数',
+    { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
+      const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
+      await loginAsStaff(page);
+      await gotoPage(page, '/applications');
+      // ① staff 必须能看到这排按钮
+      await expect(page.locator('.filter-chips')).toBeVisible({ timeout: 15000 });
+      const draftChip = page.locator('.filter-chip', { hasText: 'Draft' });
+      await expect(draftChip).toBeVisible();
+      // ② 点击必须真的发出带 status=draft 的请求
+      //    （A-141：曾出现只改 store 不发请求、按钮点了列表纹丝不动的"死控件"）
+      const [req] = await Promise.all([
+        page.waitForRequest(
+          (r) => r.url().includes('/applications') && r.url().includes('status=draft'),
+          { timeout: 15000 },
+        ),
+        draftChip.click(),
+      ]);
+      expect(req.url()).toContain('status=draft');
+      // ③ 按钮进入选中态
+      await expect(page.locator('.filter-chip.active')).toContainText('Draft');
+      expect(errors).toEqual([]);
+    });
 
   test('Applications: 卡片点击 → 详情', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
@@ -248,13 +288,53 @@ test.describe('阶段1 公开页交互穷举', () => {
     expect(errors).toEqual([]);
   });
 
-  test('Methods: 过滤 chips Active', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
-    const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
-    await gotoPage(page, '/methods');
-    await page.locator('.filter-chip', { hasText: 'Active' }).click();
-    await expect(page.locator('.filter-chip.active')).toContainText('Active');
-    expect(errors).toEqual([]);
-  });
+  // ★ 2026-11-26 改写：原断言「匿名能点状态筛选按钮」与 S4 起的「staff-only」设计冲突。
+  //   实测依据（本地 dev 库，2026-11-26）：
+  //     匿名 → All 28,566 条、Active 28,566 条（**完全相同**）、Draft 0、Deprecated 0
+  //     staff → All 28,567 条、Active 28,566 条、Draft 1 条
+  //   ⇒ 对访客这三个/四个按钮没有任何信息增量（默认态与 All 同结果、其余恒空），
+  //     存在本身还会让人误以为站内有草稿/已弃用内容。
+  //   故改为**断言新设计**（不是删断言、不是放宽）：
+  //     · 访客侧必须完全没有这排按钮，且列表照常渲染
+  //     · staff 侧必须有，且点 Draft **真的发出带 status 的请求**（A-141 的核心判据）
+  //   ⚠️ 必须点 Draft 而不是 Active/Published：后两者是「默认公开态」，
+  //      `buildParams()` 故意**不传 status**，用它验证不了请求是否真带上参数。
+  test('Methods: 状态筛选按钮对访客隐藏（staff-only 设计）',
+    { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
+      const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
+      await gotoPage(page, '/methods');
+      // ① 访客侧不应出现这排按钮
+      await expect(page.locator('.filter-chips')).toHaveCount(0);
+      // ② 但不能"按钮隐藏了、列表也空了" —— 列表必须照常渲染
+      await expect(
+        page.locator('.card-grid').first().locator(':scope > *').first(),
+      ).toBeVisible({ timeout: 15000 });
+      expect(errors).toEqual([]);
+    });
+
+  test('Methods: staff 可见状态筛选按钮，且点 Draft 真的带上 status 参数',
+    { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
+      const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
+      await loginAsStaff(page);
+      await gotoPage(page, '/methods');
+      // ① staff 必须能看到这排按钮
+      await expect(page.locator('.filter-chips')).toBeVisible({ timeout: 15000 });
+      const draftChip = page.locator('.filter-chip', { hasText: 'Draft' });
+      await expect(draftChip).toBeVisible();
+      // ② 点击必须真的发出带 status=draft 的请求
+      //    （A-141：曾出现只改 store 不发请求、按钮点了列表纹丝不动的"死控件"）
+      const [req] = await Promise.all([
+        page.waitForRequest(
+          (r) => r.url().includes('/methods') && r.url().includes('status=draft'),
+          { timeout: 15000 },
+        ),
+        draftChip.click(),
+      ]);
+      expect(req.url()).toContain('status=draft');
+      // ③ 按钮进入选中态
+      await expect(page.locator('.filter-chip.active')).toContainText('Draft');
+      expect(errors).toEqual([]);
+    });
 
   test('Methods: 卡片点击 → 详情', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
@@ -274,13 +354,53 @@ test.describe('阶段1 公开页交互穷举', () => {
     expect(errors).toEqual([]);
   });
 
-  test('Protocols: 过滤 chips Published', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
-    const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
-    await gotoPage(page, '/protocols');
-    await page.locator('.filter-chip', { hasText: 'Published' }).click();
-    await expect(page.locator('.filter-chip.active')).toContainText('Published');
-    expect(errors).toEqual([]);
-  });
+  // ★ 2026-11-26 改写：原断言「匿名能点状态筛选按钮」与 S4 起的「staff-only」设计冲突。
+  //   实测依据（本地 dev 库，2026-11-26）：
+  //     匿名 → All 28,566 条、Active 28,566 条（**完全相同**）、Draft 0、Deprecated 0
+  //     staff → All 28,567 条、Active 28,566 条、Draft 1 条
+  //   ⇒ 对访客这三个/四个按钮没有任何信息增量（默认态与 All 同结果、其余恒空），
+  //     存在本身还会让人误以为站内有草稿/已弃用内容。
+  //   故改为**断言新设计**（不是删断言、不是放宽）：
+  //     · 访客侧必须完全没有这排按钮，且列表照常渲染
+  //     · staff 侧必须有，且点 Draft **真的发出带 status 的请求**（A-141 的核心判据）
+  //   ⚠️ 必须点 Draft 而不是 Active/Published：后两者是「默认公开态」，
+  //      `buildParams()` 故意**不传 status**，用它验证不了请求是否真带上参数。
+  test('Protocols: 状态筛选按钮对访客隐藏（staff-only 设计）',
+    { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
+      const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
+      await gotoPage(page, '/protocols');
+      // ① 访客侧不应出现这排按钮
+      await expect(page.locator('.filter-chips')).toHaveCount(0);
+      // ② 但不能"按钮隐藏了、列表也空了" —— 列表必须照常渲染
+      await expect(
+        page.locator('.card-grid').first().locator(':scope > *').first(),
+      ).toBeVisible({ timeout: 15000 });
+      expect(errors).toEqual([]);
+    });
+
+  test('Protocols: staff 可见状态筛选按钮，且点 Draft 真的带上 status 参数',
+    { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
+      const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
+      await loginAsStaff(page);
+      await gotoPage(page, '/protocols');
+      // ① staff 必须能看到这排按钮
+      await expect(page.locator('.filter-chips')).toBeVisible({ timeout: 15000 });
+      const draftChip = page.locator('.filter-chip', { hasText: 'Draft' });
+      await expect(draftChip).toBeVisible();
+      // ② 点击必须真的发出带 status=draft 的请求
+      //    （A-141：曾出现只改 store 不发请求、按钮点了列表纹丝不动的"死控件"）
+      const [req] = await Promise.all([
+        page.waitForRequest(
+          (r) => r.url().includes('/protocols') && r.url().includes('status=draft'),
+          { timeout: 15000 },
+        ),
+        draftChip.click(),
+      ]);
+      expect(req.url()).toContain('status=draft');
+      // ③ 按钮进入选中态
+      await expect(page.locator('.filter-chip.active')).toContainText('Draft');
+      expect(errors).toEqual([]);
+    });
 
   test('Protocols: 卡片点击 → 详情', { tag: ['@readonly', '@local-only'] }, async ({ page }) => {
     const errors = attachConsoleErrorCollector(page, { whitelist: CONSOLE_WHITELIST });
