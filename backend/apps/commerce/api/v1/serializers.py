@@ -469,6 +469,75 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             MethodProtocol.objects.get_or_create(method_id=method_ids[0], protocol_id=pid)
 
     @staticmethod
+    def _derived_protocol_ids(product):
+        """产品方法链当前可达的协议 id 集合（用于区分"派生"与"手工"）。"""
+        from apps.bridges.models import MethodProtocol, ProductMethod
+        method_ids = list(
+            ProductMethod.objects.filter(product=product).values_list('method_id', flat=True)
+        )
+        if not method_ids:
+            return set()
+        return set(
+            MethodProtocol.objects.filter(method_id__in=method_ids)
+            .values_list('protocol_id', flat=True).distinct()
+        )
+
+    def _ensure_explicit_protocol_rows(self, product, protocol_ids, derived_before):
+        """把**运营手工关联**的协议落成 `link_source=explicit` 的 ProductProtocol 行（A-057）。
+
+        ## 改前是什么样
+        `protocol_ids` 只被 `_sync_protocol_bridges` 消费，而它**只写 MethodProtocol**
+        （把协议锚到某个方法上），产品↔协议表一行都不写。于是：
+          · 产品页显示的"关联"其实是对**方法**的改动；
+          · 那条链接的 `link_source` 由 `recompute_product` 统一写成 `inherited`
+            ⇒ 标签显示"派生关联"、✕ 被锁死（前端把"有行"等同于"派生"）；
+          · `LinkSource.EXPLICIT` 于是成了**零写入点的死枚举**（实测库内 24,694 行
+            PP 里 explicit = 0）。
+        这里补上真正的产品↔协议直连：凡是本次 `protocol_ids` 里**不属于派生集**的协议，
+        写/提升为 explicit 行。派生集内的一律保持原状（它们本来就是 inherited）。
+
+        ## 删除
+        只删 explicit 行（运营解绑），且只在 `protocol_ids` 显式给出时——
+        省略等于"没打算改关联"，不动。
+
+        ## 已知残留（本轮不做，需单独决策）
+        若该协议同时被"锚定"到了本产品的某个方法上，那么解绑后**下次重算仍会以
+        inherited 身份再现**（`_refresh_inherited_bridges` 从方法链重新派生）。
+        彻底解决要么删锚点（实测同一协议经方法可达的**产品数 top3 = 105**，
+        删错会一次性抹掉上百个产品的协议链），要么不再锚定——两者都需拍板。
+        """
+        from apps.bridges.models import ProductProtocol
+
+        if protocol_ids is None:
+            return
+        keep = {int(pid) for pid in protocol_ids}
+        # ★ 派生集必须用**锚定之前**的快照（`derived_before`）。
+        #   若在这里现算，`_sync_protocol_bridges` 刚把手工协议锚进方法，
+        #   它会被算成"派生" ⇒ 直接跳过 ⇒ 一行 explicit 都不写
+        #   （第一版就是这么错的，A-057 的 6 个用例全红）。
+        derived = derived_before or set()
+        existing = {
+            row.protocol_id: row
+            for row in ProductProtocol.objects.filter(product=product)
+        }
+        touched = 0
+        for pid in keep:
+            if pid in derived:
+                continue            # 派生协议保持 inherited，不越权改写来源
+            row = existing.get(pid)
+            if row is None:
+                ProductProtocol.objects.create(
+                    product=product, protocol_id=pid,
+                    link_source=ProductProtocol.LinkSource.EXPLICIT,
+                )
+                touched += 1
+        # 解绑：只清 explicit 行
+        ProductProtocol.objects.filter(
+            product=product, link_source=ProductProtocol.LinkSource.EXPLICIT,
+        ).exclude(protocol_id__in=keep).delete()
+        return touched
+
+    @staticmethod
     def _auto_seo_on_publish(product):
         """当产品从 draft 变为 active 时，若 SEO 为空则自动生成。"""
         from apps.commerce.services.seo_generator import generate_seo
@@ -544,6 +613,10 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         method_ids = validated_data.pop('method_ids', None)
         protocol_ids = validated_data.pop('protocol_ids', None)
+        # ★ A-057：锚定**之前**的派生集快照 —— `_sync_protocol_bridges` 会把手工协议锚进方法，
+        #   之后再算就分不出哪条是运营手工加的了。
+        # 新建的产品此刻还没有方法链 ⇒ 派生集必然为空
+        derived_before = set()
         research_goal_ids = validated_data.pop('research_goal_ids', None)
         application_ids = validated_data.pop('application_ids', None)
         skus_data = validated_data.pop('skus', [])
@@ -590,6 +663,9 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             chain_specified=(method_ids is not None),
         )
 
+        # ★ A-057：补写/清理 explicit 行（用锚定前的派生集快照）
+        self._ensure_explicit_protocol_rows(product, protocol_ids, derived_before)
+
         # Auto-generate SEO on publish (draft→active)
         self._auto_seo_on_publish(product)
         return product
@@ -597,6 +673,9 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         method_ids = validated_data.pop('method_ids', None)
         protocol_ids = validated_data.pop('protocol_ids', None)
+        # ★ A-057：锚定**之前**的派生集快照 —— `_sync_protocol_bridges` 会把手工协议锚进方法，
+        #   之后再算就分不出哪条是运营手工加的了。
+        derived_before = self._derived_protocol_ids(instance)
         research_goal_ids = validated_data.pop('research_goal_ids', None)
         application_ids = validated_data.pop('application_ids', None)
         skus_data = validated_data.pop('skus', None)
@@ -684,6 +763,9 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             instance,
             chain_specified=(method_ids is not None),
         )
+
+        # ★ A-057：同上（update 路径）
+        self._ensure_explicit_protocol_rows(instance, protocol_ids, derived_before)
 
         # Auto-generate SEO when transitioning from draft to active
         if is_becoming_active:

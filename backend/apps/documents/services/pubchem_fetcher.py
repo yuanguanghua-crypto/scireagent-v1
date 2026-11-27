@@ -22,6 +22,49 @@ _GHS_FALLBACK = {
                          'P403+P233', 'P405', 'P501'],
 }
 
+# ── §11 由 §2 的 H 码派生（A-053，2026-11-27）─────────────────────────────
+# 背景：§2/§3 的危害分类取自 `_GHS_FALLBACK`（H302/H315/H319/H335），而 §11 原本是
+# **另一段手写文案**，固定写 `skin_irritation: 'Not classified.'`、
+# `eye_irritation: 'Not classified.'` ⇒ 同一份 SDS 里 §2 说 H315/H319、§11 说未分类，
+# §3 又说 Skin Irrit. 2 / Eye Irrit. 2A，三处三个说法。
+#
+# 修法：§11 的这几个字段**由 §2 实际使用的 H 码派生**，两边不可能再打架。
+# ⚠️ 这里只做"一致化"，不改变危害结论 —— 危害码本身仍是 `_GHS_FALLBACK` 那一套。
+#    "要不要在不掌握 GHS 数据时不宣称任何 H 码"是另一个决策（见决策清单第三问方案 B）。
+_H_TO_SECTION11 = {
+    'H315': ('skin_irritation', 'Skin irritation: Category 2 (H315) — causes skin irritation.'),
+    'H319': ('eye_irritation',
+             'Serious eye irritation: Category 2A (H319) — causes serious eye irritation.'),
+    'H335': ('stot_single',
+             'Specific target organ toxicity, single exposure: Category 3 (H335) — '
+             'may cause respiratory irritation.'),
+}
+
+# 没有对应 H 码时的诚实表述（不是"未分类"，而是"按现有数据不适用"）
+_S11_NOT_CLASSIFIED = {
+    'skin_irritation': 'Not classified as a skin irritant under GHS (no H315).',
+    'eye_irritation': 'Not classified as an eye irritant under GHS (no H319).',
+    'stot_single': 'Not classified for single-exposure STOT under GHS (no H335).',
+}
+
+
+def _derive_section11(hazard_codes):
+    """按 §2 实际使用的 H 码生成 §11 的刺激/毒性条目（A-053）。
+
+    返回的键与 `sds_generator` 读取的键一一对应，未覆盖的键由此函数的调用方补默认值。
+    """
+    codes = [str(c).strip().upper() for c in (hazard_codes or [])]
+    out = {}
+    for code, (key, text) in _H_TO_SECTION11.items():
+        if key == 'acute_oral':
+            continue            # 口服急性毒性单独进 acute_toxicity 子表
+        if code in codes:
+            out[key] = text
+    for key, fallback in _S11_NOT_CLASSIFIED.items():
+        out.setdefault(key, fallback)
+    return out
+
+
 # 通用安全建议模板（用于无数据字段）
 GENERIC_SAFETY_NOTES = {
     'section4_first_aid': {
@@ -339,21 +382,23 @@ def _build_section_data(name, formula, mw, xlogp, tpsa, hbd, hba,
             'incompatible': 'Strong oxidizing agents, strong acids, strong bases.',
             'decomposition_products': 'Carbon monoxide (CO), carbon dioxide (CO₂), nitrogen oxides (NOx), ammonia (NH₃).',
         },
+        # ★ A-053：刺激/STOT 条目由 §2 的 H 码派生（见 `_derive_section11`），
+        #   不再写死 "Not classified." —— 否则与 §2/§3 自相矛盾。
         'section_11': {
             'acute_toxicity': {
+                # LD50 是**数值**，没有就是没有（与"分类为 H302"不冲突：
+                # 分类见表 §2/§3，数值本页给不出就写 Not available）
                 'oral_ld50': 'Not available',
                 'dermal_ld50': 'Not available',
                 'inhalation_lc50': 'Not available',
             },
-            'skin_irritation': 'Not classified.',
-            'eye_irritation': 'Not classified.',
             'sensitization': 'Not classified as a sensitizer.',
             'mutagenicity': 'Not classified. No data available.',
             'carcinogenicity': 'Not listed by IARC, NTP, or OSHA.',
             'reproductive_toxicity': 'No data available.',
-            'stot_single': 'No data available.',
             'stot_repeated': 'No data available.',
             'aspiration': 'Not classified.',
+            **_derive_section11(_GHS_FALLBACK['hazard_codes']),
         },
         'section_12': {
             'ecotoxicity': 'No data available for aquatic toxicity.',

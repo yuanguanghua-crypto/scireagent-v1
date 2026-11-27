@@ -209,7 +209,16 @@ const AUTO_LINK_PROTOCOL_N = ENRICH_PROTOCOL_PREVIEW_N
 //   而链接是**整体由方法链决定**的（挂 1 个方法可能带进 268 条协议），不存在"留 267 条删 1 条"的机制。
 //   故对派生行改为**禁用 + 说明**，而不是假装能删。
 //   对照：Methods 的 ✕ **是有效的**（`_sync_method_bridges` 会按 `method_ids` 真删桥），不动。
-const isServerDerivedProtocol = (pid) => productProtocolLinks.value.some((r) => r.id === pid)
+/**
+ * 该协议行是否**由方法链派生**（A-057）。
+ *
+ * 改前：`productProtocolLinks.some(r => r.id === pid)` —— 只要服务端返回了这一行就锁死 ✕。
+ * 而 PP 表里同时存在 `explicit`（运营手工关联）与 `inherited`（方法链派生），
+ * 于是**手工关联的协议也永远删不掉**，标签还显示"派生关联"。
+ * 现在只认 `link_source === 'inherited'`；`auto` 与 `explicit` 都允许直接移除。
+ */
+const isServerDerivedProtocol = (pid) =>
+  productProtocolLinks.value.some((r) => r.id === pid && r.link_source === 'inherited')
 const displayProtocolRows = computed(() => {
   // #356/#357 + S4: authoritative server rows ∪ **本地新增** ids (铁律①不丢链)。
   // ⚠️ 这里只并 locallyAddedProtocolIds（不是整个 protocolIds）——理由见上方 N3 注释。
@@ -2712,7 +2721,13 @@ watch(
           Protocols — {{ protocolSearchHint }}
         </p>
 
-        <p class="form-hint" style="margin:2px 0 0">Select a knowledge entity above and it links to this product immediately; the “Link” button is an explicit alternative.</p>
+        <p class="form-hint" style="margin:2px 0 0">
+          Select a knowledge entity above and it links to this product immediately; the “Link” button is an explicit alternative.
+          <!-- ★ 2026-11-27（A-057）：关联协议时系统会把它锚到本产品的某个方法上
+               （为了让链接在方法链重算后仍成立）—— 这会改变那个方法的协议集，
+               此前完全没有告知，运营以为只是给产品打了个标签。 -->
+          <span class="form-hint-warn">Linking a protocol also anchors it to one of this product’s methods, so the link survives method-chain recomputation.</span>
+        </p>
 
         <!-- Quick-create inline (single button, dropdown type) -->
         <div class="inline-buttons">
@@ -3058,6 +3073,7 @@ watch(
   color: var(--color-text-tertiary); font-size: 11px; font-weight: 700;
   line-height: 1; cursor: help; vertical-align: middle; user-select: none;
 }
+.form-hint-warn { display: block; margin-top: 2px; color: var(--color-warning, #b45309); }
 .help-dot:hover, .help-dot:focus-visible {
   border-color: var(--color-primary); color: var(--color-primary); outline: none;
 }

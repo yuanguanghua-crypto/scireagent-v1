@@ -669,7 +669,13 @@ def recompute_product(product, embedding_fn=None):
     if objs:
         update_fields = [
             'relevance_score', 'score_a', 'score_b', 'literature_count',
-            'relevance_basis', 'tier', 'link_source', 'updated_at',
+            'relevance_basis', 'tier', 'updated_at',
+            # ★ 2026-11-27（A-057）：**不再把 link_source 列入 update_fields**。
+            #   重算只负责"分数与档位"，没有资格改写这一行的**来源**。
+            #   改前列着它，于是任何被运营手工关联（`explicit`）的行，只要落在派生集里，
+            #   一次重算就被覆写成 `inherited` ⇒ 前端随即把 ✕ 锁死、标签也变成"派生关联"，
+            #   运营再也删不掉自己加的协议（QA A-057 的完整链路）。
+            #   新插入的行仍走模型默认（INHERITED），语义不变。
         ]
         if compute_c:
             update_fields.append('score_c')

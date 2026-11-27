@@ -2,6 +2,8 @@
 COA PDF 生成服务 — 使用 ReportLab
 """
 import os
+import re
+
 from django.conf import settings
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -20,6 +22,74 @@ LIGHT_GRAY = HexColor('#f8fafc')
 BORDER = HexColor('#e2e8f0')
 GREEN = HexColor('#16a34a')
 WHITE = HexColor('#ffffff')
+
+
+# ── QC 判定（A-055 / A-210）──────────────────────────────────────────────
+# 三条铁律：
+#   ① 没有结果 ⇒ 不给结论（空值，不是 PASS）；
+#   ② 有结果但没有规格 ⇒ '—'（Not evaluated）—— 没有尺子就谈不上合格；
+#   ③ 有规格 ⇒ 真比较；规格写法解析不了 ⇒ '—'，**绝不**默认 PASS。
+
+_NUM_RE = re.compile(r'[-+]?\d+(?:\.\d+)?')
+# 区间专用：不带符号，避免 '98-102' 被读成 98 与 -102
+_UNSIGNED_NUM_RE = re.compile(r'\d+(?:\.\d+)?')
+
+
+def _first_number(text):
+    """取字符串里第一个数字（'85.2%' → 85.2；'≤ 0.5%' → 0.5）。解析不出返回 None。"""
+    m = _NUM_RE.search(str(text or '').replace(',', ''))
+    return float(m.group()) if m else None
+
+
+def _verdict(spec, result):
+    """按规格与实测值给出 PASS / FAIL / '—'（Not evaluated）。
+
+    支持的规格写法：
+      · 文本一致性：`Conforms`（结果里出现 conform/pass 判 PASS）
+      · 单侧限：`≤ 0.5%`、`<=0.5`、`<5`、`≥ 98%`、`>=98`、`>90`
+      · 区间：`98-102%` / `98.0 – 102.0`（连字符或 en dash）
+    其余写法（如 `MW: 523.4`、`Visual`、空）一律 '—' —— 判不了就说判不了。
+    """
+    res = str(result or '').strip()
+    spc = str(spec or '').strip()
+    if not res:
+        return ''
+    if not spc:
+        return '—'
+
+    low = spc.lower()
+    # ① 文本一致性（Conforms / Passes）
+    if 'conform' in low or low in ('pass', 'passes'):
+        return 'PASS' if ('conform' in res.lower() or 'pass' in res.lower()) else 'FAIL'
+
+    rv = _first_number(res)
+    # ② 单侧限
+    for token, op in (('≤', 'le'), ('<=', 'le'), ('≥', 'ge'), ('>=', 'ge'),
+                      ('<', 'lt'), ('>', 'gt')):
+        if low.startswith(token):
+            sv = _first_number(spc[len(token):])
+            if sv is None or rv is None:
+                return '—'
+            ok = {'le': rv <= sv, 'ge': rv >= sv, 'lt': rv < sv, 'gt': rv > sv}[op]
+            return 'PASS' if ok else 'FAIL'
+
+    # ③ 区间（两端都是数字）
+    # ⚠️ 不能用带符号的 `_NUM_RE`：'98-102%' 会被切成 ['98','-102']，
+    #    于是任何值都 < 98 的下界判断反了（实测 98-102% / 100 ⇒ FAIL）。
+    nums = _UNSIGNED_NUM_RE.findall(spc.replace(',', ''))
+    if len(nums) >= 2 and ('-' in spc or '–' in spc):
+        lo, hi = float(nums[0]), float(nums[1])
+        if rv is None:
+            return '—'
+        return 'PASS' if lo <= rv <= hi else 'FAIL'
+
+    # ④ 规格是个纯数字（视为下限）？
+    if len(nums) == 1 and nums[0] == spc.replace('%', '').strip():
+        if rv is None:
+            return '—'
+        return 'PASS' if rv >= float(nums[0]) else 'FAIL'
+
+    return '—'
 
 
 def generate_coa_pdf(coa):
@@ -132,18 +202,13 @@ def generate_coa_pdf(coa):
         ['Identity (LC-MS)', f'MW: {coa.molecular_weight}', coa.lcms_result, 'LC-MS', ''],
     ]
 
-    # 自动判定 PASS/FAIL
+    # ── Verdict 判定（A-055 / A-210，2026-11-27）──
+    # 改前：这个循环**没有任何失败路径** —— 有结果就 PASS（无规格也 PASS），
+    #   有规格时也从不比较数值（`spec.startswith('≤')` 直接 PASS，注释自认"简化判定"）。
+    #   ⇒ 一张对外发布的合规证书，只要有人填了数就 9 行全 PASS。
+    # 现在：只有**能真正判定**的才给 PASS/FAIL，判不了的写 '—'（Not evaluated）。
     for row in qc_rows:
-        spec, result = row[1], row[2]
-        if result and spec:
-            if 'conform' in result.lower() or 'pass' in result.lower():
-                row[4] = 'PASS'
-            elif spec.startswith('≤') or spec.startswith('>=') or spec.startswith('<'):
-                row[4] = 'PASS'  # 简化判定
-            else:
-                row[4] = 'PASS' if result else ''
-        elif result:
-            row[4] = 'PASS'
+        row[4] = _verdict(row[1], row[2])
 
     table_data = [qc_header] + qc_rows
     col_widths = [32 * mm, 35 * mm, 35 * mm, 30 * mm, 22 * mm]
