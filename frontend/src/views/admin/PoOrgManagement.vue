@@ -61,7 +61,13 @@ onMounted(load)
     <div class="po-page-header">
       <div>
         <h1 class="po-page-title">Organization Management</h1>
-        <p class="po-page-subtitle">View organizations, their addresses and order history.</p>
+        <!-- ★ 2026-11-27（A-010）：副标题原来写 "their addresses and order history"，
+             但**地址根本展示不了** —— `/addresses/` 按 `request.user.organization` 过滤，
+             内部人员无 organization 时直接返回空（`accounts/api/v1/views.py:429` 明确防越权），
+             所以运营看不到别家机构的地址。承诺了给不了的东西，就是这条缺陷。
+             现在只承诺真的有的（订单历史），并补一句"点一行看订单"——
+             原来这个交互没有任何提示，QA 也就只看到三列表格。 -->
+        <p class="po-page-subtitle">View organizations and their order history.</p>
       </div>
       <button class="po-btn po-btn-outline" @click="load">Refresh</button>
     </div>
@@ -69,6 +75,9 @@ onMounted(load)
     <div class="po-form-grid">
       <div class="po-card">
         <h2 class="po-section-title">Organizations</h2>
+        <p class="po-muted" style="margin:-4px 0 10px;font-size:12px">
+          Select an organization to see its orders.
+        </p>
         <table class="po-table" v-if="orgs.length">
           <thead><tr><th>Name</th><th>Type</th><th>Country</th></tr></thead>
           <tbody>

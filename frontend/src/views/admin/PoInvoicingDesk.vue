@@ -133,6 +133,16 @@ onMounted(load)
       <div>
         <h1 class="po-page-title">Invoicing Desk</h1>
         <p class="po-page-subtitle">Issue invoices for delivered orders and record payments.</p>
+        <!-- ★ 2026-11-27（A-083）：本页是**队列**，paid 有意离队（代码注释与 e2e
+             断言都这么定）。但页面上没有任何字说明"已付发票去哪看"，客户/运营
+             会以为发票丢了（QA 实测库内 153 张 paid、页面 0 行）。这里把口径写出来，
+             并给一个直达已结清订单的入口。 -->
+        <p class="po-muted" style="margin:6px 0 0;font-size:12px">
+          This desk only lists unsettled work. Paid invoices leave the queue —
+          <router-link :to="{ name: 'AdminOrders', query: { status: 'paid' } }" style="color:var(--color-primary)">
+            view settled (paid) orders →
+          </router-link>
+        </p>
       </div>
       <button class="po-btn po-btn-outline" @click="load">Refresh</button>
     </div>

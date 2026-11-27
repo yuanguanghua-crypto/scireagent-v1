@@ -30,7 +30,7 @@
 订单量级小（生产几十张），全部走 ORM 聚合，一个请求 5 次查询。
 不缓存：报表看的是实时数，缓存会让人怀疑"明明刚下的单怎么没有"。
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db.models import Count, Sum
@@ -83,14 +83,31 @@ class SalesReportView(EnvelopeMixin, APIView):
         today = business_today()
         default_start = today.replace(day=1)
 
-        start_day = _parse_day(request.query_params.get('start'), default_start)
-        end_day = _parse_day(request.query_params.get('end'), today)
-        if start_day is None or end_day is None:
-            return self.error_response(
-                'start/end 必须是 YYYY-MM-DD', code='BAD_DATE', status_code=400)
-        if end_day < start_day:
-            return self.error_response(
-                'end 不能早于 start', code='BAD_RANGE', status_code=400)
+        # ★ 2026-11-27（A-163）：支持 `?all=1` = 全部历史。
+        #
+        #   为什么不能"前端传 start=2000-01-01"：后端对显式区间有硬上限
+        #   （`MAX_TREND_DAYS=400`，下面 span 检查直接 400 `RANGE_TOO_LARGE`），
+        #   而且那条守卫有专门用例 `test_rejects_absurdly_long_range` 钉着。
+        #   所以"全部历史"必须是**一个显式开关**，不能靠塞一个很早的日期绕过守卫 ——
+        #   两者的语义完全不同：一个是"你要的区间太长，请缩小"，一个是"我要全部"。
+        all_time = str(request.query_params.get('all') or '').lower() in ('1', 'true', 'yes')
+        if all_time:
+            earliest = (Order.objects.filter(status__in=SALES_STATUSES)
+                        .order_by('created_at')
+                        .values_list('created_at', flat=True).first())
+            # created_at 是 aware datetime，取"业务时区"的日期，与按日聚合口径一致
+            start_day = (earliest.astimezone(business_timezone()).date()
+                         if earliest else today)
+            end_day = today
+        else:
+            start_day = _parse_day(request.query_params.get('start'), default_start)
+            end_day = _parse_day(request.query_params.get('end'), today)
+            if start_day is None or end_day is None:
+                return self.error_response(
+                    'start/end 必须是 YYYY-MM-DD', code='BAD_DATE', status_code=400)
+            if end_day < start_day:
+                return self.error_response(
+                    'end 不能早于 start', code='BAD_RANGE', status_code=400)
 
         start_dt, _ = business_day_bounds(start_day)
         _, end_dt = business_day_bounds(end_day)
@@ -129,10 +146,15 @@ class SalesReportView(EnvelopeMixin, APIView):
         # ── 4) 按日趋势（业务时区）────────────────────────────────────
         tz = business_timezone()
         span_days = (end_day - start_day).days + 1
-        if span_days > MAX_TREND_DAYS:
+        # 显式区间照旧守卫；`all=1` 是用户明确要全量 ⇒ 不拒绝，只把**趋势明细**
+        # 裁到最近 MAX_TREND_DAYS 天（KPI/Top/状态分布仍按全区间算）。
+        trend_truncated = span_days > MAX_TREND_DAYS
+        if trend_truncated and not all_time:
             return self.error_response(
                 f'区间最多 {MAX_TREND_DAYS} 天（当前 {span_days}），请缩小区间',
                 code='RANGE_TOO_LARGE', status_code=400)
+        trend_start = (end_day - timedelta(days=MAX_TREND_DAYS - 1)
+                       if trend_truncated else start_day)
         trend_rows = (orders
                       .annotate(d=TruncDate('created_at', tzinfo=tz))
                       .values('d', 'currency')
@@ -149,7 +171,7 @@ class SalesReportView(EnvelopeMixin, APIView):
                 slot['gmv'] = Decimal(r['gmv'])
         # 补齐区间内没有订单的日期（否则折线会"跳过"空白日，看起来像连续增长）
         trend = []
-        cur = start_day
+        cur = trend_start
         while cur <= end_day:
             key = cur.isoformat()
             slot = trend_map.get(key, {'date': key, 'gmv': Decimal('0'), 'orders': 0})
@@ -173,6 +195,11 @@ class SalesReportView(EnvelopeMixin, APIView):
                 'start': start_day.isoformat(),
                 'end': end_day.isoformat(),
                 'days': span_days,
+                # A-163：前端据此显示 "All time" 而不是把 2000-01-01 摆出来
+                'all_time': all_time,
+                # 趋势明细的实际起点（全量查询时会被裁到最近 400 天）
+                'trend_from': trend_start.isoformat(),
+                'trend_truncated': trend_truncated,
             },
             'summary': {
                 'primary_currency': primary,

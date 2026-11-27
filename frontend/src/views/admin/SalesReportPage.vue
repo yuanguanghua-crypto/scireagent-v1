@@ -34,10 +34,33 @@ const PRESETS = [
   { key: '7d', label: 'Last 7 days' },
   { key: '30d', label: 'Last 30 days' },
   { key: 'mtd', label: 'This month' },
+  // ★ 2026-11-27（A-163）：原来只有 today/7d/30d/mtd，想看"全部历史"只能手填起点。
+  //   起点用 2000-01-01 而不是查"最早订单日"：后端对区间只做过滤、不做拒绝，
+  //   趋势图另有 `MAX_TREND_DAYS=400` 兜底（report_views.py:58），不会被拖垮。
+  //   代价是 `data.range.days` 会是个大数（~9800），所以下面对 ALL_TIME_START
+  //   单独显示成 "All time"，不把那个天文数字摆给用户看。
+  { key: 'all', label: 'All time' },
 ]
+
+/**
+ * 「全部历史」用**后端的 `?all=1` 开关**，不是塞一个很早的 start。
+ *
+ * ⚠️ 我第一版就是塞 start=2000-01-01，实测被后端 400 打回：
+ *    `RANGE_TOO_LARGE`（区间最多 400 天，`report_views.py:131` 有硬守卫，
+ *    且 `test_sales_report.py::test_rejects_absurdly_long_range` 专门钉着）。
+ *    两者语义不同：那个守卫说的是"区间太长，请缩小"；这里要的是"我要全部"。
+ */
+const allTime = ref(false)
 
 function applyPreset(key) {
   const now = new Date()
+  // 任何 preset 都先退出"全部历史"模式
+  allTime.value = key === 'all'
+  if (key === 'all') {
+    end.value = iso(now)
+    load()
+    return
+  }
   if (key === 'today') {
     start.value = iso(now)
     end.value = iso(now)
@@ -62,24 +85,33 @@ async function load() {
   //   现在：空 ⇒ 静默不发（不发就不会有错）；起止倒置 ⇒ 给一句人话。
   const s0 = (start.value || '').trim()
   const e0 = (end.value || '').trim()
-  if (!s0 || !e0) {
-    err.value = ''
-    loading.value = false
-    return
-  }
-  if (s0 > e0) {
-    err.value = '开始日期不能晚于结束日期'
-    loading.value = false
-    return
+  // A-163：全部历史模式不依赖 start/end，跳过这两条守卫（否则会被"空值静默不发"卡住）
+  if (!allTime.value) {
+    if (!s0 || !e0) {
+      err.value = ''
+      loading.value = false
+      return
+    }
+    if (s0 > e0) {
+      err.value = '开始日期不能晚于结束日期'
+      loading.value = false
+      return
+    }
   }
 
   loading.value = true
   err.value = ''
   try {
     const res = await http.get('/ops/sales-report/', {
-      params: { start: s0, end: e0 },
+      params: allTime.value ? { all: 1 } : { start: s0, end: e0 },
     })
     data.value = res.data || res
+    // A-163：全部历史时把"真实区间"回填到日期框 —— 否则框里还停在上一次的
+    // 30 天区间，而数字是全量，两者对不上会让人怀疑报表。
+    if (data.value?.range?.all_time) {
+      start.value = data.value.range.start
+      end.value = data.value.range.end
+    }
   } catch (e) {
     err.value = e?.response?.data?.meta?.error?.message || e?.message || 'Failed to load'
   } finally {
@@ -91,6 +123,12 @@ async function load() {
 //   「本月」在月初只有几天数据，运营打开会以为业绩断崖；30 天滚动窗口对"最近表现"更直观。
 //   若确实需要"本月"口径，改回 'mtd' 即可（一行）。
 onMounted(() => { applyPreset('30d') })
+
+/** 手改日期即退出"全部历史"模式（否则框里是新日期、请求却仍走 all=1）。 */
+function onManualDateChange() {
+  allTime.value = false
+  load()
+}
 
 const summary = computed(() => data.value?.summary || {})
 const trend = computed(() => data.value?.trend || [])
@@ -122,7 +160,17 @@ function barWidth(row) {
       <div>
         <h1 class="po-page-title">Sales Report</h1>
         <p class="po-page-subtitle" v-if="data">
-          {{ data.range.start }} → {{ data.range.end }} ({{ data.range.days }} days)
+          <!-- A-163：全部历史由后端 `range.all_time` 判定，起点是"最早订单日"而非固定日期 -->
+          <template v-if="data.range.all_time">
+            All time (since {{ data.range.start }}) → {{ data.range.end }}
+            · {{ data.range.days }} days
+            <span v-if="data.range.trend_truncated" class="po-muted">
+              · daily trend shows the last {{ 400 }} days only (totals cover the full range)
+            </span>
+          </template>
+          <template v-else>
+            {{ data.range.start }} → {{ data.range.end }} ({{ data.range.days }} days)
+          </template>
         </p>
       </div>
       <div class="po-flex">
@@ -133,9 +181,9 @@ function barWidth(row) {
              原 `type=date` 手打 YYYY-MM-DD 会被浏览器分段吃成脏值；
              新组件的 `@change` 只在归一成功后触发 ⇒ A-248 那个
              "改年份中途触发请求打回 400" 的根源直接消失（守卫仍保留作双保险）。 -->
-        <IsoDateInput v-model="start" class="po-input sr-date" data-testid="sr-start" aria-label="Report start date" @change="load" @invalid="(m) => { err = m }" />
+        <IsoDateInput v-model="start" class="po-input sr-date" data-testid="sr-start" aria-label="Report start date" @change="onManualDateChange" @invalid="(m) => { err = m }" />
         <span class="po-muted">→</span>
-        <IsoDateInput v-model="end" class="po-input sr-date" data-testid="sr-end" aria-label="Report end date" @change="load" @invalid="(m) => { err = m }" />
+        <IsoDateInput v-model="end" class="po-input sr-date" data-testid="sr-end" aria-label="Report end date" @change="onManualDateChange" @invalid="(m) => { err = m }" />
         <button class="po-btn po-btn-primary po-btn-sm" @click="load" :disabled="loading">
           {{ loading ? 'Loading…' : 'Refresh' }}
         </button>

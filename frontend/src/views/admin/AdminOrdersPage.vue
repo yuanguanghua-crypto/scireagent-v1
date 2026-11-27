@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { getAdminOrders } from '@/api/orders'
 import { formatCurrency } from '@/utils/helpers'
 import { extractErrorMessage } from '@/utils/http'
@@ -8,9 +8,13 @@ import { LoadingSpinner, EmptyState, DataPagination, ErrorBanner } from '@/compo
 import { ORDER_STATUS_FILTERS, LEGACY_STATUS_FILTERS, statusBadgeStyle } from '@/config/poConstants'
 
 const router = useRouter()
+const route = useRoute()
 const orders = ref([])
 const loading = ref(false)
-const statusFilter = ref('')
+// ★ 2026-11-27（A-083）：支持 `?status=paid` 这类直达。
+//   Invoicing Desk 只维护"待开票/待收款"队列（paid 有意离队），运营要看
+//   已结清的发票得能一步跳到对应筛选 —— 原来链接过来是空筛选，等于没跳。
+const statusFilter = ref(String(route.query.status || ''))
 const searchQuery = ref('')
 // ★ 2026-10-21 修 D4：此前**没有任何分页状态** ⇒ 后端 PAGE_SIZE=20，
 //   991 单里只能看到最新 20 单，更早的单永久不可达。

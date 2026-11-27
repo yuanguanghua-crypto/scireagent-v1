@@ -203,3 +203,50 @@ class TopListTest(ReportBase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]['quantity'], 2, '取消订单的行不能进 Top 产品')
         self.assertEqual(Decimal(rows[0]['amount']), Decimal('200.00'))
+
+
+class AllTimeRangeTest(ReportBase):
+    """A-163：`?all=1` = 全部历史。
+
+    ## 为什么必须是独立开关，而不是"前端传一个很早的 start"
+    后端对显式区间有硬上限 400 天（`RANGE_TOO_LARGE`，见 `TrendTest
+    ::test_rejects_absurdly_long_range`）。那个守卫说的是"区间太长，请缩小"；
+    "我要全部历史"是完全不同的诉求。第一版实现就是塞 `start=2000-01-01`，
+    实测被**自己的守卫**打回 400 —— 所以这里改成显式开关，两条语义各自成立。
+    """
+
+    def test_all_covers_orders_outside_default_range(self):
+        """默认区间是"本月"，100 天前的单不在默认区间内，但 all=1 要算进来。"""
+        self._order(Order.Status.CONFIRMED, '100', days_ago=100)
+        default = self._summary()
+        self.assertEqual(default['summary']['order_count'], 0,
+                         '默认口径是本月，不该含 100 天前的单')
+
+        d = self._summary(all=1)
+        self.assertEqual(d['summary']['order_count'], 1)
+        self.assertTrue(d['range']['all_time'])
+        self.assertFalse(d['range']['trend_truncated'])
+
+    def test_all_truncates_trend_but_keeps_full_totals(self):
+        """跨度 > 400 天：趋势裁到最近 400 天，KPI/汇总仍按全区间。"""
+        self._order(Order.Status.CONFIRMED, '100', days_ago=500)
+        d = self._summary(all=1)
+        # 汇总必须含 500 天前那单（否则"全部历史"名不副实）
+        self.assertEqual(d['summary']['order_count'], 1)
+        self.assertTrue(d['range']['trend_truncated'])
+        self.assertLessEqual(len(d['trend']), 400)
+        self.assertNotEqual(d['range']['trend_from'], d['range']['start'],
+                            '趋势起点应被裁到 400 天窗口内')
+
+    def test_all_flag_does_not_loosen_the_guard(self):
+        """加了 all=1 之后，显式超长区间**仍必须 400**（守卫不能被顺手放宽）。"""
+        r = self._get(start='2000-01-01', end='2026-12-31')
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(r.json()['meta']['error']['code'], 'RANGE_TOO_LARGE')
+
+    def test_all_on_empty_dataset_does_not_crash(self):
+        """库里一单都没有时，all=1 也不能 500（earliest 为 None 的分支）。"""
+        d = self._summary(all=1)
+        self.assertEqual(d['summary']['order_count'], 0)
+        # 没有订单时 start=end=今天 ⇒ 趋势补 1 行 0 值（"补齐空白日"的既有行为），不是空数组
+        self.assertLessEqual(len(d['trend']), 1)

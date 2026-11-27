@@ -18,7 +18,9 @@ const api = vi.hoisted(() => ({ getAdminOrders: vi.fn() }))
 vi.mock('@/api/orders', () => api)
 
 const push = vi.fn()
-vi.mock('vue-router', () => ({ useRouter: () => ({ push }) }))
+// ★ 2026-11-27（A-083）：页面新增 `useRoute()` 读 `?status=` 直达（Invoicing Desk 跳过来要带筛选），
+//   这里补一个空的 route 即可（本套用例关心的是 CUSTOMER 列渲染，不关心预筛）。
+vi.mock('vue-router', () => ({ useRouter: () => ({ push }), useRoute: () => ({ query: {} }) }))
 
 import AdminOrdersPage from '../AdminOrdersPage.vue'
 
