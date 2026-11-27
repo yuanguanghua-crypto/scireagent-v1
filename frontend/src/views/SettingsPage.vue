@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
@@ -101,6 +101,11 @@ onMounted(() => {
   loadUserData()
 })
 
+// ★ 2026-11-27（A-146）：只在 onMounted 载入一次是不够的 —— `authStore.user` 由
+//   `/auth/me` 异步填充，**硬刷新** /settings 时挂载那一刻还是 null ⇒ 整个表单保持空值，
+//   用户以为"保存没生效"（实际服务端已经存了，`/checkout` 的收件人名字都能带出来）。
+watch(() => user.value, (u) => { if (u) loadUserData() }, { immediate: true })
+
 function loadUserData() {
   if (!user.value) return
   profileForm.nickname = user.value.nickname || ''
@@ -123,6 +128,12 @@ function loadUserData() {
 /* ── Save Profile ── */
 async function saveProfile() {
   clearSaveMessage()
+  // ★ 2026-11-27（A-183）：Nickname 标了必填却**从不拦截** —— 清空保存照样提示成功，
+  //   旧值被写空。这里先挡一次（后端也同步加了必填，见 accounts 序列化器）。
+  if (!profileForm.nickname.trim()) {
+    showSaveMessage('Nickname is required.', 'error')
+    return
+  }
   saving.value = true
   try {
     await authStore.updateProfile({
@@ -297,7 +308,7 @@ function switchTab(id) {
                 v-model="profileForm.avatar_url"
                 type="text"
                 class="form-input"
-                placeholder="https://example.com/avatar.png"
+                placeholder="https://… (optional)"
               />
               <span class="form-hint">Paste a URL to your profile picture</span>
             </div>
@@ -321,7 +332,7 @@ function switchTab(id) {
                   v-model="profileForm.phone"
                   type="text"
                   class="form-input"
-                  placeholder="+86 138-0000-0000"
+                  placeholder="Optional"
                 />
               </div>
             </div>
@@ -552,6 +563,13 @@ function switchTab(id) {
                 </span>
               </div>
             </div>
+            <!-- ★ 2026-11-27（A-037）：注册页的三张身份卡片（Independent Researcher /
+                 Researcher (Team) / …）**都映射到同一个 `researcher` 角色** —— 卡片选的是
+                 使用场景，不是权限。这里把它说明白，免得用户以为"我选的怎么没生效"。 -->
+            <p class="info-hint">
+              The identity you picked at sign-up (e.g. “Independent Researcher”) describes how you
+              work, not a permission level — all research accounts carry the <code>Researcher</code> role.
+            </p>
 
             <div class="info-row">
               <span class="info-label">Organization</span>
@@ -709,6 +727,7 @@ function switchTab(id) {
   margin: 0 0 var(--spacing-1) 0;
 }
 
+.info-hint { margin: 6px 0 0; font-size: 12px; line-height: 1.5; color: var(--color-text-tertiary); }
 .tab-description {
   font-size: var(--text-body-sm);
   color: var(--color-text-secondary);

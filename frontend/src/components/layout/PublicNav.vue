@@ -151,6 +151,9 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
             <router-link to="/orders" class="nav-user-item" @click="closeUserMenu">My Orders</router-link>
             <router-link to="/po/orders" class="nav-user-item" @click="closeUserMenu">Purchase Order Portal</router-link>
             <router-link to="/wishlist" class="nav-user-item" @click="closeUserMenu">My Wishlist</router-link>
+            <!-- ★ 2026-11-27（A-237）：`/settings` 可以直访（200），但头像菜单里**没有入口**
+                 ⇒ 用户只能靠记住地址或从别处跳。补上。 -->
+            <router-link to="/settings" class="nav-user-item" data-testid="nav-settings" @click="closeUserMenu">Settings</router-link>
             <button type="button" class="nav-user-item" @click="handleLogout">Sign Out</button>
           </div>
         </div>

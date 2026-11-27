@@ -311,6 +311,14 @@ class UserSerializer(serializers.ModelSerializer):
 class ProfileUpdateSerializer(serializers.ModelSerializer):
     """Serializer for updating user profile fields."""
 
+    # ★ 2026-11-27（A-183）：界面把 Nickname 标成必填，但**两端都没拦** ——
+    #   清空后保存照样提示成功，旧值被写空（QA Batch 16 实测）。这里补后端闸门。
+    #   注意：只在**显式提交了该字段**时校验（`PATCH` 不传 nickname 的其他流程不受影响）。
+    def validate_nickname(self, value):
+        if not (value or '').strip():
+            raise serializers.ValidationError('Nickname is required.')
+        return value
+
     class Meta:
         model = User
         fields = [
@@ -374,3 +382,24 @@ class AddressSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'organization_id', 'created_at', 'updated_at']
+
+    def validate(self, attrs):
+        """★ 2026-11-27（A-187）：地址必须至少**可投递**。
+
+        改前这里没有任何必填校验，而模型字段全是 `blank=True` ⇒
+        `POST /addresses/ {}` 直接 201，落一条 `line1=''、city=''、country='US'` 的
+        空白地址（QA 实测：表单全空点 Save，列表就多一行空白，且之后删也删不掉）。
+
+        口径：`line1`（街道）与 `city` 必填 —— 只有这两个能决定"往哪寄"；
+        其余（attention / state / postal / phone）留空是合法的真实情况。
+        """
+        # partial 更新时只校验本次提交的字段，避免把旧值判成空
+        need = {}
+        for field, label in (('line1', 'Street address'), ('city', 'City')):
+            if field in attrs or not self.partial:
+                val = (attrs.get(field) or '').strip()
+                if not val:
+                    need[field] = f'{label} is required.'
+        if need:
+            raise serializers.ValidationError(need)
+        return attrs
