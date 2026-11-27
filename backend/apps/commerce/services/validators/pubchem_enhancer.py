@@ -243,16 +243,22 @@ class PubChemEnhancer:
         return []
 
     def _fallback_search_by_tokens(self, name: str) -> list:
-        """name 的片段降级搜索。
+        """name 的片段降级搜索 —— **只搜"像化学名"的片段**（A-202，2026-11-27）。
 
-        "Biotin-16-ddUTP" → 提取 "ddUTP" 搜索 → CID 72245。
+        例："Biotin-16-ddUTP" → 取 "ddUTP" 搜 → CID 72245。
+
+        ## 改前是什么样（实测复现）
+        旧实现把名字按分隔符拆开，跳过长度<3 与一个很小的化学词黑名单，然后**拿剩下的
+        英文通用词当化学名去 PubChem 搜**。实测 `TEST-NON-EXIST-20261110`：
+          · `TEST` → PubChem 返回 4 个香豆素/噻唑类化合物（正是 QA 报的那 4 个 CID）
+          · `NON`  → decanoic acid 等
+          · `EXIST`→ 空
+        于是"瞎编一个名字"也能拿到 4 个候选，直接违反「宁 miss 不错配」。
+
+        现在：片段必须**具备化学名特征**才拿去找（含数字 / 含连续大写 / 够长且非通用词）。
+        全都不像化学名 ⇒ 直接返回空，让上层走 not-found + 提示。
         """
-        import re
-        tokens = re.split(r'[\s\-_,;]+', name.strip())
-        skip = {'biotin', 'amino', 'dutp', 'utp', 'atp', 'gtp', 'ctp', 'dntp'}
-        for token in tokens:
-            if len(token) < 3 or token.lower() in skip:
-                continue
+        for token in self._significant_tokens(name):
             try:
                 compounds = self._search_by_namespace(token, 'name')
                 if compounds:
@@ -260,6 +266,71 @@ class PubChemEnhancer:
             except Exception:
                 continue
         return []
+
+    # ── 片段显著性判定（A-202）───────────────────────────────────────────
+    # 英文通用词：它们在 PubChem 里也能搜到东西，但那是噪声，不是匹配。
+    _COMMON_WORDS = frozenset({
+        'test', 'tests', 'testing', 'sample', 'samples', 'demo', 'dummy', 'fake',
+        'new', 'old', 'unknown', 'exist', 'exists', 'non', 'none', 'null', 'nil',
+        'product', 'item', 'batch', 'lot', 'grade', 'pure', 'purity', 'standard',
+        'solution', 'reagent', 'chemical', 'compound', 'n/a', 'na',
+        'the', 'and', 'for', 'with', 'from', 'this', 'that', 'temp', 'tmp',
+    })
+
+    # ★ 化学**母核/家族**词（沿用 A-202 之前那段 `skip` 的取舍）。
+    #   两个用途要分开，不能合成一张表：
+    #     · 拿去**搜索**时该校跳过 —— "Biotin" 一搜就是各种 biotin 衍生物，
+    #       真正有辨识度的是 "ddUTP" 这类具体片段；
+    #     · 拿去**回验**时它们是有效证据 —— "CTP labeling kit" 里的 CTP 确实
+    #       出现在同义词 "5-Propargylamino-CTP" 中，跳过它就误杀了真名。
+    _GENERIC_MOIETY_WORDS = frozenset({
+        'biotin', 'amino', 'dutp', 'utp', 'atp', 'gtp', 'ctp', 'dntp', 'ntp',
+    })
+
+    @classmethod
+    def _is_chemistry_like_token(cls, token: str, allow_moieties: bool = False) -> bool:
+        """片段是否**像化学名**。
+
+        `allow_moieties=True` 时保留化学母核词（biotin/ctp…）—— 供**回验**用；
+        默认 False（供**搜索**用，母核词会让结果被同族化合物淹没）。
+        """
+        t = (token or '').strip()
+        low = t.lower()
+        if len(t) < 3 or low in cls._COMMON_WORDS:
+            return False
+        if not allow_moieties and low in cls._GENERIC_MOIETY_WORDS:
+            return False
+        if low.isdigit():                       # 纯数字（年份/批号）不是名字
+            return False
+        has_digit = any(ch.isdigit() for ch in t)
+        has_upper_run = re.search(r'[A-Z]{2,}', t) is not None
+        if has_digit or has_upper_run:          # SC8001 / 16-ddUTP / ddUTP
+            return True
+        # 普通大小写的化学名（Aspirin / Ibuprofen / Biotin）：够长就放行。
+        # ⚠️ 第一版写成 `len>=8 and not isalpha()`，把 'Aspirin'(7) 这类**真名**误杀了
+        #    （既有 ChEMBL 用例用 "Aspirin" 查询，4 条直接红）。
+        #    真正的守门交给 `_name_reverse_check`（整词回验），这里只需挡住通用词，
+        #    而通用词已在 `_COMMON_WORDS` 里逐条列出。
+        return len(t) >= 5
+
+    @classmethod
+    def _significant_tokens(cls, text: str, allow_moieties: bool = False) -> list:
+        """从名称里取出"值得拿去搜"的片段（保持出现顺序、去重）。
+
+        `allow_moieties=True`：保留化学母核词（回验场景）；默认排除（搜索场景）。
+        """
+        seen = set()
+        out = []
+        for raw in re.split(r'[\s\-_,;/()\[\]]+', str(text or '').strip()):
+            tok = raw.strip()
+            if not tok or not cls._is_chemistry_like_token(tok, allow_moieties=allow_moieties):
+                continue
+            key = tok.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(tok)
+        return out
 
     # ── 身份校验 / 交叉校验（防错核心，修复 1/3/4）─────────────────────────
     #
@@ -472,13 +543,32 @@ class PubChemEnhancer:
 
         norm_id = re.sub(r'[\s\-_]+', '', str(identifier or '')).lower()
         norm_hay = re.sub(r'[\s\-_]+', '', hay)
-        if norm_id and norm_id in norm_hay:
+        # ★ A-202：整串包含只对**够长**的查询生效。3 个字母的 'non' 是 'nonanoic'
+        #   的子串，旧写法因此把无关分子判成"名字对得上"。
+        if len(norm_id) >= 5 and norm_id in norm_hay:
             return True
 
-        tokens = {t.lower() for t in re.findall(r'[A-Za-z][A-Za-z0-9]{2,}', str(identifier or ''))}
-        if not tokens:
+        # ★ 2026-11-27（A-202）：两处收紧。
+        #   ① 只有**显著片段**参与回验（含数字/连续大写/非通用词），
+        #      旧写法把 test/non/exist 这类英文通用词也当证据；
+        #   ② 改成**整词**匹配。旧写法是子串匹配（`t in hay`），
+        #      3 个字母的 `non` 能命中 `nonanoate`、`test` 能命中一切带 test 的词。
+        #      ⇒ 再叠加"降级搜索正是按这些词命中的"，回验等于自证（恒真）。
+        # 中文名无法用同义词做字面回验（英文库里不会出现中文）⇒ 沿用旧口径放行，
+        # 下游仍是 requires_review + candidates，不会被自动采用。
+        # ⚠️ 这一步必须在取 token **之前**：中文片段长度≥5，会被当成"像化学名"，
+        #    随后整词匹配必然失败 ⇒ 被误判成"回验不通过"（第一版就是这么错的）。
+        if re.search(r'[\u4e00-\u9fff]', str(identifier or '')):
             return True
-        return any(t in hay for t in tokens)
+        # 回验场景保留化学母核词（CTP/Biotin 出现在同义词里就是有效证据）
+        tokens = self._significant_tokens(identifier, allow_moieties=True)
+        if not tokens:
+            # 纯 ASCII 但毫无化学特征（如 TEST-NON-EXIST-20261110）⇒ 回验不成立
+            return False
+        for t in tokens:
+            if re.search(r'(?<![A-Za-z0-9])' + re.escape(t.lower()) + r'(?![A-Za-z0-9])', hay):
+                return True
+        return False
 
     def _resolve_to_properties_impl(self, identifier: str, namespace: str = 'name',
                                  expected_cas=None, expected_formula=None,
@@ -519,7 +609,12 @@ class PubChemEnhancer:
                 if not kept:
                     out = self._not_found(identifier)
                     out['name_verification'] = 'failed'
+                    looks_unchemical = not self._significant_tokens(identifier)
                     out['search_hint'] = (
+                        f'"{identifier}" does not look like a chemical name, and PubChem '
+                        'returned compound(s) unrelated to it (name reverse-check failed). '
+                        'Enter CAS / SMILES / InChI to identify the molecule instead.'
+                        if looks_unchemical else
                         f'PubChem returned compound(s) unrelated to "{identifier}" '
                         '(name reverse-check against synonyms/IUPAC name failed). '
                         'Enter CAS/SMILES/InChI to identify the molecule instead.'
@@ -529,7 +624,7 @@ class PubChemEnhancer:
 
             # ── PubChem / 片段降级都没命中 → ChEMBL fallback（强制候选）──
             if not results:
-                return self._chembl_search(identifier)
+                return self._chembl_search(identifier, namespace=namespace)
 
             # Multiple results → candidates（强制用户选择）
             if len(results) > 1:
@@ -679,11 +774,25 @@ class PubChemEnhancer:
     #   不可达时最多等 8s（用户可接受），可达时行为完全不变。
     CHEMBL_TIMEOUT = 8  # seconds
 
-    def _chembl_search(self, identifier: str) -> dict:
+    def _chembl_search(self, identifier: str, namespace: str = 'name') -> dict:
         """PubChem 搜不到时，用 ChEMBL REST API 作为 fallback。
 
         返回与 PubChem 统一 schema 的 dict。ChEMBL API 失败时返回 found: False。
+
+        ★ 2026-11-27（A-202 第三处）：ChEMBL 的 `?q=` 是**全文检索**，对任意字符串都会
+          返回不超过 `limit` 条结果 —— 实测把 `TEST-NON-EXIST-20261110` 送进去能拿到
+          5 条无关分子。所以这里补两道闸：
+            ① 名称类查询若**没有像化学名的片段**，直接判 not found（不浪费一次请求）；
+            ② 命中结果要过"名字里出现该片段（整词）"的检查，全不匹配就判 not found。
+          非 name 命名空间（smiles/inchi/cid）不受①限制 —— 那些标识符本来就不像单词。
         """
+        if namespace == 'name' and not self._significant_tokens(identifier):
+            out = self._not_found(identifier)
+            out['search_hint'] = (
+                f'"{identifier}" does not look like a chemical name. '
+                'Enter CAS / SMILES / InChI, or check the spelling.'
+            )
+            return out
         try:
             params = {
                 "q": identifier,
@@ -706,6 +815,27 @@ class PubChemEnhancer:
 
             if not molecules:
                 return self._not_found(identifier)
+
+            # ② 名字回验：ChEMBL 全文检索会"总有结果"，必须核对 pref_name。
+            if namespace == 'name':
+                sig = [t.lower() for t in self._significant_tokens(identifier)]
+                if sig:
+                    def _hit(mol):
+                        name = str(mol.get('pref_name') or '').lower()
+                        if not name:
+                            return False
+                        return any(
+                            re.search(r'(?<![a-z0-9])' + re.escape(t) + r'(?![a-z0-9])', name)
+                            for t in sig
+                        )
+                    molecules = [m for m in molecules if _hit(m)]
+                    if not molecules:
+                        out = self._not_found(identifier)
+                        out['search_hint'] = (
+                            f'ChEMBL returned molecule(s) whose names do not contain '
+                            f'"{identifier}". Enter CAS / SMILES / InChI instead.'
+                        )
+                        return out
 
             if len(molecules) > 1:
                 # Multiple candidates

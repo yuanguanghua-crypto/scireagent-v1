@@ -1036,6 +1036,23 @@ const chemAutoVerified = computed(() => {
 // ★ N-2：Lipinski 结论只有在「化合物身份已核验」时才算数。
 // 后端 identity_verified=False 时把 passed 置为 null（不是 false，false 会被读成「不合规」），
 // 前端必须把它当「未判定」呈现，不能渲染成 PASS/FAIL —— 否则就是给错分子做合规背书。
+/**
+ * A-203：Lipinski 为什么没算出来 —— 给用户一句可执行的原因，而不是空白。
+ */
+const lipinskiWhyMissing = computed(() => {
+  const chem = pubchemEnrichResult.value?.chemical
+  if (!chem) return 'no chemistry result returned'
+  if (!chem.found) {
+    return chem.search_hint
+      ? `no compound matched — ${chem.search_hint}`
+      : 'no compound matched in PubChem / ChEMBL'
+  }
+  if (!chem.properties || !Object.keys(chem.properties).length) {
+    return 'the matched compound returned no molecular properties'
+  }
+  return 'insufficient properties (needs MW/LogP/HBD/HBA/RotB)'
+})
+
 const lipinskiVerdict = computed(() => {
   const lp = enrichChemical.value?.lipinski
   if (!lp) return null
@@ -2299,6 +2316,14 @@ watch(
         </div>
       </div>
 
+      <!-- ★ 2026-11-27（A-203）：Lipinski 没算出来时也要**显式说明**。
+           原来只有 `v-if="enrichChemical?.lipinski"`，null 时整块凭空消失，
+           用户读成"缺数据"（QA 报的就是这个）。 -->
+      <div v-else-if="pubchemEnrichResult && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
+        <h4 style="margin:0 0 6px 0;font-size:14px">💊 Lipinski Rule of Five</h4>
+        <p class="form-hint" style="margin:0">Not computed — {{ lipinskiWhyMissing }}</p>
+      </div>
+
       <!-- Jena 规格匹配 -->
       <!-- 跨字段一致性校验（原 AI Tools Validate 已合并进 AUTO MATCH） -->
       <div v-if="enrichChemical?.mismatches?.length && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top:8px">
@@ -2446,6 +2471,16 @@ watch(
                 type="button" class="btn btn-ghost btn-xs"
                 @click="showAllEnrichProtocols = !showAllEnrichProtocols"
         >{{ showAllEnrichProtocols ? '收起' : `显示全部 (${enrichProtocols.length})` }}</button>
+      </div>
+      <!-- ★ 2026-11-27（A-203）：协议推荐为空时也要说一句 —— 原来空数组整块不渲染，
+           看起来像"这个面板根本没有协议这一项"。 -->
+      <div v-else-if="pubchemEnrichResult && !pubchemEnrichResult.applied" class="pubchem-preview" style="margin-top: 8px">
+        <h4 style="margin:0 0 6px 0;font-size:14px">🧪 Protocols</h4>
+        <p class="form-hint" style="margin:0">
+          No protocol recommendation for this query. Recommendations are derived from the
+          product name / existing knowledge links — add a Method or Protocol in section 5 first,
+          or run the match again after the name is filled in.
+        </p>
       </div>
       </details>
       <!-- Apply All button moved to top action row (see AI AUTO MATCH panel header) -->

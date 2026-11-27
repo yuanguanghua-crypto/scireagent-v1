@@ -249,8 +249,11 @@ class ChEMBLFallbackTest(TestCase):
                     }
                 },
                 {
+                    # ★ A-202：ChEMBL 的 q= 是全文检索，命中要过"名字里含查询词"的检查。
+                    #   本条要验的是"多个候选"这条路径 ⇒ 第二条也必须是 Aspirin 的变体，
+                    #   否则会被新闸门正确地丢掉（那属于另一条用例的事）。
                     "molecule_chembl_id": "CHEMBL521",
-                    "pref_name": "IBUPROFEN",
+                    "pref_name": "ASPIRIN CALCIUM",
                     "molecule_structures": {"canonical_smiles": "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O"},
                     "molecule_properties": {
                         "full_molformula": "C13H18O2", "full_mwt": 206.28,
