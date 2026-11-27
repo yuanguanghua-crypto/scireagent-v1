@@ -355,7 +355,7 @@ function barWidth(row) {
           <span class="po-muted" data-testid="sr-order-rows-total">({{ detailTotal }})</span>
           <!-- ★ 实测同一页 KPI 66 vs 明细 300 —— 因为 KPI 只算 SALES_STATUSES
                （不含 cancelled/draft 等），明细列的是区间内**全部状态**。
-               不写清楚就又是一个"计数自相矛盾"（A-110 / A-138 同族）。 -->
+               不写清楚就又是一个"计数自相矛盾"（与本轮前面修的那批同族）。 -->
           <span class="po-muted" style="font-size:12px;font-weight:400">· all statuses (GMV counts sales statuses only)</span>
         </h2>
         <input
