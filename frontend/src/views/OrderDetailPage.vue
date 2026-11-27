@@ -170,6 +170,22 @@ async function handleCancelOrder() {
   </div>
 
   <div class="order-detail-page" v-if="order">
+    <!-- ★ 2026-11-27（A-194）：订单详情页此前**没有面包屑**（只有站标回首页），
+         从 PO 列表点进来就"无路可退"，只能靠浏览器后退。
+         同时补 Re-order 入口（A-195）：这个动作原本只在 /po/orders 列表行上有，
+         详情页里反而找不到 —— 而"看完一单再下单一次"正是详情页的常见动作。 -->
+    <nav class="order-crumbs" aria-label="Breadcrumb">
+      <router-link to="/orders" class="order-crumb-link">My Orders</router-link>
+      <span class="order-crumb-sep">/</span>
+      <span class="order-crumb-current">{{ order.order_no }}</span>
+      <router-link
+        :to="{ path: '/po/submit', query: { reorder: order.id } }"
+        class="order-crumb-reorder"
+      >
+        Re-order this
+      </router-link>
+    </nav>
+
     <!-- Header -->
     <div class="order-header">
       <div>
@@ -394,6 +410,28 @@ async function handleCancelOrder() {
 <style scoped>
 .order-detail-page { }
 .order-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+
+/* ★ 2026-11-27（A-194 / A-195）：面包屑 + 重新下单入口 */
+.order-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.order-crumb-link { color: var(--color-primary); text-decoration: none; }
+.order-crumb-link:hover { text-decoration: underline; }
+.order-crumb-sep { color: var(--color-text-tertiary); }
+.order-crumb-current { color: var(--color-text-secondary); font-family: var(--font-mono); }
+.order-crumb-reorder {
+  margin-left: auto;
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+.order-crumb-reorder:hover { text-decoration: underline; }
 .order-title { font-size: 22px; font-weight: 800; color: var(--color-text); margin: 0 0 4px; }
 .order-date { font-size: 14px; color: var(--color-text-secondary); margin: 0; }
 

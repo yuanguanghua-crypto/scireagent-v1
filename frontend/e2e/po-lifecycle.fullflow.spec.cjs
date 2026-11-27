@@ -24,7 +24,7 @@ test.describe('@po-full 全流程真浏览器', () => {
     await loginAsCustomer(page);
     await page.goto(`${BASE_URL}/po/submit`, { waitUntil: 'domcontentloaded' });
 
-    await page.getByPlaceholder('无 PO 号可留空').fill(poNumber);
+    await page.getByPlaceholder("Leave blank if you don't have one yet").fill(poNumber);
     await page.getByRole('button', { name: '+ Add Line Item' }).click();
 
     // 搜商品（PoSubmit 的 @input 触发 searchProducts）

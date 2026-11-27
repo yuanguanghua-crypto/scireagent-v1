@@ -44,16 +44,16 @@ async function seedPendingOrder(request) {
 }
 
 test.describe('@po-ui 客户侧 PO 页面', () => {
-  test('PoSubmit 页加载；含「PO Number（可选）」与「Quote / Reference #」下拉', async ({ page }) => {
+  test('PoSubmit 页加载；含「PO Number \(optional\)」与「Quote / Reference #」下拉', async ({ page }) => {
     await loginAsCustomer(page);
     await page.goto(`${BASE_URL}/po/submit`, { waitUntil: 'domcontentloaded' });
     // 无白屏（scope 到 PO 页标题类，避免与布局标题 strict-mode 冲突）
     await expect(page.locator('h1.po-page-title', { hasText: 'Submit Purchase Order' })).toBeVisible();
     // 本轮改动：PO 号可选文案
-    await expect(page.getByText(/PO Number（可选）/)).toBeVisible();
+    await expect(page.getByText(/PO Number \(optional\)/)).toBeVisible();
     // 本轮改动：Quote 关联下拉
     await expect(page.getByText(/Quote \/ Reference #/)).toBeVisible();
-    await expect(page.locator('select').filter({ hasText: /不关联报价/ })).toBeVisible();
+    await expect(page.locator('select').filter({ hasText: /Not linked to a quote/ })).toBeVisible();
     // 无 console error（严格）
   });
 

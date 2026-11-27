@@ -15,8 +15,15 @@ export const useAuthStore = defineStore('auth', () => {
   const cachedRole = ref(localStorage.getItem('role') || '')
 
   const isAuthenticated = computed(() => !!token.value)
+  // ★ 2026-11-27（A-253）：头像首字母在 `/auth/me` 返回前**没有名字可用**，
+  //   原实现兜底成写死的 "U" ⇒ 打开 /settings、/po/addresses 会先看到 "U"，
+  //   数据到达后才跳成真实首字母（QA 报的"短暂显示错误字母"）。
+  //   与 is_staff / role 一样把 username 缓存进 localStorage：
+  //   硬刷新后同步读得到，首帧就是对的。
+  const cachedUsername = ref(localStorage.getItem('username') || '')
   const userInitial = computed(() => {
-    const name = user.value?.nickname || user.value?.username || user.value?.email || ''
+    const name = user.value?.nickname || user.value?.username
+      || cachedUsername.value || user.value?.email || ''
     return name.charAt(0).toUpperCase() || 'U'
   })
   const username = computed(() => user.value?.username || '')
@@ -33,7 +40,9 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = result.data
       cachedIsStaff.value = !!result.data?.is_staff
       cachedRole.value = result.data?.role || ''
+      cachedUsername.value = result.data?.nickname || result.data?.username || ''
       localStorage.setItem('role', cachedRole.value)
+      if (cachedUsername.value) localStorage.setItem('username', cachedUsername.value)
     } catch {
       token.value = ''
       user.value = null
@@ -64,9 +73,11 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = result.data.user
     cachedIsStaff.value = !!result.data.user?.is_staff
     cachedRole.value = result.data.user?.role || ''
+    cachedUsername.value = result.data.user?.nickname || result.data.user?.username || ''
     localStorage.setItem('token', token.value)
     localStorage.setItem('is_staff', String(cachedIsStaff.value))
     localStorage.setItem('role', cachedRole.value)
+    if (cachedUsername.value) localStorage.setItem('username', cachedUsername.value)
 
     // ② Merge AFTER the token is persisted, so the merge request carries the
     // auth header (the endpoint is IsAuthenticated —实测匿名调用返回 401)。
@@ -110,9 +121,11 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = payload.user
     cachedIsStaff.value = !!payload.user?.is_staff
     cachedRole.value = payload.user?.role || ''
+    cachedUsername.value = payload.user?.nickname || payload.user?.username || ''
     localStorage.setItem('token', token.value)
     localStorage.setItem('is_staff', String(cachedIsStaff.value))
     localStorage.setItem('role', cachedRole.value)
+    if (cachedUsername.value) localStorage.setItem('username', cachedUsername.value)
 
     // After the token is persisted so the merge call is authenticated; a failure
     // must not prevent the user from getting into the app.
@@ -184,6 +197,9 @@ export const useAuthStore = defineStore('auth', () => {
     cachedIsStaff.value = false
     localStorage.removeItem('token')
     localStorage.removeItem('is_staff')
+    // ★ 2026-11-27（A-253）：头像缓存也要清 —— 否则登出后页眉仍显示上一个账号的首字母
+    cachedUsername.value = ''
+    localStorage.removeItem('username')
     // ★ 2026-11-27（A-041）：登出后必须把购物车**重新按游客作用域取一次**。
     //   原来只清 token，`useBasketStore().count` 仍留着账户购物车的件数
     //   ⇒ 已经跳到 /login、页眉也恢复成 Sign In / Register 了，

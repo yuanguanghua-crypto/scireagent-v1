@@ -90,7 +90,7 @@ test.describe('Phase 2 · PO 全流程拟人', () => {
     await expect(page.locator('h1.po-page-title', { hasText: 'Submit Purchase Order' })).toBeVisible({ timeout: 15000 })
 
     poNumber = `E2E-PROD-FLOW-${Date.now()}`
-    await page.getByPlaceholder('无 PO 号可留空').fill(poNumber)
+    await page.getByPlaceholder("Leave blank if you don't have one yet").fill(poNumber)
     await page.getByRole('button', { name: '+ Add Line Item' }).click()
 
     // 搜索临时测试商品

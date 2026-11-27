@@ -127,7 +127,7 @@ test.describe('@po-prod 生产 PO 全面巡检', () => {
     // 提交页关键控件
     await page.goto(`${BASE_URL}/po/submit`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('h1.po-page-title', { hasText: 'Submit Purchase Order' })).toBeVisible();
-    await expect(page.getByText(/PO Number（可选）/)).toBeVisible();
+    await expect(page.getByText(/PO Number \(optional\)/)).toBeVisible();
     await expect(page.getByText(/Quote \/ Reference #/)).toBeVisible();
     await expect(page.getByRole('button', { name: '+ Add Line Item' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Submit PO' })).toBeVisible();

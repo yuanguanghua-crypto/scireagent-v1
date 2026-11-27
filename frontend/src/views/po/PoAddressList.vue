@@ -151,7 +151,17 @@ onMounted(() => store.fetchAddresses())
         </tbody>
       </table>
       <div v-else-if="loading" class="po-empty">Loading…</div>
-      <div v-else class="po-empty">No addresses yet.</div>
+      <!-- ★ 2026-11-27（A-239）：空态只有一句 "No addresses yet."，而客户在结账时
+           明明填过地址 —— 会以为地址丢了。事实是：**结账页填写的地址只写进订单，
+           不会自动进地址簿**（两条独立路径）。这里把口径写清楚，并给一个直接动作。 -->
+      <div v-else class="po-empty" data-testid="address-empty">
+        <p style="margin:0 0 8px">No addresses yet.</p>
+        <p class="po-muted" style="margin:0 0 10px; font-size:13px; line-height:1.5">
+          Addresses you type on the checkout page are saved to that order only — they are
+          <strong>not</strong> added here automatically. Add one below to reuse it for future POs.
+        </p>
+        <button class="po-btn po-btn-outline po-btn-sm" @click="openNew">+ Add your first address</button>
+      </div>
     </div>
   </div>
 </template>

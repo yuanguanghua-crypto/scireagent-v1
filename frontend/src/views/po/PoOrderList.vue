@@ -11,16 +11,28 @@ const router = useRouter()
 const store = usePoPortalStore()
 const { orders, total, loading, page, pageSize } = storeToRefs(store)
 const statusFilter = ref('')
+// ★ 2026-11-27（A-193）：列表此前**没有订单搜索框**（只有状态筛选），
+//   客户手里拿着 PO 号却只能翻页找。后端 OrderViewSet.list 早已支持
+//   `?search=`（按 order_no / po_number 模糊匹配），这里只是把入口补上。
+const searchTerm = ref('')
+let searchTimer = null
 
 async function load(opts = {}) {
   const base = { ...(opts || {}) }
   if (statusFilter.value) base.status = statusFilter.value
+  const q = searchTerm.value.trim()
+  if (q) base.search = q
   await store.fetchOrders(base)
 }
 
 onMounted(() => load({ page: 1 }))
 // 换筛选 ⇒ 必须回到第 1 页（否则会停在越界页显示空表）
 watch(statusFilter, () => load({ page: 1 }))
+// 搜索防抖：逐字发请求会让"谁后到谁生效"决定列表内容（A-141 同款坑）
+watch(searchTerm, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => load({ page: 1 }), 300)
+})
 
 // ★ 2026-10-21 修 D5：此前没有分页控件，32 单也只显示前 20 单
 function onPageChange(p) {
@@ -43,6 +55,14 @@ function reorder(id) {
         <p class="po-page-subtitle">{{ total }} order(s)</p>
       </div>
       <div class="po-row">
+        <input
+          v-model="searchTerm"
+          class="po-input"
+          style="width:220px"
+          type="search"
+          placeholder="Search order no. or PO number"
+          aria-label="Search orders by order number or PO number"
+        />
         <select v-model="statusFilter" class="po-select" style="width:180px" aria-label="Filter orders by status">
           <option v-for="f in ORDER_STATUS_FILTERS" :key="f.value" :value="f.value">{{ f.label }}</option>
           <!-- ★ 2026-10-21 修 D5：补 legacy 报价态（库内 quote_pending 40 单 / quoted 33 单） -->

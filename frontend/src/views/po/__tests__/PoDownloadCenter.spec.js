@@ -123,3 +123,51 @@ describe('PoDownloadCenter 取数（S5 P-2）', () => {
     expect(w.findAll('tbody tr').length).toBe(2)
   })
 })
+
+/**
+ * ★ 2026-11-27（S8）：A-196 空态解释 + A-244 附件列文案。
+ *
+ * A-196：客户有订单却看到 "No downloadable documents yet." 会以为系统坏了。
+ *   真实原因有两类且都不在页面上说明：① 本页只列**发票**与**你上传的 PO 附件**；
+ *   ② SDS/CoA 是**产品级**文档，挂在产品详情页。
+ * A-244：PO ATTACHMENTS 列原来无附件写 "—"，客户分不清"没有"还是"没加载出来"。
+ */
+describe('PoDownloadCenter 文案（A-196 / A-244）', () => {
+  it('空态保留原句，并解释只列发票与 PO 附件（e2e 依赖原句）', async () => {
+    api.getOrders.mockResolvedValue(envelope([], 0, 1, 500))
+    const w = mount(PoDownloadCenter)
+    await flushPromises()
+    const empty = w.find('[data-testid="download-empty"]')
+    expect(empty.exists()).toBe(true)
+    const text = empty.text()
+    expect(text).toContain('No downloadable documents yet.')
+    expect(text).toMatch(/invoices/i)
+    expect(text).toMatch(/PO file you uploaded/i)
+  })
+
+  it('空态里指出 SDS / CoA 在产品详情页', async () => {
+    api.getOrders.mockResolvedValue(envelope([], 0, 1, 500))
+    const w = mount(PoDownloadCenter)
+    await flushPromises()
+    const text = w.find('[data-testid="download-empty"]').text()
+    expect(text).toMatch(/safety data sheet|SDS/i)
+    expect(text).toMatch(/product page/i)
+  })
+
+  it('无附件 → 明确写 No attachment，不再用破折号', async () => {
+    api.getOrders.mockResolvedValue(envelope([docRow(1, { attachments: 0 })], 1, 1, 500))
+    const w = mount(PoDownloadCenter)
+    await flushPromises()
+    expect(w.find('[data-testid="no-attachment"]').text()).toBe('No attachment')
+  })
+
+  it('有附件 → 显示数量', async () => {
+    api.getOrders.mockResolvedValue(
+      envelope([docRow(2, { invoice: false, attachments: 2 })], 1, 1, 500),
+    )
+    const w = mount(PoDownloadCenter)
+    await flushPromises()
+    expect(w.text()).toContain('2 files')
+    expect(w.find('[data-testid="no-attachment"]').exists()).toBe(false)
+  })
+})

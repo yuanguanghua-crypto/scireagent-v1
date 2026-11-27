@@ -88,7 +88,14 @@ const rows = computed(() =>
               <span v-if="r.invoice" class="po-tag">{{ r.invoice.invoice_no }}</span>
               <span v-else class="po-muted">—</span>
             </td>
-            <td>{{ r.attachments.length || '—' }}</td>
+            <td>
+              <!-- ★ 2026-11-27（A-244）：「—」既可能是"没有"也可能是"没加载出来"，
+                   客户分不清。明确写 No attachment，有附件时给数量。 -->
+              <span v-if="r.attachments.length" class="po-tag">
+                {{ r.attachments.length }} file{{ r.attachments.length === 1 ? '' : 's' }}
+              </span>
+              <span v-else class="po-muted" data-testid="no-attachment">No attachment</span>
+            </td>
             <td>
               <div class="po-row">
                 <button
@@ -111,7 +118,22 @@ const rows = computed(() =>
       <div v-else-if="error" class="po-empty" data-testid="download-error-empty">
         Your documents could not be loaded — see the message above.
       </div>
-      <div v-else class="po-empty">No downloadable documents yet.</div>
+      <!-- ★ 2026-11-27（A-196）：空态此前只有一句 "No downloadable documents yet." ——
+           客户带着"我明明有 2 个订单"的预期进来，看到这句会以为系统坏了。
+           真实原因有两类，必须说清楚；另外 SDS/COA 本来就不在这个页面
+           （它们是**产品级**文档，挂在产品详情页），也要给出可走的路。 -->
+      <div v-else class="po-empty" data-testid="download-empty">
+        <p style="margin:0 0 8px">No downloadable documents yet.</p>
+        <p class="po-muted" style="margin:0 0 8px; font-size:13px; line-height:1.5">
+          This page lists <strong>invoices</strong> (available after we issue one) and
+          <strong>the PO file you uploaded</strong>. Orders that have neither will not appear here.
+        </p>
+        <p class="po-muted" style="margin:0; font-size:13px; line-height:1.5">
+          Looking for a safety data sheet (SDS) or CoA? Those are product documents —
+          open the product page and use its Documents section.
+          <router-link to="/products" style="color:var(--color-primary)">Browse products →</router-link>
+        </p>
+      </div>
     </div>
   </div>
 </template>

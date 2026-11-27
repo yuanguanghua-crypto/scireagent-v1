@@ -1,10 +1,11 @@
 <script setup>
 import { reactive, ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { submitPo, getOrderDetail, getMyQuotes } from '@/api/poPortal'
+import { submitPo, getOrderDetail, getMyQuotes, getMyOrders } from '@/api/poPortal'
 import { getProducts, getProductDetail } from '@/api/products'
 import { getAddresses } from '@/api/addresses'
 import { useBasketStore } from '@/stores/basket'
+import { useAuthStore } from '@/stores/auth'
 import { SHIPPING_METHODS } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
 import { toast } from '@/components/common'
@@ -12,6 +13,7 @@ import { toast } from '@/components/common'
 const router = useRouter()
 const route = useRoute()
 const basketStore = useBasketStore()
+const authStore = useAuthStore()
 const submitting = ref(false)
 const successOrderNo = ref('')
 // ★ 2026-10-28：缺货拦截的结构化结果（后端 meta.error.details）
@@ -83,9 +85,43 @@ onMounted(async () => {
     await loadReorder()
   }
   await prefillFromAddresses()
+  await prefillFromProfileFallback()
   if (!items.value.length) await prefillFromBasket()
   loadQuotes()
+  loadRecentOrders()
 })
+
+/**
+ * 地址簿为空时，用个人资料里的收货信息兜底（A-243：表单要预填 /settings 的值）。
+ * ⚠️ `authStore.user` 由 `/auth/me` 异步填充，挂载那一刻通常还是 null ——
+ *   只跑一次会永远填不上（本项目在 A-168 / A-146 上踩过两次），所以下面挂了
+ *   带 immediate 的 watch 兜住"迟到"的那次。
+ */
+async function prefillFromProfileFallback() {
+  if (form.shipping_name || form.shipping_address) return
+  const u = authStore.user
+  if (!u) return
+  form.shipping_name = u.shipping_name || u.nickname || u.username || ''
+  form.shipping_phone = u.shipping_phone || u.phone || ''
+  form.shipping_address = u.default_shipping_address || ''
+  form.shipping_email = u.shipping_email || u.email || ''
+}
+
+// user 晚到时再补一次（函数自身幂等：已经填过就直接返回）
+watch(() => authStore.user, (u) => { if (u) prefillFromProfileFallback() }, { immediate: true })
+
+/** 最近订单（供 Order ID 下拉，A-243）。失败不打扰用户。 */
+const recentOrders = ref([])
+async function loadRecentOrders() {
+  try {
+    const res = await getMyOrders({ page_size: 20 })
+    const payload = res.data || res
+    const list = Array.isArray(payload) ? payload : (payload.results || [])
+    recentOrders.value = Array.isArray(list) ? list : []
+  } catch {
+    recentOrders.value = []
+  }
+}
 
 /** 把地址簿里的默认地址填进 Ship-to / Bill-to（A-186）。 */
 async function prefillFromAddresses() {
@@ -107,17 +143,21 @@ async function prefillFromAddresses() {
   const line = (a) => [a.line1, a.line2, a.city, a.state, a.postal_code, a.country]
     .filter((v) => v && String(v).trim()).join(', ')
 
+  // ★ 地址簿是**更具体**的来源 ⇒ 有默认地址时直接覆盖（个人资料兜底只填空）。
+  //   顺序上 onMounted 先调本函数、再调资料兜底，而资料兜底本身"已填就返回"，
+  //   两层优先级因此成立：地址簿 > 个人资料 > 空白。
   const ship = pick('shipping')
   if (ship) {
-    form.shipping_name = form.shipping_name || ship.attention || ''
-    form.shipping_phone = form.shipping_phone || ship.phone || ''
-    form.shipping_address = form.shipping_address || line(ship)
-    form.shipping_email = form.shipping_email || ''
+    if (ship.attention) form.shipping_name = ship.attention
+    if (ship.phone) form.shipping_phone = ship.phone
+    const shipLine = line(ship)
+    if (shipLine) form.shipping_address = shipLine
   }
   const bill = pick('billing')
   if (bill) {
-    form.billing_name = form.billing_name || bill.attention || ''
-    form.billing_address = form.billing_address || line(bill)
+    if (bill.attention) form.billing_name = bill.attention
+    const billLine = line(bill)
+    if (billLine) form.billing_address = billLine
   }
 }
 
@@ -423,9 +463,24 @@ function resetForNewPo() {
         <h1 class="po-page-title">Submit Purchase Order</h1>
         <p class="po-page-subtitle">Upload your PO and line items; we’ll confirm within 1 business day.</p>
       </div>
+      <!-- ★ 2026-11-27（A-243）：原来是一个标着 "Order ID" 的自由文本框 ——
+           客户既不知道该填什么格式，也不知道自己有哪些单可填（填错只得到一句报错）。
+           改成"最近订单"下拉：选项就是他自己最近的订单，选中即可。 -->
       <div class="po-row">
-        <input v-model="reorderSourceId" class="po-input" style="width:120px" placeholder="Order ID" />
-        <button class="po-btn po-btn-outline po-btn-sm" @click="loadReorder">Load from Order</button>
+        <select
+          v-model="reorderSourceId"
+          class="po-select"
+          style="min-width:220px"
+          aria-label="Copy details from one of your recent orders"
+        >
+          <option value="">— Copy from a recent order —</option>
+          <option v-for="o in recentOrders" :key="o.id" :value="String(o.id)">
+            {{ o.order_no }}{{ o.po_number ? ` · ${o.po_number}` : '' }}
+          </option>
+        </select>
+        <button class="po-btn po-btn-outline po-btn-sm" :disabled="!reorderSourceId" @click="loadReorder">
+          Load from Order
+        </button>
       </div>
     </div>
 
@@ -479,13 +534,13 @@ function resetForNewPo() {
       <h2 class="po-section-title">PO Information</h2>
       <div class="po-form-grid">
         <div class="po-field">
-          <label class="po-label" for="po-f1">PO Number（可选）</label>
-          <input id="po-f1" v-model="form.po_number" class="po-input" placeholder="无 PO 号可留空" />
+          <label class="po-label" for="po-f1">PO Number (optional)</label>
+          <input id="po-f1" v-model="form.po_number" class="po-input" placeholder="Leave blank if you don't have one yet" />
         </div>
         <div class="po-field">
-          <label class="po-label" for="po-f2">Quote / Reference #（可选）</label>
+          <label class="po-label" for="po-f2">Quote / Reference # (optional)</label>
           <select id="po-f2" v-model="form.quote_id" class="po-select">
-            <option value="">— 不关联报价 —</option>
+            <option value="">— Not linked to a quote —</option>
             <option v-for="q in quoteOptions" :key="q.id" :value="q.id">
               {{ q.quote_no }} · {{ q.grand_total }}
             </option>
@@ -611,6 +666,15 @@ function resetForNewPo() {
       <p v-else class="po-muted">No line items yet.</p>
       <button type="button" class="po-btn po-btn-outline po-btn-sm" style="margin-top:12px" @click="addItem">+ Add Line Item</button>
 
+      <!-- ★ 2026-11-27（A-191）：页面此前**一个字都没提付款条款**（QA 全文搜 "NET" 零命中）。
+           客户在上传采购单时要能看到"钱什么时候要付"。
+           ⚠️ 这里只显示**平台默认**（`Order.PaymentTerms.NET30`，模型层默认值，
+           下单时后端不接收前端传的条款）—— 不给可编辑控件，避免让人以为能自己改账期。 -->
+      <div class="po-terms-row">
+        <span class="po-terms-label">Payment Terms</span>
+        <span class="po-terms-value">NET 30 · net due 30 days after invoice date</span>
+      </div>
+
       <div class="po-total-row">
         <span>Estimated Total</span>
         <span class="po-total-value">{{ formatCurrency(grandTotal) }}</span>
@@ -654,6 +718,22 @@ function resetForNewPo() {
   line-height: 1.4;
   color: #b91c1c;
 }
+/* ★ 2026-11-27（A-191）付款条款行：与 Total 同一视觉层级但更弱（不是金额） */
+.po-terms-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  background: var(--color-bg-subtle, var(--color-bg));
+  border: 1px solid var(--color-border-light, var(--color-border));
+  border-radius: var(--radius-sm, 4px);
+  font-size: 13px;
+}
+.po-terms-label { font-weight: 600; color: var(--color-text-secondary); }
+.po-terms-value { color: var(--color-text); }
+
 .po-submit-error {
   margin: 12px 0 0;
   padding: 8px 12px;

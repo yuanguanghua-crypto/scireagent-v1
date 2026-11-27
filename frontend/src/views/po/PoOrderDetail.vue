@@ -38,6 +38,20 @@ function statusTransition(log) {
 
 <template>
   <div class="po-page" v-if="order">
+    <!-- ★ 2026-11-27（A-194 / A-195）：本页此前既无面包屑也无 Re-order 入口
+         （Re-order 只在 /po/orders 列表行上有）。补一条面包屑 + 一个重新下单入口。 -->
+    <nav class="po-crumbs" aria-label="Breadcrumb">
+      <router-link to="/po/orders" class="po-crumb-link">My Orders</router-link>
+      <span class="po-crumb-sep">/</span>
+      <span class="po-crumb-current">{{ order.order_no }}</span>
+      <router-link
+        :to="{ path: '/po/submit', query: { reorder: order.id } }"
+        class="po-crumb-reorder"
+      >
+        Re-order this
+      </router-link>
+    </nav>
+
     <div class="po-page-header">
       <div>
         <h1 class="po-page-title">Order {{ order.order_no }}</h1>
@@ -187,6 +201,23 @@ function statusTransition(log) {
 </template>
 
 <style scoped>
+/* ★ 2026-11-27（A-194 / A-195）面包屑 + 重新下单入口 */
+.po-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.po-crumb-link { color: var(--color-primary); text-decoration: none; }
+.po-crumb-link:hover { text-decoration: underline; }
+.po-crumb-sep { color: var(--color-text-tertiary); }
+.po-crumb-current { font-family: var(--font-mono); }
+.po-crumb-reorder { margin-left: auto; color: var(--color-primary); text-decoration: none; font-weight: 600; }
+.po-crumb-reorder:hover { text-decoration: underline; }
+
 .po-shipment {
   border: 1px solid var(--color-border-light);
   border-radius: 4px;

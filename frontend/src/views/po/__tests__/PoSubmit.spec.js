@@ -34,6 +34,7 @@ vi.mock('@/api/poPortal', () => ({
   }),
   getOrderDetail: vi.fn(async () => ({ data: null })),
   getMyQuotes: vi.fn(async () => ({ data: [] })),
+  getMyOrders: vi.fn(async () => ({ data: [] })),
 }))
 
 vi.mock('@/api/products', () => ({
@@ -63,6 +64,10 @@ vi.mock('@/components/common', () => ({
 //   本套用例只关心「提交闸门」，两者给空的即可（等于"没有默认地址、购物车为空"）。
 vi.mock('@/stores/basket', () => ({
   useBasketStore: () => ({ items: [], loadBasket: vi.fn(async () => {}) }),
+}))
+// ★ 2026-11-27（A-243）：页面新增了"用个人资料兜底预填"与"最近订单下拉"
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ user: null, isAuthenticated: true }),
 }))
 vi.mock('@/api/addresses', () => ({
   getAddresses: vi.fn(async () => ({ data: [] })),

@@ -71,7 +71,7 @@ test.afterAll(async () => {
 
 /**
  * 客户侧真填表提交 PO（选择器证据见 src/views/po/PoSubmit.vue）：
- *   - PO 号输入框 placeholder「无 PO 号可留空」           :208
+ *   - PO 号输入框 placeholder「Leave blank if you don't have one yet」           :208
  *   - 「+ Add Line Item」按钮                              :327
  *   - 商品搜索 input（placeholder「Search product…」）      :294
  *   - 搜索结果项 `.po-search-item`                          :303-304
@@ -83,7 +83,7 @@ async function submitPoViaUI(page, poNumber) {
   await loginAsCustomer(page);
   await page.goto(`${BASE_URL}/po/submit`, { waitUntil: 'domcontentloaded' });
 
-  await page.getByPlaceholder('无 PO 号可留空').fill(poNumber);
+  await page.getByPlaceholder("Leave blank if you don't have one yet").fill(poNumber);
   await page.getByRole('button', { name: '+ Add Line Item' }).click();
 
   const row = page.locator('.po-table tbody tr').first();
