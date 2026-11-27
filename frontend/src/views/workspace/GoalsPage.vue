@@ -6,6 +6,7 @@ import { isInternal } from '@/utils/internalAccess'
 import { http } from '@/api/http'
 import { toast, LoadingSpinner, EmptyState, DataPagination } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
+import { useConfirm } from '@/composables/useConfirm'
 import { useEntityList } from '@/composables/useEntityList'
 import EntityListToolbar from './components/EntityListToolbar.vue'
 
@@ -48,9 +49,35 @@ const pendingArchiveId = ref(null)
 // ★ 2026-11-18（A-155）：409 后允许「再点一次 Save 就照样建」（= allow_duplicate=1）
 const allowDuplicate = ref(false)
 const overlay = ref(null)
+const { ask } = useConfirm()
+
+/**
+ * ★ 2026-11-27（A-200）：未保存就关闭必须确认。
+ *
+ * 改前：新建目标对话框填了 Name + Summary 后按 Escape（或点 Cancel / 点遮罩）
+ * **直接关掉、内容全丢、零提示**（QA 实测：列表总数没变，说明确实没存）。
+ * 现在：三个关闭入口（Escape / Cancel / 点遮罩）都走 `requestClose()`，
+ * 只在**真的改过**时才问一句——没动过的对话框不多余打扰。
+ */
+const formSnapshot = ref('')
+function takeSnapshot() { formSnapshot.value = JSON.stringify(form.value) }
+function isDirty() {
+  return showEditor.value && JSON.stringify(form.value) !== formSnapshot.value
+}
+async function requestClose() {
+  if (!isDirty()) { showEditor.value = false; return }
+  const ok = await ask({
+    title: 'Discard changes?',
+    message: 'This goal has unsaved changes. Closing now will lose them.',
+    confirmText: 'Discard',
+    danger: true,
+  })
+  if (ok) showEditor.value = false
+}
+
 const dialogAttrs = useDialogA11y(showEditor, overlay, {
   titleId: 'entity-editor-title',
-  close: () => { showEditor.value = false },
+  close: requestClose,
 })
 
 onMounted(loadList)
@@ -67,6 +94,7 @@ function openNew() {
   allowDuplicate.value = false
   protocolOptions.value = []
   showEditor.value = true
+  takeSnapshot()          // A-200：记下"刚打开时的样子"，用于判断有没有改过
 }
 
 async function openEdit(e) {
@@ -83,6 +111,7 @@ async function openEdit(e) {
   allowDuplicate.value = false
   protocolOptions.value = options
   showEditor.value = true
+  takeSnapshot()          // A-200：同上
 }
 
 async function searchProtocols(query) {
@@ -232,7 +261,7 @@ async function archiveRow(e) {
           </el-select>
         </label>
         <div class="dialog-actions">
-          <button class="btn btn-ghost btn-sm" @click="showEditor = false">Cancel</button>
+          <button class="btn btn-ghost btn-sm" @click="requestClose">Cancel</button>
           <button class="btn btn-primary btn-sm" @click="save" :disabled="saving">{{ saving ? 'Saving...' : 'Save' }}</button>
         </div>
       </div>

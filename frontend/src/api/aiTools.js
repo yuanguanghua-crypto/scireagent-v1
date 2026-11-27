@@ -103,10 +103,15 @@ export function adoptBiozRefs(productId, references, citationRole = 'supporting'
  * POST /api/v1/products/render-structure/
  * Returns { svg, format, canonical_smiles }
  */
-export function renderStructure(smiles, width = 500, height = 400) {
+export function renderStructure(smiles, width = 500, height = 400, opts = {}) {
   return http.post('/products/render-structure/', {
     smiles: smiles || '',
     width,
     height,
+  }, {
+    // ★ 2026-11-27（A-153）：结构预览是"边打字边试"的探测请求 —— 用户打到一半
+    //   的 SMILES 必然无效，后端会回 "invalid SMILES"。这类失败不该弹全局 toast
+    //   （实测逐字输入会连弹几十条）。`silent` 见 utils/http.js 拦截器。
+    silent: opts.silent === true,
   })
 }

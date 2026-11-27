@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { isInternal } from '@/utils/internalAccess'
@@ -258,6 +258,9 @@ const shelfLifeOpts = [
   { label: '1 year', value: 'P1Y' },
   { label: '2 years', value: 'P2Y' },
   { label: '3 years', value: 'P3Y' },
+  // ★ 2026-11-27（A-199）：原来跳过了 4 年（1/2/3/5），而试剂盒 4 年质保很常见 ——
+  //   缺这一档时运营只能选 3 年（少报）或 5 年（虚报），两个方向都是错的。
+  { label: '4 years', value: 'P4Y' },
   { label: '5 years', value: 'P5Y' },
 ]
 const packSizeUnits = ['µg', 'mg', 'g', 'µL', 'mL', 'L']
@@ -1435,6 +1438,7 @@ async function loadProduct() {
     if (resp.data) {
       const d = resp.data
       Object.keys(form).forEach(k => { if (k in d) form[k] = d[k] ?? form[k] })
+      isRecycled.value = !!d.archived
       // ★ A-042：换了产品/重新载入，上一个产品的分子量冲突提示必须清掉
       mwConflict.value = null
       if (d.skus) skus.value = d.skus.map(s => {
@@ -1496,6 +1500,11 @@ const complianceLoading = ref(false)
 const qcEditingId = ref(null)
 const qcForms = reactive({})
 const newBatchForms = ref({}) // { [skuId]: { lot_number, produced_at, retest_at } }
+// A-054/A-209：已有批次时"再加一批"的展开开关（每个 SKU 独立）
+const newBatchOpen = ref({})
+// A-025：产品是否在回收站（`archived` 标记，与 status 是两回事 ——
+// 回收站里的产品 status 可能仍是 active，页面必须说清"它已不在目录里"）
+const isRecycled = ref(false)
 
 // 无 CAS / SMILES / InChI → 禁用 SDS 生成（P1-4）
 const sdsGenerateDisabled = computed(() => !form.cas && !form.smiles && !form.inchi)
@@ -1606,6 +1615,7 @@ async function createBatchAndCoa(skuId) {
     // 清空当前表单
     if (newBatchForms.value[skuId]) {
       newBatchForms.value[skuId] = { lot_number: '', produced_at: '', retest_at: '' }
+      newBatchOpen.value[skuId] = false   // A-054：建完收起，避免表单一直挂着
     }
   } catch (e) {
     setFeedback('error', e.response?.data?.error || 'Creation failed')
@@ -1946,6 +1956,7 @@ async function saveDraft(isPublish = false) {
       // ⑤ 编辑态保存后重新同步 SKU / 合规数据：新加的 SKU 立即可生成 COA，
       // 避免操作员加了 SKU 却看不到生成入口（与新建分支一致，不丢已保存数据）。
       await loadProduct()
+      takeFormSnapshot()      // A-200：保存成功即重拍快照，否则保存后仍被判"有未保存改动"
       setFeedback('success', isPublish ? 'Product published' : 'Draft saved')
     } else {
       const resp = await http.post('/products/', payload)
@@ -1962,6 +1973,7 @@ async function saveDraft(isPublish = false) {
         await router.replace(`/workspace/products/${newId}/edit`)
         await nextTick()        // 确保 route.params.id 已刷新为 newId，再重载产品
         await loadProduct()     // 从服务端重新同步带 id 的 SKU 并触发 loadCompliance（修复新建后 Batch COA 为空 #3）
+        takeFormSnapshot()      // A-200：同上
         // ⑥ 首次保存后不跳离（router.replace 保持本页）+ 解锁提示
         setFeedback('success', isPublish ? 'Product created and published' : 'Product saved. You can now generate SDS, COA, and SEO in section 9.')
       }
@@ -1984,9 +1996,44 @@ function handlePublish() {
   showPublishDialog.value = true
 }
 
-onMounted(() => {
-  loadProduct()
+/**
+ * ★ 2026-11-27（A-200）：未保存离开要提示。
+ *
+ * 改前：新建产品页填了 Name / Catalog / CAS 之后直接按 F5 或关标签页，
+ * **没有任何提示**，内容静默丢失（QA 实测三字段全部回空）。
+ * 浏览器只认 `beforeunload` 这一条路，所以这里在**真的改过**时才挂拦截
+ * （没动过的页面不该被拦，否则正常返回列表也要弹确认）。
+ */
+const formSnapshot = ref('')
+// ⚠️ `form` 是 `reactive(...)` **不是 ref** —— 写成 `form.value` 会得到 undefined，
+//    于是 `JSON.stringify(undefined) === undefined` 恒等 ⇒ 永远判不出"改过"
+//    （本地实测：填了表单刷新也不弹确认）。这里直接用 `form`。
+const formDirty = computed(
+  () => formSnapshot.value !== '' && JSON.stringify(form) !== formSnapshot.value,
+)
+function takeFormSnapshot() { formSnapshot.value = JSON.stringify(form) }
+function onBeforeUnload(e) {
+  if (!formDirty.value) return
+  e.preventDefault()
+  e.returnValue = ''      // Chrome 需要赋值才会弹
+}
+
+onBeforeUnmount(() => { window.removeEventListener('beforeunload', onBeforeUnload) })
+
+onMounted(async () => {
+  await loadProduct()
   if (!isEdit.value) loadCategoryOptions()
+  takeFormSnapshot()
+
+  window.addEventListener('beforeunload', onBeforeUnload)
+  // ★ 2026-11-27（A-024/A-198）：列表草稿行点 "Publish…" 会带 `?publish=1` 过来
+  //   —— 发布要过完整性校验，不能在列表里直接改状态绕过闸门，所以这里接着开对话框。
+  if (isEdit.value && route.query.publish === '1') {
+    // 先清掉 query，避免刷新时反复弹；对话框自己不通过也无所谓
+    router.replace({ query: { ...route.query, publish: undefined } })
+    await nextTick()
+    showPublishDialog.value = true
+  }
 })
 
 // 用户补填字段后，实时清除该字段的"必填未填"标红——避免填好后红框和提示还挂着。
@@ -2016,17 +2063,38 @@ watch(
 
     <!-- Completeness bar -->
     <div class="completeness-bar" :class="isComplete ? 'completeness-ok' : 'completeness-warn'">
+      <!-- ★ 2026-11-27（A-023）：这个条算的是**必填项是否填全**，不是"保存成功"。
+           原来只写 "✓ Complete"，保存失败时它也照样绿 ⇒ 会被读成"已经存好了"。
+           另外补一句"仅填 Name 不会变绿"的原因，省得反复试。 -->
       <span v-if="isComplete">✓ Complete</span>
       <span v-else>✗ Incomplete — missing: {{ incompleteItems.join(', ') }}</span>
+      <span class="completeness-note">
+        — required-fields checklist only; it does not mean saved or published.
+      </span>
     </div>
 
     <!-- ③ 生命周期状态步进器：厘清「产品发布」与「文档发布」两个概念 -->
     <div class="lifecycle-stepper" v-if="isEdit">
       <div class="stepper-track">
         <span class="stepper-label">Product</span>
-        <span class="step" :class="form.status === 'active' ? 'step-done' : 'step-current'">Draft</span>
-        <span class="step-arrow">→</span>
-        <span class="step" :class="form.status === 'active' ? 'step-done' : 'step-todo'">Published</span>
+        <!-- ★ 2026-11-27（A-025）：原来只判 `status === 'active'`，于是
+             **归档/停产**的产品也画成 "Draft →(当前) Published →(待做)"，
+             读起来像"这单还是草稿、还没发布"，而页面标题明明写着 ARCHIVED / DEPRECATED。
+             现在把三种终态如实标出来：归档＝已下架（不在售），停产＝退出目录（页面保留）。 -->
+        <!-- 回收站里的产品：status 可能还是 active，但对外已不可见（A-025 的另一种形态） -->
+        <template v-if="isRecycled">
+          <span class="step step-todo">In Recycle Bin</span>
+        </template>
+        <template v-else-if="form.status === 'archived' || form.status === 'deprecated'">
+          <span class="step step-done">Published</span>
+          <span class="step-arrow">→</span>
+          <span class="step step-current">{{ form.status === 'archived' ? 'Archived' : 'Discontinued' }}</span>
+        </template>
+        <template v-else>
+          <span class="step" :class="form.status === 'active' ? 'step-done' : 'step-current'">Draft</span>
+          <span class="step-arrow">→</span>
+          <span class="step" :class="form.status === 'active' ? 'step-done' : 'step-todo'">Published</span>
+        </template>
       </div>
       <div class="stepper-track">
         <span class="stepper-label">SDS</span>
@@ -2052,7 +2120,14 @@ watch(
 
     <!-- Word Import Panel — 3.9 clearer button -->
     <section class="form-section word-import-section">
-      <h3>📄 Word Import (optional)</h3>
+      <!-- ★ 2026-11-27（A-050 / A-201）：这两个面板此前没有任何说明入口，
+           用法只能靠"展开高级详情"里零散的文案拼出来（QA 两批都报了）。
+           加一个可聚焦的 ? 图标：鼠标悬停与键盘 Tab 都能看到说明。 -->
+      <h3>📄 Word Import (optional)
+        <span class="help-dot" tabindex="0" role="note"
+              aria-label="About Word Import"
+              title="上传厂商 .docx 说明书，自动解析名称、CAS、规格等字段填入下方表单。可跳过——手动录入同样完整。">?</span>
+      </h3>
       <div class="word-import-row">
         <label class="file-upload-btn">
           Choose .docx File
@@ -2080,7 +2155,11 @@ watch(
          同时使 `:1440` 按钮上那段 `!form.name && …` 的 disabled 判断变成**不可达死分支**。
          现改为常驻 + 按钮 disabled（那套既有判断变为**生效**）+ 空态引导 ⇒ 两套实现并存的隐患随之消解。 -->
     <section class="form-section pubchem-enrich-section">
-      <h3>🤖 AI AUTO MATCH</h3>
+      <h3>🤖 AI AUTO MATCH
+        <span class="help-dot" tabindex="0" role="note"
+              aria-label="About AI AUTO MATCH"
+              title="按 CAS / 名称 / SMILES / InChI 去 PubChem、ChEMBL、供应商库查同款，给出候选与逐字段来源。结果**不会自动写入**表单：核对后点 Apply All to Form 才落库。无匹配时会明确提示，不会硬凑候选。">?</span>
+      </h3>
       <p v-if="!form.name && !form.cas && !form.smiles && !form.inchi" class="ai-empty-hint">
         输入 CAS、名称、SMILES 或 InChI 后即可运行自动匹配。（匹配结果不会自动写入，核对无误后点 “Apply All to Form”）
       </p>
@@ -2560,12 +2639,18 @@ watch(
           <AppSelect v-model="goalSelect" :options="goalSelectOptions" filterable remote
                      :remote-method="searchGoalsRemote" :loading="goalSearching"
                      style="max-width:260px" data-testid="pe-goal-select"
-                     placeholder="Add Research Goal…" @change="addSelectedGoal" />
+                     placeholder="Search all research goals…" @change="addSelectedGoal" />
         </div>
         <p v-if="goalSearchHint" class="form-hint" style="margin:2px 0 0" data-testid="pe-goal-hint">
           {{ goalSearchHint }}
         </p>
 
+        <!-- ★ 2026-11-27（A-074）：两个下拉的**初始列表都只装了前 200 行**（`page_size: 200`），
+             而 Research Goals 有 1.1 万条、Applications 有 2.8 万条 ⇒ 新近创建的那一条
+             可能落在 Goals 的前 200 里、却没落在 Applications 的前 200 里，
+             看起来就像"两边数据集不一致"。**并没有过滤差异**：两边都支持输入关键字
+             远程搜索全部（见 searchGoalsRemote / searchAppsRemote）。
+             placeholder 已改成 "Search all …"，并保留既有截断提示（*SearchHint）。 -->
         <!-- Applications chips（同上，级联入口） -->
         <div class="chip-group">
           <span class="chip-label" title="勾选后保存，将把这些应用场景下的全部方法连带关联到本产品">Applications:</span>
@@ -2578,7 +2663,7 @@ watch(
           <AppSelect v-model="appSelect" :options="appSelectOptions" filterable remote
                      :remote-method="searchAppsRemote" :loading="appSearching"
                      style="max-width:260px" data-testid="pe-app-select"
-                     placeholder="Add Application…" @change="addSelectedApp" />
+                     placeholder="Search all applications…" @change="addSelectedApp" />
         </div>
         <p v-if="appSearchHint" class="form-hint" style="margin:2px 0 0" data-testid="pe-app-hint">
           {{ appSearchHint }}
@@ -2607,11 +2692,16 @@ watch(
         </p>
 
         <!-- Add existing (single select + add button) -->
+        <!-- ★ 2026-11-27（A-049 / A-205）：两个选择器原来**只有 placeholder**（"Please select"），
+             没有任何文字说明哪个是 Method、哪个是 Protocol —— 运营看到两个一模一样的空下拉，
+             只能靠"左边那个应该是方法"去猜。现在各带一个可见标签。 -->
         <div class="entity-select-row">
-          <AppSelect v-model="linkMethodSelect" :options="methodSelectOptions" filterable remote :remote-method="searchMethodsRemote" :loading="methodSearching" @change="addSelectedMethod" />
+          <span class="chip-label">Method:</span>
+          <AppSelect v-model="linkMethodSelect" :options="methodSelectOptions" filterable remote :remote-method="searchMethodsRemote" :loading="methodSearching" aria-label="Link an existing method" @change="addSelectedMethod" />
           <button type="button" class="btn btn-ghost btn-sm" @click="addSelectedMethod" :disabled="!linkMethodSelect">Link</button>
 
-          <AppSelect v-model="linkProtocolSelect" :options="protocolSelectOptions" style="margin-left:16px" filterable remote :remote-method="searchProtocolsRemote" :loading="protocolSearching" @change="addSelectedProtocol" />
+          <span class="chip-label" style="margin-left:16px">Protocol:</span>
+          <AppSelect v-model="linkProtocolSelect" :options="protocolSelectOptions" filterable remote :remote-method="searchProtocolsRemote" :loading="protocolSearching" aria-label="Link an existing protocol" @change="addSelectedProtocol" />
           <button type="button" class="btn btn-ghost btn-sm" @click="addSelectedProtocol" :disabled="!linkProtocolSelect">Link</button>
         </div>
         <!-- ★ A-206：截断提示（改前四个下拉都是静默截断） -->
@@ -2820,6 +2910,10 @@ watch(
                 <div class="coa-card-meta">
                   <span>Doc: {{ item.coa.doc_id }}</span>
                   <span>Produced: {{ item.coa.produced_at }}</span>
+                  <!-- ★ 2026-11-27（A-054 / A-209）：Retest 一直有值（后端 COA 序列化器
+                       返回 `retest_at`，Preview 文档里也印着），只是卡片没渲染 ——
+                       运营在卡片上看不到复检日期，也就没法安排复检。 -->
+                  <span>Retest: {{ item.coa.retest_at || 'not set' }}</span>
                 </div>
 
                 <div v-if="qcEditingId === item.coa.id" class="qc-form">
@@ -2853,8 +2947,17 @@ watch(
                 </div>
               </template>
             </div>
-          <!-- 无批次时显示新建入口 -->
-          <div v-if="!sc.batches.length" class="batch-create-form">
+          <!-- ★ 2026-11-27（A-054/A-209 后半）：原来这里写 `v-if="!sc.batches.length"`，
+               于是**建完第一批后新建入口永久消失**，同一 SKU 再也加不了第二批
+               （多批次到货是常态）。改为：无批次时直接展开；已有批次时给一个
+               "＋ Add another batch" 入口按需展开。 -->
+          <button
+            v-if="sc.batches.length && !newBatchOpen[sc.sku.id]"
+            type="button" class="btn btn-ghost btn-sm batch-add-another"
+            @click="newBatchOpen[sc.sku.id] = true"
+          >＋ Add another batch</button>
+
+          <div v-if="!sc.batches.length || newBatchOpen[sc.sku.id]" class="batch-create-form">
             <label>Lot number
               <AppInput v-model="newBatchForms[sc.sku.id].lot_number" placeholder="默认带入 SKU code，可修改" style="margin-bottom:0" />
             </label>
@@ -2942,10 +3045,22 @@ watch(
 .completeness-bar { padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; font-weight: 500; }
 .completeness-ok { background: var(--color-success-bg); color: var(--color-primary-active); }
 .completeness-warn { background: var(--color-warning-bg); color: var(--color-warning); }
+.completeness-note { font-weight: 400; opacity: .75; font-size: 13px; }
 .incomplete-banner { padding: 10px 16px; background: var(--color-info-bg); color: var(--color-emerald-800); border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
 .edit-form { display: flex; flex-direction: column; gap: 0; }
 .form-section { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
 .form-section h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: var(--color-text); }
+/* A-050 / A-201：标题旁的说明入口。可聚焦 ⇒ 键盘 Tab 也能出 tooltip（原生 title） */
+.help-dot {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; margin-left: 6px; border-radius: 50%;
+  border: 1px solid var(--color-border); background: var(--color-bg);
+  color: var(--color-text-tertiary); font-size: 11px; font-weight: 700;
+  line-height: 1; cursor: help; vertical-align: middle; user-select: none;
+}
+.help-dot:hover, .help-dot:focus-visible {
+  border-color: var(--color-primary); color: var(--color-primary); outline: none;
+}
 .field-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .field-grid label { display: flex; flex-direction: column; font-size: 13px; color: var(--color-text-secondary); gap: 4px; }
 .field-grid input, .field-grid select, .field-grid textarea { padding: 8px 10px; border: 1px solid var(--color-border); border-radius: 6px; font-size: 14px; background: var(--color-bg); color: var(--color-text); font-family: var(--font-sans); }

@@ -81,7 +81,10 @@ http.interceptors.response.use(
       return data
     }
     // 业务错误：透传后端真实错误消息
-    ElMessage.error(extractErrorMessage(data))
+    // ★ 2026-11-27（A-153）：`config.silent === true` 的请求不弹全局 toast。
+    //   用途是"探测型"请求（如边打字边渲染 SMILES 结构）——它们的失败是**预期内**的，
+    //   弹给用户的只是噪音；调用方会自己决定怎么提示。
+    if (!response.config?.silent) ElMessage.error(extractErrorMessage(data))
     return Promise.reject(data)
   },
   (error) => {
@@ -96,8 +99,10 @@ http.interceptors.response.use(
     }
 
     // 其余错误优先透传后端真实错误消息（含 403/404/5xx 等）
-    const message = extractErrorMessage(error.response?.data)
-    ElMessage.error(message || 'Action failed')
+    if (!error.config?.silent) {
+      const message = extractErrorMessage(error.response?.data)
+      ElMessage.error(message || 'Action failed')
+    }
     return Promise.reject(error)
   }
 )

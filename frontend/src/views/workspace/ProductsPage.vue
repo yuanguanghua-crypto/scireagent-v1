@@ -159,7 +159,11 @@ const statusOptions = [
   { value: 'active', label: 'Active' },
   { value: 'draft', label: 'Draft' },
   { value: 'deprecated', label: 'Deprecated' },
-  { value: 'archived', label: 'Unpublished' },
+  // ★ 2026-11-27（A-051 / A-197）：这里的 value 一直是 `archived`，label 却写
+  //   "Unpublished"，而编辑页同一个状态叫 "Archived" ⇒ 同一取值两种叫法，
+  //   而且列表里根本没有 "Unpublished" 这个状态（QA 以为筛选多了一项）。
+  //   统一用 Archived；"下架"是**动作**的名字（Actions 菜单里那个 Unpublish），不是状态名。
+  { value: 'archived', label: 'Archived' },
 ]
 
 const filteredProducts = computed(() => {
@@ -894,8 +898,18 @@ function litKeywords(list) {
               <div v-if="openMenuId === p.id" class="menu-popover">
                 <template v-if="viewMode === 'active'">
                   <button class="menu-item" @click="goToProduct(p.id); closeMenu()">Edit</button>
-                  <!-- Q2：Unpublish 仅对「在售/草稿」有意义（deprecated 已经不在售，再下架无意义） -->
-                  <button v-if="p.status === 'active' || p.status === 'draft'" class="menu-item" @click="openArchiveOne(p)">Unpublish</button>
+                  <!-- ★ 2026-11-27（A-024 / A-198）：草稿原来显示的是 "Unpublish" ——
+                       草稿本来就没人看得到，"下架"无从谈起；它缺的是"发布"。
+                       但发布要过完整性校验（必填项 + 默认 SKU）并在编辑页走 Publish 对话框，
+                       列表里不能直接改状态绕过闸门 ⇒ 这里给 "Publish…"，
+                       点开编辑页并**自动弹出发布对话框**（`?publish=1`）。
+                       省略号是有意的：它表示"还要走一步"，不是立即执行。 -->
+                  <button
+                    v-if="p.status === 'draft'"
+                    class="menu-item"
+                    @click="router.push(`/workspace/products/${p.id}/edit?publish=1`); closeMenu()"
+                  >Publish…</button>
+                  <button v-if="p.status === 'active'" class="menu-item" @click="openArchiveOne(p)">Unpublish</button>
                   <button v-if="p.status === 'archived'" class="menu-item" @click="reactivate(p)">Republish</button>
                   <!-- S4-4f 退出目录（停产）：货号不释放、页面保留，与「回收站」语义区分 -->
                   <button v-if="p.status !== 'deprecated'" class="menu-item" @click="discontinue(p)">Discontinue</button>

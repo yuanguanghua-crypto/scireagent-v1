@@ -59,8 +59,12 @@ async function renderSmiles(smiles) {
   }
 
   // 策略 0: RDKit 本地渲染（优先级最高 — 出版级 SVG，离线零网络依赖）
+  // ★ 2026-11-27（A-153）：`silent: true` —— 用户打到一半的 SMILES 必然无效，
+  //   后端会回 "Failed to render structure — invalid SMILES"；这类**预期内**的失败
+  //   不该弹全局 toast（逐字输入会连弹几十条）。失败只在本组件内安静提示。
+  let rdkitRejected = false
   try {
-    const resp = await renderStructure(smiles)
+    const resp = await renderStructure(smiles, 500, 400, { silent: true })
     if (resp?.data?.svg) {
       svgContent.value = resp.data.svg
       if (resp.data.canonical_smiles) {
@@ -68,7 +72,8 @@ async function renderSmiles(smiles) {
       }
       return
     }
-  } catch { /* fall through */ }
+    rdkitRejected = true
+  } catch { rdkitRejected = true }
 
   // 策略 1: PubChem CID
   if (props.pubchemCid) {
@@ -90,7 +95,11 @@ async function renderSmiles(smiles) {
   const cactusUrl = buildCactusUrl(smiles)
   if (cactusUrl) {
     svgContent.value = `<img src="${cactusUrl}" alt="Structure" style="max-width:100%;max-height:100%;object-fit:contain" />`
+    return
   }
+
+  // 全都没成功：只在预览区安静说明（不弹窗、不闪烁），且仅当后端判定为无效 SMILES
+  if (rdkitRejected) error.value = 'Structure not renderable yet — check the SMILES.'
 }
 
 async function testImgUrl(url) {
@@ -102,7 +111,17 @@ async function testImgUrl(url) {
   }
 }
 
-watch(() => [props.smiles, props.pubchemCid, props.structureImage], () => renderSmiles(props.smiles), { immediate: true })
+// ★ 2026-11-27（A-153）：防抖 450ms —— 逐字输入时不再"每个字符一次请求 + 一次报错"。
+//   实测逐字输入会连续触发 38~39 次渲染尝试，这才是"错误提示反复闪现"的根因。
+let renderTimer = null
+watch(
+  () => [props.smiles, props.pubchemCid, props.structureImage],
+  () => {
+    if (renderTimer) clearTimeout(renderTimer)
+    renderTimer = setTimeout(() => { renderSmiles(props.smiles) }, 450)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>

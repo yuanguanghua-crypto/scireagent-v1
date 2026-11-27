@@ -767,6 +767,11 @@ class ProductDetailSerializer(BaseModelSerializer):
     structure_svg = serializers.SerializerMethodField()
     is_complete = serializers.SerializerMethodField()
     incomplete_items = serializers.SerializerMethodField()
+    # ★ 2026-11-27（A-025）：详情欠 `archived`，编辑页无从判断"这产品在回收站里"。
+    #   于是回收站里的产品（archived=1、status 仍是 active）编辑页照样画
+    #   "Draft → Published"，看起来像在售。**只读**暴露：`archived` 的写入走
+    #   归档/恢复动作（archiveProduct / reactivateProduct），不该由 PUT 顺手改。
+    archived = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Product
@@ -775,7 +780,7 @@ class ProductDetailSerializer(BaseModelSerializer):
             'formula', 'molecular_weight', 'purity', 'concentration', 'storage',
             'shipping', 'lead_time', 'handling_notes', 'shelf_life', 'research_use_only',
             'overview', 'usage', 'structure_svg', 'structure_image', 'seo_title', 'seo_description',
-            'category_l1', 'category_l2', 'status', 'product_class_id',
+            'category_l1', 'category_l2', 'status', 'archived', 'product_class_id',
             'product_class_name', 'product_class_path',
             'skus', 'documents', 'application_ids', 'method_ids', 'method_links',
             'protocol_ids', 'protocol_links',
