@@ -8,9 +8,12 @@
  *   · 实收  = 区间内「已核验付款」金额（只看 verified）
  * 两个数字差很远是正常的，页面上必须让人一眼看出区别，否则会被当成 bug。
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import http from '@/utils/http'
+import { getAdminOrders } from '@/api/orders'
 import { formatCurrency } from '@/utils/helpers'
+import { extractErrorMessage } from '@/utils/http'
+import { StatusBadge } from '@/components/common'
 import IsoDateInput from '@/components/common/IsoDateInput.vue'
 
 const data = ref(null)
@@ -112,6 +115,7 @@ async function load() {
       start.value = data.value.range.start
       end.value = data.value.range.end
     }
+    loadDetails()
   } catch (e) {
     err.value = e?.response?.data?.meta?.error?.message || e?.message || 'Failed to load'
   } finally {
@@ -135,6 +139,51 @@ const trend = computed(() => data.value?.trend || [])
 const topProducts = computed(() => data.value?.top_products || [])
 const topCustomers = computed(() => data.value?.top_customers || [])
 const byStatus = computed(() => data.value?.by_status || [])
+
+/* ── A-162：区间订单明细 + 产品搜索 ───────────────────────────────
+ * 报表此前只有聚合（KPI / 趋势 / Top N），运营问"这个试剂这个月卖给谁了"
+ * 只能切到 Order Management 手筛日期。这里补一张区间明细，并按**产品名/货号**
+ * 可搜（后端 `?search=` 已扩到 items.product 维度，见 views.py）。
+ * ⚠️ 只取前 50 条：报表页不是订单管理台，全量翻页交给 /ops/orders。
+ */
+const DETAIL_LIMIT = 50
+const detailRows = ref([])
+const detailTotal = ref(0)
+const detailLoading = ref(false)
+const detailErr = ref('')
+const productSearch = ref('')
+let detailTimer = null
+
+async function loadDetails() {
+  const r = data.value?.range
+  if (!r) return
+  detailLoading.value = true
+  detailErr.value = ''
+  try {
+    const res = await getAdminOrders({
+      created_from: r.start,
+      created_to: r.end,
+      page: 1,
+      page_size: DETAIL_LIMIT,
+      ...(productSearch.value.trim() ? { search: productSearch.value.trim() } : {}),
+    })
+    const payload = res && res.data !== undefined ? res.data : res
+    detailRows.value = Array.isArray(payload) ? payload : (payload?.results || [])
+    detailTotal.value = Number(res?.meta?.pagination?.count ?? detailRows.value.length)
+  } catch (e) {
+    detailErr.value = extractErrorMessage(e?.response?.data ?? e, 'Could not load order rows.')
+    detailRows.value = []
+    detailTotal.value = 0
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+// 搜索防抖：逐字发请求会让"谁后到谁生效"决定表格内容（A-141 同款坑）
+watch(productSearch, () => {
+  if (detailTimer) clearTimeout(detailTimer)
+  detailTimer = setTimeout(loadDetails, 300)
+})
 
 /** 趋势表只渲染**有订单**的日期。
  *  后端会把区间内空白日也补成全 0（那样折线不会"跳过"某天而看起来像连续增长），
@@ -294,6 +343,60 @@ function barWidth(row) {
         </span>
       </div>
     </div>
+
+    <!-- ★ 2026-11-27（A-162）：区间订单明细 + 产品搜索。
+         报表原来只有聚合，运营问"这个试剂这段时间卖给了谁"只能切到订单管理手筛。
+         这里按当前区间列出订单，并可按产品名/货号搜。只取前 50 条 ——
+         报表页不是订单台，全量翻页仍去 /ops/orders。 -->
+    <div class="po-card" data-testid="sr-order-rows">
+      <div class="po-between" style="align-items:flex-end;gap:12px;flex-wrap:wrap">
+        <h2 class="sr-section" style="margin:0">
+          Orders in this range
+          <span class="po-muted" data-testid="sr-order-rows-total">({{ detailTotal }})</span>
+          <!-- ★ 实测同一页 KPI 66 vs 明细 300 —— 因为 KPI 只算 SALES_STATUSES
+               （不含 cancelled/draft 等），明细列的是区间内**全部状态**。
+               不写清楚就又是一个"计数自相矛盾"（A-110 / A-138 同族）。 -->
+          <span class="po-muted" style="font-size:12px;font-weight:400">· all statuses (GMV counts sales statuses only)</span>
+        </h2>
+        <input
+          v-model="productSearch"
+          class="po-input"
+          style="width:260px"
+          type="search"
+          placeholder="Search product name / catalog no. / order no."
+          aria-label="Search order rows by product or order number"
+        />
+      </div>
+
+      <p v-if="detailErr" class="sr-error-plain" data-testid="sr-order-rows-error">{{ detailErr }}</p>
+      <p v-if="detailTotal > detailRows.length" class="po-dl-warn" style="margin-top:10px">
+        Showing the first {{ detailRows.length }} of {{ detailTotal }} orders —
+        open <router-link :to="{ name: 'AdminOrders' }" style="color:var(--color-primary)">Order Management</router-link>
+        for the complete list.
+      </p>
+
+      <table class="po-table" v-if="detailRows.length" style="margin-top:10px">
+        <thead>
+          <tr><th>Order</th><th>Customer</th><th>Status</th><th style="text-align:right">Total</th><th>Created</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="o in detailRows" :key="o.id">
+            <td class="po-mono">{{ o.order_no }}</td>
+            <td>
+              {{ o.customer_name || o.user_name || ('user #' + (o.user_id ?? o.user)) }}
+              <span v-if="o.organization_name" class="po-muted">· {{ o.organization_name }}</span>
+            </td>
+            <td><StatusBadge :status="o.status" /></td>
+            <td style="text-align:right" class="po-num">{{ formatCurrency(o.grand_total, o.currency || ccy) }}</td>
+            <td class="po-muted">{{ new Date(o.created_at).toLocaleDateString() }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-else-if="detailLoading" class="po-empty">Loading…</div>
+      <div v-else class="po-empty" data-testid="sr-order-rows-empty">
+        No orders in this range{{ productSearch.trim() ? ' match that search' : '' }}.
+      </div>
+    </div>
   </div>
 </template>
 
@@ -321,5 +424,6 @@ function barWidth(row) {
   background: var(--color-bg-subtle, #f3f4f6); color: var(--color-text-secondary);
 }
 .sr-error { border-left: 4px solid var(--color-danger, #dc2626); color: var(--color-danger, #dc2626); }
+.sr-error-plain { color: var(--color-danger, #dc2626); font-size: 13px; margin: 10px 0 0; }
 .sr-warn { border-left: 4px solid var(--color-warning, #f59e0b); font-size: 13px; }
 </style>

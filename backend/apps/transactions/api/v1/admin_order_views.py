@@ -1,13 +1,16 @@
 """Admin order management endpoints."""
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 from django.db import transaction
+
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
+
+from core.business_time import business_day_bounds
 
 from apps.transactions.models import (
     Order, OrderItem, Invoice, PaymentRecord, ShippingRecord,
@@ -42,10 +45,37 @@ class AdminOrderListView(APIView):
         status_filter = request.query_params.get('status', '')
         if status_filter:
             orders = orders.filter(status=status_filter)
-        search = request.query_params.get('search', '')
+        search = request.query_params.get('search', '').strip()
         if search:
-            q = Q(order_no__icontains=search) | Q(po_number__icontains=search)
-            orders = orders.filter(q)
+            # ★ 2026-11-27（A-162）：搜索补**产品维度**（名称 + 货号）。
+            #   销售报表要回答"这个试剂这段时间卖给了谁"，原来只能按单号/PO 号搜。
+            #   跨 items 的 JOIN 会产生重复行 ⇒ 必须 distinct，否则同一张多行订单
+            #   会出现多次（`total` 也跟着虚高）。
+            q = (Q(order_no__icontains=search)
+                 | Q(po_number__icontains=search)
+                 | Q(items__product__name__icontains=search)
+                 | Q(items__product__catalog_no__icontains=search))
+            orders = orders.filter(q).distinct()
+
+        # ★ 2026-11-27（A-162）：按下单日期区间过滤（销售报表的逐单明细要用）。
+        #   ⚠️ 用 `business_day_bounds` 换算成**时间戳**再比，不要用 `created_at__date`：
+        #   后者按 settings.TIME_ZONE（生产 UTC）截日，与报表"按业务时区归期"的口径不一致，
+        #   东八区 00:00–07:59 的单会被算到前一天。
+        created_from = (request.query_params.get('created_from') or '').strip()
+        created_to = (request.query_params.get('created_to') or '').strip()
+        for raw, is_from in ((created_from, True), (created_to, False)):
+            if not raw:
+                continue
+            try:
+                day = datetime.strptime(raw, '%Y-%m-%d').date()
+            except ValueError:
+                return Response(
+                    {'success': False, 'meta': {'error': {
+                        'code': 'BAD_DATE', 'message': 'created_from/created_to 必须是 YYYY-MM-DD'}}},
+                    status=400)
+            start_dt, end_dt = business_day_bounds(day)
+            orders = orders.filter(**({'created_at__gte': start_dt} if is_from
+                                      else {'created_at__lt': end_dt}))
 
         page = int(request.query_params.get('page', 1))
         page_size = int(request.query_params.get('page_size', 20))
