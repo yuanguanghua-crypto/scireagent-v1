@@ -20,6 +20,13 @@ class BasketItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_slug = serializers.CharField(source='product.slug', read_only=True)
     product_cas = serializers.CharField(source='product.cas', read_only=True)
+    # ★ 2026-11-27（A-178）：购物车行原本**完全没有图**，与产品详情页落差明显。
+    #   本仓库没有栅格图片字段，所谓"商品图"就是 `Product.structure_svg`（结构式）——
+    #   产品详情页渲染的也是它。这里复用同一个 sanitizer 输出，前端缩成 56×56 缩略图；
+    #   为空时前端显示中性占位，**不编造图片**。
+    #   ⚠️ 必须走 `sanitize_svg`：该字段是运营/文档导入的原始 SVG，直接插进 DOM
+    #   会有 XSS 面（产品详情页 get_structure_svg 也是这么做的，口径一致）。
+    product_structure_svg = serializers.SerializerMethodField()
     sku_code = serializers.CharField(source='sku.sku_code', read_only=True)
     pack_size = serializers.CharField(source='sku.pack_size', read_only=True)
     # ★ 2026-10-29：改走唯一取价入口（阶梯价 → 目录价兜底）。
@@ -32,10 +39,17 @@ class BasketItemSerializer(serializers.ModelSerializer):
         model = Basket
         fields = [
             'id', 'product', 'product_name', 'product_slug', 'product_cas',
+            'product_structure_svg',
             'sku', 'sku_code', 'pack_size', 'unit_price', 'currency',
             'quantity', 'subtotal', 'created_at',
         ]
         read_only_fields = ['id', 'created_at']
+
+    def get_product_structure_svg(self, obj: Basket) -> str:
+        """产品结构式 SVG（已消毒）；无结构式时返回 ''，前端显示占位。"""
+        from core.svg_sanitizer import sanitize_svg
+        raw = getattr(obj.product, 'structure_svg', '') or ''
+        return sanitize_svg(raw) if raw else ''
 
     def get_unit_price(self, obj: Basket) -> Decimal:
         """该行在当前数量下的单价（阶梯价按**本行数量**取，不跨行合计）。"""

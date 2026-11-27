@@ -45,8 +45,32 @@ function browseProducts() {
   router.push('/products')
 }
 
+/**
+ * 该行的 `product_structure_svg` 是不是**真结构式**（A-178）。
+ *
+ * 与 ProductDetail.vue:219 同一判据：数据里存在批量的
+ * "Structure rendering requires RDKit.js" 占位卡，它带产品名/分子式/MW，
+ * 缩到 56px 只是一团糊字，不能当商品图展示。
+ */
+function hasRealStructure(item) {
+  const svg = item?.product_structure_svg || ''
+  return !!svg && !svg.includes('Structure rendering requires')
+}
+
 /** Handle place order */
+/**
+ * ★ 2026-11-27（A-125）：结账与报价的登录门槛**本来就不一样**，这是业务规则
+ * （下单要账户与账单主体；询价允许访客先问）。真正的缺陷是**一句话都没说**：
+ * 访客点 Place Order 被瞬间甩到 /login?redirect=/checkout，全程无解释。
+ * 现在先明确告知「下单需要登录、购物车会保留」，再跳登录页；
+ * 同时按钮下方常驻一句说明，访客不必靠"点一下试试"才知道门槛。
+ */
 function handlePlaceOrder() {
+  if (!authStore.isAuthenticated) {
+    toast.info('Placing an order requires an account — your cart will be kept.')
+    router.push({ path: '/login', query: { redirect: '/checkout' } })
+    return
+  }
   router.push('/checkout')
 }
 
@@ -99,10 +123,36 @@ onMounted(() => {
         <div class="cart-items-section">
           <div class="cart-items-list">
             <div v-for="item in basketStore.items" :key="item.id || item.sku_id || item.sku" class="cart-item">
+              <!-- ★ 2026-11-27（A-178）：购物车行原本是纯文本、没有任何图。
+                   本仓库没有栅格图片字段，"商品图"只能是产品的结构式 SVG。
+                   ⚠️ 实测数据侧要小心：不少产品的 `structure_svg` 根本不是结构式，
+                   而是一张写着 "Structure rendering requires RDKit.js" 的占位卡
+                   （带产品名/分子式/MW）。产品详情页已经有同样的判断
+                   （ProductDetail.vue:219），这里沿用同一条件 —— 占位卡一律**不当图**
+                   显示，改显示中性占位，绝不把"渲染失败"的卡片缩成缩略图糊弄用户。 -->
+              <div class="cart-item-thumb" aria-hidden="true">
+                <span v-if="hasRealStructure(item)" class="cart-item-thumb-svg" v-html="item.product_structure_svg"></span>
+                <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                  <circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="6" r="2.4"/>
+                  <path d="M7.7 16.3L16.3 7.7"/>
+                </svg>
+              </div>
               <div class="cart-item-info">
-                <h3 class="cart-item-name">{{ item.product_name || item.name || 'Product' }}</h3>
+                <!-- ★ 2026-11-27（A-143）：商品名原来是纯文本 h3，点了没反应。
+                     购物车行必须能回到商品详情 —— 用 `product_slug` 走人类可读 URL；
+                     slug 缺失时退回数字 id（与产品页 /products/:id 的兼容路由一致）。 -->
+                <h3 class="cart-item-name">
+                  <router-link
+                    v-if="item.product_slug || item.product"
+                    class="cart-item-name-link"
+                    :to="item.product_slug ? `/products/${item.product_slug}` : `/products/${item.product}`"
+                  >{{ item.product_name || item.name || 'Product' }}</router-link>
+                  <template v-else>{{ item.product_name || item.name || 'Product' }}</template>
+                </h3>
                 <div class="cart-item-meta">
-                  <span v-if="item.cas" class="meta-tag">CAS: {{ item.cas }}</span>
+                  <!-- ★ 2026-11-27（A-143 顺带）：序列化器给的字段是 `product_cas`，
+                       这里原来读 `item.cas` ⇒ CAS 标签从来没有渲染过。 -->
+                  <span v-if="item.product_cas" class="meta-tag">CAS: {{ item.product_cas }}</span>
                   <span v-if="item.sku_code" class="meta-tag">SKU: {{ item.sku_code }}</span>
                   <span v-if="item.pack_size" class="meta-tag">{{ item.pack_size }}</span>
                 </div>
@@ -186,6 +236,11 @@ onMounted(() => {
               >
                 Submit for Approval
               </AppButton>
+
+              <!-- ★ 2026-11-27（A-125）：把两种门槛的差异写成一句话，访客不用试点才知道。 -->
+              <p v-if="!authStore.isAuthenticated" class="summary-note">
+                Placing an order needs an account. Quote requests can be submitted as a guest.
+              </p>
             </div>
           </div>
         </aside>
@@ -255,6 +310,34 @@ onMounted(() => {
   gap: 24px;
 }
 
+/* ★ 2026-11-27（A-178）：结构式缩略图。固定 56×56 方框 + overflow hidden，
+   结构式 SVG 的原始 viewBox 尺寸差异很大，必须由容器约束而不是靠 SVG 自己。 */
+.cart-item-thumb {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+}
+.cart-item-thumb-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.cart-item-thumb-svg :deep(svg) {
+  width: 100%;
+  height: 100%;
+  /* 结构式多半是黑线稿，缩到 56px 时靠 contain 保住比例，不拉伸变形 */
+  max-width: 100%;
+  max-height: 100%;
+}
+
 .cart-item-info {
   flex: 1;
   min-width: 0;
@@ -266,6 +349,15 @@ onMounted(() => {
   color: var(--color-text);
   margin: 0 0 6px;
   line-height: 1.3;
+}
+
+.cart-item-name-link {
+  color: inherit;
+  text-decoration: none;
+}
+.cart-item-name-link:hover {
+  color: var(--color-emerald-500, var(--color-primary));
+  text-decoration: underline;
 }
 
 .cart-item-meta {
@@ -411,6 +503,13 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.summary-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-tertiary);
 }
 
 /* Responsive */

@@ -177,6 +177,14 @@ export const useAuthStore = defineStore('auth', () => {
     cachedIsStaff.value = false
     localStorage.removeItem('token')
     localStorage.removeItem('is_staff')
+    // ★ 2026-11-27（A-041）：登出后必须把购物车**重新按游客作用域取一次**。
+    //   原来只清 token，`useBasketStore().count` 仍留着账户购物车的件数
+    //   ⇒ 已经跳到 /login、页眉也恢复成 Sign In / Register 了，
+    //   购物车角标却还挂着 "1"（QA Batch 4 报的就是这个）。
+    //   ⚠️ 顺序不可颠倒：`loadBasket()` 内部用 `localStorage.token` 判断取数作用域，
+    //   必须在清 token **之后**调用，才会拿到游客（X-Session-Key）那份篮子。
+    //   登出不因取数失败而失败：loadBasket 自己吞异常并退到 localStorage 副本。
+    await useBasketStore().loadBasket()
   }
 
   function setToken(newToken) {

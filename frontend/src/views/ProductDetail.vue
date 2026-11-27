@@ -263,6 +263,20 @@ function isActiveTier(t, sku) {
 }
 
 /* ── Add to cart ── */
+/**
+ * ★ 2026-11-27（A-045）：主 CTA「Add to Cart」必须加**默认 SKU**。
+ *
+ * 原来底部统一 CTA 写死 `product.skus[0].id` —— 运营在后台把 Default SKU 设成 B
+ * （$299.00）后，前台点主按钮加进购物车的却是 skus[0]（A，$123.45）。
+ * 主入口与「运营认定的默认规格」不一致，下单金额会直接错。
+ *
+ * 兜底链：`is_default` → `skus[0]`（历史行为，没有默认 SKU 时不能变成加不了购）。
+ */
+const defaultSku = computed(() => {
+  const list = product.value?.skus || []
+  return list.find((s) => s.is_default) || list[0] || null
+})
+
 async function addToCart(skuId) {
   try {
     await basketStore.addItem(skuId, getSkuQty(skuId))
@@ -1056,7 +1070,7 @@ function onSearch(query) {
       :show-rfq="true"
       :show-explore="true"
       :product-id="product.id"
-      @add-to-cart="product.skus?.length && addToCart(product.skus[0].id)"
+      @add-to-cart="defaultSku && addToCart(defaultSku.id)"
     />
 
     </ProductLayout>

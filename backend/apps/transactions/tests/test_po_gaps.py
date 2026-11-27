@@ -75,9 +75,14 @@ class AddressGapTest(TestCase):
              `accounts/tests/test_address_write_permission.py`）
         """
         # 普通研究员（本机构成员）现在可写
+        # ⚠️ 2026-11-27（A-187 连带）：地址必填校验上线后（line1 + city），
+        #   本用例只关心**权限与机构注入**，payload 必须给足可投递字段，
+        #   否则会先被 400 拦在序列化器里，测不到本来要测的那条路径。
+        #   必填校验本身由 accounts/tests/test_s7_settings_guards.py 覆盖。
         self.client.force_authenticate(self.researcher)
         r = self.client.post(
-            '/api/v1/addresses/', {'type': 'shipping', 'line1': 'X'}, format='json'
+            '/api/v1/addresses/',
+            {'type': 'shipping', 'line1': 'X', 'city': 'C'}, format='json',
         )
         self.assertEqual(r.status_code, 201, r.content)
         # ★ 关键：organization **由后端按 user.organization 推入**，客户端不能指定
@@ -95,14 +100,16 @@ class AddressGapTest(TestCase):
 
     def test_update_and_destroy(self):
         self.client.force_authenticate(self.proc)
+        # 同上：A-187 之后 line1/city 必填
         r = self.client.post(
-            '/api/v1/addresses/', {'type': 'shipping', 'line1': 'L'}, format='json'
+            '/api/v1/addresses/',
+            {'type': 'shipping', 'line1': 'L', 'city': 'C'}, format='json',
         )
         aid = r.json()['data']['id']
-        # PUT 全量更新
+        # PUT 全量更新（全量 ⇒ 必填字段必须在场）
         r = self.client.put(
             f'/api/v1/addresses/{aid}/',
-            {'type': 'shipping', 'line1': 'L2', 'country': 'US'},
+            {'type': 'shipping', 'line1': 'L2', 'city': 'C', 'country': 'US'},
             format='json',
         )
         self.assertEqual(r.status_code, 200)

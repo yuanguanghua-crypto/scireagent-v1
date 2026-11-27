@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { checkout } from '@/api/orders'
 import { updateProfile } from '@/api/auth'
 import { formatCurrency } from '@/utils/helpers'
-import { AppButton, AppInput, EmptyState } from '@/components/common'
+import { AppButton, AppInput, EmptyState, LoadingSpinner } from '@/components/common'
 
 const router = useRouter()
 const basketStore = useBasketStore()
@@ -35,7 +35,12 @@ onMounted(() => {
     shippingEmail.value = u.shipping_email || u.email || ''
     shippingAddress.value = u.default_shipping_address || ''
     paymentMethod.value = u.default_payment_method || 'purchase_order'
-    poNumber.value = u.default_po_number || ''
+    // ★ 2026-11-27（A-136）：**不再预填 PO Number**。
+    //   `default_po_number` 是 handleCheckout 把本单 PO 写回个人资料后留下的，
+    //   于是「上一张（甚至已取消的）订单的 PO 号」会一路沿用下去 —— 用户不改直接
+    //   提交，就等于拿一个已失效的采购单号下单（QA 实测预填
+    //   TEST-PO-…-CANCEL，来自已取消订单）。PO 号天然是**逐单**的采购授权，
+    //   不该有"默认值"。下方 handleCheckout 也不再把它写回资料。
   }
 })
 
@@ -84,6 +89,9 @@ async function handleCheckout() {
     const order = res.data || res
 
     // Save shipping info to user profile for next time
+    // ★ 2026-11-27（A-136）：**刻意不再写 default_po_number** ——
+    //   写回去就等于给下一单造了一个"默认 PO 号"，而 PO 是逐单的采购授权，
+    //   沿用旧号（尤其已取消订单的号）会让账单落到错误的采购单上。
     try {
       await updateProfile({
         shipping_name: shippingName.value.trim(),
@@ -91,7 +99,6 @@ async function handleCheckout() {
         shipping_email: shippingEmail.value.trim(),
         default_shipping_address: shippingAddress.value.trim(),
         default_payment_method: paymentMethod.value,
-        default_po_number: poNumber.value.trim(),
       })
       // Update local auth store
       authStore.updateUser({
@@ -100,7 +107,6 @@ async function handleCheckout() {
         shipping_email: shippingEmail.value.trim(),
         default_shipping_address: shippingAddress.value.trim(),
         default_payment_method: paymentMethod.value,
-        default_po_number: poNumber.value.trim(),
       })
     } catch (e) {
       // Non-critical: don't block checkout if profile save fails
@@ -121,9 +127,17 @@ async function handleCheckout() {
   <div class="checkout-page">
     <h1 class="page-title">Checkout</h1>
 
+    <!-- ★ 2026-11-27（A-148）：必须先判 loading，再判 isEmpty。
+         原来只有 `v-if="isEmpty"`，而 `basketStore.items` 初值是 `[]`、
+         `loadBasket()` 在 onMounted 才发起 ⇒ 直接在地址栏敲 /checkout 时，
+         第一帧必然渲染「Your cart is empty」再被真实数据替换（QA 报的
+         「有商品也显示空购物车」）。经 /cart → Place Order 进来时篮子已加载过，
+         所以只有"直接输入地址"能复现 —— 与 QA 的定位完全一致。 -->
+    <LoadingSpinner v-if="basketStore.loading" text="Loading cart..." />
+
     <!-- Empty cart -->
     <EmptyState
-      v-if="isEmpty"
+      v-else-if="isEmpty"
       title="Your cart is empty"
       description="Browse our catalog to find the reagents you need."
       icon="ShoppingCart"
@@ -211,11 +225,21 @@ async function handleCheckout() {
       <section class="checkout-section checkout-summary">
         <h2 class="section-title">Order Summary</h2>
         <div class="summary-items">
+          <!-- ★ 2026-11-27（A-135）：摘要行原来只有「名称 ×数量 金额」，
+               缺 SKU（同款不同规格只靠名称无法区分）也缺小计行。
+               现在：名称 + SKU 码 + 单价×数量 + 行小计，摘要尾部再补 Subtotal。 -->
           <div v-for="item in items" :key="item.id || item.sku_id" class="summary-item">
-            <span class="summary-item-name">{{ item.product_name || `SKU ${item.sku_code || item.sku_id}` }}</span>
+            <span class="summary-item-main">
+              <span class="summary-item-name">{{ item.product_name || `SKU ${item.sku_code || item.sku_id}` }}</span>
+              <span v-if="item.sku_code" class="summary-item-sku">{{ item.sku_code }}</span>
+            </span>
             <span class="summary-item-qty">x{{ item.quantity }}</span>
             <span class="summary-item-price">{{ formatCurrency(item.subtotal || (item.unit_price * item.quantity) || 0) }}</span>
           </div>
+        </div>
+        <div class="summary-subtotal">
+          <span>Subtotal ({{ items.length }} {{ items.length === 1 ? 'line' : 'lines' }})</span>
+          <span class="summary-subtotal-value">{{ formatCurrency(total) }}</span>
         </div>
         <div class="summary-total">
           <span>Total</span>
@@ -262,10 +286,16 @@ async function handleCheckout() {
 
 .summary-items { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .summary-item { display: flex; align-items: center; gap: 12px; font-size: 14px; }
-.summary-item-name { flex: 1; color: var(--color-text); }
-.summary-item-qty { color: var(--color-text-secondary); }
-.summary-item-price { font-weight: 600; color: var(--color-text); font-variant-numeric: tabular-nums; }
-.summary-total { display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--color-border); font-size: 16px; font-weight: 700; }
+/* ★ 2026-11-27（A-135）：名称与 SKU 竖排成一组，SKU 用小号等宽字体；
+   min-width:0 + 换行兜底，避免长商品名把数量与金额挤出卡片。 */
+.summary-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.summary-item-name { color: var(--color-text); overflow-wrap: anywhere; }
+.summary-item-sku { font-size: 11px; font-family: var(--font-mono); color: var(--color-text-tertiary); }
+.summary-item-qty { color: var(--color-text-secondary); flex-shrink: 0; }
+.summary-item-price { font-weight: 600; color: var(--color-text); font-variant-numeric: tabular-nums; flex-shrink: 0; white-space: nowrap; }
+.summary-subtotal { display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--color-border); font-size: 14px; color: var(--color-text-secondary); }
+.summary-subtotal-value { font-variant-numeric: tabular-nums; color: var(--color-text); }
+.summary-total { display: flex; justify-content: space-between; padding-top: 12px; margin-top: 8px; border-top: 1px solid var(--color-border); font-size: 16px; font-weight: 700; }
 .summary-total-value { color: var(--color-primary); }
 
 .error-banner {
