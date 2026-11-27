@@ -173,7 +173,8 @@ onMounted(() => { load(); loadRepOptions() })
         <!-- ★ 2026-11-26（A-160）：从手填数字 id 改为下拉选人。
              选项来自 /orders/assignable-reps/（procurement/admin 的 active 账号）；
              同时显示 email —— 本系统没有可靠的"测试账号"标记，占位邮箱交给运营自己判断。 -->
-        <select v-model="assignRepId[o.id]" class="po-input" style="width:200px">
+        <select v-model="assignRepId[o.id]" class="po-input" style="width:200px"
+                aria-label="Assign sales rep for this order">
           <option value="">— Select rep —</option>
           <option v-for="r in repOptions" :key="r.id" :value="r.id">
             {{ r.username }}{{ r.email ? ` (${r.email})` : '' }}

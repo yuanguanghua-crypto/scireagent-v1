@@ -1333,7 +1333,12 @@ function onSearch(query) {
   font-weight: 600;
   line-height: 1.45;
   white-space: nowrap;
-  opacity: .55;
+  /* ★ 2026-11-27（a11y 闸门）：原来用 `opacity: .55` 压暗，实际算出 #787d89 /
+     #f8fafc = **3.94:1**，低于 WCAG AA 的 4.5:1 ⇒ a11y 硬断言 serious 违规
+     （ProductDetail 一旦有阶梯价数据就必红，无数据时扫不到，所以长期潜伏）。
+     改成显式的三级文字色（4.62:1），视觉仍是"次要档位"，但不再靠透明度
+     —— 透明度会随背景色变化而漂移，颜色令牌不会。 */
+  color: var(--color-text-tertiary, #6b7280);
 }
 /* 当前数量命中的档位：提亮 + 左侧标记，让客户一眼看到"我这单单价" */
 .pd-tier-line.is-active {
