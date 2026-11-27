@@ -4,10 +4,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { useResearchGoalsStore } from '@/stores/researchGoals'
 import { formatDate, getStatusType } from '@/utils/helpers'
 import { AppButton } from '@/components/common'
+import { useResearchPathStore } from '@/stores/researchPath'
 
 const route = useRoute()
 const router = useRouter()
 const store = useResearchGoalsStore()
+const researchCart = useResearchPathStore()
 
 /* ★ 2026-10-30（走查发现）：本页两个 el-table 原本无分页，直接 `:data` 绑全量
    —— 生产 RNA Analysis 有 496 条协议，实测本地 778 条时页面被撑到 **33,524px**，
@@ -37,9 +39,25 @@ watch(() => route.params.id, () => {
   protoPage.value = 1
 })
 
-onMounted(() => {
-  store.fetchGoal(route.params.id)
-})
+/**
+ * ★ 2026-11-27（A-181）：研究目标详情页**原来不记入 Research Path**。
+ *
+ * 全站只有 application / method / protocol / product 四类详情页会 addStep，
+ * 而链路的**起点**恰恰是 Research Goal（RG→AP→Method→Protocol→Product）——
+ * 于是从目标页进去逛，路径面板里永远缺第一环，也没法从面板跳回目标。
+ * 这里补齐（`TYPE_ROUTES` 早已有 `research_goal` 分支，只是没人写入）。
+ *
+ * 注：`research_goal` 的 slug 字段在部分数据上为空，store 只把 slug 当展示辅助，
+ * 路由用的是 id（`/research-goals/:id`），不受影响。
+ */
+async function loadGoal(id) {
+  await store.fetchGoal(id)
+  const g = store.currentGoal
+  if (g) researchCart.addStep('research_goal', g.id, g.name, g.slug)
+}
+
+onMounted(() => loadGoal(route.params.id))
+watch(() => route.params.id, (newId) => { if (newId) loadGoal(newId) })
 
 onUnmounted(() => {
   store.clearCurrent()

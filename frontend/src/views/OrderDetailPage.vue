@@ -2,11 +2,12 @@
 import { onMounted, onUnmounted, computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
-import { respondToQuote } from '@/api/orders'
+import { respondToQuote, cancelOrder } from '@/api/orders'
 import { downloadInvoicePdf, uploadPaymentProof } from '@/api/poPortal'
 import { statusBadgeStyle, formatStatus } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
 import { LoadingSpinner, ErrorBanner, StatusBadge, toast } from '@/components/common'
+import { useConfirm } from '@/composables/useConfirm'
 
 const route = useRoute()
 const router = useRouter()
@@ -126,6 +127,38 @@ async function handleQuoteAction(action) {
     toast.error(err?.data?.meta?.error?.message || 'Action failed')
   }
 }
+
+/* ── 客户自助取消（A-171，2026-11-27）─────────────────────────────
+ * 改前客户订单详情**没有任何取消入口**（实测 buttons=['', '', 'T']，全文无
+ * "Cancel Order"），而运营端 Confirmed 之后各阶段都有 —— 客户想撤单只能发邮件。
+ * 可取消状态与后端 `CancelOrderView.CUSTOMER_CANCELLABLE` 严丝合缝：
+ * 只到 `confirmed` 为止，进入生产就不给自助入口（物料已动，需人工核算）。
+ */
+const CANCELLABLE = ['po_received', 'confirmed']
+const canCancel = computed(() => !!order.value && CANCELLABLE.includes(order.value.status))
+const cancelling = ref(false)
+const { ask } = useConfirm()
+
+async function handleCancelOrder() {
+  const ok = await ask({
+    title: 'Cancel this order?',
+    message: `Order ${order.value.order_no} will be cancelled and any reserved stock released. This cannot be undone.`,
+    confirmText: 'Cancel order',
+    cancelText: 'Keep order',
+    danger: true,
+  })
+  if (!ok) return
+  cancelling.value = true
+  try {
+    await cancelOrder(order.value.id)
+    await store.fetchOrder(route.params.id)
+    toast.success('Order cancelled')
+  } catch (err) {
+    toast.error(err?.data?.meta?.error?.message || 'Could not cancel this order')
+  } finally {
+    cancelling.value = false
+  }
+}
 </script>
 
 <template>
@@ -154,6 +187,18 @@ async function handleQuoteAction(action) {
       <div class="action-buttons">
         <button class="btn-accept" @click="handleQuoteAction('accept')">Accept Quote</button>
         <button class="btn-reject" @click="handleQuoteAction('reject')">Reject Quote</button>
+      </div>
+    </div>
+
+    <!-- Customer self-service cancel（A-171） -->
+    <div v-if="canCancel" class="action-bar action-bar--cancel">
+      <p class="action-info">
+        Still need to make changes? You can cancel this order yourself until production starts.
+      </p>
+      <div class="action-buttons">
+        <button class="btn-reject" :disabled="cancelling" @click="handleCancelOrder">
+          {{ cancelling ? 'Cancelling…' : 'Cancel Order' }}
+        </button>
       </div>
     </div>
 
@@ -358,6 +403,10 @@ async function handleQuoteAction(action) {
 }
 
 .action-bar { padding: 16px; background: var(--color-primary-light); border-radius: var(--radius-md); margin-bottom: 24px; }
+/* A-171：取消是危险动作，用中性底色 + 危险色按钮，不做成"提示信息"的蓝色块 */
+.action-bar--cancel { background: var(--color-bg-subtle, var(--color-bg)); border: 1px solid var(--color-border); }
+.action-bar--cancel .action-info { color: var(--color-text-secondary); }
+.action-buttons .btn-reject:disabled { opacity: 0.6; cursor: not-allowed; }
 .action-info { font-size: 14px; color: var(--color-text); margin: 0 0 12px; }
 .action-buttons { display: flex; gap: 8px; }
 .btn-accept { padding: 8px 20px; background: var(--color-primary); color: white; border: none; border-radius: var(--radius-md); font-weight: 600; cursor: pointer; font-family: var(--font-sans); }

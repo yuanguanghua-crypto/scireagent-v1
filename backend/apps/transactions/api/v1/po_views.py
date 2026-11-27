@@ -5,7 +5,7 @@ import os
 from django.conf import settings
 from django.db import transaction
 from django.contrib.auth import get_user_model
-from django.http import FileResponse
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
@@ -195,12 +195,49 @@ class RejectOrderView(EnvelopeMixin, APIView):
 
 
 class CancelOrderView(EnvelopeMixin, APIView):
-    """POST /api/v1/orders/<id>/cancel/ — 任意非终态 → CANCELLED。"""
-    permission_classes = [IsProcurementOrAdmin]
+    """POST /api/v1/orders/<id>/cancel/ — 取消订单（运营 + 客户本人）。
+
+    ★ 2026-11-27（A-171）：**客户侧原本没有任何取消入口** —— 详情页实测
+    buttons=['', '', 'T']、全文无 "Cancel Order"，而运营端 Confirmed 及之后
+    各阶段都有按钮。同一件事在两侧可用性完全不同：客户想撤单只能发邮件。
+
+    口径（授权按"谁 + 什么状态"两维同时收敛）：
+      · 运营/管理员（is_staff 或 role ∈ procurement/admin）：维持原行为，
+        任意非终态可取消（状态机自己会拒绝非法转移）。
+      · 客户本人：只能取消**自己的**单，且仅限生产开始前的两个阶段
+        （`po_received` / `confirmed`）。一旦 `in_production` 之后，物料与
+        排产已经动过，取消要人工核算，不能给自助入口。
+      · 别人的单：**404**（不泄露订单是否存在）。
+
+    刻意**不新增端点**：说明书里的端点数是被 `audit_manual_numbers.py` 审的
+    固定口径，多一个端点就要连带改文档；这里是同一个动作的授权范围扩展。
+    """
+    permission_classes = [IsAuthenticated]
+
+    #: 客户自助取消的允许状态（生产开始即关闭）
+    CUSTOMER_CANCELLABLE = frozenset({
+        Order.Status.PO_RECEIVED.value,
+        Order.Status.CONFIRMED.value,
+    })
+
+    @staticmethod
+    def _is_internal(user) -> bool:
+        return bool(user.is_staff or user.role in ('procurement', 'admin'))
 
     def post(self, request, pk):
         order = get_object_or_404(Order, pk=pk)
         reason = request.data.get('reason', '')
+        if not self._is_internal(request.user):
+            if order.user_id != request.user.pk:
+                # 不是自己的单：当作不存在，避免用 403/404 差异探测订单号
+                raise Http404
+            if order.status not in self.CUSTOMER_CANCELLABLE:
+                return self.error_response(
+                    'This order can no longer be cancelled online. '
+                    'Please contact us and our team will help.',
+                    code='CANCEL_NOT_ALLOWED',
+                    status_code=400,
+                )
         try:
             with transaction.atomic():
                 OrderStateMachine.transition_to(

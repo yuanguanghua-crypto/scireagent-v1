@@ -49,8 +49,19 @@ function copyToClipboard() {
 
 <template>
   <!-- Floating trigger button -->
-  <button class="rc-trigger" v-if="cart.hasSteps" @click="cart.toggle()" :class="{ 'rc-trigger-open': cart.isOpen }">
+  <!-- ★ 2026-11-27（A-120 / A-182）：这是个**没有文字**的圆形图标 + 数字，
+       页面里可读名称只有一个 "1"，没人知道它是 "My Research Path"（点开才知道）。
+       改成胶囊：图标 + 文字标签 + 计数，并补 aria-label/title。 -->
+  <button
+    class="rc-trigger"
+    v-if="cart.hasSteps"
+    @click="cart.toggle()"
+    :class="{ 'rc-trigger-open': cart.isOpen }"
+    :aria-label="`My Research Path (${cart.count} item${cart.count === 1 ? '' : 's'})`"
+    :title="`My Research Path (${cart.count})`"
+  >
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    <span class="rc-trigger-label">My Research Path</span>
     <span class="rc-trigger-count">{{ cart.count }}</span>
   </button>
 
@@ -99,9 +110,11 @@ function copyToClipboard() {
   bottom: 24px;
   right: 24px;
   z-index: 1000;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
+  /* ★ 2026-11-27（A-120/A-182）：由 48×48 圆形改为胶囊，让文字标签放得下 */
+  height: 44px;
+  padding: 0 14px;
+  gap: 8px;
+  border-radius: 999px;
   background: var(--color-primary, #059669);
   color: white;
   border: none;
@@ -114,20 +127,32 @@ function copyToClipboard() {
 }
 .rc-trigger:hover { transform: scale(1.05); box-shadow: 0 6px 16px rgba(0,0,0,0.2); }
 .rc-trigger-open { background: var(--color-text, #1e293b); }
+.rc-trigger-label {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+/* 计数改为行内徽标（原先是 -4px 绝对定位，胶囊形态下会盖住文字） */
 .rc-trigger-count {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 20px;
+  min-width: 20px;
   height: 20px;
+  padding: 0 5px;
   background: var(--color-danger);
   color: white;
   font-size: 11px;
   font-weight: 700;
-  border-radius: 50%;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   justify-content: center;
+  line-height: 1;
+}
+
+/* 窄屏只留图标 + 计数：文字标签隐藏，但 aria-label/title 仍在（可读名称不丢） */
+@media (max-width: 640px) {
+  .rc-trigger { padding: 0 12px; }
+  .rc-trigger-label { display: none; }
 }
 
 /* Panel — fixed right sidebar */
