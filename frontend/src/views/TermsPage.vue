@@ -7,7 +7,7 @@
     <div class="legal-content">
       <section>
         <h2>1. Scope</h2>
-        <p>These Terms of Service ("Terms") govern your use of the SciReAgent platform operated by SciReAgent ("we", "us"). By accessing or using the platform, you agree to be bound by these Terms.</p>
+        <p>These Terms of Service ("Terms") govern your use of the SciReagent platform operated by SciReagent ("we", "us"). By accessing or using the platform, you agree to be bound by these Terms.</p>
       </section>
       <section>
         <h2>2. Products &amp; Use Restrictions</h2>
@@ -28,11 +28,11 @@
       </section>
       <section>
         <h2>6. Intellectual Property</h2>
-        <p>All content on this platform, including product descriptions, knowledge graphs, and documentation, is the property of SciReAgent or its licensors. You may not reproduce, distribute, or create derivative works without prior written consent.</p>
+        <p>All content on this platform, including product descriptions, knowledge graphs, and documentation, is the property of SciReagent or its licensors. You may not reproduce, distribute, or create derivative works without prior written consent.</p>
       </section>
       <section>
         <h2>7. Limitation of Liability</h2>
-        <p>To the maximum extent permitted by law, SciReAgent shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of the platform or products. Our total liability for any claim shall not exceed the purchase price of the product(s) giving rise to the claim.</p>
+        <p>To the maximum extent permitted by law, SciReagent shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of the platform or products. Our total liability for any claim shall not exceed the purchase price of the product(s) giving rise to the claim.</p>
       </section>
       <section>
         <h2>8. Export Compliance</h2>

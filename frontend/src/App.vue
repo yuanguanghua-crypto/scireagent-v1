@@ -16,15 +16,9 @@ import ConfirmHost from '@/components/common/ConfirmHost.vue'
   <!-- ★ 2026-11-18（S4）：全局确认框宿主。必须常驻在根部 —— 任何页面
        `await ask(...)` 都指向它；缺了它 Promise 永远不结算（点了没反应）。 -->
   <ConfirmHost />
-  <footer class="site-footer">
-    <div class="site-footer-inner">
-      <span>© 2026 SciReAgent. All rights reserved.</span>
-      <span class="site-footer-links">
-        <router-link to="/privacy">Privacy Policy</router-link>
-        <router-link to="/terms">Terms of Service</router-link>
-      </span>
-    </div>
-  </footer>
+  <!-- ★ 2026-11-27（A-106）：这里原本还有一个 `.site-footer`（浅色、写 "SciReAgent"、
+       只带 Privacy/Terms），与 AppLayout 里的 AppFooter 叠成**双页脚**。
+       页脚统一由 AppFooter 承担（单个、深色、品牌写法与全站一致），此处不再重复渲染。 -->
 </template>
 
 <style>
@@ -44,23 +38,5 @@ import ConfirmHost from '@/components/common/ConfirmHost.vue'
     transform: translateY(-4px);
   }
 
-  .site-footer {
-    margin-top: auto;
-    padding: 16px 24px;
-    border-top: 1px solid #e5e7eb;
-    font-size: 13px;
-    color: #6b7280;
-  }
-  .site-footer-inner {
-    max-width: 1200px;
-    margin: 0 auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .site-footer-links { display: flex; gap: 16px; }
-  .site-footer-links a { color: #374151; text-decoration: none; }
-  .site-footer-links a:hover { color: #2563eb; text-decoration: underline; }
+  /* ★ 2026-11-27（A-106）：`.site-footer*` 一组样式随双页脚一并删除（页脚只剩 AppFooter）。 */
   </style>

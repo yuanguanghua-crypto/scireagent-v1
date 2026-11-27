@@ -87,7 +87,7 @@ async function handleLogout() {
            同时这一排也没有任何回首页的入口 ⇒ 用户进了 /checkout、
            /orders、/settings、/po/* 就回不去了（用户 2026-10-29 实测发现）。
            现在换成可点的品牌名（回首页）+ 分隔符 + 页面标题。 -->
-      <router-link to="/" class="header-brand" title="Back to SciReAgent home"
+      <router-link to="/" class="header-brand" title="Back to SciReagent home"
                    data-testid="header-home-link">
         Sci<span class="brand-accent">ReAgent</span>
       </router-link>

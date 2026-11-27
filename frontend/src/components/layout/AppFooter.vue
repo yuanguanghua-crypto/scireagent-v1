@@ -3,17 +3,23 @@ const currentYear = new Date().getFullYear()
 </script>
 
 <template>
+  <!-- ★ 2026-11-27（A-105 / A-106）：全站**唯一**页脚。
+       改动前 App.vue 里还挂着一个 `.site-footer`，于是每页底部两个页脚叠着，
+       且品牌一处写 "SciReagent"、一处写 "SciReAgent"。
+       同时这里原有 Documentation / API Reference / Support 三个链接，href 全是 `#`
+       （点 Documentation 无反应、URL 都不变）——仓库里没有 /docs、/api-reference、
+       /support 任何路由，这三项是**永久死链**，已删除，换成真实存在的
+       Privacy Policy / Terms of Service。品牌统一按仓库主流写法 SciReagent
+       （SITE_NAME、index.html、og:* 共 19 处用的都是它）。 -->
   <footer class="app-footer">
     <div class="footer-content">
       <div class="footer-left">
         <span class="copyright">&copy; {{ currentYear }} SciReagent. All rights reserved.</span>
       </div>
       <div class="footer-right">
-        <a href="#" class="footer-link">Documentation</a>
+        <router-link to="/privacy" class="footer-link">Privacy Policy</router-link>
         <span class="separator">|</span>
-        <a href="#" class="footer-link">API Reference</a>
-        <span class="separator">|</span>
-        <a href="#" class="footer-link">Support</a>
+        <router-link to="/terms" class="footer-link">Terms of Service</router-link>
       </div>
     </div>
   </footer>

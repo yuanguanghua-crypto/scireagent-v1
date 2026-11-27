@@ -68,7 +68,7 @@ if (!isInternal(auth)) {
       <div class="sidebar-header">
         <router-link to="/workspace" class="sidebar-brand">
           <span class="brand-icon">🧪</span>
-          <span class="brand-text">SciReAgent</span>
+          <span class="brand-text">SciReagent</span>
         </router-link>
       </div>
 

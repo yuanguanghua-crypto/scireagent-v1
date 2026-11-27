@@ -30,7 +30,7 @@ const values = [
         <p class="eyebrow">ABOUT SCIREAGENT</p>
         <h1>From research goal to precision reagent</h1>
         <p class="lede">
-          SciReAgent is a reagent discovery platform by LabPro Global. We connect the
+          SciReagent is a reagent discovery platform by LabPro Global. We connect the
           full research chain — research goals, applications, methods, protocols, and
           the high-purity products that bring them to the bench — in one traceable graph.
         </p>
