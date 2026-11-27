@@ -54,7 +54,18 @@ vi.mock('@/components/common', () => ({
     error: (m) => state.toasts.push(String(m)),
     success: (m) => state.toasts.push(String(m)),
     warning: (m) => state.toasts.push(String(m)),
+    // ★ 2026-11-27（A-190）：页面会把购物车商品带入明细行并给一条 info 提示
+    info: (m) => state.toasts.push(String(m)),
   },
+}))
+
+// ★ 2026-11-27（A-186 / A-190）：页面新增了两个启动期依赖 —— 地址簿与购物车。
+//   本套用例只关心「提交闸门」，两者给空的即可（等于"没有默认地址、购物车为空"）。
+vi.mock('@/stores/basket', () => ({
+  useBasketStore: () => ({ items: [], loadBasket: vi.fn(async () => {}) }),
+}))
+vi.mock('@/api/addresses', () => ({
+  getAddresses: vi.fn(async () => ({ data: [] })),
 }))
 
 vi.mock('vue-router', async (importOriginal) => {

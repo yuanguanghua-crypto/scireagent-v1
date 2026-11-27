@@ -91,7 +91,12 @@ class POSubmitView(EnvelopeMixin, APIView):
         except ValueError as e:
             return self.error_response(str(e), code='VALIDATION_ERROR', status_code=400)
         return self.success_response(
-            {'order_no': order.order_no, 'status': order.status}, status_code=201
+            # ★ 2026-11-27（A-149）：补 `id` —— 前端提交成功后要跳到订单详情
+            #   （之前只有 order_no，前端无处可跳，于是停留在 /po/submit 只显示一行
+            #   "PO submitted successfully"，用户以为没成功）。加字段是纯增量，
+            #   不改既有键，消费方可继续只读 order_no。
+            {'id': order.id, 'order_no': order.order_no, 'status': order.status},
+            status_code=201,
         )
 
 

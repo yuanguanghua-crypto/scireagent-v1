@@ -2,7 +2,7 @@
 import logging
 from decimal import Decimal
 from datetime import date, timedelta
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -75,6 +75,26 @@ class CheckoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # ★ 2026-11-27（A-145）：PO 号重复必须给出**明确的 409**，不能落到 500。
+        #
+        #   `Order.po_number` 上有 `uniq_order_po_number_nonempty`（非空才唯一），
+        #   而本视图此前不做任何判重 —— 撞号时是 `IntegrityError` 从 `atomic` 里
+        #   冒出来，DRF 兜不住 ⇒ **通用的 500 + "Action failed"**。
+        #   客户看到的是"系统错误"，完全不知道是自己填了一张已经用过的 PO 号
+        #   （QA Batch 15 实测：同一号码走 /po/submit 会得到
+        #   "PO number already exists: …"，走结账就只有 500）。
+        #   两条下单路径对同一件事必须说同一句话，所以这里照抄
+        #   `PoSubmissionService.submit` 的口径与文案。
+        po_number = (data.get('po_number') or '').strip() or None
+        if po_number and Order.objects.filter(po_number=po_number).exists():
+            return Response(
+                {'success': False, 'meta': {'error': {
+                    'code': 'PO_NUMBER_CONFLICT',
+                    'message': f'PO number already exists: {po_number}',
+                }}},
+                status=status.HTTP_409_CONFLICT,
+            )
+
         try:
             with transaction.atomic():
                 # Calculate totals
@@ -125,7 +145,7 @@ class CheckoutView(APIView):
                     order_no=order_no,
                     status=initial_status,
                     payment_method=payment_method,
-                    po_number=data.get('po_number') or None,
+                    po_number=po_number,
                     po_contact=data.get('po_contact', ''),
                     subtotal=subtotal,
                     grand_total=grand_total,
@@ -182,6 +202,20 @@ class CheckoutView(APIView):
                 }}},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except IntegrityError as exc:
+            # ★ 2026-11-27（A-145）：判重与写入之间仍有竞态窗口（两个请求同时过判重）。
+            #   唯一约束兜住后，这里把 500 转成与上面同一句 409，不让客户看到"系统错误"。
+            text = str(exc)
+            if 'po_number' in text or 'uniq_order_po_number' in text:
+                logger.warning('[checkout] PO number race lost: %s', text[:200])
+                return Response(
+                    {'success': False, 'meta': {'error': {
+                        'code': 'PO_NUMBER_CONFLICT',
+                        'message': f'PO number already exists: {po_number}',
+                    }}},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            raise
         logger.info('Checkout completed: order_no=%s user_id=%s',
                     order.order_no, order.user_id)
 

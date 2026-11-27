@@ -1,19 +1,27 @@
 <script setup>
-import { reactive, ref, computed, onMounted, watch } from 'vue'
+import { reactive, ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { submitPo, getOrderDetail, getMyQuotes } from '@/api/poPortal'
 import { getProducts, getProductDetail } from '@/api/products'
+import { getAddresses } from '@/api/addresses'
+import { useBasketStore } from '@/stores/basket'
 import { SHIPPING_METHODS } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
 import { toast } from '@/components/common'
 
 const router = useRouter()
 const route = useRoute()
+const basketStore = useBasketStore()
 const submitting = ref(false)
 const successOrderNo = ref('')
 // ★ 2026-10-28：缺货拦截的结构化结果（后端 meta.error.details）
 const shortages = ref([])
 const shortageMessage = ref('')
+// ★ 2026-11-27（A-147）：明细行的失败原因（常驻，不再只靠 toast）
+const itemsError = ref('')
+// ★ 2026-11-27（A-149）：提交成功后跳订单详情用
+const successOrderId = ref(null)
+let redirectTimer = null
 const reorderSourceId = ref('')
 // 交付日期下限：本地时区的今天（YYYY-MM-DD）。
 // 用 toLocaleDateString('en-CA') 取本地时区日期，规避 toISOString() 的 UTC 偏移导致少一天。
@@ -64,13 +72,94 @@ function validateDateAndEmail() {
 
 const firstFormError = computed(() => formErrors.date || formErrors.email || '')
 
-onMounted(() => {
+onMounted(async () => {
+  // ★ 2026-11-27（A-186 / A-190）：两个"本该自动带入"的东西此前都没接 ——
+  //   ① 地址簿里标了 default 的地址不会出现在 Ship-to/Bill-to；
+  //   ② 购物车里的商品不会出现在明细行（页面永远从 "No line items yet." 开始）。
+  //   顺序有讲究：reorder 的数据最具体，先让它填；购物车只在**仍然空**时才补，
+  //   免得把两张单的商品混在一起。
   if (route.query.reorder) {
     reorderSourceId.value = route.query.reorder
-    loadReorder()
+    await loadReorder()
   }
+  await prefillFromAddresses()
+  if (!items.value.length) await prefillFromBasket()
   loadQuotes()
 })
+
+/** 把地址簿里的默认地址填进 Ship-to / Bill-to（A-186）。 */
+async function prefillFromAddresses() {
+  let list = []
+  try {
+    const res = await getAddresses()
+    const payload = res.data || res
+    list = Array.isArray(payload) ? payload : (payload.results || payload.data || [])
+  } catch {
+    return                      // 拿不到地址簿不该挡住填表
+  }
+  if (!Array.isArray(list) || !list.length) return
+
+  const pick = (type) => list.find((a) => a.type === type && a.is_default)
+    || list.find((a) => a.type === type)
+    || null
+  // ⚠️ 不要把 attention 拼进地址行：它已经填在「Recipient / Bill-to name」里了，
+  //   再拼一次会得到 "Dr. X, 789 Science Park Drive, …"，收件人姓名出现两遍。
+  const line = (a) => [a.line1, a.line2, a.city, a.state, a.postal_code, a.country]
+    .filter((v) => v && String(v).trim()).join(', ')
+
+  const ship = pick('shipping')
+  if (ship) {
+    form.shipping_name = form.shipping_name || ship.attention || ''
+    form.shipping_phone = form.shipping_phone || ship.phone || ''
+    form.shipping_address = form.shipping_address || line(ship)
+    form.shipping_email = form.shipping_email || ''
+  }
+  const bill = pick('billing')
+  if (bill) {
+    form.billing_name = form.billing_name || bill.attention || ''
+    form.billing_address = form.billing_address || line(bill)
+  }
+}
+
+/**
+ * 把购物车商品带入明细行（A-190）。
+ *
+ * ⚠️ 只在**明细为空**时补：用户可能已经手填了行，或刚从订单 Load from Order，
+ *   那种情况下再塞一遍购物车就会得到一张混着两种来源的单子。
+ * 单价取购物车行的 `unit_price`（后端已按阶梯价算过，见 `resolve_unit_price`），
+ * 与结账页看到的是同一个数。
+ */
+async function prefillFromBasket() {
+  try {
+    await basketStore.loadBasket()
+  } catch {
+    return
+  }
+  const lines = basketStore.items || []
+  if (!lines.length) return
+  for (const ci of lines) {
+    const skuId = ci.sku || ci.sku_id
+    if (!skuId) continue
+    items.value.push({
+      productId: ci.product || ci.product_id,
+      productName: ci.product_name || `Product #${ci.product || ci.product_id}`,
+      // 只带这一档 SKU：购物车里选定的就是它，不必再拉整张价目表
+      skus: [{
+        id: skuId,
+        sku_code: ci.sku_code || '',
+        pack_size: ci.pack_size || '',
+        price: ci.unit_price,
+      }],
+      skuId,
+      quantity: ci.quantity || 1,
+      unitPrice: ci.unit_price,
+      searchResults: [],
+      searching: false,
+      searchSeq: 0,
+    })
+  }
+  toast.info(`Carried over ${lines.length} item${lines.length === 1 ? '' : 's'} from your cart.`)
+}
 
 const quoteOptions = ref([])
 
@@ -113,6 +202,11 @@ watch(
 const items = ref([])
 const files = ref([])
 const searchTerm = ref('')
+
+// 明细行数一变，就把"没有明细行"那条红字撤掉（A-147）
+watch(() => items.value.length, () => { if (items.value.length) itemsError.value = '' })
+// 离开页面时清掉自动跳转定时器，避免在别的页面被莫名带走
+onUnmounted(() => { if (redirectTimer) { clearTimeout(redirectTimer); redirectTimer = null } })
 
 function addItem() {
   items.value.push({
@@ -192,15 +286,21 @@ async function loadReorder() {
   const res = await getOrderDetail(reorderSourceId.value)
   const o = res.data || res
   if (!o) return
-  form.po_number = ''
-  form.grant_code = o.grant_code || ''
-  form.shipping_method = o.shipping_method || ''
-  form.shipping_name = o.shipping_name || ''
-  form.shipping_address = o.shipping_address || ''
-  form.shipping_phone = o.shipping_phone || ''
-  form.shipping_email = o.shipping_email || ''
-  form.billing_name = o.billing_name || ''
-  form.billing_address = o.billing_address || ''
+  // ★ 2026-11-27（A-192）：**不再清空用户已经填过的字段**。
+  //   原来这里有一行 `form.po_number = ''`，而 Bill-to 是无条件 `= o.billing_name || ''`
+  //   —— 源单没有账单信息时就把用户填的 Bill-to 抹成空。
+  //   "Load from Order" 的语义是**补**数据，不是重置表单；真正要重填的场景
+  //   由「Submit another PO」负责（那是整张单重开）。
+  //   取"源单有值才覆盖"的合并策略，PO 号与任何已填内容都不受影响。
+  const setIf = (key, value) => { if (value) form[key] = value }
+  setIf('grant_code', o.grant_code)
+  setIf('shipping_method', o.shipping_method)
+  setIf('shipping_name', o.shipping_name)
+  setIf('shipping_address', o.shipping_address)
+  setIf('shipping_phone', o.shipping_phone)
+  setIf('shipping_email', o.shipping_email)
+  setIf('billing_name', o.billing_name)
+  setIf('billing_address', o.billing_address)
   ;(o.items || []).forEach((it) => {
     items.value.push({
       productId: it.product_id,
@@ -220,14 +320,20 @@ async function handleSubmit() {
     // ★ 2026-11-18（S4）：表单校验提示 `alert` → `toast.error`。
     //   原生 alert 阻塞主线程：连点两次提交会卡住两秒，且用户必须手点「确定」
     //   才能继续填表 —— 表单校验本该是"即时、可叠加、不打断输入"的反馈。
+    // ★ 2026-11-27（A-147）：**再补一条常驻行内提示**。toast 3 秒就没了，
+    //   而"没有明细行"这件事在页面上看不出任何红字，用户只会觉得"按钮没反应"。
+    //   A-189 定的口径在这里同样适用：失败原因必须留在按钮旁边。
+    itemsError.value = 'Add at least one line item before submitting.'
     toast.error('Add at least one line item.')
     return
   }
   const invalid = items.value.some((it) => !it.skuId || !it.quantity || !it.unitPrice)
   if (invalid) {
+    itemsError.value = 'Each line item requires a SKU, quantity and unit price.'
     toast.error('Each line item requires a SKU, quantity and unit price.')
     return
   }
+  itemsError.value = ''
   // ★ 2026-11-20（S4 / A-189）：日期与邮箱改为**应用层校验**，不再让浏览器原生校验吃掉 submit。
   //   见文件上方 `formErrors` 的说明。
   if (!validateDateAndEmail()) {
@@ -251,6 +357,19 @@ async function handleSubmit() {
     const res = await submitPo({ data: payload, files: files.value })
     const data = res.data || res
     successOrderNo.value = data.order_no || 'submitted'
+    successOrderId.value = data.id ?? null
+    // ★ 2026-11-27（A-149）：提交成功后**必须给出下一步**。
+    //   此前建单成功却仍停在 /po/submit，只显示一行 "PO submitted successfully"
+    //   —— 用户以为没提交成功，会再点一次（于是又撞上"重复 PO 号"）。
+    //   现在：成功的 callout 仍保留（订单号要能核对/抄走），
+    //   同时给一个显式「View order」入口，并在 4 秒后自动跳到订单详情。
+    //   4 秒是留给"把订单号看/抄一遍"的窗口，不是技术限制。
+    if (successOrderId.value) {
+      if (redirectTimer) clearTimeout(redirectTimer)
+      redirectTimer = setTimeout(() => {
+        if (successOrderId.value) router.push(`/orders/${successOrderId.value}`)
+      }, 4000)
+    }
   } catch (err) {
     // 拦截器已 toast（一句话）；这里再把「哪几行缺货、要多少、只剩多少」结构化落页，
     // 因为 toast 4 秒就没了，而客户需要照着这张表去改数量或换产品。
@@ -278,6 +397,9 @@ async function handleSubmit() {
  */
 function resetForNewPo() {
   successOrderNo.value = ''
+  successOrderId.value = null
+  if (redirectTimer) { clearTimeout(redirectTimer); redirectTimer = null }
+  itemsError.value = ''
   shortages.value = []
   shortageMessage.value = ''
   // 新单不该继承上一张单的校验红字（watch 也会清，这里是显式保证）
@@ -309,7 +431,17 @@ function resetForNewPo() {
 
     <div v-if="successOrderNo" class="po-callout" style="margin-bottom:24px">
       PO submitted successfully. Order No: <strong class="po-mono">{{ successOrderNo }}</strong>
-      <router-link :to="{ name: 'PoOrders' }" class="po-btn po-btn-primary po-btn-sm" style="margin-left:12px">
+      <!-- ★ 2026-11-27（A-149）：原来只有一个「View My Orders」链接、且不自动跳转，
+           用户以为没成功。现在直连到**这张单**的详情，并在 4 秒后自动跳过去。 -->
+      <router-link
+        v-if="successOrderId"
+        :to="`/orders/${successOrderId}`"
+        class="po-btn po-btn-primary po-btn-sm"
+        style="margin-left:12px"
+      >
+        View this order
+      </router-link>
+      <router-link :to="{ name: 'PoOrders' }" class="po-btn po-btn-outline po-btn-sm" style="margin-left:8px">
         View My Orders
       </router-link>
     </div>
@@ -491,6 +623,10 @@ function resetForNewPo() {
            role="alert" 给读屏器（原生气泡本来就有的那点好处，这里保留）。 -->
       <p v-if="firstFormError" class="po-submit-error" role="alert" data-testid="po-submit-error">
         {{ firstFormError }}
+      </p>
+      <!-- ★ 2026-11-27（A-147）：明细行为空/缺字段的失败原因常驻在按钮上方 -->
+      <p v-if="itemsError" class="po-submit-error" role="alert" data-testid="po-items-error">
+        {{ itemsError }}
       </p>
 
       <div class="po-row" style="margin-top:16px">
