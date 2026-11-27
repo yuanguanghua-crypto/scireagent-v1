@@ -275,3 +275,117 @@ class QuoteRequestCloseView(EnvelopeMixin, APIView):
             q.save(update_fields=['status'])
 
         return self.success_response(QuoteRequestDetailSerializer(q).data)
+
+
+class QuoteRequestStartReviewView(EnvelopeMixin, APIView):
+    """POST /api/v1/quote-requests/<id>/review/ —— 把询价标为「审核中」（A-020，P0）。
+
+    ## 改前是什么样
+    状态枚举里有 `reviewing`，但**没有任何写入口**（QA 三批均报：「三处 RFQ 详情均无
+    状态修改入口；Pending 无法改为 Reviewing」）。运营拿到一条询价后无法表示
+    "我已经在看这条了"，收件箱里 pending 与"没人管"永远分不开。
+
+    ## 状态机
+    只允许 `pending` → `reviewing`。已在 reviewing 或更往后 ⇒ **409**（幂等，不重复写）。
+    为什么不做成通用 status setter：`quoted` 必须由填报价动作产生（要带金额/通知客户），
+    `closed` 有专门的 close 端点（带原因、幂等）。开放一个任意 setter 等于绕过这些闸门。
+    """
+
+    permission_classes = [IsProcurementOrAdmin]
+
+    def post(self, request, pk):
+        q = get_object_or_404(QuoteRequest, pk=pk)
+        if q.status == QuoteRequest.Status.REVIEWING:
+            return self.error_response(
+                '该询价已在审核中，无需重复操作。', code='ALREADY_REVIEWING', status_code=409,
+            )
+        if q.status != QuoteRequest.Status.PENDING:
+            return self.error_response(
+                f'当前状态为 {q.status}，只有待处理（pending）的询价可以转为审核中。',
+                code='INVALID_TRANSITION', status_code=409,
+            )
+        q.status = QuoteRequest.Status.REVIEWING
+        q.save(update_fields=['status'])
+        return self.success_response(QuoteRequestDetailSerializer(q).data)
+
+
+class QuoteRequestRespondView(EnvelopeMixin, APIView):
+    """POST /api/v1/quote-requests/<id>/respond/ —— 客户接受 / 拒绝报价（A-264）。
+
+    body: `{"action": "accept" | "reject", "note": "可选说明"}`
+
+    ## 改前是什么样
+    枚举里**没有** accepted / rejected，客户侧四个页面（/orders、/po/orders、
+    /po/reorder、/po/downloads）也没有任何入口 ⇒ 「收到报价后答复」这件事
+    在整个系统里无处表达。运营只能靠邮件/电话私下确认，系统里永远停在 `quoted`。
+
+    ## 归属与状态机
+    - 只有**该询价的客户本人**（`user` 是自己，或 `contact_email` 与自己邮箱一致）能答复；
+    - 只有 `quoted` 状态可答复（未报价 / 已答复 ⇒ 409，幂等）；
+    - 答复后状态变 `accepted` / `rejected`，并记录 `customer_responded_at`。
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        action = (request.data.get('action') or '').strip().lower()
+        if action not in ('accept', 'reject'):
+            return self.error_response(
+                "action 必须是 'accept' 或 'reject'。", code='INVALID_ACTION', status_code=400,
+            )
+
+        q = get_object_or_404(QuoteRequest, pk=pk)
+        user = request.user
+        mine = (q.user_id and q.user_id == user.id) or (
+            q.contact_email and user.email and q.contact_email.lower() == user.email.lower()
+        )
+        if not mine and not _is_internal(user):
+            # 不区分"不存在"与"不是你的"，避免探测他人 RFQ 是否存在
+            return self.error_response(
+                'Quote request not found.', code='NOT_FOUND', status_code=404,
+            )
+
+        if q.status != QuoteRequest.Status.QUOTED:
+            return self.error_response(
+                f'当前状态为 {q.status}，只有已报价（quoted）的询价可以答复。',
+                code='INVALID_TRANSITION', status_code=409,
+            )
+
+        note = (request.data.get('note') or '').strip()
+        q.status = (
+            QuoteRequest.Status.ACCEPTED if action == 'accept'
+            else QuoteRequest.Status.REJECTED
+        )
+        q.customer_responded_at = timezone.now()
+        fields = ['status', 'customer_responded_at']
+        if note:
+            # 追加而不是覆盖：客户填的需求描述是原始事实
+            label = '[客户接受]' if action == 'accept' else '[客户拒绝]'
+            q.notes = (q.notes + '\n' if q.notes else '') + f'{label} {note}'
+            fields.append('notes')
+        q.save(update_fields=fields)
+        return self.success_response(QuoteRequestDetailSerializer(q).data)
+
+
+class MyQuoteRequestListView(EnvelopeMixin, APIView):
+    """GET /api/v1/quote-requests/mine/ —— 我提交过的询价（A-170）。
+
+    ## 改前是什么样
+    客户侧 `/orders` 只列订单，**没有 RFQ 入口**（QA Batch 15：RFQ #11 明明能通过
+    `GET /quote-requests/11/` 取到 200，界面上却没有任何入口）。运营报了价，客户
+    既看不到、也不知道该去哪看。
+
+    ## 归属口径
+    与详情端点一致：`user` 是自己 **或** `contact_email` 与自己邮箱一致（历史上
+    有些 RFQ 是匿名提交后补绑用户的）。按 `-created_at` 排序。
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        qs = (QuoteRequest.objects
+              .prefetch_related('items__product', 'items__sku')
+              .filter(Q(user=user) | Q(contact_email__iexact=user.email or ''))
+              .order_by('-created_at'))
+        return self.success_response(QuoteRequestDetailSerializer(qs, many=True).data)

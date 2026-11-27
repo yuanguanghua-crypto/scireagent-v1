@@ -1,15 +1,89 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOrdersStore } from '@/stores/orders'
+import { getMyQuoteRequests, respondToQuote } from '@/api/rfq'
+import { useConfirm } from '@/composables/useConfirm'
+import { toast } from '@/components/common'
 import { statusBadgeStyle, formatStatus } from '@/config/poConstants'
 import { formatCurrency } from '@/utils/helpers'
 import { LoadingSpinner, EmptyState, DataPagination, ErrorBanner } from '@/components/common'
 
 const router = useRouter()
 const store = useOrdersStore()
+const { ask, askText } = useConfirm()
 
-onMounted(() => store.fetchOrders())
+/**
+ * ★ 2026-11-27（A-170 / A-264）：客户侧的询价（RFQ）区块。
+ *
+ * 改前：`/orders` 只有订单 —— 客户提交过询价、运营也报了价，但客户**在界面上
+ * 永远看不到**（详情 API `GET /quote-requests/{id}/` 明明是 200，只是没有门），
+ * 更没有"接受 / 拒绝报价"的入口（枚举里连 accepted/rejected 都没有）。
+ * 现在这里列出「我提交过的询价」，报价到了可以直接接受或拒绝。
+ */
+const rfqs = ref([])
+const rfqsLoading = ref(false)
+const rfqBusyId = ref(null)
+
+async function loadRfqs() {
+  rfqsLoading.value = true
+  try {
+    const res = await getMyQuoteRequests()
+    rfqs.value = res.data || res || []
+  } catch {
+    rfqs.value = []      // 拉不到就整块不显示：不该让询价故障拖垮订单列表
+  } finally {
+    rfqsLoading.value = false
+  }
+}
+
+async function respond(q, action) {
+  let note = ''
+  if (action === 'accept') {
+    const ok = await ask({
+      title: 'Accept this quotation?',
+      message: `Accept the quotation for RFQ #${q.id}`
+        + (q.quoted_total != null ? ` (${formatCurrency(q.quoted_total, q.quoted_currency || 'USD')})` : '')
+        + '?\n\nOur team will follow up with the order.',
+      confirmText: 'Accept quotation',
+    })
+    if (!ok) return
+  } else {
+    const reason = await askText({
+      title: 'Reject this quotation',
+      message: `Reject the quotation for RFQ #${q.id}?\n`
+        + 'A reason is optional, but it is what our sales team sees.',
+      placeholder: 'Optional reason…',
+      confirmText: 'Reject',
+      danger: true,
+    })
+    if (reason === null) return
+    note = reason
+  }
+  rfqBusyId.value = q.id
+  try {
+    const res = await respondToQuote(q.id, { action, note })
+    const updated = res.data || res
+    const idx = rfqs.value.findIndex((x) => x.id === q.id)
+    if (idx >= 0) rfqs.value[idx] = updated
+    toast.success(action === 'accept' ? 'Quotation accepted' : 'Quotation rejected')
+  } catch (e) {
+    toast.error(
+      e?.response?.data?.meta?.error?.message || e?.message || 'Could not record your answer.',
+    )
+  } finally {
+    rfqBusyId.value = null
+  }
+}
+
+function fmtDate(v) {
+  return v ? new Date(v).toLocaleDateString() : '—'
+}
+
+onMounted(() => {
+  store.fetchOrders()
+  loadRfqs()
+})
 
 // ★ 2026-10-21 修 D2（P0）：此前本页**没有任何分页控件**，store 也从不传 page
 //   ⇒ 客户只能看到最近 20 单，第 21 单起永久不可达（后端 `PAGE_SIZE=20`）。
@@ -35,6 +109,49 @@ function goToDetail(order) {
 <template>
   <div class="order-list-page">
     <h1 class="page-title">My Orders</h1>
+
+    <!-- ★ 2026-11-27（A-170 / A-264）：我提交过的询价 + 报价答复入口 -->
+    <section v-if="rfqs.length" class="rfq-block" data-testid="my-rfqs">
+      <h2 class="rfq-block-title">Quote Requests ({{ rfqs.length }})</h2>
+      <table class="order-table">
+        <thead>
+          <tr>
+            <th>RFQ</th><th>Submitted</th><th>Items</th><th>Status</th><th>Quoted</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="q in rfqs" :key="q.id">
+            <td class="mono">#{{ q.id }}</td>
+            <td>{{ fmtDate(q.created_at) }}</td>
+            <td>{{ (q.items || []).length }}</td>
+            <td><span class="po-tag" :data-testid="`rfq-status-${q.id}`">{{ q.status }}</span></td>
+            <td class="mono">
+              {{ q.quoted_total != null
+                ? formatCurrency(q.quoted_total, q.quoted_currency || 'USD')
+                : '—' }}
+              <div v-if="q.quoted_valid_until" class="rfq-valid">
+                valid until {{ q.quoted_valid_until }}
+              </div>
+            </td>
+            <td>
+              <template v-if="q.status === 'quoted'">
+                <button
+                  class="btn-sm btn-primary" :disabled="rfqBusyId === q.id"
+                  :data-testid="`rfq-accept-${q.id}`" @click="respond(q, 'accept')"
+                >Accept quote</button>
+                <button
+                  class="btn-sm btn-ghost" :disabled="rfqBusyId === q.id"
+                  :data-testid="`rfq-reject-${q.id}`" @click="respond(q, 'reject')"
+                >Reject</button>
+              </template>
+              <span v-else-if="q.status === 'accepted'" class="rfq-answered">You accepted this quote.</span>
+              <span v-else-if="q.status === 'rejected'" class="rfq-answered">You rejected this quote.</span>
+              <span v-else class="rfq-answered">—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
 
     <!-- ★ D10：加载失败的持久横幅（此前只有 4 秒 toast ⇒ 看起来像"你没有订单"） -->
     <ErrorBanner :message="store.error" kind="load" title="Couldn't load orders." />
@@ -103,6 +220,12 @@ function goToDetail(order) {
 
 <style scoped>
 .order-list-page { }
+/* A-170 / A-264：询价区块（与订单表同款表格，视觉上区分一层底） */
+.rfq-block { margin-bottom: 22px; padding: 14px 16px; border: 1px solid var(--color-border);
+  border-radius: 8px; background: var(--color-surface); }
+.rfq-block-title { font-size: 15px; font-weight: 700; margin: 0 0 10px; color: var(--color-text); }
+.rfq-valid { font-size: 11px; color: var(--color-text-tertiary); }
+.rfq-answered { font-size: 12px; color: var(--color-text-secondary); }
 .page-title { font-size: 22px; font-weight: 800; color: var(--color-text); margin: 0 0 20px; }
 
 .order-table-wrap { overflow-x: auto; }

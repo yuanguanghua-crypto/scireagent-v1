@@ -10,6 +10,11 @@ class QuoteRequest(TimeStampedModel):
         PENDING = 'pending', '待处理'
         REVIEWING = 'reviewing', '审核中'
         QUOTED = 'quoted', '已报价'
+        # ★ 2026-11-27（A-264）：客户对报价的两种答复此前**在枚举里不存在** ——
+        #   客户侧既没有入口、后端也没有可写的终态，于是"接受/拒绝报价"这件事
+        #   在整个系统里无法表达（QA 实测客户侧四个页面都没有按钮）。
+        ACCEPTED = 'accepted', '已接受'
+        REJECTED = 'rejected', '已拒绝'
         CLOSED = 'closed', '已关闭'
 
     user = models.ForeignKey(
@@ -27,6 +32,10 @@ class QuoteRequest(TimeStampedModel):
         default=Status.PENDING, verbose_name='状态',
     )
     notes = models.TextField(blank=True, default='', verbose_name='备注')
+    # ★ A-264：客户"接受/拒绝"报价的时间点（谁在什么时候答复的，日后争议要看）
+    customer_responded_at = models.DateTimeField(
+        null=True, blank=True, verbose_name='客户答复时间',
+    )
 
     # ── 报价结果（运营在 RFQ 工作台填写，填完即通知客户）──────────────
     #

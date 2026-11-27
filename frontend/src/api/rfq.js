@@ -43,3 +43,32 @@ export function saveQuote(id, payload) {
 export function closeQuoteRequest(id, reason = '') {
   return http.post(`/quote-requests/${id}/close/`, { reason })
 }
+
+/**
+ * 把询价标为「审核中」（A-020，P0，2026-11-27）。
+ *
+ * 为什么需要：`Status.REVIEWING` 在枚举里一直存在，但全仓**没有写它的路径** ——
+ * 运营拿到一条询价后无法表示"我已经在看这条了"，收件箱里 "pending" 与
+ * "没人管" 永远分不开。
+ *
+ * 只允许 pending → reviewing；已在 reviewing 或更往后返回 409。
+ */
+export function startQuoteReview(id) {
+  return http.post(`/quote-requests/${id}/review/`)
+}
+
+/**
+ * 客户接受 / 拒绝报价（A-264，2026-11-27）。
+ *
+ * payload: { action: 'accept' | 'reject', note? }
+ * 只有该 RFQ 的客户本人、且状态为 quoted 时可答复（否则 409/404）。
+ * 答复后状态变 accepted / rejected，并记录客户答复时间。
+ */
+export function respondToQuote(id, payload) {
+  return http.post(`/quote-requests/${id}/respond/`, payload)
+}
+
+/** 我提交过的询价（A-170）—— 客户侧用，按 user 或 contact_email 归属 */
+export function getMyQuoteRequests() {
+  return http.get('/quote-requests/mine/')
+}

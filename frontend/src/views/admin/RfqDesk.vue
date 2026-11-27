@@ -12,7 +12,9 @@
  */
 import { onMounted, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getQuoteRequests, getQuoteRequestDetail, saveQuote, closeQuoteRequest } from '@/api/rfq'
+import {
+  getQuoteRequests, getQuoteRequestDetail, saveQuote, closeQuoteRequest, startQuoteReview,
+} from '@/api/rfq'
 import { extractErrorMessage } from '@/utils/http'
 import { normalizeIsoDate } from '@/utils/isoDate'
 import IsoDateInput from '@/components/common/IsoDateInput.vue'
@@ -41,6 +43,9 @@ const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
   { value: 'reviewing', label: 'Reviewing' },
   { value: 'quoted', label: 'Quoted' },
+  // ★ 2026-11-27（A-264）：客户答复后的两个终态，运营要能筛出来
+  { value: 'accepted', label: 'Accepted' },
+  { value: 'rejected', label: 'Rejected' },
   { value: 'closed', label: 'Closed' },
 ]
 
@@ -92,6 +97,21 @@ async function refresh() {
   search.value = ''
   statusFilter.value = ''
   await load()
+}
+
+/** A-020：把 pending 的询价标为审核中（枚举里一直有 reviewing，但从未有写入口） */
+async function markReviewing() {
+  if (!detail.value) return
+  try {
+    const res = await startQuoteReview(detail.value.id)
+    detail.value = res.data ?? res
+    detailError.value = ''
+    await load()
+  } catch (e) {
+    // 页内错误落位（不用 toast：状态类操作失败要能一直看到原因）
+    detailError.value = extractErrorMessage(
+      e?.response?.data ?? e, "Couldn't change the status.")
+  }
 }
 
 async function openRow(r, { syncUrl = true } = {}) {
@@ -359,7 +379,19 @@ async function closeRfq() {
             <dt>Phone</dt><dd>{{ detail.contact_phone || '—' }}</dd>
             <dt>Company</dt><dd>{{ detail.company_name || '—' }}</dd>
             <dt>Country</dt><dd>{{ detail.country || '—' }}</dd>
-            <dt>Status</dt><dd><span class="po-tag">{{ detail.status }}</span></dd>
+            <dt>Status</dt>
+            <dd>
+              <span class="po-tag" data-testid="rfq-status">{{ detail.status }}</span>
+              <!-- ★ 2026-11-27（A-020，P0）：此前**没有任何状态修改入口**，
+                   运营无法表示"我已经在看这条了"。这里只开放 pending → reviewing；
+                   quoted 由填报价产生、closed 有专门入口，都不在此处。 -->
+              <button
+                v-if="detail.status === 'pending'"
+                type="button" class="po-btn po-btn-outline po-btn-sm"
+                style="margin-left:8px" data-testid="rfq-mark-reviewing"
+                @click="markReviewing"
+              >Mark as reviewing</button>
+            </dd>
             <dt>Received</dt><dd>{{ fmtDate(detail.created_at) }}</dd>
             <dt>Notes</dt><dd>{{ detail.notes || '—' }}</dd>
           </dl>
