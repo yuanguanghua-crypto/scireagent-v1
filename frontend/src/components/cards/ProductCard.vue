@@ -270,22 +270,37 @@ function ssChipClass(tag) {
   overflow: hidden;
 }
 
+/* ★ 2026-11-27（A-112）：底部这一行原来是一行 flex、**不换行**，而左区 `min-width:0`
+   允许子项被压到比内容还窄 ⇒
+     · 「知识关联」四个字被压成**竖排**（每个字一行）；
+     · 它、Formula、价格、（free acid）与分类标签互相**叠在一起**（截图确认）。
+   修法：外层与左区都允许换行，规格与价格不参与收缩（`flex-shrink:0`）+ 禁止断词。 */
 .card-footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   padding-top: 8px;
   margin-top: auto;
   border-top: 1px solid var(--color-border-light);
   gap: 8px;
+  row-gap: 6px;
 }
-.card-footer-left { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.card-footer-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.card-footer-left {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: 8px; row-gap: 4px; min-width: 0;
+}
+.card-footer-right {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; justify-content: flex-end; min-width: 0;
+}
 
 .card-spec {
   display: flex;
   align-items: baseline;
   gap: 4px;
+  flex-shrink: 0;          /* 不许被压到比内容窄 —— 竖排的根因 */
+  white-space: nowrap;
 }
 
 .card-spec-label {
@@ -293,6 +308,7 @@ function ssChipClass(tag) {
   color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .card-spec-value {
@@ -309,12 +325,16 @@ function ssChipClass(tag) {
 }
 
 .card-price {
+  flex-shrink: 0;
+  white-space: nowrap;
   font-size: 15px;
   font-weight: 700;
   color: var(--color-text);
   font-variant-numeric: tabular-nums;
 }
 
+/* ★ A-112（续）：分类名较长（如 "Nucleotides & Nucleosides"）时会被卡片右边界**切掉**，
+   看起来像被截断的乱码。给一个单行省略，并允许右区换行。 */
 .card-class {
   font-size: 11px;
   color: var(--color-text-tertiary);
@@ -322,6 +342,10 @@ function ssChipClass(tag) {
   padding: 1px 6px;
   border-radius: 4px;
   font-weight: 500;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* S6 四轴修饰标签 chips（与详情页共用配色语义） */

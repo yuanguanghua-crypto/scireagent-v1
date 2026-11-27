@@ -345,6 +345,23 @@ function requestQuote() {
 }
 
 /* ── Status badge color ── */
+/**
+ * ★ 2026-11-27（A-113）：SKU 状态此前直接渲染**原始枚举**（`in_stock` / `out_of_stock`），
+ *   公开页上出现带下划线的代码值。这里给一个人话标签；未知值原样返回，不臆造。
+ */
+const INVENTORY_STATUS_LABELS = {
+  in_stock: 'In stock',
+  out_of_stock: 'Out of stock',
+  limited: 'Limited stock',
+  preorder: 'Pre-order',
+  discontinued: 'Discontinued',
+  active: 'In stock',
+  draft: 'Draft',
+}
+function statusLabel(s) {
+  return INVENTORY_STATUS_LABELS[s] || s || '—'
+}
+
 function statusColor(s) {
   if (s === 'active' || s === 'in_stock') return 'badge-green'
   if (s === 'limited' || s === 'draft') return 'badge-amber'
@@ -759,7 +776,7 @@ function onSearch(query) {
                 </template>
                 <template v-else>{{ formatCurrency(sku.price, sku.currency) }}</template>
               </span>
-              <span class="pd-badge-sm pd-badge-dot" :class="statusColor(sku.inventory_status)">{{ sku.inventory_status }}</span>
+              <span class="pd-badge-sm pd-badge-dot" :class="statusColor(sku.inventory_status)">{{ statusLabel(sku.inventory_status) }}</span>
               <!-- COA column -->
               <div class="pd-coa-cell">
                 <button

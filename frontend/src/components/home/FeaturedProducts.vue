@@ -91,7 +91,7 @@ function viewAllLink() {
                  （`pricing.py:79` 明确写了"用于 From $X 起价展示"）——
                  不写 "From" 就会被读成"单价"，而它其实是 50+ 档。
                  保留设计语义（买多更便宜要让人看见），把前缀补上。 -->
-            <span class="price-from">From</span>
+            <span class="price-from">From&nbsp;</span>
             <span class="currency">{{ p.currency === 'CNY' ? '¥' : '$' }}</span>{{ formatPrice(p.price) }}
           </span>
           <span v-else class="price">—</span>

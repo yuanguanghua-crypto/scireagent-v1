@@ -65,20 +65,31 @@ function formatDuration(seconds) {
 </template>
 
 <style scoped>
+/* ★ 2026-11-27（A-130）：这里原写 `display:flex; flex-direction:row`，而模板有
+   **5 个子元素**（accent / header[版本] / title / description / footer[日期]）
+   ⇒ 五个块被排成**一行**：版本在最左、标题居中、日期在最右，footer 的 `border-top`
+   就变成一条**横穿文字的线**（截图可见，QA 报的"日期与标题、编号重叠"就是它）。
+   修法：内容改回**竖向堆叠**（flex column），左侧色条改成**绝对定位**贴边 ——
+   这样它不再参与流内布局，也就不需要把模板内容再包一层。
+   ⚠️ 第一版试过两列 grid，结果内容列被压窄、标题逐词换行（更糟），已回退。 */
 .protocol-card {
+  position: relative;
   cursor: pointer;
   display: flex;
-  flex-direction: row;
-  gap: 10px;
-  padding: 20px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 20px 20px 28px;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .card-accent {
+  position: absolute;
+  left: 12px;
+  top: 20px;
+  bottom: 20px;
   width: 3px;
-  flex-shrink: 0;
   background: var(--color-border);
-  border-radius: 3px 0 0 3px;
+  border-radius: 3px;
 }
 
 .protocol-card:hover {
