@@ -289,6 +289,13 @@ class UserSerializer(serializers.ModelSerializer):
     """Serializer for read-only user information."""
 
     organization_name = serializers.SerializerMethodField()
+    # ★ 2026-11-27（A-184）：**没有组织就不可能是组织管理员**。
+    #   `User.is_org_admin` 是模型上的独立布尔位，注册时按分支写过 True/False，
+    #   但它与 `organization` 之间没有任何强制关系 ⇒ 实测存在
+    #   「Organization = None 但 Organization Admin 显示 ● Admin」的账号
+    #   （QA Batch 16）。这里在**输出层**收敛：没组织恒为 False。
+    #   不改模型、不改数据（存量那几个账号的脏位不写回，避免无谓的数据变更）。
+    is_org_admin = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -306,6 +313,9 @@ class UserSerializer(serializers.ModelSerializer):
         if obj.organization:
             return obj.organization.name
         return None
+
+    def get_is_org_admin(self, obj):
+        return bool(obj.organization_id and obj.is_org_admin)
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):

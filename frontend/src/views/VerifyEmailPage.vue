@@ -13,6 +13,9 @@ const errorMessage = ref('')
 const email = ref('')
 const resending = ref(false)
 const resendMessage = ref('')
+// ★ 2026-11-27（A-128）：**会话到底建没建**由 store 的真实状态决定，
+//   不能靠"请求没抛异常"就宣称已登录（原来正是这么写的，落地却是登录页）。
+const signedIn = ref(false)
 
 onMounted(async () => {
   const token = route.query.token
@@ -22,14 +25,15 @@ onMounted(async () => {
     return
   }
   try {
-    const result = await authStore.verifyEmail(token)
-    // 验证成功即自动登录（后端签发 token 并由 store 写入 localStorage）
+    await authStore.verifyEmail(token)
     status.value = 'success'
-    email.value = result?.user?.email || ''
+    signedIn.value = authStore.isAuthenticated
+    email.value = authStore.user?.email || ''
     setTimeout(() => {
       const redirect = route.query.redirect
-      if (redirect) router.push(redirect)
-      else router.push('/')
+      // 只有真的建立了会话才跳站内目标；否则如实去登录页
+      if (signedIn.value) router.push(redirect || '/')
+      else router.push({ path: '/login', query: { verified: '1' } })
     }, 1800)
   } catch (err) {
     status.value = 'error'
@@ -75,7 +79,7 @@ async function handleResend() {
         {{ status === 'success' ? 'Email verified' : status === 'error' ? 'Verification failed' : 'Verifying your email' }}
       </h1>
       <p class="auth-subtitle">
-        {{ status === 'success' ? 'You are now signed in' : status === 'error' ? "We couldn't verify this link" : 'Please wait a moment…' }}
+        {{ status === 'success' ? (signedIn ? 'You are now signed in' : 'Please sign in to continue') : status === 'error' ? "We couldn't verify this link" : 'Please wait a moment…' }}
       </p>
 
       <!-- Verifying -->
@@ -94,7 +98,9 @@ async function handleResend() {
             <path d="M10 16l4 4 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
-        <p class="verify-state__text">Email verified! Taking you to the site…</p>
+        <p class="verify-state__text">
+          {{ signedIn ? 'Email verified! Taking you to the site…' : 'Email verified! Taking you to sign in…' }}
+        </p>
       </div>
 
       <!-- Error -->

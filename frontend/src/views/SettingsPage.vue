@@ -62,7 +62,13 @@ const user = computed(() => authStore.user)
 const roleLabel = computed(() => {
   const r = user.value?.role || ''
   switch (r) {
-    case 'researcher': return 'Researcher'
+    case 'researcher':
+      // ★ 2026-11-27（A-185）：注册页选 "Independent Researcher" 与 "Researcher (Team)"
+      //   落库都是 `role='researcher'` —— 差别在**有没有组织**（solo vs join/create），
+      //   这一层信息是真实的、可推导的，所以无组织时如实显示 Independent Researcher，
+      //   不再笼统地说 "Researcher" 让用户以为自己的选择没生效。
+      //   （不新增字段、不改注册契约：只把已有事实换个说法。）
+      return user.value?.organization ? 'Researcher' : 'Independent Researcher'
     case 'procurement': return 'Procurement Manager'
     case 'editor': return 'Editor'
     default: return r || 'N/A'
@@ -80,10 +86,15 @@ const roleBadgeClass = computed(() => {
 })
 
 const orgDisplayName = computed(() => {
+  // ★ 2026-11-27（A-185 顺带）：`user.organization` 是**外键 id**（UserSerializer
+  //   的 PrimaryKeyRelatedField），不是对象 ⇒ 原来的 `org.name` 恒 undefined，
+  //   Organization 一栏对**所有**用户都显示 "None"（实测有机构也显示 None）。
+  //   序列化器早就带 `organization_name`，直接用它。
+  const name = user.value?.organization_name
+  if (name) return name
   const org = user.value?.organization
   if (!org) return 'None'
-  if (typeof org === 'string') return org
-  return org.name || 'None'
+  return typeof org === 'string' ? org : 'None'
 })
 
 const registeredAt = computed(() => {
@@ -570,6 +581,17 @@ function switchTab(id) {
               The identity you picked at sign-up (e.g. “Independent Researcher”) describes how you
               work, not a permission level — all research accounts carry the <code>Researcher</code> role.
             </p>
+
+            <div class="info-row">
+              <span class="info-label">Email verification</span>
+              <span class="info-value">
+                <!-- ★ 2026-11-27（A-238）：设置页原本**完全没有**邮箱验证状态，
+                     而登录硬拦未验证账号（403）—— 用户看不到自己卡在哪一步。
+                     `email_verified` 由 /auth/me 返回，这里如实呈现。 -->
+                <span v-if="user?.email_verified" class="badge badge-success badge-dot">Verified</span>
+                <span v-else class="badge badge-warning badge-dot">Not verified</span>
+              </span>
+            </div>
 
             <div class="info-row">
               <span class="info-label">Organization</span>

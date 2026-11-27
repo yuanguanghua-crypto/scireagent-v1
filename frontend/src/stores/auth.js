@@ -99,10 +99,17 @@ export const useAuthStore = defineStore('auth', () => {
       .map((i) => ({ sku: i.sku, sku_id: i.sku_id, quantity: i.quantity }))
 
     const result = await verifyEmailApi(verificationToken)
-    token.value = result.token
-    user.value = result.user
-    cachedIsStaff.value = !!result.user?.is_staff
-    cachedRole.value = result.user?.role || ''
+    // ★ 2026-11-27（A-128）：**必须先拆信封**。
+    //   拦截器把 `{success, data, meta}` 整个返回，真正的 `{token, user}` 在
+    //   `result.data` 里。原来直接读 `result.token` ⇒ undefined ⇒
+    //   `localStorage.setItem('token', undefined)` 存进去的是字符串 "undefined"
+    //   ⇒ 会话根本没建立，而 VerifyEmailPage 已经宣布 "You are now signed in"
+    //   并把人送到 /login（QA Batch 12C 实测：文案说已登录、落地却是登录页）。
+    const payload = result?.data ?? result
+    token.value = payload.token
+    user.value = payload.user
+    cachedIsStaff.value = !!payload.user?.is_staff
+    cachedRole.value = payload.user?.role || ''
     localStorage.setItem('token', token.value)
     localStorage.setItem('is_staff', String(cachedIsStaff.value))
     localStorage.setItem('role', cachedRole.value)

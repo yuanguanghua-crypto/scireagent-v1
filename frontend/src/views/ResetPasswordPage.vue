@@ -20,6 +20,18 @@ onMounted(() => {
 
 const tokenMissing = computed(() => !token.value)
 
+/**
+ * ★ 2026-11-27（A-250）：畸形 token（不是 UUID）**在展示表单之前**就判定无效。
+ *
+ * `PasswordReset.token` 是 UUIDField（`backend/apps/accounts/models.py:163`），
+ * 后端对畸形串一律回 400「链接无效」。原来前端不看 token 形状，先渲染整张表单，
+ * 用户填完两次密码点提交才被告知链接无效 —— 白填一遍。
+ * 这里只做**形状**判断（不新增校验端点，避免改动 API 面与说明书端点计数）：
+ * 空 / 非 UUID 直接出「链接无效」页；格式合法但服务端不认的，仍由提交时的 400 兜住。
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const tokenUnusable = computed(() => !UUID_RE.test(token.value.trim()))
+
 const mismatch = computed(
   () => confirm.value.length > 0 && password.value !== confirm.value
 )
@@ -84,10 +96,11 @@ async function handleSubmit() {
         </button>
       </template>
 
-      <!-- token 缺失 -->
-      <template v-else-if="tokenMissing">
+      <!-- token 缺失 / 畸形（A-250：不再先给一张填了也白填的表单） -->
+      <template v-else-if="tokenUnusable">
         <div class="auth-error-banner">
-          <span>This reset link is incomplete. Please request a new one.</span>
+          <span v-if="tokenMissing">This reset link is incomplete. Please request a new one.</span>
+          <span v-else>This reset link is invalid or has expired. Please request a new one.</span>
         </div>
         <button type="button" class="auth-submit" @click="router.push('/forgot-password')">
           Request a new link
@@ -97,6 +110,16 @@ async function handleSubmit() {
       <!-- 表单 -->
       <template v-else>
         <p class="auth-subtitle">Pick something you haven't used before</p>
+
+        <!-- ★ 2026-11-27（A-247）：把复杂度规则**在填之前**写清楚。
+             后端用的是 Django 默认四个校验器（最短长度 / 常见密码 / 纯数字 /
+             与用户名邮箱太相似），原来页面一个都没讲，用户只能靠报错去猜。 -->
+        <ul class="password-rules">
+          <li>At least 8 characters</li>
+          <li>Not a commonly used password</li>
+          <li>Not entirely numeric</li>
+          <li>Not too similar to your username or email</li>
+        </ul>
 
         <div v-if="serverError" class="auth-error-banner">
           <span>{{ serverError }}</span>
@@ -171,6 +194,14 @@ async function handleSubmit() {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 .field-hint { color: var(--color-error, #dc2626); font-size: 12px; }
+.password-rules {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--color-text-tertiary);
+}
+.password-rules li { list-style: disc; }
 .auth-submit {
   margin-top: 6px;
   padding: 11px;

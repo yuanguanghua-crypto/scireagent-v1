@@ -90,8 +90,27 @@ http.interceptors.response.use(
   (error) => {
     const status = error.response?.status
 
-    // 401 统一跳转登录（保留原有行为，不改变）
-    if (status === 401) {
+    // ★ 2026-11-27（A-169）：**凭据类端点的 401 是业务答案，不是会话过期。**
+    //   "用户名或密码错" 也返回 401，原来一律走下面的全局分支：
+    //   弹 "Session expired" + `window.location.href='/login'` **整页刷新**，
+    //   把页面自己算好的错误提示连同组件状态一起冲掉 ⇒ 用户点登录后页面闪一下、
+    //   屏幕上什么都没有，后端明明返回了 401（QA Batch 15 两轮实测均复现，
+    //   DOM 里 .auth-error-banner 全程为空）。
+    //   这些端点把错误交给调用方自己渲染（LoginPage 已有 401 → "Incorrect
+    //   username or password" 的分支）。
+    const CREDENTIAL_PATHS = [
+      '/auth/login',
+      '/auth/register',
+      '/auth/reset-password',
+      '/auth/request-password-reset',
+      '/auth/verify-email',
+      '/auth/resend-verification',
+    ]
+    const url = String(error.config?.url || '')
+    const isCredentialCall = CREDENTIAL_PATHS.some((p) => url.includes(p))
+
+    // 401 统一跳转登录（凭据类端点除外）
+    if (status === 401 && !isCredentialCall) {
       ElMessage.error('Session expired, please sign in again')
       localStorage.removeItem('token')
       window.location.href = '/login'
@@ -99,7 +118,9 @@ http.interceptors.response.use(
     }
 
     // 其余错误优先透传后端真实错误消息（含 403/404/5xx 等）
-    if (!error.config?.silent) {
+    // 凭据类端点不弹全局 toast：页面自己就有持久横幅（toast 会一闪而过，
+    // 且与横幅重复说同一句话）。
+    if (!error.config?.silent && !isCredentialCall) {
       const message = extractErrorMessage(error.response?.data)
       ElMessage.error(message || 'Action failed')
     }

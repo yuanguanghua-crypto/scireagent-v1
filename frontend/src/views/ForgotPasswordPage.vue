@@ -69,7 +69,7 @@ async function handleSubmit() {
             v-model="email"
             type="email"
             autocomplete="email"
-            placeholder="you@lab.edu"
+            placeholder="Enter your email address"
             :disabled="submitting"
           />
         </div>

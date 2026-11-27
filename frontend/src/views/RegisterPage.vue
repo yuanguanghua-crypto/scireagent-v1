@@ -114,6 +114,19 @@ const canProceedStep2 = computed(() => {
   return selectedRole.value && selectedOrgChoice.value
 })
 
+/**
+ * ★ 2026-11-27（A-144）：两次密码不一致时必须**当场**看得见。
+ *
+ * 原来只有 `@blur` 才把 `errors.password_confirm` 写出来，而下次的触发点
+ * `validateStep1()` 只挂在 `nextStep()` 里 —— Next 按钮恰恰在 `canProceedStep1`
+ * 为 false 时是 `disabled`，**禁用按钮不夺焦点 ⇒ 输入框永远不失焦 ⇒ 错误永远不显示**。
+ * 用户面对一颗灰掉的 Next，得不到任何解释（QA 报的就是这个）。
+ * 改为计算属性：只要两栏都非空且不相等就出提示，不依赖任何交互时机。
+ */
+const confirmMismatch = computed(
+  () => form.password_confirm.length > 0 && form.password !== form.password_confirm
+)
+
 const canCompleteStep3 = computed(() => {
   if (orgTab.value === 'join') {
     return selectedOrgId.value !== null
@@ -307,7 +320,17 @@ async function handleSubmit() {
     resendMessage.value = ''
   } catch (err) {
     // Parse backend error into user-friendly message
-    const errData = err?.data?.meta?.error?.details || err?.response?.data
+    // ★ 2026-11-27（A-033）：**字段错误藏在信封里**。拦截器 reject 的是 axios
+    //   error，字段级校验消息在 `response.data.meta.error.details` 下；原先只读
+    //   `err.data.meta.error.details`（恒 undefined）再退回 `err.response.data`
+    //   （那是整个信封外壳），于是拿不到 username/email/password 任何一键
+    //   ⇒ 一律落到笼统的 "Registration failed. Please try again."
+    //   （QA 实测："密码与用户名太相似"这条根本没显示出来）。
+    const envelope = err?.data || err?.response?.data || {}
+    const errData =
+      err?.data?.meta?.error?.details ||
+      err?.response?.data?.meta?.error?.details ||
+      (envelope.meta ? null : envelope)
     if (errData) {
       // Field-specific errors → show under the field
       if (errData.username) {
@@ -319,9 +342,18 @@ async function handleSubmit() {
       if (errData.password) {
         errors.password = Array.isArray(errData.password) ? errData.password[0] : errData.password
       }
+      if (errData.password_confirm) {
+        errors.password_confirm = Array.isArray(errData.password_confirm)
+          ? errData.password_confirm[0]
+          : errData.password_confirm
+      }
       // Generic message for the banner
-      const fieldErrors = [errData.username, errData.email, errData.password].filter(Boolean)
+      const fieldErrors = [errData.username, errData.email, errData.password, errData.password_confirm].filter(Boolean)
       if (fieldErrors.length > 0) {
+        // ★ 2026-11-27（A-033）：这些字段都在**第 1 步**，而注册请求是从第 2 步发出的。
+        //   不回退的话，"Please fix the errors below" 这句话指向的字段根本不在屏幕上
+        //   —— 用户盯着第 2 步看，看不到任何具体错误（QA 报的正是"事后才报错且很笼统"）。
+        currentStep.value = 1
         serverError.value = 'Please fix the errors below and try again.'
       } else if (errData.organization_id) {
         // ★ 2026-10-21：join 的机构归属凭据校验失败落在 organization_id 上
@@ -526,7 +558,7 @@ watch(orgTab, () => {
               @blur="validateField('password')"
             />
             <div class="password-meta">
-              <span class="form-hint">At least 8 characters. Mix uppercase, numbers & symbols for a stronger password.</span>
+              <span class="form-hint">At least 8 characters, not a commonly used password, not entirely numeric, and not too similar to your username or email. Mix uppercase, numbers &amp; symbols for a stronger password.</span>
               <span v-if="form.password" class="password-strength" :style="{ color: passwordStrength.color }">
                 {{ passwordStrength.label }}
               </span>
@@ -544,13 +576,15 @@ watch(orgTab, () => {
               v-model="form.password_confirm"
               type="password"
               class="form-input"
-              :class="{ 'form-input--error': errors.password_confirm, 'form-input--valid': !errors.password_confirm && form.password_confirm && form.password === form.password_confirm }"
+              :class="{ 'form-input--error': errors.password_confirm || confirmMismatch, 'form-input--valid': !errors.password_confirm && !confirmMismatch && form.password_confirm && form.password === form.password_confirm }"
               placeholder="Re-enter your password"
               autocomplete="new-password"
               @blur="validateField('password_confirm')"
             />
             <span class="form-hint">Must match the password above</span>
-            <span v-if="errors.password_confirm" class="form-error">{{ errors.password_confirm }}</span>
+            <span v-if="errors.password_confirm || confirmMismatch" class="form-error">
+              {{ errors.password_confirm || 'Passwords do not match' }}
+            </span>
           </div>
 
           <button type="submit" class="auth-submit" :disabled="!canProceedStep1">
