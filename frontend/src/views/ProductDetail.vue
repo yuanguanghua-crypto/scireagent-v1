@@ -892,7 +892,17 @@ function onSearch(query) {
                 <span class="pd-card-arrow">&rarr;</span>
               </router-link>
             </div>
-            <p v-else class="pd-verified-empty">No verified method applicability has been confirmed for this product yet.</p>
+            <!-- ★ 2026-11-27（A-108）：这句话原来只写"没有已验证的适用性"，
+                 而**紧跟着**就列出 2–3 张 derived 卡 —— 同屏既否认又展示，读起来自相矛盾
+                 （QA 在 SC8023 / SC8001 / SC8011 三款上复现）。
+                 这里把两个概念分开说清：verified = 人工确认过；derived = 系统按方法链推出来的。 -->
+            <p v-else class="pd-verified-empty">
+              No <strong>curator-verified</strong> applicability yet —
+              <template v-if="derivedMethods.length || relatedMethods.length">
+                the entries below are <strong>derived</strong> from this product's method links and have not been reviewed.
+              </template>
+              <template v-else>nothing has been mapped for this product yet.</template>
+            </p>
           </template>
         </div>
 

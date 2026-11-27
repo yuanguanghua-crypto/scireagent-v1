@@ -28,10 +28,12 @@ const displayProducts = computed(() => {
   return props.products.slice(0, columns.value * 2)
 })
 
-function formatPrice(price, currency) {
+// ★ 2026-11-27（A-111）：**只返回数字**，货币符号由模板单独渲染。
+//   改前这里已经拼了 `$`，模板又渲染了一次 `<span class="currency">$</span>`
+//   ⇒ 卡片显示 `$$71.00`（QA Batch 11 原文）。
+function formatPrice(price) {
   if (price == null || price === '') return null
-  const sym = currency === 'CNY' ? '¥' : '$'
-  return `${sym}${parseFloat(price).toFixed(2)}`
+  return parseFloat(price).toFixed(2)
 }
 
 function domainStyle(category) {
@@ -84,9 +86,13 @@ function viewAllLink() {
           <span v-if="p.formula" class="formula-badge">{{ p.formula }}</span>
         </div>
         <div class="price-row">
-          <span v-if="formatPrice(p.price, p.currency)" class="price">
-            <span class="currency">{{ p.currency === 'CNY' ? '¥' : '$' }}</span>
-            {{ formatPrice(p.price, p.currency) }}
+          <span v-if="formatPrice(p.price)" class="price">
+            <!-- ★ A-111 后半：这里的价格是 `start_price()` 算的**最低可售价**
+                 （`pricing.py:79` 明确写了"用于 From $X 起价展示"）——
+                 不写 "From" 就会被读成"单价"，而它其实是 50+ 档。
+                 保留设计语义（买多更便宜要让人看见），把前缀补上。 -->
+            <span class="price-from">From</span>
+            <span class="currency">{{ p.currency === 'CNY' ? '¥' : '$' }}</span>{{ formatPrice(p.price) }}
           </span>
           <span v-else class="price">—</span>
           <span class="stock in-stock">In Stock</span>
@@ -241,6 +247,7 @@ function viewAllLink() {
   color: var(--color-text-tertiary);
   font-family: var(--font-mono);
 }
+.price-from { font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); margin-right: 2px; }
 .price-row {
   display: flex;
   align-items: center;
