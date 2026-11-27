@@ -42,6 +42,12 @@ const downstreamEntities = computed(() => {
  *
  * 现在：三者全空时收成一条说明（并保留去往三类目录的入口），
  * 有任意内容时维持原样分区块展示。
+ *
+ * ★ 2026-11-27（A-109）：Products 分支的空态文案已从「Product associations are
+ * being mapped…」改成「No products linked to this application yet.」——
+ * 仓库里没有任何"正在映射"的任务在跑（见 MethodDetailSerializer.get_products 的
+ * docstring：方法→产品只认 ProductMethod 直连，覆盖不足属数据治理，不做协议链路兜底），
+ * 原话术是永久空头承诺。产品页/方法页同批改齐，保持三处口径一致。
  */
 const isDescriptionOnly = computed(() => {
   const a = app.value
@@ -167,7 +173,7 @@ onUnmounted(() => { store.clearCurrent() })
         :items="app.products || []"
         :default-show="3"
         item-type="product"
-        fallback-msg="Product associations are being mapped for this application."
+        fallback-msg="No products linked to this application yet."
         fallback-link="/products"
         fallback-link-text="Browse all products"
       >

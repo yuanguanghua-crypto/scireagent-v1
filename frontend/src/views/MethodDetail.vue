@@ -219,7 +219,7 @@ onUnmounted(() => { store.clearCurrent() })
         :items="method.products || []"
         :default-show="3"
         item-type="product"
-        fallback-msg="Product associations are being mapped for this method."
+        fallback-msg="No products linked to this method yet."
         fallback-link="/products"
         fallback-link-text="Browse all products"
       >

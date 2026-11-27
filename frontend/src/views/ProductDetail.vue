@@ -930,7 +930,7 @@ function onSearch(query) {
           :items="displayMethods"
           :default-show="DEFAULT_SHOW"
           item-type="method"
-          fallback-msg="Method associations are being mapped for this product."
+          fallback-msg="No methods linked to this product yet."
           fallback-link="/methods"
           fallback-link-text="Browse all methods"
         >

@@ -406,3 +406,92 @@ class ProductStatusFilterTest(TestCase):
         ids = self._product_ids(ProtocolDetailSerializer(protocol).data['products'])
         self.assertIn(active.id, ids)
         self.assertNotIn(inactive.id, ids)
+
+
+class A109NoProtocolFallbackTest(TestCase):
+    """★ 2026-11-27（A-109）：方法/应用的产品列表**只认 `ProductMethod` 直连**。
+
+    QA 报「/applications/49 与 /methods/47889 的 Products 栏空，而 /protocols/114 的
+    REQUIRED PRODUCTS 有真实链接 ⇒ 双向关联不一致」，看上去该让方法/应用也走
+    `ProductProtocol` 兜底。**实测否掉**：走协议链路时，449 个 active 方法里几乎
+    每个都能拿到 110~124 个产品（当时全库只有 124 个产品有协议关联），因为
+    `product_protocol` 是「产品说明书提到过这份协议」这一级的粗粒度关联
+    （23,381 行 / 882 协议，同一产品平均挂 187 份协议，已被
+    `docs/KNOWLEDGE_ENTITIES_BRIEF.md` 点名可疑）。
+    ⇒ 按「宁 miss 不错配」，此处必须保持 miss，不能为了"看起来有内容"而错配。
+
+    这组用例锁死该决定：即便协议链路上有产品、`ProductMethod` 为空，
+    方法/应用的产品列表也必须为空。
+    """
+
+    def _chain(self):
+        """method → protocol → product（只有 ProductProtocol，没有 ProductMethod）。"""
+        method = MethodFactory()
+        protocol = ProtocolFactory()
+        MethodProtocol.objects.create(method=method, protocol=protocol)
+        product = ProductFactory(status='active')
+        ProductProtocolFactory(product=product, protocol=protocol)
+        return method, protocol, product
+
+    def test_method_products_ignore_protocol_link(self):
+        method, protocol, product = self._chain()
+        ids = [p['id'] for p in MethodDetailSerializer(method).data['products']]
+        self.assertEqual(ids, [], '方法→产品不得经协议链路兜底（宁 miss 不错配）')
+
+    def test_application_products_ignore_protocol_link(self):
+        method, protocol, product = self._chain()
+        app = ApplicationFactory()
+        from apps.knowledge.models import ApplicationMethod
+        ApplicationMethod.objects.create(application=app, method=method)
+        ids = [p['id'] for p in ApplicationDetailSerializer(app).data['products']]
+        self.assertEqual(ids, [], '应用→产品不得经协议链路兜底（宁 miss 不错配）')
+
+    def test_protocol_products_still_use_protocol_link(self):
+        """反向对照：协议页**必须**看到它，否则就是换了个方向丢关联。"""
+        method, protocol, product = self._chain()
+        ids = [p['id'] for p in ProtocolDetailSerializer(protocol).data['products']]
+        self.assertEqual(ids, [product.id])
+
+
+class A060DraftLabelOnlyForAiOriginTest(TestCase):
+    """★ 2026-11-27（A-060）：「AI 草稿」标签只配给 `origin='ai_extracted'`。
+
+    原实现只判 `description_reviewed_at` 是否为空 —— 于是**人工手写**
+    （origin=human_curated）与**存量导入**（origin=imported）的方法，只要没人点过
+    审阅，详情页就打上 "AI-generated draft · pending expert review"。
+    QA 用 + New Method 手填名称与 Purpose 新建方法，打开详情就看到这句与自己操作
+    完全矛盾的话。
+
+    口径：`''`（无内容）／`'reviewed'`（已审）／`'ai_draft'`（AI 生成未审）／
+    `'human'`（非 AI 来源、未审 —— 前端不渲染 AI 标注）。
+    """
+
+    def _status(self, **kwargs):
+        m = MethodFactory(**kwargs)
+        return MethodDetailSerializer(m).data['description_status']
+
+    def test_ai_extracted_without_review_is_draft(self):
+        self.assertEqual(self._status(summary='AI 写的摘要', origin='ai_extracted'), 'ai_draft')
+
+    def test_human_curated_without_review_is_human(self):
+        self.assertEqual(self._status(summary='人写的摘要', origin='human_curated'), 'human')
+
+    def test_imported_without_review_is_human(self):
+        self.assertEqual(self._status(summary='导入的摘要', origin='imported'), 'human')
+
+    def test_reviewed_wins_over_origin(self):
+        from django.utils import timezone
+        self.assertEqual(
+            self._status(summary='已审摘要', origin='ai_extracted',
+                         description_reviewed_at=timezone.now()),
+            'reviewed',
+        )
+
+    def test_no_content_is_empty_string(self):
+        self.assertEqual(self._status(origin='ai_extracted'), '')
+
+    def test_specs_status_follows_same_rule(self):
+        ai = MethodFactory(advantages='AI 写的优势', origin='ai_extracted')
+        human = MethodFactory(advantages='人写的优势', origin='human_curated')
+        self.assertEqual(MethodDetailSerializer(ai).data['specs_status'], 'ai_draft')
+        self.assertEqual(MethodDetailSerializer(human).data['specs_status'], 'human')

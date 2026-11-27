@@ -49,7 +49,7 @@ test.describe('Product Detail — Verified Applicability block', { tag: ['@reado
     await expect(block).toBeVisible();
     // 遗留 methods 区块仍存在：要么方法卡片（.pd-icon-method）要么 fallback 文案
     const legacyCards = page.locator('.pd-icon-method');
-    const fallback = page.getByText('Method associations are being mapped');
+    const fallback = page.getByText('No methods linked to this product yet');
     const cardCount = await legacyCards.count();
     if (cardCount === 0) {
       await expect(fallback.first()).toBeVisible();

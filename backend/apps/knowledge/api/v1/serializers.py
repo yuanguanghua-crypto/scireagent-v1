@@ -247,6 +247,13 @@ class ApplicationDetailSerializer(ApplicationGoalSyncMixin, BaseModelSerializer)
         ).values('id', 'name', 'slug'))
 
     def get_products(self, obj):
+        """该应用下所有方法「直接关联」的产品（来源仅 `ProductMethod`）。
+
+        ★ 2026-11-27（A-109）：与 `MethodDetailSerializer.get_products` 同口径，
+        同样**不**并 `ProductProtocol` 协议链路。理由见该方法的 docstring：
+        并进来后每个应用都会拿到 110~124 个产品（近乎全量），是噪声不是关联。
+        应用→产品的空栏属覆盖不足（数据治理），不是序列化缺陷。
+        """
         from apps.bridges.models import ProductMethod
         from apps.commerce.models import Product
         # ★ 2026-10-30（B 方案阶段 2）：同 get_protocols，方法 id 改从桥取
@@ -595,6 +602,16 @@ class MethodApplicationWriteMixin:
         return instance
 
 
+def _origin_is_ai(obj) -> bool:
+    """★ 2026-11-27（A-060）：只有 AI 提取出来的内容才配叫 "AI 草稿"。
+
+    人工策展（human_curated）与存量导入（imported）都不是 AI 生成的 —— 它们只是
+    "还没人点过审阅"而已，不该被打上 "AI-generated draft" 的标签。
+    """
+    origin = getattr(obj, 'origin', '') or ''
+    return origin == 'ai_extracted'
+
+
 class MethodListSerializer(MethodApplicationWriteMixin, BaseModelSerializer):
     # ★ 2026-10-30（B 方案阶段 3）：`Method.application` FK 已废弃（全为 NULL）。
     #   改为从 `ApplicationMethod` 桥取「代表应用」（display_order 最小者）。
@@ -692,15 +709,26 @@ class MethodDetailSerializer(MethodApplicationWriteMixin, BaseModelSerializer):
             'protocols', 'products', 'created_at', 'updated_at',
         ]
 
+    # ★ 2026-11-27（A-060）：这两个状态原来只判「有没有记录审阅时间」——
+    #   于是**人工手写**（origin=human_curated）或**存量导入**（imported）的方法，
+    #   只要没人点过"审阅"，页面上就被标成 "AI-generated draft · pending expert review"。
+    #   QA 用 + New Method 手填名称与 Purpose 建成方法 47971，打开详情就看到这句
+    #   与自己操作完全矛盾的话。
+    #   口径：**只有 origin=ai_extracted（真由 AI 从协议提取）才可能是 AI 草稿**；
+    #   其它来源给 'human'，前端不渲染 AI 标注（文案只判 === 'ai_draft'）。
     def get_description_status(self, obj):
         if not (obj.summary or obj.purpose):
             return ''
-        return 'reviewed' if obj.description_reviewed_at else 'ai_draft'
+        if obj.description_reviewed_at:
+            return 'reviewed'
+        return 'ai_draft' if _origin_is_ai(obj) else 'human'
 
     def get_specs_status(self, obj):
         if not (obj.advantages or obj.limitations or obj.timeline):
             return ''
-        return 'reviewed' if obj.specs_reviewed_at else 'ai_draft'
+        if obj.specs_reviewed_at:
+            return 'reviewed'
+        return 'ai_draft' if _origin_is_ai(obj) else 'human'
 
     def get_application_id(self, obj):
         from apps.knowledge.services.application_methods import application_of_method
@@ -731,6 +759,25 @@ class MethodDetailSerializer(MethodApplicationWriteMixin, BaseModelSerializer):
         ).values('id', 'name', 'slug', 'version'))
 
     def get_products(self, obj):
+        """该方法「直接关联」的产品，来源只有 `ProductMethod` 一张表。
+
+        ★ 2026-11-27（A-109）—— **刻意不加**「协议链路兜底」，理由实测：
+          QA 报「/methods/47889 的 Products 栏空，但 /protocols/114 的 REQUIRED
+          PRODUCTS 有真实链接，双向不一致」。看上去该像 `ProtocolDetailSerializer.
+          get_products` 那样把 `ProductProtocol` 并进来，但实测这条路会把方法页
+          变成产品墙：走协议链路时，449 个 active 方法里**几乎每个都能拿到
+          110~124 个产品**（当时全库 124 个产品有协议关联），因为
+          `product_protocol` 是「产品说明书里提到过这份协议」这一级的粗粒度关联
+          （23,381 行 / 882 协议，同一产品平均挂 187 份协议，
+          `docs/KNOWLEDGE_ENTITIES_BRIEF.md` §「可疑的 187」已点名）。
+          ⇒ 按「宁 miss 不错配」，方法→产品只认 `ProductMethod` 直连。
+
+        空栏的真实原因是**覆盖不足**（dev 库：仅 10 个 active 方法有
+        `ProductMethod` 直连、146 行），属「产品↔方法」知识链接治理，不是
+        序列化缺陷；有直连的地方双向是一致的（实测 method 95192 ↔ protocol 114
+        ↔ product SC8026 两个方向同集合）。回归锁：
+        `test_serializers.py::A109NoProtocolFallbackTest`。
+        """
         from apps.bridges.models import ProductMethod
         from apps.commerce.models import Product
         product_ids = ProductMethod.objects.filter(method=obj).values_list('product_id', flat=True).distinct()
