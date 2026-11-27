@@ -6,6 +6,7 @@ import {
 import { fetchOrderQueue } from '@/composables/useOrderQueue'
 import { formatCurrency } from '@/utils/helpers'
 import { extractErrorMessage } from '@/utils/http'
+import { normalizeIsoDate } from '@/utils/isoDate'
 import { StatusBadge, toast } from '@/components/common'
 
 const orders = ref([])
@@ -34,6 +35,9 @@ const shipForm = reactive({
   items: [],
 })
 const receivedBy = ref({})
+
+/** A-249：Est. Delivery 的写法错误（页面上必须留着，不能只弹 toast） */
+const shipDateError = ref('')
 
 /**
  * 页内错误落位（★ A-095）。
@@ -92,6 +96,23 @@ function resetShipForm() {
   shipForm.tracking_url = ''
   shipForm.estimated_delivery = ''
   shipForm.notes = ''
+  shipDateError.value = ''
+}
+
+/**
+ * A-249：把用户打的日期归一成 `YYYY-MM-DD`（失焦时执行）。
+ *
+ * 合法就直接改写输入框内容（用户能立刻看到系统理解成了哪一天，
+ * 而不是"我打了 20261127，它到底认没认"）；看不懂就把错误留在字段下方。
+ */
+function commitShipDate() {
+  const r = normalizeIsoDate(shipForm.estimated_delivery)
+  if (r.ok) {
+    shipForm.estimated_delivery = r.value
+    shipDateError.value = ''
+  } else {
+    shipDateError.value = r.error
+  }
 }
 
 /**
@@ -110,6 +131,16 @@ async function submitShipment() {
       + 'a shipment with neither cannot be traced or claimed.'
     return
   }
+  // A-249：日期写法非法就别发请求（后端 DateField 会 400，运营看到的是天书）。
+  // 先归一化一次 —— 用户可能打完日期直接点按钮、没触发 blur。
+  const date = normalizeIsoDate(shipForm.estimated_delivery)
+  if (!date.ok) {
+    shipDateError.value = date.error
+    shipError.value = `Est. Delivery: ${date.error}`
+    return
+  }
+  shipForm.estimated_delivery = date.value
+  shipDateError.value = ''
   shipError.value = ''
   savingShipment.value = true
   try {
@@ -239,7 +270,27 @@ onMounted(load)
           <div class="po-field"><label class="po-label">Carrier</label><input v-model="shipForm.carrier" class="po-input" data-testid="ship-carrier" /></div>
           <div class="po-field"><label class="po-label">Tracking #</label><input v-model="shipForm.tracking_number" class="po-input" data-testid="ship-tracking" /></div>
           <div class="po-field"><label class="po-label">Tracking URL</label><input v-model="shipForm.tracking_url" class="po-input" data-testid="ship-tracking-url" /></div>
-          <div class="po-field"><label class="po-label">Est. Delivery</label><input v-model="shipForm.estimated_delivery" type="date" class="po-input" data-testid="ship-est-delivery" /></div>
+          <!-- ★ 2026-11-27（A-249）：原来是 `<input type="date">`，而全站日期显示都是
+               YYYY-MM-DD；运营照这个格式手打，实测（Edge/zh-CN）会得到脏值：
+                 `2026-11-27` ⇒ `202611-02-07`（年份段被吃掉）
+                 `11272026`   ⇒ `""`（段值非法被丢弃）
+               因为 type=date 的分段输入无法事后修正，这里换成文本框 + 归一化
+               （接受 2026-11-27 / 2026/11/27 / 20261127，含糊写法一律拒绝并提示）。 -->
+          <div class="po-field">
+            <label class="po-label">Est. Delivery</label>
+            <input
+              v-model="shipForm.estimated_delivery"
+              class="po-input"
+              type="text"
+              inputmode="numeric"
+              placeholder="YYYY-MM-DD"
+              data-testid="ship-est-delivery"
+              :aria-invalid="!!shipDateError"
+              @input="shipDateError = ''"
+              @blur="commitShipDate"
+            />
+            <p v-if="shipDateError" class="po-ship-error" data-testid="ship-date-error">{{ shipDateError }}</p>
+          </div>
         </div>
         <table class="po-table" style="margin-top:12px">
           <thead><tr><th>SKU</th><th>Qty to Ship</th></tr></thead>

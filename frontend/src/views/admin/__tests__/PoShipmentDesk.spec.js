@@ -368,3 +368,93 @@ describe('PoShipmentDesk 队列取数（S5 P-2）', () => {
     w.unmount()
   })
 })
+
+/**
+ * A-249：Est. Delivery 从 `<input type="date">` 换成文本框 + 归一化。
+ *
+ * 实测背景（Edge/zh-CN，真实浏览器）：`type=date` 下手打 `2026-11-27` 会变成
+ * `202611-02-07`，手打 `11272026` 直接变空 —— 而全站日期显示都是 YYYY-MM-DD，
+ * 运营照屏幕格式打就是打不进去。这里钉住三件事：
+ *   ① 手打 ISO 能进、失焦后原样留存；
+ *   ② 8 位数字会被归一成 ISO（不逼用户补横杠）；
+ *   ③ 看不懂/不存在/有歧义的写法 ⇒ 页内报错且**一个请求都不发**。
+ */
+describe('PoShipmentDesk Est. Delivery 手打（A-249）', () => {
+  const dateInput = (w) => w.find('[data-testid="ship-est-delivery"]')
+  const dateErr = (w) => w.find('[data-testid="ship-date-error"]')
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    api.createShipment.mockResolvedValue({ data: { id: 1 } })
+  })
+
+  async function fillRequired(w) {
+    await carrierInput(w).setValue('DHL')
+    await trackingInput(w).setValue('TRK-A249')
+  }
+
+  it('控件已不是 type=date（否则手打必然被浏览器拆坏）', async () => {
+    const w = await mountAndOpen()
+    expect(dateInput(w).attributes('type')).toBe('text')
+    expect(dateInput(w).attributes('placeholder')).toMatch(/YYYY-MM-DD/)
+    w.unmount()
+  })
+
+  it('手打 2026-11-27 ⇒ 失焦后原样保留，并随请求发出', async () => {
+    const w = await mountAndOpen()
+    await fillRequired(w)
+    await dateInput(w).setValue('2026-11-27')
+    await dateInput(w).trigger('blur')
+    expect(dateInput(w).element.value).toBe('2026-11-27')
+
+    await createBtn(w).trigger('click')
+    await flushPromises()
+    expect(api.createShipment).toHaveBeenCalledTimes(1)
+    expect(api.createShipment.mock.calls[0][1].estimated_delivery).toBe('2026-11-27')
+    w.unmount()
+  })
+
+  it('手打 20261127 ⇒ 归一成 2026-11-27', async () => {
+    const w = await mountAndOpen()
+    await fillRequired(w)
+    await dateInput(w).setValue('20261127')
+    await dateInput(w).trigger('blur')
+    expect(dateInput(w).element.value).toBe('2026-11-27')
+    w.unmount()
+  })
+
+  it('★ 有歧义的 03/04/2026 ⇒ 报错且不发请求（不猜是 3 月还是 4 月）', async () => {
+    const w = await mountAndOpen()
+    await fillRequired(w)
+    await dateInput(w).setValue('03/04/2026')
+    await createBtn(w).trigger('click')
+    await flushPromises()
+
+    expect(api.createShipment, '歧义写法不该被猜着提交').not.toHaveBeenCalled()
+    expect(dateErr(w).exists()).toBe(true)
+    expect(dateErr(w).text()).toMatch(/YYYY-MM-DD/)
+    w.unmount()
+  })
+
+  it('★ 2026-02-30（格式对但不存在）⇒ 拦下', async () => {
+    const w = await mountAndOpen()
+    await fillRequired(w)
+    await dateInput(w).setValue('2026-02-30')
+    await dateInput(w).trigger('blur')
+    expect(dateErr(w).text()).toMatch(/no day 30/)
+    await createBtn(w).trigger('click')
+    await flushPromises()
+    expect(api.createShipment).not.toHaveBeenCalled()
+    w.unmount()
+  })
+
+  it('留空仍然合法（Est. Delivery 是可选项）', async () => {
+    const w = await mountAndOpen()
+    await fillRequired(w)
+    await createBtn(w).trigger('click')
+    await flushPromises()
+    expect(api.createShipment).toHaveBeenCalledTimes(1)
+    expect(api.createShipment.mock.calls[0][1].estimated_delivery).toBe('')
+    w.unmount()
+  })
+})
