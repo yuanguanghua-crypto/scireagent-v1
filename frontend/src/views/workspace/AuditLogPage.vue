@@ -10,6 +10,7 @@
 import { onMounted, ref } from 'vue'
 import { getAuditLogs, getAuditLog } from '@/api/system'
 import { extractErrorMessage } from '@/utils/http'
+import IsoDateInput from '@/components/common/IsoDateInput.vue'
 
 const rows = ref([])
 const total = ref(0)
@@ -122,13 +123,16 @@ onMounted(load)
       <!-- ★ 2026-11-26（A-166）：Object 列是「名称 + #id」两段拼的，所以这里既能按名称、
            也能按编号搜（纯数字或 #数字 会同时精确匹配 object_id）。placeholder 把这点写明。 -->
       <input v-model.trim="search" class="al-input" placeholder="Object name or #id…" @keyup.enter="load" />
+      <!-- ★ 2026-11-27（A-249 收尾）：`type=date` 换成 IsoDateInput ——
+           原生分段输入会把手打的 2026-11-27 吃成 202611-02-07。
+           `@change` 语义不变（归一成功才触发，且不会像原生的那样在改年份中途触发）。 -->
       <label class="al-date">
         <span>from</span>
-        <input v-model="since" type="date" class="al-input al-input--date" @change="load" />
+        <IsoDateInput v-model="since" class="al-input al-input--date" aria-label="Audit log from date" @change="load" @invalid="(m) => { error = m }" />
       </label>
       <label class="al-date">
         <span>to</span>
-        <input v-model="until" type="date" class="al-input al-input--date" @change="load" />
+        <IsoDateInput v-model="until" class="al-input al-input--date" aria-label="Audit log to date" @change="load" @invalid="(m) => { error = m }" />
       </label>
       <button class="al-btn al-btn--primary" :disabled="loading" @click="load">Apply</button>
     </div>

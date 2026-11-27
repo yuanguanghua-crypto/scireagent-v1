@@ -11,4 +11,7 @@ export { default as ErrorState } from './ErrorState.vue'
 export { default as LoadingSpinner } from './LoadingSpinner.vue'
 export { default as AppInput } from './AppInput.vue'
 export { default as AppSelect } from './AppSelect.vue'
+// ★ 2026-11-27（A-249 收尾）：日期输入统一实现，替代 `<input type="date">`
+//   （后者分段输入会把手打的 YYYY-MM-DD 吃成脏值，见组件头注）
+export { default as IsoDateInput } from './IsoDateInput.vue'
 export { default as StatusBadge } from './StatusBadge.vue'

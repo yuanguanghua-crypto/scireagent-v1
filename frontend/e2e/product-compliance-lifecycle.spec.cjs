@@ -225,7 +225,10 @@ test.describe('Part 1 · 组 H 合规 SDS / COA（9. Compliance）', () => {
     const f = await mkProductSku(api, 'H5')
     await openEdit(page, f.id)
     const form = page.locator('.batch-create-form')                        // :2001（无批次时渲染）
-    await form.locator('input[type="date"]').first().fill('2026-01-15')    // Production date
+    // ★ 2026-11-27（A-249 收尾）：生产日期控件从 `<input type="date">` 换成
+    //   `IsoDateInput`（内层是 type=text，手打 YYYY-MM-DD 才进得去）。
+    //   改用 aria-label 定位 —— 比依赖控件类型稳，换实现也不用再回来改它。
+    await form.getByLabel('Production date').fill('2026-01-15')
     const before = docSnap()
     const resp = await apiAct(page, R.coaCreate, () => form.getByRole('button', { name: /Generate COA/ }).click())
     await expectApi(resp, { status: 201, label: 'H5 生成 COA' })

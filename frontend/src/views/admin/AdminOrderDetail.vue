@@ -13,8 +13,9 @@ import {
 } from '@/api/adminPo'
 import { formatCurrency } from '@/utils/helpers'
 import { extractErrorMessage } from '@/utils/http'
+import { normalizeIsoDate } from '@/utils/isoDate'
 import { statusBadgeStyle, formatStatus } from '@/config/poConstants'
-import { LoadingSpinner, ErrorBanner, StatusBadge } from '@/components/common'
+import { LoadingSpinner, ErrorBanner, StatusBadge, IsoDateInput } from '@/components/common'
 
 const route = useRoute()
 const router = useRouter()
@@ -153,7 +154,25 @@ async function doAction(action) {
     } else if (action === 'complete') {
       await completeOrder(id)
     } else if (action === 'quote') {
-      await enterQuote(id, quoteForm.value)
+      // ★ 2026-11-27（A-249 收尾）：顺手修掉一个必挂的请求。
+      //   `AdminQuoteSerializer.valid_until` 是 `DateField(required=False)`，**没有**
+      //   allow_null —— 实测三种入参：
+      //     valid_until=''    ⇒ 400 "Date has wrong format"
+      //     省略该键          ⇒ OK
+      //     valid_until=null  ⇒ 400 "This field may not be null."
+      //   而 `quoteForm.valid_until` 初始值就是 ''，原来**原样 POST** ⇒
+      //   运营不填"报价有效期"就一定发不出报价（页面该字段也不是必填）。
+      //   现在：空 ⇒ 不带该键；非空 ⇒ 先归一，写法含糊就当场拦下。
+      const d = normalizeIsoDate(quoteForm.value.valid_until)
+      if (!d.ok) {
+        // `finally` 会复位 actionLoading，这里不手动改
+        actionError.value = `Valid until: ${d.error}`
+        return
+      }
+      const payload = { ...quoteForm.value }
+      if (d.value) payload.valid_until = d.value
+      else delete payload.valid_until
+      await enterQuote(id, payload)
     } else if (action === 'cancel') {
       // ★ 2026-11-26（A-126）：取消订单必须二次确认。
       //   QA Batch 13 实测：点右上红色 Cancel Order，**无任何对话框**，订单状态直接
@@ -270,7 +289,7 @@ async function doAction(action) {
           </div>
           <div class="form-group">
             <label>Valid Until</label>
-            <input v-model="quoteForm.valid_until" type="date" class="form-input" />
+            <IsoDateInput v-model="quoteForm.valid_until" class="form-input" aria-label="Quote valid until" @invalid="(m) => { actionError = m ? `Valid until: ${m}` : '' }" />
           </div>
         </div>
         <button class="btn-action" :disabled="actionLoading" @click="doAction('quote')">Submit Quote</button>

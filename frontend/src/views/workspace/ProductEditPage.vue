@@ -7,7 +7,8 @@ import { http } from '@/api/http'
 import * as documentsApi from '@/api/documents'
 import { openPreview } from '@/utils/previewInject'
 import { useDialogA11y } from '@/composables/useDialogA11y'
-import { AppInput, AppSelect, LoadingSpinner } from '@/components/common'
+import { AppInput, AppSelect, LoadingSpinner, IsoDateInput } from '@/components/common'
+import { normalizeIsoDate } from '@/utils/isoDate'
 import { sortProtocolLinks, buildFolded, splitWeakLinks, axisBadges, unionProtocolRows } from '@/utils/protocolLinks'
 import { resolveMolecularWeight } from '@/utils/molecularWeight'
 import { selectTruncationHint } from '@/utils/selectHint'
@@ -1578,13 +1579,25 @@ async function createBatchAndCoa(skuId) {
     setFeedback('error', 'Select a production date')
     return
   }
+  // ★ 2026-11-27（A-249 收尾）：日期先归一。控件已换成 IsoDateInput，但用户可能
+  //   打完不 blur 直接点按钮 ⇒ 这里再兜一次；写法含糊就当场拦下，不把脏值发给后端。
+  const prod = normalizeIsoDate(form.produced_at)
+  if (!prod.ok) {
+    setFeedback('error', `Production date: ${prod.error}`)
+    return
+  }
+  const retest = normalizeIsoDate(form.retest_at)
+  if (!retest.ok) {
+    setFeedback('error', `Retest date: ${retest.error}`)
+    return
+  }
   creatingBatch.value = true
   try {
     await documentsApi.createCoa({
       sku_id: skuId,
       lot_number: form.lot_number,
-      produced_at: form.produced_at,
-      retest_at: form.retest_at || undefined,
+      produced_at: prod.value,
+      retest_at: retest.value || undefined,
     })
     // ④ 生成后明确引导：下一步是批准并公开
     setFeedback('success', 'Batch + COA draft created. Click “Approve & Publish COA” to make it public.')
@@ -2846,10 +2859,11 @@ watch(
               <AppInput v-model="newBatchForms[sc.sku.id].lot_number" placeholder="默认带入 SKU code，可修改" style="margin-bottom:0" />
             </label>
             <label>Production date
-              <input v-model="newBatchForms[sc.sku.id].produced_at" type="date" aria-label="Production date" />
+              <!-- A-249 收尾：type=date → IsoDateInput（手打 YYYY-MM-DD 才进得去） -->
+              <IsoDateInput v-model="newBatchForms[sc.sku.id].produced_at" aria-label="Production date" @invalid="(m) => { if (m) setFeedback('error', `Production date: ${m}`) }" />
             </label>
             <label>Retest date
-              <input v-model="newBatchForms[sc.sku.id].retest_at" type="date" aria-label="Retest date" />
+              <IsoDateInput v-model="newBatchForms[sc.sku.id].retest_at" aria-label="Retest date" @invalid="(m) => { if (m) setFeedback('error', `Retest date: ${m}`) }" />
             </label>
             <button type="button" class="btn btn-primary btn-sm" :disabled="creatingBatch" @click="createBatchAndCoa(sc.sku.id)">
               {{ creatingBatch ? 'Creating…' : 'Generate COA' }}

@@ -11,6 +11,7 @@
 import { computed, onMounted, ref } from 'vue'
 import http from '@/utils/http'
 import { formatCurrency } from '@/utils/helpers'
+import IsoDateInput from '@/components/common/IsoDateInput.vue'
 
 const data = ref(null)
 const loading = ref(false)
@@ -128,9 +129,13 @@ function barWidth(row) {
         <button v-for="p in PRESETS" :key="p.key"
                 class="po-btn po-btn-outline po-btn-sm" @click="applyPreset(p.key)"
                 :data-testid="'sr-preset-' + p.key">{{ p.label }}</button>
-        <input v-model="start" type="date" class="po-input sr-date" @change="load" />
+        <!-- ★ 2026-11-27（A-249 收尾）：换成 IsoDateInput。
+             原 `type=date` 手打 YYYY-MM-DD 会被浏览器分段吃成脏值；
+             新组件的 `@change` 只在归一成功后触发 ⇒ A-248 那个
+             "改年份中途触发请求打回 400" 的根源直接消失（守卫仍保留作双保险）。 -->
+        <IsoDateInput v-model="start" class="po-input sr-date" data-testid="sr-start" aria-label="Report start date" @change="load" @invalid="(m) => { err = m }" />
         <span class="po-muted">→</span>
-        <input v-model="end" type="date" class="po-input sr-date" @change="load" />
+        <IsoDateInput v-model="end" class="po-input sr-date" data-testid="sr-end" aria-label="Report end date" @change="load" @invalid="(m) => { err = m }" />
         <button class="po-btn po-btn-primary po-btn-sm" @click="load" :disabled="loading">
           {{ loading ? 'Loading…' : 'Refresh' }}
         </button>

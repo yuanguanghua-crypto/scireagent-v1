@@ -13,6 +13,8 @@
 import { onMounted, ref, computed } from 'vue'
 import { getQuoteRequests, getQuoteRequestDetail, saveQuote, closeQuoteRequest } from '@/api/rfq'
 import { extractErrorMessage } from '@/utils/http'
+import { normalizeIsoDate } from '@/utils/isoDate'
+import IsoDateInput from '@/components/common/IsoDateInput.vue'
 import ErrorBanner from '@/components/common/ErrorBanner.vue'
 // ★ 2026-11-26（A-223）：关闭询价是不可逆动作（离开待处理队列），走页内确认框
 import { useConfirm } from '@/composables/useConfirm'
@@ -173,9 +175,19 @@ async function submitQuote() {
       // ★ 空串必须转 null：后端 DecimalField 收到 '' 会直接 400
       quoted_total: raw.quoted_total === '' ? null : raw.quoted_total,
       // ★ 日期同理：空串会让 Django DateField 报格式错误，必须传 null
-      quoted_valid_until: raw.quoted_valid_until || null,
+      // ★ 2026-11-27（A-249 收尾）：先归一。用户可能打了 `03/04/2026` 这种含糊写法就
+      //   直接点保存 —— 原样发出去只会换来后端一句 "Date has wrong format"，
+      //   运营根本不知道是自己写的格式问题。这里当场拦下并给出可操作提示。
+      quoted_valid_until: null,   // 由下面规范化后填入
       notify_customer: true,
     }
+    const d = normalizeIsoDate(raw.quoted_valid_until)
+    if (!d.ok) {
+      // `finally` 会把 quoting 置回 false，这里不需要手动改
+      quoteError.value = `Valid until: ${d.error}`
+      return
+    }
+    payload.quoted_valid_until = d.value || null
     const res = await saveQuote(detail.value.id, payload)
     const saved = res.data ?? res
     const id = detail.value.id
@@ -372,7 +384,13 @@ async function closeRfq() {
               </label>
               <label class="rfq-field">
                 <span>Valid until</span>
-                <input v-model="quoteForm.quoted_valid_until" class="po-input" type="date" />
+                <!-- A-249 收尾：type=date 换成 IsoDateInput（手打 YYYY-MM-DD 才进得去） -->
+                <IsoDateInput
+                  v-model="quoteForm.quoted_valid_until"
+                  class="po-input"
+                  aria-label="Quote valid until"
+                  @invalid="(m) => { quoteError = m ? `Valid until: ${m}` : '' }"
+                />
               </label>
             </div>
 

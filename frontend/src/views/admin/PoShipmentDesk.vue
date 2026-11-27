@@ -7,6 +7,7 @@ import { fetchOrderQueue } from '@/composables/useOrderQueue'
 import { formatCurrency } from '@/utils/helpers'
 import { extractErrorMessage } from '@/utils/http'
 import { normalizeIsoDate } from '@/utils/isoDate'
+import IsoDateInput from '@/components/common/IsoDateInput.vue'
 import { StatusBadge, toast } from '@/components/common'
 
 const orders = ref([])
@@ -99,21 +100,6 @@ function resetShipForm() {
   shipDateError.value = ''
 }
 
-/**
- * A-249：把用户打的日期归一成 `YYYY-MM-DD`（失焦时执行）。
- *
- * 合法就直接改写输入框内容（用户能立刻看到系统理解成了哪一天，
- * 而不是"我打了 20261127，它到底认没认"）；看不懂就把错误留在字段下方。
- */
-function commitShipDate() {
-  const r = normalizeIsoDate(shipForm.estimated_delivery)
-  if (r.ok) {
-    shipForm.estimated_delivery = r.value
-    shipDateError.value = ''
-  } else {
-    shipDateError.value = r.error
-  }
-}
 
 /**
  * ★ 2026-11-18（A-095）：发货前必须至少给出「承运商」或「运单号」，且要清空表单。
@@ -270,24 +256,17 @@ onMounted(load)
           <div class="po-field"><label class="po-label">Carrier</label><input v-model="shipForm.carrier" class="po-input" data-testid="ship-carrier" /></div>
           <div class="po-field"><label class="po-label">Tracking #</label><input v-model="shipForm.tracking_number" class="po-input" data-testid="ship-tracking" /></div>
           <div class="po-field"><label class="po-label">Tracking URL</label><input v-model="shipForm.tracking_url" class="po-input" data-testid="ship-tracking-url" /></div>
-          <!-- ★ 2026-11-27（A-249）：原来是 `<input type="date">`，而全站日期显示都是
-               YYYY-MM-DD；运营照这个格式手打，实测（Edge/zh-CN）会得到脏值：
-                 `2026-11-27` ⇒ `202611-02-07`（年份段被吃掉）
-                 `11272026`   ⇒ `""`（段值非法被丢弃）
-               因为 type=date 的分段输入无法事后修正，这里换成文本框 + 归一化
-               （接受 2026-11-27 / 2026/11/27 / 20261127，含糊写法一律拒绝并提示）。 -->
+          <!-- ★ 2026-11-27（A-249）：`<input type="date">` 换成统一的 IsoDateInput。
+               原生分段输入会把手打的 2026-11-27 吃成 202611-02-07（实测 Edge/zh-CN），
+               而全站日期显示都是 YYYY-MM-DD —— 照屏幕格式打就是打不进去。 -->
           <div class="po-field">
             <label class="po-label">Est. Delivery</label>
-            <input
+            <IsoDateInput
               v-model="shipForm.estimated_delivery"
               class="po-input"
-              type="text"
-              inputmode="numeric"
-              placeholder="YYYY-MM-DD"
               data-testid="ship-est-delivery"
-              :aria-invalid="!!shipDateError"
-              @input="shipDateError = ''"
-              @blur="commitShipDate"
+              aria-label="Estimated delivery date"
+              @invalid="(m) => { shipDateError = m }"
             />
             <p v-if="shipDateError" class="po-ship-error" data-testid="ship-date-error">{{ shipDateError }}</p>
           </div>
