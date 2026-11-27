@@ -67,8 +67,16 @@ onMounted(async () => {
     } catch {}
   }
 
-  // Pre-fill from cart if no product in query
-  if (!items.value.length && basketStore.items?.length) {
+  // Pre-fill from cart — ★ 2026-11-27（A-129）：**只在"从购物车来"时才预填**。
+  //
+  //   改前这里是 `if (!items.value.length && basketStore.items?.length)` —— 不看到底
+  //   是从哪进来的，只要篮子非空就整篮搬进询价单。于是访客在首页点 Custom Synthesis
+  //   的 Request Quote（他一个商品都没选），询价页却已填好 3 行购物车里的商品
+  //   （QA Batch 11 实测）。直接输 URL 进来反而是 1 行空白 —— 两个入口两种行为。
+  //   现在由购物车显式带 `?from=cart`；其余入口（首页 CTA、产品页 Request Quote、
+  //   研究路径面板的 product_id）不再借用购物车内容。产品页/路径面板本来就传
+  //   `product_id`，走上面那条分支。
+  if (!items.value.length && route.query.from === 'cart' && basketStore.items?.length) {
     for (const ci of basketStore.items) {
       items.value.push({
         product_id: ci.product_id || ci.product?.id,

@@ -13,8 +13,11 @@ import { useAuthStore } from '@/stores/auth'
 import ProductCard from '@/components/cards/ProductCard.vue'
 import { AppButton, LoadingSpinner, toast } from '@/components/common'
 import { getWishlists, createWishlist, updateWishlist } from '@/api/wishlist'
+import { getProduct } from '@/api/products'
+import { useBasketStore } from '@/stores/basket'
 
 const authStore = useAuthStore()
+const basketStore = useBasketStore()
 
 const loading = ref(true)
 const errorText = ref('')
@@ -97,6 +100,38 @@ async function removeProduct(product) {
   }
 }
 
+/**
+ * ★ 2026-11-27（A-180）：收藏夹卡片上只有"移除"，没有加购 —— 而收藏夹的
+ * 全部意义就是"以后再买"。QA 实测悬停也没有任何加购入口，只能点进详情页。
+ *
+ * 收藏夹列表用的是 `ProductListSerializer`，只给 `sku_summary`（数量/价格区间），
+ * **没有 sku id** —— 所以点击时按需拉一次产品详情取默认 SKU（与 A-045 同一口径：
+ * `is_default` 优先，无默认才退回第一个）。一次点击一次请求，不给列表页加负担。
+ */
+const addingId = ref(null)
+
+async function addToCart(product) {
+  if (addingId.value || busy.value) return
+  if (isUnavailable(product)) return
+  addingId.value = product.id
+  try {
+    const res = await getProduct(product.id)
+    const detail = unwrap(res)
+    const skus = detail?.skus || []
+    const sku = skus.find((s) => s.is_default) || skus[0]
+    if (!sku) {
+      toast.error('This product has no purchasable size yet.')
+      return
+    }
+    await basketStore.addItem(sku.id, 1)
+    toast.success('已加入购物车')
+  } catch {
+    toast.error('Could not add to cart')
+  } finally {
+    addingId.value = null
+  }
+}
+
 async function clearAll() {
   if (busy.value || count.value === 0) return
   busy.value = true
@@ -174,15 +209,27 @@ onMounted(loadWishlist)
       <div class="wl-grid">
         <div v-for="p in products" :key="p.id" class="wl-item">
           <ProductCard :product="p" :unavailable="isUnavailable(p)" />
-          <button
-            type="button"
-            class="wl-remove"
-            :disabled="busy"
-            :aria-label="`移除 ${p.name}`"
-            @click.stop="removeProduct(p)"
-          >
-            移除
-          </button>
+          <div class="wl-item-actions">
+            <button
+              type="button"
+              class="wl-cart"
+              :disabled="busy || addingId === p.id || isUnavailable(p)"
+              :aria-label="`加入购物车 ${p.name}`"
+              :title="isUnavailable(p) ? 'This product is no longer available' : 'Add to cart'"
+              @click.stop="addToCart(p)"
+            >
+              {{ addingId === p.id ? '加入中…' : '加入购物车' }}
+            </button>
+            <button
+              type="button"
+              class="wl-remove"
+              :disabled="busy"
+              :aria-label="`移除 ${p.name}`"
+              @click.stop="removeProduct(p)"
+            >
+              移除
+            </button>
+          </div>
         </div>
       </div>
     </template>
@@ -299,11 +346,39 @@ onMounted(loadWishlist)
   position: relative;
   min-width: 0;
 }
-.wl-remove {
+/* ★ 2026-11-27（A-180）：卡片右上角并排两个动作（加入购物车 / 移除）。
+   原来只有 `.wl-remove` 一个绝对定位按钮；改成动作组容器绝对定位，
+   两个按钮回归常规流，避免各自定位互相压住。 */
+.wl-item-actions {
   position: absolute;
   top: 10px;
   right: 10px;
   z-index: 2;
+  display: flex;
+  gap: 6px;
+}
+
+.wl-cart {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-sans, system-ui);
+  white-space: nowrap;
+}
+.wl-cart:hover { filter: brightness(1.05); }
+.wl-cart:disabled { opacity: 0.55; cursor: not-allowed; filter: none; }
+
+.wl-remove {
+  position: static;
+  top: auto;
+  right: auto;
+  z-index: auto;
   height: 26px;
   padding: 0 10px;
   border-radius: 6px;
@@ -314,6 +389,7 @@ onMounted(loadWishlist)
   font-weight: 600;
   cursor: pointer;
   font-family: var(--font-sans, system-ui);
+  white-space: nowrap;
   transition: all 0.15s;
 }
 .wl-remove:hover {

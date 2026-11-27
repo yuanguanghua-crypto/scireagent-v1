@@ -76,7 +76,9 @@ function handlePlaceOrder() {
 
 /** Handle request quote */
 function handleRequestQuote() {
-  router.push('/quote-request')
+  // ★ 2026-11-27（A-129）：显式标记来源，询价页据此决定要不要把购物车商品带过去。
+  //   不加这个参数的话，任何入口进来的询价页都会"自动"塞满购物车里的东西。
+  router.push({ path: '/quote-request', query: { from: 'cart' } })
 }
 
 /** Handle submit for approval */

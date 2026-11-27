@@ -1,39 +1,48 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useCountUp } from '@/composables/useCountUp'
 import StarDot from '@/components/common/StarDot.vue'
 
 const props = defineProps({
   stats: {
     type: Object,
-    default: () => ({
-      products: 118,
-      skus: 293,
-      methods: 10,
-      protocols: 88,
-      areas: 8,
-    }),
+    // ★ 2026-11-27（A-121 顺带）：默认值原本是一组**编造的**数字
+    //   （118 / 293 / 10 / 88 / 8）—— 数据没到时页面会煞有介事地显示这些假数。
+    //   宁可显示 0 也不编。
+    default: () => ({ products: 0, skus: 0, methods: 0, protocols: 0, areas: 0 }),
   },
 })
 
 const router = useRouter()
 const rootEl = ref(null)
+
+/**
+ * ★ 2026-11-27（A-121）：**初值就是真实计数，不再从 0 往上滚。**
+ *
+ * 原实现 `display` 全为 0，靠 IntersectionObserver 在滚动入视口时把
+ * 0 → 真实值 数上去。后果有三个，都不是审美问题：
+ *   1. 首屏/静态快照读到的是 "0 Products · 0 SKUs / 0 Methods / 0 Protocols"，
+ *      看起来像站点没有数据（访客回归 D-01 报的就是这个）；
+ *   2. 有人截图、打印、或 JS 动画被 `prefers-reduced-motion` 之类挡住时，
+ *      看到的永久是 0；
+ *   3. 计数过程中还会出现 11,035 这类**从未真实存在过**的中间值。
+ * 计数动画属于锦上添花，不该拿"先撒谎再纠正"来换。
+ * 现在：直接渲染 props 的真实值，并在 props 变化时同步（异步取数后立刻更新）。
+ */
 const display = reactive({ products: 0, skus: 0, methods: 0, protocols: 0, areas: 0 })
-const counter = useCountUp(1400, 120)
+
+function sync() {
+  display.products = props.stats?.products || 0
+  display.skus = props.stats?.skus || 0
+  display.methods = props.stats?.methods || 0
+  display.protocols = props.stats?.protocols || 0
+  display.areas = props.stats?.areas || 0
+}
+sync()
+watch(() => props.stats, sync, { deep: true })
 
 // 千分位：14065 → 14,065（原样输出在四位数以上很难一眼读数）
 const fmt = (n) => Number(n || 0).toLocaleString('en-US')
-
-onMounted(() => {
-  counter.watch(rootEl.value, [
-    { setter: v => (display.products = v), value: props.stats.products || 0 },
-    { setter: v => (display.skus = v), value: props.stats.skus || 0 },
-    { setter: v => (display.methods = v), value: props.stats.methods || 0 },
-    { setter: v => (display.protocols = v), value: props.stats.protocols || 0 },
-    { setter: v => (display.areas = v), value: props.stats.areas || 0 },
-  ])
-})
 </script>
 
 <template>
