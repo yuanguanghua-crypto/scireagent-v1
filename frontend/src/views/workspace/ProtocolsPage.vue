@@ -82,6 +82,33 @@ async function loadList() {
   return load()
 }
 
+/**
+ * ★ 2026-11-27（A-214）：把"已关联但不在下拉选项里"的方法补进来。
+ *
+ * 下拉只装了前 200 条（`page_size: 200`），而协议关联的方法可能落在这 200 之外
+ * （QA 实测：协议 210 的 Method 字段显示**裸数字 47895**）。el-select 找不到匹配
+ * option 时就会把 value 原样显示出来 —— 看起来像一个数字，而不是方法名。
+ *
+ * 这里对每个缺失 id 单独取详情补进选项（通常 0~3 个，代价可忽略）。
+ * 取不到（方法已删/已归档不可见）时给一个可读占位，**不要再显示裸数字**。
+ */
+async function ensureSelectedMethodsPresent() {
+  const ids = (form.value?.method_ids || []).map(Number).filter((n) => Number.isInteger(n))
+  if (!ids.length) return
+  const have = new Set(methods.value.map((m) => Number(m.id)))
+  const missing = ids.filter((id) => !have.has(id))
+  if (!missing.length) return
+  const fetched = await Promise.all(missing.map(async (id) => {
+    try {
+      const r = await http.get(`/methods/${id}/`)
+      const d = r.data?.data || r.data || null
+      if (d && d.id) return { id: d.id, name: d.name || `Method #${id}`, status: d.status || '' }
+    } catch { /* 取不到就走下面的占位 */ }
+    return { id, name: `Method #${id} (not available)`, status: '' }
+  }))
+  methods.value = [...fetched, ...methods.value]
+}
+
 async function loadMethods() {
   optionsLoading.value = true
   optionsError.value = ''
@@ -92,6 +119,7 @@ async function loadMethods() {
       include_unpublished: 1,
     })
     methods.value = (resp.data?.results || resp.data || [])
+    await ensureSelectedMethodsPresent()
   } catch (e) {
     methods.value = []
     // 改前是 `catch { /* ignore */ }`：失败与"没有方法"同形，用户只看到禁用框

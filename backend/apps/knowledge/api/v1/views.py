@@ -241,6 +241,12 @@ class ProtocolViewSet(DuplicateNameGuardMixin, EnvelopeMixin, viewsets.ModelView
     search_fields = []
     ordering_fields = ['name', 'version']
     filterset_fields = ['status']
+    # ★ 2026-11-27（A-213）：**补默认排序**。此前这里没有 `ordering`，模型
+    #   `Protocol` 也没有 `Meta.ordering` ⇒ 列表顺序由数据库自由决定（PG 不保证），
+    #   QA 实测「12xxx 号记录穿插在低 ID 之间，共 17 例」，翻页成员也不稳定。
+    #   与 A-078（订单列表）同一个病。取 `id` 升序：既是 QA 的预期，也是全序（稳定）。
+    #   客户端仍可用 `?ordering=name` / `?ordering=-version` 覆盖（ordering_fields 已开放）。
+    ordering = ['id']
 
     def _base_queryset(self):
         """基础 queryset + 按 action 决定要不要预取材料清单。

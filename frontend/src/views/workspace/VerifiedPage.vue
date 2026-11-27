@@ -21,6 +21,9 @@
         @click="switchTab(t.key)"
       >
         {{ t.label }}
+        <!-- ★ 2026-11-27（A-072 / A-215）：四个标签此前**都没有数字**，
+             运营看不出「Review 里到底积了几条」，只能一个个点进去数。 -->
+        <span class="wv-tab-count" data-testid="wv-tab-count">{{ tabCounts[t.key] ?? 0 }}</span>
       </button>
     </div>
 
@@ -82,7 +85,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import * as bridgesApi from '@/api/bridges'
 import { toast } from '@/components/common'
 import { useConfirm } from '@/composables/useConfirm'
@@ -96,9 +99,22 @@ const tabs = [
   { key: '', label: 'All' },
 ]
 const activeTab = ref('review')
-const rows = ref([])
+// ★ A-215：取**一次全量**，四个标签的计数与列表都从同一份数据算出来 ——
+//   否则要给每个标签单独发一次请求才能知道它有几条（且数字与列表可能不同步）。
+//   全量返回本来就是当前 API 的行为（`/verified/` 不分页），所以不增加数据量。
+const allRows = ref([])
 const loading = ref(false)
 const error = ref('')
+const rows = computed(() => (
+  activeTab.value ? allRows.value.filter((r) => r.status === activeTab.value) : allRows.value
+))
+const tabCounts = computed(() => {
+  const c = { review: 0, active: 0, rejected: 0, '': allRows.value.length }
+  for (const r of allRows.value) {
+    if (r.status in c) c[r.status] += 1
+  }
+  return c
+})
 
 function evidenceChips(r) {
   const refs = Array.isArray(r.evidence_reference) ? r.evidence_reference : []
@@ -115,20 +131,19 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const params = activeTab.value ? { status: activeTab.value } : {}
-    rows.value = (await bridgesApi.listVerified(params)) || []
+    allRows.value = (await bridgesApi.listVerified({})) || []
   } catch (e) {
     console.error('Failed to load verified list', e)
     error.value = 'Failed to load review queue.'
-    rows.value = []
+    allRows.value = []
   } finally {
     loading.value = false
   }
 }
 
 function switchTab(key) {
+  // 数据已全量在手 ⇒ 切标签只是本地筛选，不再打后端（也顺手消掉"切一次转一次圈"）
   activeTab.value = key
-  load()
 }
 
 async function approve(r) {
@@ -186,6 +201,14 @@ onMounted(load)
   background: #fff; cursor: pointer; font-size: 13px; color: #374151;
 }
 .wv-tab-active { background: #1B7A43; border-color: #1B7A43; color: #fff; }
+/* A-215：计数徽标 —— 未选中态用浅底，选中态反白，避免在绿底上看不清 */
+.wv-tab-count {
+  display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px;
+  border-radius: 9px; background: #E5E7EB; color: #374151;
+  font-size: 11px; line-height: 18px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.wv-tab-active .wv-tab-count { background: rgba(255, 255, 255, .25); color: #fff; }
 .wv-empty { color: #6B7280; font-size: 14px; padding: 24px 0; }
 .wv-table { width: 100%; border-collapse: collapse; background: #fff; font-size: 13px; }
 .wv-table th, .wv-table td {
