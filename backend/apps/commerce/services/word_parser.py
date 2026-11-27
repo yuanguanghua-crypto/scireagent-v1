@@ -28,7 +28,10 @@ class WordParserService:
     """
 
     # 匹配 "Label: value" 模式
-    LABEL_PATTERN = re.compile(r'^([A-Za-z ]+?):\s*(.+)$')
+    # ★ 2026-11-27（A-132）：原写法 `^([A-Za-z ]+?):\s*(.+)$` 只认**半角冒号**、
+    #   且标签里不能出现数字或点 ⇒ 文档写成 "SMILES："（全角）或 "CAS No.: 63-39-2"
+    #   时整行被跳过，用户在导入结果里看到"少了 SMILES"却不知道原因。
+    LABEL_PATTERN = re.compile(r'^([A-Za-z][A-Za-z0-9. ]{0,40}?)\s*[:：]\s*(.+)$')
 
     # 匹配 "10ul (100 mM)" 或 "1mg" — 拆出数值、单位、(可选)浓度数值、浓度单位
     SIZE_PATTERN = re.compile(
@@ -115,7 +118,10 @@ class WordParserService:
         # 映射标签到结果键
         label_map = {
             'cas number': 'cas',
+            'cas': 'cas',                      # "CAS No.:" 归一化后会剩下 "cas"
             'catalog number': 'catalog_number',
+            'catalog': 'catalog_number',       # "Catalog No.:" 同理
+            'catalog no': 'catalog_number',
             'smiles': 'smiles',
             'canonical smiles': 'smiles',
             'inchi': 'inchi',
@@ -128,9 +134,19 @@ class WordParserService:
             'size': 'size',
             'price': 'price',
             'synonyms': 'synonyms',
+            # ★ A-132：分类此前**没有任何映射** ⇒ 无论文档怎么写都填不进去。
+            #   这里只做"文本抽取"，选中具体分类仍由用户在界面确认（分类是一棵树，
+            #   按文本猜 id 会错配，宁 miss）。
+            'category': 'category',
+            'categories': 'category',
+            'product category': 'category',
+            'application': 'category',
+            'applications': 'category',
         }
 
-        key = label_map.get(label)
+        # 归一化：'cas no.' / 'cas number' / 'catalog no.' 统一成基础词
+        norm = re.sub(r'\s*\b(no|number|no\.)\b\.?$', '', label).strip()
+        key = label_map.get(label) or label_map.get(norm)
         if key:
             return {'key': key, 'value': value}
         return None

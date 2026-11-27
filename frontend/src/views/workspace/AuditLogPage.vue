@@ -156,19 +156,38 @@ onMounted(load)
               </td>
               <td class="al-mono">{{ r.model }}</td>
               <td>{{ r.username || 'system' }}</td>
-              <td class="al-dim">{{ r.has_snapshot ? 'yes' : '—' }}</td>
+              <td class="al-dim" :title="r.has_snapshot
+                ? '有快照：点击本行展开'
+                : '无快照：该记录由早期写入路径（批量脚本/旧版本）产生，未采集字段值'">
+                {{ r.has_snapshot ? 'yes' : '—' }}
+              </td>
             </tr>
             <!-- 内联展开快照 -->
             <tr v-if="detail && detail.id === r.id" class="al-detail-row">
               <td colspan="6">
                 <div v-if="detailLoading" class="al-dim">Loading…</div>
                 <div v-else class="al-snapshot">
-                  <p class="al-snapshot-title">
-                    Snapshot
-                    <span class="al-dim">({{ Object.keys(detail.snapshot || {}).length }} top-level keys)</span>
-                  </p>
-                  <pre v-if="Object.keys(detail.snapshot || {}).length" class="al-pre">{{ JSON.stringify(detail.snapshot, null, 2) }}</pre>
-                  <p v-else class="al-dim">该记录没有快照（早期写入路径未采集字段值）。</p>
+                  <!-- ★ 2026-11-27（A-094）：快照其实有**两种**，页面文案此前一律说成
+                       "变更前/后的字段值"，与实现不符 —— `AuditLog.log()` 默认只存
+                       `build_snapshot(instance)`（**操作后的单一状态**），
+                       只有少数路径显式传 `{before, after}`。这里按实际内容分开呈现。 -->
+                  <template v-if="detail.snapshot && detail.snapshot.before && detail.snapshot.after">
+                    <p class="al-snapshot-title">变更前 / 变更后</p>
+                    <p class="al-dim" style="margin:2px 0 4px">Before</p>
+                    <pre class="al-pre">{{ JSON.stringify(detail.snapshot.before, null, 2) }}</pre>
+                    <p class="al-dim" style="margin:8px 0 4px">After</p>
+                    <pre class="al-pre">{{ JSON.stringify(detail.snapshot.after, null, 2) }}</pre>
+                  </template>
+                  <template v-else>
+                    <p class="al-snapshot-title">
+                      Snapshot
+                      <span class="al-dim">
+                        ({{ Object.keys(detail.snapshot || {}).length }} top-level keys · 操作后状态，非前后对比)
+                      </span>
+                    </p>
+                    <pre v-if="Object.keys(detail.snapshot || {}).length" class="al-pre">{{ JSON.stringify(detail.snapshot, null, 2) }}</pre>
+                    <p v-else class="al-dim">该记录没有快照（早期写入路径未采集字段值，例如批量归档脚本）。</p>
+                  </template>
                 </div>
               </td>
             </tr>
@@ -181,8 +200,9 @@ onMounted(load)
     </div>
 
     <p class="al-foot">
-      点击任意一行展开快照（变更前/后的字段值）。当前只记录产品变更 ——
-      订单、用户、报价、邮件的操作不在审计范围内。
+      点击任意一行展开快照。注意两种形态：<b>「变更前 / 变更后」</b>仅部分动作记录；
+      多数动作只留<b>操作后的单一状态</b>（历史批量脚本产生的记录可能完全没有快照）。
+      当前只记录产品变更 —— 订单、用户、报价、邮件的操作不在审计范围内。
     </p>
   </div>
 </template>

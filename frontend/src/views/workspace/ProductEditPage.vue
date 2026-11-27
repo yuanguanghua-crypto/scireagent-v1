@@ -74,6 +74,8 @@ function isFieldMissing(key) {
 const wordImporting = ref(false)
 const wordFile = ref(null)
 const wordResult = ref(null)
+// A-132：Word 文档里抽到的分类原文（仅提示，不自动选中）
+const wordCategoryText = ref('')
 
 
 // ── Knowledge inline editor ─────────────────
@@ -496,6 +498,8 @@ function prefillFromWord(data) {
       is_default: i === 0,
     }))
   }
+  // ★ A-132：分类是树，不能按文本猜 —— 只把文档里的原文记下来给用户参考
+  wordCategoryText.value = (data.category || '').trim()
   // Clear the completeness flag after prefill to avoid misleading ✓
   wordResult.value.prefilled = true
 }
@@ -2162,7 +2166,9 @@ watch(
         <span v-if="wordFile" class="file-name">{{ wordFile.name }}</span>
         <span v-if="wordImporting" class="word-status">Parsing…</span>
         <span v-else-if="wordResult && wordResult.prefilled" class="word-status word-ok">
-          ✓ {{ wordResult.fields_found || '' }} fields extracted — review before publishing
+          <!-- ★ 2026-11-27（A-132）：这里下一步是**保存草稿**，不是发布 ——
+               原文案说 "review before publishing" 会让人以为点保存就等于发布。 -->
+          ✓ {{ wordResult.fields_found || '' }} fields extracted — review before saving
         </span>
         <span v-else-if="wordResult && !wordResult.error" class="word-status word-ok">
           {{ wordResult.fields_found }} fields extracted
@@ -2171,7 +2177,12 @@ watch(
           {{ wordResult.error }}
         </span>
       </div>
-      <p class="form-hint">Upload a .docx product specification to pre-fill the form. All pre-filled values must be reviewed before publishing.</p>
+      <p class="form-hint">Upload a .docx product specification to pre-fill the form. All pre-filled values must be reviewed before saving.</p>
+      <!-- ★ A-132：文档里的「分类」只做文本提取，**不自动选**（分类是一棵树，
+           按文本猜 id 会错配）；把原文亮出来，让用户自己去 Cascader 里选。 -->
+      <p v-if="wordCategoryText" class="form-hint" data-testid="word-category-hint">
+        Category in document: <strong>{{ wordCategoryText }}</strong> — pick the matching category above manually.
+      </p>
     </section>
 
     <!-- AI AUTO MATCH Panel -->

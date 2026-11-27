@@ -180,12 +180,28 @@ class PubChemEnrichView(EnvelopeMixin, APIView):
                     continue
                 resolved_cas = enriched.get('cas_resolved') or product_cas
                 props = enriched.get('properties') or {}
+                # ★ 2026-11-27（A-173）：批量模式此前把 `found` 原样传出，而"多候选"
+                #   分支也会返回 `found=True` 却**不带 properties** ⇒ 响应成了
+                #   `{found:true, cid:null, formula:'', molecular_weight:0}`：
+                #   调用方看到"找到了"却拿不到任何字段（QA 报的就是这个）。
+                #   现在 `found` 只在**真的取到属性**时为真，并把状态说清楚。
+                candidates = enriched.get('candidates') or []
+                raw_found = bool(enriched.get('found'))
                 results.append({
                     "product_id": product.id,
                     "product_name": name,
                     "enriched": {
-                        "found": enriched.get('found', False),
-                        "cid": enriched.get('cid'),
+                        "status": (
+                            'verified' if (raw_found and props and not candidates)
+                            else 'multiple_candidates' if candidates
+                            else 'not_found'
+                        ),
+                        "found": bool(raw_found and props),
+                        "raw_found": raw_found,
+                        "requires_review": bool(enriched.get('requires_review') or candidates),
+                        "candidates_count": len(candidates),
+                        # cid 可能在 props 里（PubChem 路径）而不在顶层
+                        "cid": enriched.get('cid') or props.get('cid'),
                         "cas": resolved_cas,
                         "smiles": props.get('canonical_smiles', ''),
                         "formula": props.get('molecular_formula', ''),
