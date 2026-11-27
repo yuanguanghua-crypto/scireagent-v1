@@ -329,8 +329,9 @@ if (!isInternal(auth)) {
     </aside>
 
     <main class="workspace-main">
-      <!-- meta.bareHeader：/ops/* 那 8 个运营台各自带 po-page-header（h1 + 操作按钮），
-           不关掉这里会产生双层标题。 -->
+      <!-- meta.bareHeader：页面自己带页头（h1 + 操作按钮）时关掉这里，否则双层标题。
+           /ops/* 那批运营台与部分 workspace 页（A-216）都走这条路；
+           具体清单以 router/index.js 里的 bareHeader 标记为准（别在这里写死数量）。 -->
       <header v-if="!$route.meta.bareHeader" class="workspace-header">
         <h1 class="workspace-title">{{ $route.meta.title || 'Workspace' }}</h1>
       </header>

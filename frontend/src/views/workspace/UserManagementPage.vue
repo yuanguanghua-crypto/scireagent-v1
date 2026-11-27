@@ -35,6 +35,10 @@ const busyId = ref(null)
 const search = ref('')
 const roleFilter = ref('')
 const verifiedFilter = ref('')
+// ★ 2026-11-26（A-233）：账号启停筛选。后端 `OpsUserListView.get_queryset()`
+// 早就支持 `is_active` 参数（与 email_verified 同一循环），只是前端一直没给入口 ——
+// 想清点"还有哪些停用账号"只能翻页肉眼找。
+const statusFilter = ref('')
 
 const ROLES = ['researcher', 'procurement', 'editor', 'admin']
 
@@ -87,6 +91,7 @@ async function load() {
     if (search.value.trim()) params.search = search.value.trim()
     if (roleFilter.value) params.role = roleFilter.value
     if (verifiedFilter.value) params.email_verified = verifiedFilter.value
+    if (statusFilter.value) params.is_active = statusFilter.value
     const res = await getUsers(params)
     const payload = res.data ?? res
     rows.value = Array.isArray(payload) ? payload : (payload.results || [])
@@ -114,6 +119,12 @@ async function changeRole(r, ev) {
   error.value = ''
   try {
     await patchUser(r.id, { role: next })
+    // ★ 2026-11-26（A-022）：先把本行的值改成已提交的新 role，再重新拉列表。
+    //   此前只靠 `await load()` 回填 —— 回填是异步的，而在 disabled 窗口里
+    //   下拉显示的是 DOM 自身状态，于是用户看到"灰掉 + 还是旧值"，
+    //   会以为没生效又去点一次。乐观更新让"显示的"与"已提交的"从这一刻起一致，
+    //   后续 load() 只是拿服务端真值覆盖（若服务端拒绝，catch 会回滚下拉）。
+    r.role = next
     say(`#${r.id} ${r.username} 的角色已改为 ${next}`)
     await load()
   } catch (e) {
@@ -286,6 +297,12 @@ onMounted(async () => {
         <option value="true">Verified</option>
         <option value="false">Unverified</option>
       </select>
+      <!-- A-233：账号启停筛选（后端 is_active 早已支持，缺的一直是这个入口） -->
+      <select v-model="statusFilter" class="um-input um-input--sm" @change="load">
+        <option value="">Any status</option>
+        <option value="true">Active</option>
+        <option value="false">Disabled</option>
+      </select>
       <button class="um-btn um-btn--primary" :disabled="loading" @click="load">Apply</button>
     </div>
 
@@ -294,7 +311,9 @@ onMounted(async () => {
         <thead>
           <tr>
             <th>Username</th><th>Email</th><th>Role</th>
-            <th>Status</th><th>Email</th><th>Joined</th><th>Actions</th>
+            <!-- ★ 2026-11-26（A-008）：这一列是「邮箱验证状态」，此前误写成第二个 Email，
+                 和左边第 2 列的邮箱地址同名，读表头根本分不出哪个是地址、哪个是状态。 -->
+            <th>Status</th><th>Email status</th><th>Joined</th><th>Actions</th>
           </tr>
         </thead>
         <tbody>

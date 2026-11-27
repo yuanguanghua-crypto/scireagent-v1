@@ -1,7 +1,10 @@
 <template>
   <div class="wv-page">
     <div class="wv-header">
-      <h2 class="wv-title">Verified Applicability</h2>
+      <!-- ★ 2026-11-26（A-216）：本页已标 bareHeader（由页面自带页头作数），
+           原来这里写 h2 是靠 AdminLayout 的 h1 撑层级；现在它就是这个页面的主标题，
+           必须是 h1，否则整页没有一级标题。 -->
+      <h1 class="wv-title">Verified Applicability</h1>
       <p class="wv-sub">
         Researcher-curated product → method applicability facts. AI-mined drafts
         (origin: ai_extracted) await your review; approving promotes them to the

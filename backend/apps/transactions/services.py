@@ -179,10 +179,18 @@ class PoSubmissionService:
             note='PO submitted',
         )
         # 入队邮件（不实际发送）
+        # ★ 2026-11-26（A-234）：带上金额。客户收到"已收到 PO"时最想知道的就是总额，
+        #   模板已加 Order total 行；缺字段时 _SafeDict 会静默渲染成空串，
+        #   所以这里必须与模板占位符 {currency} / {grand_total} 严格对齐。
         EmailService.enqueue(
             'po_submitted',
             to=[user.email] if getattr(user, 'email', None) else [],
-            ctx={'order_no': order.order_no, 'po_number': po_number},
+            ctx={
+                'order_no': order.order_no,
+                'po_number': po_number,
+                'currency': order.currency or 'USD',
+                'grand_total': f'{order.grand_total:.2f}',
+            },
         )
         logger.info('PO submitted: order_no=%s po_number=%s user_id=%s',
                       order.order_no, order.po_number, user.id)

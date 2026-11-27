@@ -83,6 +83,105 @@ def render_template(text: str, ctx: dict) -> str:
         return text
 
 
+# ── 模板预览的「示例上下文」 ────────────────────────────────────────────
+# 为什么需要它（A-235）：
+#   预览接口原本按「最近一条同模板的真实 outbox 记录」取 ctx，一条都没有时退化成 {},
+#   而 `_SafeDict` 会把缺失占位符静默替换成空串 ⇒ 预览出来是一封空邮件。
+#   `email_verification` 正是这种模板：它由 `accounts/email.py` 直接 send_mail，
+#   从不经过 EmailOutbox，所以永远没有"最近一条记录"，预览里的验证按钮 href 是空的。
+#
+# 约定：这里的值只用于**预览**，形状与真实 ctx 一致（字段名、格式、量级），
+#   但内容一律是占位值 —— 链接里带 EXAMPLE-PREVIEW-TOKEN 且不可点击到真实账号。
+#   预览接口会把 ctx_source 报成 'sample'，前端据此显式提示"这不是真实数据"。
+_SAMPLE_CTX = {
+    'email_verification': {
+        'username': 'zhang.wei',
+        # 链接在 sample_ctx_for() 里按 FRONTEND_BASE_URL 拼，域名是真的、token 是假的
+        'verify_url': '',
+        'expire_hours': 24,
+    },
+    'order_confirmed': {'order_no': 'ORD-20260101-001'},
+    'po_submitted': {
+        'order_no': 'ORD-20260101-001',
+        'po_number': 'PO-2026-0001',
+        'currency': 'USD',
+        'grand_total': '1234.56',
+    },
+    'invoice_issued': {
+        'invoice_no': 'INV-2026-0001',
+        'order_no': 'ORD-20260101-001',
+        'due_date': '2026-12-31',
+    },
+    'shipped': {'order_no': 'ORD-20260101-001', 'tracking_number': '1Z999AA10123456784'},
+    'delivered': {'order_no': 'ORD-20260101-001'},
+    'password_reset': {'username': 'zhang.wei', 'reset_url': '', 'expire_hours': 24},
+    'rfq_submitted': {
+        'rfq_id': 'RFQ-2026-0001',
+        'contact_name': 'Dr. Wei Zhang',
+        'items_count': 3,
+    },
+    'rfq_received_internal': {
+        'rfq_id': 'RFQ-2026-0001',
+        'contact_name': 'Dr. Wei Zhang',
+        'contact_email': 'wei.zhang@example.edu',
+        'company': 'Example University',
+        'items_count': 3,
+    },
+    'quote_ready': {
+        'rfq_id': 'RFQ-2026-0001',
+        'contact_name': 'Dr. Wei Zhang',
+        'items_count': 3,
+        'quoted_currency': 'USD',
+        'quoted_total': '1234.56',
+        'quoted_valid_until': '2026-12-31',
+        'quoted_note': 'FOB Shanghai; lead time 4 weeks.',
+    },
+    'coa_published': {
+        'product_name': 'Example Dye Maleimide',
+        'catalog_number': '92130',
+        'lot_number': 'LOT-2026-0001',
+        'doc_id': 'COA-2026-0042',
+    },
+    'sds_published': {
+        'product_name': 'Example Dye Maleimide',
+        'catalog_number': '92130',
+        'revision_no': '2.1',
+        'revised_at': '2026-01-01',
+    },
+    'order_unpaid_reminder': {
+        'order_no': 'ORD-20260101-001',
+        'contact_name': 'Dr. Wei Zhang',
+        'currency': 'USD',
+        'amount_due': '1234.56',
+        'days_since': 3,
+        'release_days': 7,
+        'status_label': 'PO received',
+    },
+}
+
+# 链接类占位符：预览里必须能看出"这是个链接"，但又不能是有效凭证
+_SAMPLE_LINK_PATHS = {
+    'verify_url': '/verify-email?token=EXAMPLE-PREVIEW-TOKEN',
+    'reset_url': '/reset-password?token=EXAMPLE-PREVIEW-TOKEN',
+}
+
+
+def sample_ctx_for(template_key: str) -> dict:
+    """返回某模板的示例上下文；没有登记过的模板返回 {}。
+
+    链接用真实 `FRONTEND_BASE_URL` 拼（看到真实域名才知道链接拼得对不对），
+    token 固定为 `EXAMPLE-PREVIEW-TOKEN`（点得动，但进不了任何账号）。
+    """
+    ctx = dict(_SAMPLE_CTX.get(template_key) or {})
+    if not ctx:
+        return {}
+    base = (getattr(settings, 'FRONTEND_BASE_URL', '') or '').rstrip('/')
+    for field, path in _SAMPLE_LINK_PATHS.items():
+        if field in ctx:
+            ctx[field] = f'{base}{path}'
+    return ctx
+
+
 class EmailService:
     """邮件入队 — 渲染 EmailTemplate 写入 EmailOutbox(PENDING)，不实际发送。"""
 

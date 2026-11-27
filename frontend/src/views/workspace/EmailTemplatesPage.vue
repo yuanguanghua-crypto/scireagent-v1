@@ -85,6 +85,17 @@ async function select(key) {
   }
 }
 
+// 预览用的 ctx 从哪来（后端 ctx_source 的 4 个取值）—— A-235
+const CTX_SOURCE_LABELS = {
+  request: 'provided by you',
+  last_outbox_record: 'from the last real email',
+  sample: 'EXAMPLE data — never sent, not real values',
+  empty: 'empty — no record, no example registered',
+}
+function ctxSourceLabel(src) {
+  return CTX_SOURCE_LABELS[src] || src || 'unknown'
+}
+
 async function doPreview() {
   if (!current.value) return
   previewing.value = true
@@ -174,10 +185,16 @@ onMounted(loadList)
           v-for="t in list" :key="t.key"
           class="et-list-item"
           :class="{ 'is-active': current && current.key === t.key }"
+          :title="[t.key, t.subject, t.description].filter(Boolean).join('\n\n')"
           @click="select(t.key)"
         >
           <span class="et-list-key">{{ t.key }}</span>
           <span class="et-list-subj">{{ t.subject }}</span>
+          <!-- ★ 2026-11-26（A-008）：左栏窄，subject 单行必然被省略号截断，
+               而 description（后端早就返回了）此前一个字符都没显示 ——
+               于是"这封信什么时候发给谁"只能靠猜 key。这里补一行来源说明，
+               同时整条按钮加了 title，悬停即可看全 subject 与 description。 -->
+          <span v-if="t.description" class="et-list-desc">{{ t.description }}</span>
         </button>
         <p v-if="!list.length && !loadingList" class="et-empty">No templates.</p>
       </aside>
@@ -223,8 +240,11 @@ onMounted(loadList)
         <div v-if="preview" class="et-preview">
           <div class="et-preview-head">
             <b>Preview</b>
-            <span class="et-ctx-src">
-              context: {{ preview.ctx_source === 'request' ? 'provided' : 'last real email' }}
+            <!-- ★ 2026-11-26（A-235）：ctx 来源有 4 种，此前只区分了 2 种，
+                 'sample'（模板从未真实发送过，用示例值）会被错标成 "last real email"，
+                 于是预览里的假单号/假金额看起来像真数据。 -->
+            <span class="et-ctx-src" :class="{ 'is-sample': preview.ctx_source === 'sample' }">
+              context: {{ ctxSourceLabel(preview.ctx_source) }}
             </span>
           </div>
 
@@ -293,6 +313,12 @@ onMounted(loadList)
   font-size: 11.5px; color: var(--color-text-tertiary, #6b7280);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* A-008：来源说明（何时发给谁）—— 最多两行，再长由 title 悬停补全 */
+.et-list-desc {
+  font-size: 11px; line-height: 1.45; color: var(--color-text-tertiary, #9ca3af);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 .et-editor { border: 1px solid var(--color-border, #e5e7eb); border-radius: 8px; padding: 16px; min-width: 0; }
 .et-editor-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -319,6 +345,8 @@ onMounted(loadList)
 .et-preview-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
 .et-preview-head b { font-size: 14px; }
 .et-ctx-src { font-size: 11px; color: var(--color-text-tertiary, #6b7280); }
+/* A-235：示例上下文必须一眼可辨，不能被当成真实数据 */
+.et-ctx-src.is-sample { color: #b45309; font-weight: 600; }
 .et-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 6px; padding: 8px 12px; font-size: 12.5px; margin-bottom: 10px; }
 .et-kv { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 4px 10px; margin: 0 0 12px; }
 .et-kv dt { font-size: 12px; color: var(--color-text-tertiary, #6b7280); }

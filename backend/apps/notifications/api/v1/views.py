@@ -34,6 +34,7 @@ from apps.notifications.services import (
     email_delivery_is_unavailable,
     read_dispatch_heartbeat,
     render_template,
+    sample_ctx_for,
 )
 
 logger = logging.getLogger(__name__)
@@ -282,9 +283,15 @@ class EmailTemplatePreviewView(EnvelopeMixin, APIView):
 
         body = request.data or {}
         ctx = body.get('ctx')
-        if ctx is None:
+        if ctx is not None:
+            ctx_source = 'request'
+        else:
             last = EmailOutbox.objects.filter(template_key=key).order_by('-id').first()
-            ctx = (last.context_json if last else {}) or {}
+            if last and (last.context_json or {}):
+                ctx, ctx_source = last.context_json, 'last_outbox_record'
+            else:
+                ctx = sample_ctx_for(key)
+                ctx_source = 'sample' if ctx else 'empty'
 
         subject_src = body.get('subject_override') or tpl.subject
         html_src = body.get('body_html_override')
@@ -298,12 +305,16 @@ class EmailTemplatePreviewView(EnvelopeMixin, APIView):
         return self.success_response({
             'key': key,
             'ctx_used': ctx,
-            'ctx_source': 'request' if body.get('ctx') is not None else 'last_outbox_record',
+            'ctx_source': ctx_source,
             'subject': subj,
             'html': html,
             'text': text,
             'warnings': [
                 w for w in [
+                    # ★ 示例上下文必须自曝，否则会被当成真实数据读（金额/单号全是假的）
+                    '该模板从未真实发送过（outbox 无记录），本次用的是示例上下文：'
+                    '单号、金额、链接 token 均为占位值，不代表任何真实业务数据'
+                    if ctx_source == 'sample' else None,
                     '有占位符在渲染后仍然存在（可能写成了 {{x}} 或嵌套花括号）'
                     if (subj['unrendered'] or html['unrendered'] or text['unrendered']) else None,
                     f'上下文中缺少: {sorted(set(html["missing_in_ctx"]) | set(text["missing_in_ctx"]))}'
@@ -339,7 +350,12 @@ class EmailTemplateSendTestView(EnvelopeMixin, APIView):
         ctx = body.get('ctx')
         if ctx is None:
             last = EmailOutbox.objects.filter(template_key=key).order_by('-id').first()
-            ctx = (last.context_json if last else {}) or {}
+            if last and (last.context_json or {}):
+                ctx = last.context_json
+            else:
+                # ★ 2026-11-26（A-235）：与预览同口径 —— 从未发过的模板用示例上下文，
+                #   否则测试信里验证按钮 href 是空的，看不出模板对不对。
+                ctx = sample_ctx_for(key)
         # 测试信必须能点开：把链接类占位符兜底成站点地址，避免发出空链接
         ctx.setdefault('verify_url', getattr(settings, 'FRONTEND_BASE_URL', ''))
         ctx.setdefault('reset_url', getattr(settings, 'FRONTEND_BASE_URL', ''))

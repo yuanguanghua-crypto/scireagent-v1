@@ -8,6 +8,8 @@
   python manage.py seed_email_templates            # 只补缺失的
   python manage.py seed_email_templates --force    # 覆盖已有（会覆盖 Admin 里手改的内容！）
   python manage.py seed_email_templates --dry-run  # 只看会做什么
+  python manage.py seed_email_templates --force --only po_submitted
+                                                   # 只覆盖一个模板（推荐：改单个模板时用）
 
 ⚠️ 模板正文用 `str.format_map` 渲染（见 notifications/services.py:15），占位符是**单花括号**
    `{order_no}`。因此 HTML 里**不能出现裸 `{}`** —— CSS 块会被当成占位符吃掉。
@@ -110,10 +112,15 @@ TEMPLATES = [
         + _box('<table style="border-collapse:collapse">'
                + _kv('Order number', '{order_no}')
                + _kv('PO number', '{po_number}')
+               # ★ 2026-11-26（A-234）：客户对账靠的就是这一行 ——
+               #   此前模板只带单号，客户收到"已收到您的订单"却不知道金额，
+               #   只能回站点查，等于把确认信的价值砍掉一半。
+               + _kv('Order total', '{currency} {grand_total}')
                + '</table>')
         + _p('Our procurement team will confirm acceptance shortly.')
         + _FOOTER_HTML,
-        'We received your purchase order.\nOrder: {order_no}\nPO number: {po_number}' + _FOOTER_TEXT,
+        'We received your purchase order.\nOrder: {order_no}\nPO number: {po_number}'
+        '\nOrder total: {currency} {grand_total}' + _FOOTER_TEXT,
         'PO 提交确认（客户）',
         'en',
     ),
@@ -334,10 +341,27 @@ class Command(BaseCommand):
         parser.add_argument('--force', action='store_true',
                             help='覆盖已存在的模板（会覆盖 Admin 里手改的内容）')
         parser.add_argument('--dry-run', action='store_true', help='只打印，不写库')
+        # ★ 2026-11-26（A-234）：`--force` 是**全量**覆盖 —— 为了改一个模板而把
+        #   运营在 Admin 里手改过的其余十几个模板一起打回种子文本，是不可接受的副作用。
+        #   所以要改已存在的模板时，用 `--force --only <key>` 把爆炸半径收到一个 key。
+        parser.add_argument('--only', default='', metavar='KEY[,KEY]',
+                            help='只处理指定 key（逗号分隔）。配合 --force 可精确覆盖单个模板。')
 
     def handle(self, *args, **opts):
         created = updated = skipped = 0
-        for key, subject, html, text, desc, lang in TEMPLATES:
+        # 目标集合：--only 过滤（不存在于 TEMPLATES 的 key 直接报错，避免手误后以为已生效）
+        only = [k.strip() for k in (opts.get('only') or '').split(',') if k.strip()]
+        all_keys = [t[0] for t in TEMPLATES]
+        if only:
+            unknown = [k for k in only if k not in all_keys]
+            if unknown:
+                self.stderr.write(self.style.ERROR(
+                    f'未知模板 key: {unknown}；可用: {all_keys}'))
+                return
+            targets = [t for t in TEMPLATES if t[0] in only]
+        else:
+            targets = TEMPLATES
+        for key, subject, html, text, desc, lang in targets:
             exists = EmailTemplate.objects.filter(key=key).first()
             if exists and not opts['force']:
                 skipped += 1
@@ -370,4 +394,5 @@ class Command(BaseCommand):
                 f'[dry-run] 将新增 {created} 个、覆盖 {updated} 个，未写库'))
         else:
             self.stdout.write(self.style.SUCCESS(
-                f'完成：新增 {created}、覆盖 {updated}、跳过 {skipped}（共 {len(TEMPLATES)} 个模板）'))
+                f'完成：新增 {created}、覆盖 {updated}、跳过 {skipped}'
+                f'（本次处理 {len(targets)} 个 / 共 {len(TEMPLATES)} 个模板）'))

@@ -100,6 +100,71 @@ class TemplatePreviewTest(TmplBase):
         self.assertEqual(EmailTemplate.objects.get(key='order_confirmed').subject, before,
                          '预览不能写库')
 
+    # ── ★ A-235：从未真实发送过的模板 ────────────────────────────
+    def test_preview_uses_sample_ctx_when_no_outbox_record(self):
+        """`email_verification` 由 accounts/email.py 直接 send_mail，**从不入 outbox**，
+        所以永远没有"最近一条记录"。
+
+        修复前：ctx 退化成 {}，`_SafeDict` 把 `{verify_url}` 静默渲染成空串 ⇒
+        预览里「Verify email」按钮的 href 是空的，看不出模板对不对（QA A-235）。
+        """
+        self.assertEqual(EmailOutbox.objects.filter(template_key='email_verification').count(), 0)
+        d = self.client.post(f'{BASE}email_verification/preview/', {}, format='json').json()['data']
+
+        self.assertEqual(d['ctx_source'], 'sample')
+        # 链接必须非空，且指向本站 verify 页（域名真、token 假）
+        url = d['ctx_used']['verify_url']
+        self.assertTrue(url, '示例上下文必须给出 verify_url，否则预览还是空链接')
+        self.assertIn('/verify-email?token=', url)
+        self.assertIn('/verify-email?token=', d['html']['rendered'])
+        self.assertEqual(d['html']['missing_in_ctx'], [])
+        # 示例数据必须自曝，不能被当成真实数据
+        self.assertTrue(any('示例上下文' in w for w in d['warnings']),
+                        f'缺少"这是示例数据"的告警：{d["warnings"]}')
+
+    def test_preview_sample_not_used_when_real_record_exists(self):
+        """有真实记录时不能用示例值顶替 —— 真实字段名/格式比示例可靠。"""
+        EmailOutbox.objects.create(
+            to_emails='x@y.z', subject='s', body_text='b',
+            template_key='email_verification',
+            context_json={'username': 'RealUser', 'verify_url': 'https://real/verify?token=abc',
+                          'expire_hours': 24},
+        )
+        d = self.client.post(f'{BASE}email_verification/preview/', {}, format='json').json()['data']
+        self.assertEqual(d['ctx_source'], 'last_outbox_record')
+        self.assertIn('RealUser', d['text']['rendered'])
+        self.assertIn('https://real/verify?token=abc', d['html']['rendered'])
+
+    def test_po_submitted_preview_shows_amount(self):
+        """A-234：模板本身要有金额行 —— 光改 ctx 不改模板，预览/真实邮件都不会出现金额。"""
+        d = self.client.post(f'{BASE}po_submitted/preview/', {}, format='json').json()['data']
+        rendered = d['html']['rendered']
+        self.assertIn('Order total', rendered)
+        self.assertNotIn('{grand_total}', rendered)
+        self.assertNotIn('{currency}', rendered)
+
+
+class SeedCommandOnlyFlagTest(TmplBase):
+    """A-234 副作用控制：改一个模板不能把运营手改过的其它模板一起打回种子文本。"""
+
+    def test_force_only_touches_the_named_template(self):
+        # 模拟运营在 Admin 里手改过 order_confirmed
+        tpl = EmailTemplate.objects.get(key='order_confirmed')
+        tpl.subject = 'OPERATOR EDITED SUBJECT'
+        tpl.save(update_fields=['subject'])
+
+        call_command('seed_email_templates', '--force', '--only', 'po_submitted', verbosity=0)
+
+        self.assertEqual(EmailTemplate.objects.get(key='order_confirmed').subject,
+                         'OPERATOR EDITED SUBJECT', '--only 之外的手改内容不许被动')
+        self.assertIn('Order total', EmailTemplate.objects.get(key='po_submitted').body_html)
+
+    def test_unknown_key_writes_nothing(self):
+        before = dict(EmailTemplate.objects.values_list('key', 'subject'))
+        call_command('seed_email_templates', '--force', '--only', 'no_such_key', verbosity=0)
+        after = dict(EmailTemplate.objects.values_list('key', 'subject'))
+        self.assertEqual(before, after)
+
 
 class TemplateSendTestTest(TmplBase):
     @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')

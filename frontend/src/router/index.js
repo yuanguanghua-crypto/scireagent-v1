@@ -234,9 +234,11 @@ const routes = [
   //   AppHeader 下拉菜单、页面内 router.push、E2E 用例、已有书签全都依赖这些
   //   字面量路径，改成 /workspace/ops/* 会把这些地方全打一遍。
   //
-  // ★ meta.bareHeader：AdminLayout 自己有一个 h1 标题栏，而这 8 个页面各自
+  // ★ meta.bareHeader：AdminLayout 自己有一个 h1 标题栏，而下面这些页面各自
   //   带 po-page-header（h1 + 操作按钮）。不关掉 layout 那个标题会双层页头，
   //   所以给它们标 bareHeader，让页面自己的页头作数。
+  //   （workspace 分支里 verified / email-templates / audit-log / email-outbox /
+  //     system / users / knowledge-intake 同理，见 A-216。）
   {
     path: '/ops',
     component: () => import('@/views/workspace/AdminLayout.vue'),
@@ -334,17 +336,20 @@ const routes = [
       { path: 'methods', name: 'WorkspaceMethods', component: () => import('@/views/workspace/MethodsPage.vue'), meta: { title: 'Methods' } },
       { path: 'protocols', name: 'WorkspaceProtocols', component: () => import('@/views/workspace/ProtocolsPage.vue'), meta: { title: 'Protocols' } },
       { path: 'references', name: 'WorkspaceRefs', component: () => import('@/views/workspace/ReferencesPage.vue'), meta: { title: 'References' } },
-      { path: 'verified', name: 'WorkspaceVerified', component: () => import('@/views/workspace/VerifiedPage.vue'), meta: { title: 'Verified Applicability' } },
-      { path: 'knowledge-intake', name: 'WorkspaceKnowledgeIntake', component: () => import('@/views/KnowledgeIntake.vue'), meta: { title: 'Knowledge Intake' } },
+      // ★ 2026-11-26（A-216）：下面 verified / email-templates / audit-log 三页自己带了
+      //   完整页头（标题 + 副标题 + 操作按钮），与 /ops/* 那批同理，标 bareHeader
+      //   让 AdminLayout 不再重复渲染一个 h1 —— 此前这三页标题会连续出现两次。
+      { path: 'verified', name: 'WorkspaceVerified', component: () => import('@/views/workspace/VerifiedPage.vue'), meta: { title: 'Verified Applicability', bareHeader: true } },
+      { path: 'knowledge-intake', name: 'WorkspaceKnowledgeIntake', component: () => import('@/views/KnowledgeIntake.vue'), meta: { title: 'Knowledge Intake', bareHeader: true } },
       // 系统状态：邮件通道 / 投递队列 / 调度心跳 / DB（内部人员可读）
-      { path: 'system', name: 'WorkspaceSystem', component: () => import('@/views/workspace/SystemStatusPage.vue'), meta: { title: 'System Status' } },
+      { path: 'system', name: 'WorkspaceSystem', component: () => import('@/views/workspace/SystemStatusPage.vue'), meta: { title: 'System Status', bareHeader: true } },
       // 用户与角色：改 role / 启停 / 验证邮箱 / 触发重置（IsAdmin）
-      { path: 'users', name: 'WorkspaceUsers', component: () => import('@/views/workspace/UserManagementPage.vue'), meta: { title: 'Users & Roles' } },
+      { path: 'users', name: 'WorkspaceUsers', component: () => import('@/views/workspace/UserManagementPage.vue'), meta: { title: 'Users & Roles', bareHeader: true } },
       // 邮件模板与投递队列（运营台，替代 Django admin）
-      { path: 'email-templates', name: 'WorkspaceEmailTemplates', component: () => import('@/views/workspace/EmailTemplatesPage.vue'), meta: { title: 'Email Templates' } },
-      { path: 'email-outbox', name: 'WorkspaceEmailOutbox', component: () => import('@/views/workspace/EmailOutboxPage.vue'), meta: { title: 'Delivery Queue' } },
+      { path: 'email-templates', name: 'WorkspaceEmailTemplates', component: () => import('@/views/workspace/EmailTemplatesPage.vue'), meta: { title: 'Email Templates', bareHeader: true } },
+      { path: 'email-outbox', name: 'WorkspaceEmailOutbox', component: () => import('@/views/workspace/EmailOutboxPage.vue'), meta: { title: 'Delivery Queue', bareHeader: true } },
       // 审计日志（只读；目前只覆盖产品变更）
-      { path: 'audit-log', name: 'WorkspaceAuditLog', component: () => import('@/views/workspace/AuditLogPage.vue'), meta: { title: 'Audit Log' } },
+      { path: 'audit-log', name: 'WorkspaceAuditLog', component: () => import('@/views/workspace/AuditLogPage.vue'), meta: { title: 'Audit Log', bareHeader: true } },
     ],
   },
   {
