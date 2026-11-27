@@ -43,12 +43,17 @@ function toggle() {
     </div>
 
     <!-- Show all / collapse toggle -->
+    <!-- ★ 2026-11-27（A-142）：原按钮写 `Show all N →`，末尾的箭头强烈暗示**跳转**，
+         但实际是**就地展开**（URL 不变、也不显示 N 个计数）⇒ QA 判定"行为与文案不符"。
+         这里把文案改成"展开/收起"的表达，并去掉箭头；条数照旧如实标出。
+         （要改成"跳到协议列表页"的话属于新交互，需要产品先定去哪、带什么筛选。） -->
     <button
       v-if="hiddenCount > 0"
       class="expand-toggle"
+      :title="expanded ? 'Collapse the list' : `Expand to show all ${items.length} items`"
       @click="toggle"
     >
-      {{ expanded ? 'Show less' : `Show all ${items.length} →` }}
+      {{ expanded ? 'Show less' : `Show all ${items.length} (expand)` }}
     </button>
 
     <!-- Empty state -->

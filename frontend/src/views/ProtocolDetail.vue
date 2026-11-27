@@ -11,6 +11,8 @@ import ResearchPathChips from '@/components/navigation/ResearchPathChips.vue'
 import { useResearchPathStore } from '@/stores/researchPath'
 import { AppButton } from '@/components/common'
 import ExpandableSection from './admin/components/ExpandableSection.vue'
+// A-118：步骤标题的 HTML 片段清洗 + 序号兜底（纯函数，见 utils/stepText.js 的说明）
+import { stepTitle, stepNo } from '@/utils/stepText'
 
 const route = useRoute()
 const router = useRouter()
@@ -250,15 +252,15 @@ function formatDuration(seconds) {
           <div v-if="store.currentProtocol.steps?.length" class="steps-container">
             <el-timeline>
               <el-timeline-item
-                v-for="step in store.currentProtocol.steps"
+                v-for="(step, idx) in store.currentProtocol.steps"
                 :key="step.id"
-                :timestamp="`Step ${step.step_no}`"
+                :timestamp="`Step ${stepNo(step, idx)}`"
                 placement="top"
                 :type="step.warnings ? 'warning' : 'primary'"
               >
                 <el-card shadow="never" class="step-card">
                   <div class="step-header">
-                    <h3 class="step-title">{{ step.title }}</h3>
+                    <h3 class="step-title">{{ stepTitle(step, idx) }}</h3>
                     <el-tag v-if="step.duration_seconds" size="small" type="info">
                       {{ formatDuration(step.duration_seconds) }}
                     </el-tag>

@@ -29,6 +29,10 @@ def get_application_detail(application_id: int):
 
 def get_research_goals_with_applications() -> QuerySet:
     """获取所有研究目标（含应用场景）"""
+    # ★ 2026-11-27（A-245 / A-140）：`priority` **不是唯一键**（大量目标同优先级），
+    #   PG 对"排序键相等"的行不保证顺序 ⇒ 同一页面每次打开首行不同、**分页成员漂移**
+    #   （QA 实测：某应用首开在第一行，刷新后翻遍 14 页都找不到；这与 A-078 订单列表、
+    #   A-213 协议列表是同一个病）。补 `id` 兜底，排序变全序。
     return ResearchGoal.objects.prefetch_related(
         Prefetch('application_collection', queryset=Application.objects.order_by('id'))
-    ).order_by('priority')
+    ).order_by('priority', 'id')

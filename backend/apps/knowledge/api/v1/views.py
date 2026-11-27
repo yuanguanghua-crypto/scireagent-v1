@@ -129,6 +129,9 @@ class ResearchGoalViewSet(DuplicateNameGuardMixin, AutoTagTestFixtureMixin, Enve
     #   纯新增能力：无参数时 queryset 与改前逐字节一致（仍返回 staff 全量），
     #   全仓 grep 过没有任何调用方给 `/research-goals/` 传 `status=`。
     filterset_fields = ['status']
+    # ★ 2026-11-27（A-245）：显式声明默认排序（`priority` 不唯一，必须带 `id` 兜底，
+    #   详见 `selectors.get_research_goals_with_applications` 的说明）。
+    ordering = ['priority', 'id']
 
     def get_serializer_class(self):
         # #495 轻量版：详情/写入走 Detail（暴露并可写策展 protocols）；

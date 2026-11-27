@@ -7,6 +7,7 @@
  *   - items: Array of { type, id, name }
  *   - currentName: Name of the current page (last item)
  */
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 const props = defineProps({
@@ -24,6 +25,22 @@ const TYPE_ROUTES = {
   product: (id) => `/products/${id}`,
 }
 
+/**
+ * ★ 2026-11-27（A-117）：去掉**末级重复**。
+ * 上级链里最后一个实体常常就是当前页自己（应用页 items 末尾是本应用、
+ * 方法页末尾是本方法），于是面包屑出现 "Home / PCR / PCR"、
+ * "… / Sequencing Library Preparation / Sequencing Library Preparation"（QA 实测两处）。
+ * 处理：从尾部把 `name === currentName` 的条目去掉。
+ */
+const crumbItems = computed(() => {
+  const list = [...(props.items || [])]
+  const cur = (props.currentName || '').trim()
+  while (list.length && cur && (list[list.length - 1].name || '').trim() === cur) {
+    list.pop()
+  }
+  return list
+})
+
 function goTo(item) {
   const routeFn = TYPE_ROUTES[item.type]
   if (routeFn && item.id) router.push(routeFn(item.id))
@@ -33,7 +50,7 @@ function goTo(item) {
 <template>
   <nav class="rb" aria-label="Research path">
     <router-link to="/" class="rb-home">Home</router-link>
-    <template v-for="(item, idx) in items" :key="item.type + item.id">
+    <template v-for="(item, idx) in crumbItems" :key="item.type + item.id">
       <span class="rb-sep">/</span>
       <button class="rb-link" @click="goTo(item)">{{ item.name }}</button>
     </template>

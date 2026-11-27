@@ -72,7 +72,9 @@ const routes = [
     component: () => import('@/views/ConvergenceClassDetail.vue'),
     // group 固定为 ap；class_id 含下划线，用 props 透传保证原始值不被解码丢失
     props: (route) => ({ group: 'ap', class_id: route.params.class_id }),
-    meta: { title: 'Convergence Class Detail', nav: 'public' },
+    // ★ 2026-11-27（A-241）：两条类详情页原来共用同一标题 "Convergence Class Detail"，
+    //   浏览器标签/面包屑上分不出这是「应用类」还是「目标类」。标题里带上所属类型。
+    meta: { title: 'Application Class', nav: 'public' },
   },
   {
     path: '/applications/:id',
@@ -134,7 +136,8 @@ const routes = [
     component: () => import('@/views/ConvergenceClassDetail.vue'),
     // group 固定为 rg；class_id 含下划线，用 props 透传保证原始值不被解码丢失
     props: (route) => ({ group: 'rg', class_id: route.params.class_id }),
-    meta: { title: 'Convergence Class Detail', nav: 'public' },
+    // A-241：与上一条对称 —— 目标类详情用不同标题区分
+    meta: { title: 'Research Goal Class', nav: 'public' },
   },
   {
     path: '/research-goals/:id',
