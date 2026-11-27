@@ -92,8 +92,13 @@ async function handleSubmit() {
       ...form.value,
       items: items.value
         .filter(i => i.product_id || i.product_name.trim())
+        // ★ 2026-11-27（A-026）：必须把**手填的名称/货号**一起送上去。
+        //   改前这里只送 product_id / quantity / note ⇒ 客户手填的名字被丢掉，
+        //   后端落一条 product=NULL、sku=NULL、note 也为空的行，运营只看到三个 "—"。
         .map(i => ({
           product_id: i.product_id || undefined,
+          requested_product_name: (i.product_name || '').trim(),
+          requested_catalog_no: (i.catalog_no || '').trim(),
           quantity: i.quantity || 1,
           note: i.note || '',
         })),

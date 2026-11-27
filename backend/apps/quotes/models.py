@@ -74,6 +74,18 @@ class QuoteRequestItem(TimeStampedModel):
     )
     quantity = models.IntegerField(default=1, verbose_name='数量')
     note = models.TextField(blank=True, default='', verbose_name='备注')
+    # ★ 2026-11-27（A-026）：客户**只填名字、不挂库内产品**时的落点。
+    #   改前这两项只存在于前端内存里，提交时被 `.map()` 丢掉 ⇒ 明细落库后
+    #   product/sku 双双为 NULL、note 也空，运营看到的是一行三个 "—"。
+    #   历史行留空（那批数据从未保存过名称，无法回填）。
+    requested_product_name = models.CharField(
+        max_length=300, blank=True, default='', verbose_name='客户填写的产品名',
+        help_text='客户只填名字、未挂库内产品时保存到这里',
+    )
+    requested_catalog_no = models.CharField(
+        max_length=100, blank=True, default='', verbose_name='客户填写的货号',
+        help_text='客户手填的目录号/SKU 文本（未匹配到库内 SKU 时）',
+    )
 
     class Meta:
         db_table = 'quote_request_item'

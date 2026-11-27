@@ -11,6 +11,7 @@
  * （此前 `QUOTED` 只在枚举里定义、全仓没有代码会写它 —— 运营点得到"已报价"状态但永远走不到。）
  */
 import { onMounted, ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { getQuoteRequests, getQuoteRequestDetail, saveQuote, closeQuoteRequest } from '@/api/rfq'
 import { extractErrorMessage } from '@/utils/http'
 import { normalizeIsoDate } from '@/utils/isoDate'
@@ -69,6 +70,8 @@ async function load() {
       detail.value = null
       detailError.value = ''
       resetQuoteForm()
+      // A-221：详情清空 ⇒ 地址栏也回到列表，否则刷新会再把那条（已不在筛选内的）单子打开
+      if (route.params.id) router.replace(CLOSE_DETAIL_PATH).catch(() => {})
     }
   } catch (e) {
     error.value = extractErrorMessage(e?.response?.data ?? e, "Couldn't load quote requests.")
@@ -91,7 +94,11 @@ async function refresh() {
   await load()
 }
 
-async function openRow(r) {
+async function openRow(r, { syncUrl = true } = {}) {
+  if (syncUrl && r?.id) {
+    // replace 而非 push：在列表里连点几条不该塞满历史栈
+    router.replace({ name: 'RfqDeskDetail', params: { id: String(r.id) } }).catch(() => {})
+  }
   detail.value = null
   detailError.value = ''
   detailLoading.value = true
@@ -130,8 +137,18 @@ function fmtDate(v) {
  *    运营看到会以为是数据坏了。
  */
 function itemProductLabel(it) {
+  // ★ A-026：优先用**客户手填的名称**（未挂库内产品时后端已落 `requested_product_name`），
+  //   其次才是库内产品名 / id。改前手填的名字根本没落库，这里只能显示 "—"。
+  if (it.requested_product_name) return it.requested_product_name
   if (it.product_name) return it.product_name
   if (it.product_id) return `#${it.product_id}`
+  return '—'
+}
+
+/** 明细的「SKU」列：库内 SKU 码 → 客户手填货号 → 占位 */
+function itemSkuLabel(it) {
+  if (it.sku_code) return it.sku_code
+  if (it.requested_catalog_no) return it.requested_catalog_no
   return '—'
 }
 
@@ -154,6 +171,12 @@ function emptyQuoteForm() {
 const quoteForm = ref(emptyQuoteForm())
 const quoting = ref(false)
 const quoteError = ref('')
+
+// ★ 2026-11-27（A-221）：详情与 URL 双向绑定 —— 打开某条 RFQ 就把 `/ops/rfq/<id>` 写进地址栏，
+//   这样链接可以分享/收藏，刷新后也停在同一张单上（改前详情是纯组件内状态，没有 URL）。
+const route = useRoute()
+const router = useRouter()
+const CLOSE_DETAIL_PATH = '/ops/rfq'
 const quoteResult = ref(null)
 
 function resetQuoteForm() {
@@ -209,7 +232,16 @@ async function submitQuote() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  // ★ A-221：深链 `/ops/rfq/10` 直接打开该单详情。
+  //   先 load 再 open：`load()` 里有一条「详情不在当前列表就清空」的保护逻辑，
+  //   顺序反过来会被它立刻清掉。
+  const rid = Number(route.params.id)
+  if (Number.isInteger(rid) && rid > 0) {
+    await openRow({ id: rid }, { syncUrl: false })
+  }
+})
 // ★ 2026-11-26（A-223）：关闭询价。
 //   改前 `Status.CLOSED` 在枚举里一直存在，但**没有任何写入口** ——
 //   已报价的 RFQ 在页面上找不到关闭按钮，收件箱只增不减。
@@ -340,7 +372,7 @@ async function closeRfq() {
             <tbody>
               <tr v-for="it in detail.items" :key="it.id">
                 <td>{{ itemProductLabel(it) }}</td>
-                <td class="po-mono">{{ it.sku_code || '—' }}</td>
+                <td class="po-mono">{{ itemSkuLabel(it) }}</td>
                 <td class="po-num">{{ it.quantity }}</td>
                 <td>{{ it.note || '—' }}</td>
               </tr>

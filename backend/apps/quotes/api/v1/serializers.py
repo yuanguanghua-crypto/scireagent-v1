@@ -45,7 +45,14 @@ class QuoteRequestItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = QuoteRequestItem
-        fields = ['id', 'product_id', 'sku', 'quantity', 'note', 'product_name', 'sku_code']
+        # ★ 2026-11-27（A-026）：暴露客户手填的名称/货号（可写）。
+        #   这两项此前**根本不存在于模型**，前端把手填内容丢掉后，明细落库只剩
+        #   product/sku 双 NULL ⇒ 运营看到三个 "—"（见迁移 0003 的说明）。
+        fields = [
+            'id', 'product_id', 'sku', 'quantity', 'note',
+            'requested_product_name', 'requested_catalog_no',
+            'product_name', 'sku_code',
+        ]
         read_only_fields = ['id', 'product_name', 'sku_code']
 
 

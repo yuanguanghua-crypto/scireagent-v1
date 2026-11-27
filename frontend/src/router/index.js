@@ -266,6 +266,15 @@ const routes = [
         meta: { title: 'RFQ Inbox', requiresAuth: true, requiresAdmin: true, bareHeader: true },
       },
       {
+        // ★ 2026-11-27（A-221）：RFQ 详情此前**没有独立 URL** —— 直接访问 /ops/rfq/10 会落到
+        //   404，只能从 Inbox 里点 View 打开，因此"把某张询价单发给同事看"是不可能的。
+        //   本路由与列表页共用同一组件，靠 `:id` 定位并自动打开右侧详情。
+        path: 'rfq/:id',
+        name: 'RfqDeskDetail',
+        component: () => import('@/views/admin/RfqDesk.vue'),
+        meta: { title: 'RFQ Inbox', requiresAuth: true, requiresAdmin: true, bareHeader: true },
+      },
+      {
         path: 'po/review',
         name: 'PoReviewDesk',
         component: () => import('@/views/admin/PoReviewDesk.vue'),
