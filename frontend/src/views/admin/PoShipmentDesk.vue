@@ -177,9 +177,17 @@ function doMarkShipped(id) {
 }
 
 function doMarkDelivered(s) {
+  // ★ 2026-11-27（A-224）：签收人此前是"可填可不填"，实际运营一路点下来没人填，
+  //   于是订单详情的 Received By 永远是空 —— 而这正是货损/丢件争议时唯一的凭证。
+  //   改为前端必填：没填就不发请求，并明确告诉运营缺什么（不是静默失败）。
+  if (!(receivedBy.value[s.id] || '').trim()) {
+    actionError.value = 'Please enter who received the goods (Received by) before marking delivered.'
+    return
+  }
+  actionError.value = ''
   return runShipAction(
     `delivered-${s.id}`,
-    () => markDelivered(s.id, receivedBy.value[s.id] || ''),
+    () => markDelivered(s.id, receivedBy.value[s.id].trim()),
     'Shipment marked as delivered',
   )
 }

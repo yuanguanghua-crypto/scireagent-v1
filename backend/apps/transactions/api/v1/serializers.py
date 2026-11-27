@@ -204,12 +204,24 @@ class OrderListSerializer(BaseModelSerializer):
 
 class StatusLogSerializer(BaseModelSerializer):
     """状态/操作时间线（前端统一渲染来源）。"""
+
+    # ★ 2026-11-27（A-127）：时间线此前只给 `actor_id`，页面渲染成裸 "user #1" ——
+    #   运营看到编号根本不知道是谁操作的（与 A-077「Customer 区只有 User ID」同类）。
+    #   这里补一个人可读的执行者名（姓名 → 用户名 → 空串），前端优先用它。
+    actor_name = serializers.SerializerMethodField()
+
     class Meta:
         model = StatusLog
         fields = [
-            'id', 'order_id', 'actor_id', 'action_type',
+            'id', 'order_id', 'actor_id', 'actor_name', 'action_type',
             'from_status', 'to_status', 'note', 'created_at',
         ]
+
+    def get_actor_name(self, obj):
+        u = obj.actor
+        if not u:
+            return ''
+        return (u.get_full_name() or '').strip() or u.username or ''
 
 
 class ShippingRecordItemSerializer(BaseModelSerializer):
@@ -232,6 +244,15 @@ class OrderDetailSerializer(BaseModelSerializer):
     customer_name = serializers.SerializerMethodField()
     customer_email = serializers.SerializerMethodField()
     organization_name = serializers.SerializerMethodField()
+
+    # ★ 2026-11-27（A-089）：`Order.payment_due_date` 是**从未被写入**的字段 ——
+    #   全仓只有 admin.py 与本文件在读它，没有任何代码路径给它赋值。
+    #   于是订单详情 Payment 区永远显示 "—"，而同一页 Invoice 区却有真实 Due
+    #   （QA 实测：Payment 区 "—" vs INV-2026-0010 的 2026-11-27）。
+    #   「这单什么时候该付」唯一可信来源就是发票的 due_date（AR 账龄也按它算），
+    #   所以这里做**显示级回退**：自己有值就用自己，没有就用发票的。
+    #   ⚠️ 不改模型、不写库 —— 不为一个纯显示问题引入数据迁移。
+    payment_due_date = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -266,6 +287,13 @@ class OrderDetailSerializer(BaseModelSerializer):
 
     def get_organization_name(self, obj):
         return organization_name_of(obj)
+
+    def get_payment_due_date(self, obj):
+        """A-089：订单自身没有到期日时，回退到发票的 due_date（见字段声明处的说明）。"""
+        if obj.payment_due_date:
+            return obj.payment_due_date
+        inv = getattr(obj, 'invoice', None)
+        return getattr(inv, 'due_date', None) if inv else None
 
     def get_invoice(self, obj):
         if hasattr(obj, 'invoice') and obj.invoice:

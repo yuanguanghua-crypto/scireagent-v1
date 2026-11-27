@@ -17,7 +17,10 @@ export const PAYMENT_TERMS = [
 ]
 
 export const PAYMENT_METHODS = [
-  { value: 'online', label: 'Online' },
+  // ★ 2026-11-27（A-225）：这里原来写 'Online'，而后端 `PaymentRecord.Method.ONLINE`
+  //   的 label 与订单详情页都是 'Online Payment' ⇒ 同一付款方式在界面上有两种措辞。
+  //   以后端 choices 的 label 为准，避免再各写一份。
+  { value: 'online', label: 'Online Payment' },
   { value: 'wire', label: 'Wire Transfer' },
   { value: 'check', label: 'Check' },
 ]

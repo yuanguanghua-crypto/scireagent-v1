@@ -129,9 +129,12 @@ onMounted(() => { load(); loadRepOptions() })
           <StatusBadge :status="o.status" />
           <span class="po-muted" v-if="o.po_number">PO {{ o.po_number }}</span>
           <span class="po-muted">{{ o.items_count }} line(s)</span>
-          <!-- 展开过一次就常驻的库存摘要（见 stockSummary 注释） -->
+          <!-- ★ 2026-11-27（A-091）：这个库存摘要只在**展开明细时**计算，
+               原设计是"算过一次就常驻"，但 QA 看到的是"收起明细后标记还在"，
+               读起来像状态没清干净。改为随展开状态显隐：收起即隐藏，
+               再次展开时命中缓存（`stockSummary[o.id]` 已存在），不会重新请求。 -->
           <span
-            v-if="stockSummary[o.id]"
+            v-if="expanded[o.id] && stockSummary[o.id]"
             class="po-stock-chip"
             :class="{ 'po-stock-chip--short': stockSummary[o.id].short > 0 }"
           >

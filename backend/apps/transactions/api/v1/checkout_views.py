@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from core.business_time import business_today
-from apps.transactions.models import Order, OrderItem, Basket, Invoice
+from apps.transactions.models import Order, OrderItem, Basket, Invoice, StatusLog
 from apps.transactions.services import OrderNoService
 from apps.transactions.api.v1.serializers import CheckoutSerializer, OrderDetailSerializer
 from core.db_retry import retry_on_deadlock
@@ -156,6 +156,18 @@ class CheckoutView(APIView):
                 #   失败会让整个 atomic 回滚 ⇒ 订单/明细/清空购物车全部撤销。
                 InventoryService.reserve_for_order(
                     order, reason=f'checkout:{order.order_no}')
+
+                # ★ 2026-11-27（A-097/A-127）：**建单必须写第一条时间线**。
+                #   此前只有 PO 提交路径（`PoSubmissionService.submit`）写 StatusLog，
+                #   购物车结账单一条都没有 ⇒ 订单详情的 Status Timeline 只剩发货/开票事件，
+                #   "什么时候下的单、谁下的"永远查不到（QA：ORD-20261110-001 的 5 条全是
+                #   发货/开票）。放在锁库之后、清空购物车之后，与订单最终状态一致。
+                StatusLog.objects.create(
+                    order=order, actor=user,
+                    action_type=StatusLog.ActionType.STATUS_CHANGE,
+                    from_status='', to_status=initial_status,
+                    note='Order placed (checkout)',
+                )
 
                 basket_qs.delete()
 

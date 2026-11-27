@@ -416,8 +416,15 @@ class ShippingService:
             used = int(already.get(oi.pk, 0) or 0)
             want = int(it['quantity'])
             if used + want > oi.quantity:
+                # ★ 2026-11-27（A-161）：报错文案里原来写 `order_item 65` —— 内部主键
+                #   泄漏到运营界面的红色提示里，运营既看不懂也没法拿它对账。
+                #   改成"SKU 码（无码时退回商品名）"：这是他在发货单上真正看得到的东西。
+                #   ⚠️ 用快照字段而不是 `oi.sku.sku_code` —— 快照就是为"SKU 已被删"准备的
+                #   （A-080 实测 32 行明细的 sku/product 双双为 NULL，那时取外键会直接 500）。
+                label = (oi.sku_code_snapshot or oi.product_name_snapshot
+                         or f'#{oi.pk}')
                 raise ValueError(
-                    f'order_item {oi.pk}: 累计发货量将超出下单量'
+                    f'{label}: 累计发货量将超出下单量'
                     f'（已排入 {used} + 本次 {want} > 下单 {oi.quantity}）'
                 )
 
@@ -635,11 +642,11 @@ class PaymentArService:
         #   完全不同（61-90 是电话催收窗口，90+ 通常要转法务/计提坏账），
         #   混在一起等于让运营看不出哪批该先动手（QA Batch 1 实测：61-90 无处归类）。
         buckets = {
-            'current': {'count': 0, 'amount': 0},
-            '30': {'count': 0, 'amount': 0},
-            '60': {'count': 0, 'amount': 0},
-            '90': {'count': 0, 'amount': 0},        # 61–90 天
-            '90_plus': {'count': 0, 'amount': 0},   # > 90 天
+            'current': {'count': 0, 'amount': 0, 'invoices': []},
+            '30': {'count': 0, 'amount': 0, 'invoices': []},
+            '60': {'count': 0, 'amount': 0, 'invoices': []},
+            '90': {'count': 0, 'amount': 0, 'invoices': []},        # 61–90 天
+            '90_plus': {'count': 0, 'amount': 0, 'invoices': []},   # > 90 天
         }
         for inv in unpaid:
             age = (today - inv.due_date).days
@@ -655,6 +662,25 @@ class PaymentArService:
                 b = '90_plus'
             buckets[b]['count'] += 1
             buckets[b]['amount'] += float(inv.grand_total)
+            # ★ 2026-11-27（A-084）：原来只返回每个桶的 count/amount，页面上 5 张卡片
+            #   点不动、也看不到"到底是哪几张发票"，运营想催款只能自己去开票台翻。
+            #   这里把明细行随桶一起返回：不含客户个人信息，只有对账必需的四项
+            #   （发票号 / 订单 / 到期日 / 金额）。上限 200 行/桶足够覆盖任何真实账龄分布，
+            #   超出时前端会提示"还有 N 张未列出"，不静默截断。
+            if len(buckets[b]['invoices']) < 200:
+                buckets[b]['invoices'].append({
+                    'id': inv.pk,
+                    'invoice_no': inv.invoice_no,
+                    'order_id': inv.order_id,
+                    'order_no': getattr(inv.order, 'order_no', '') if inv.order_id else '',
+                    'due_date': str(inv.due_date),
+                    'days_overdue': max(age, 0),
+                    'status': inv.status,
+                    'grand_total': float(inv.grand_total),
+                    'currency': inv.currency,
+                })
+            else:
+                buckets[b]['truncated'] = buckets[b].get('truncated', 0) + 1
         total_outstanding = sum(v['amount'] for v in buckets.values())
         return {
             'as_of': str(today),

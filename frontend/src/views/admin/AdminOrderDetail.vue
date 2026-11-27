@@ -94,8 +94,25 @@ const timeline = computed(() =>
 )
 
 function statusTransition(log) {
-  if (log.from_status && log.to_status) return `${formatStatus(log.from_status)} → ${formatStatus(log.to_status)}`
-  return ACTION_LABELS[log.action_type] || formatStatus(log.action_type) || 'Event'
+  // ★ 2026-11-27（A-097）三态标题：
+  //   ① 真的换状态（from ≠ to）⇒ "Confirmed → Shipped"，信息量最大；
+  //   ② 没有 from（建单/PO 提交的首条）⇒ "Created · PO Received"，
+  //      否则会退化成毫无意义的 "Status Change"；
+  //   ③ from == to（发货/签收这类**批次动作**，后端刻意为它留痕）⇒
+  //      此前渲染成 "Confirmed → Confirmed"，读起来像伪迁移/脏数据。
+  //      真实信息在 note 里（`Shipment #547 created`），所以并进标题；
+  //      模板里对应地把 note 段落省掉，避免同一句话出现两次。
+  const from = log.from_status
+  const to = log.to_status
+  if (from && to && from !== to) return `${formatStatus(from)} → ${formatStatus(to)}`
+  if (!from && to) return `Created · ${formatStatus(to)}`
+  const action = ACTION_LABELS[log.action_type] || formatStatus(log.action_type) || 'Event'
+  return log.note ? `${action} · ${log.note}` : action
+}
+
+/** 标题里已经带过 note 的条目，正文不再重复渲染 */
+function noteInTitle(log) {
+  return log.from_status === log.to_status || !log.from_status
 }
 
 function fmtDateTime(v) {
@@ -333,9 +350,12 @@ async function doAction(action) {
         </div>
         <div class="shipment-meta">
           <span><b>Shipped</b> {{ fmtDateTime(s.shipped_at) }}</span>
-          <span><b>Est. Delivery</b> {{ s.estimated_delivery || '—' }}</span>
+          <!-- ★ 2026-11-27（A-224）：Est. Delivery 是**可选**录入（发货台建单时手填），
+               历史单没填就是空。原来一律渲染 "—"，和"字段压根没返回"长得一模一样，
+               运营分不清是数据缺失还是自己没填。这里显式写 "not set"。 -->
+          <span><b>Est. Delivery</b> {{ s.estimated_delivery || 'not set' }}</span>
           <span><b>Delivered</b> {{ fmtDateTime(s.delivered_at) }}</span>
-          <span><b>Received By</b> {{ s.received_by || '—' }}</span>
+          <span><b>Received By</b> {{ s.received_by || 'not recorded' }}</span>
         </div>
         <table v-if="s.items && s.items.length" class="items-table shipment-items">
           <thead><tr><th>SKU</th><th>Qty Shipped</th></tr></thead>
@@ -356,7 +376,35 @@ async function doAction(action) {
         <div class="info-item"><span class="info-label">Status</span><span>{{ order.invoice.status }}</span></div>
         <div class="info-item"><span class="info-label">Due</span><span>{{ order.invoice.due_date }}</span></div>
         <div class="info-item"><span class="info-label">Amount</span><span>{{ formatCurrency(order.invoice.grand_total) }}</span></div>
+        <div class="info-item"><span class="info-label">Paid</span><span>{{ formatCurrency(order.invoice.amount_paid) }}</span></div>
+        <div class="info-item"><span class="info-label">Balance</span><span>{{ formatCurrency(order.invoice.balance_due) }}</span></div>
       </div>
+
+      <!-- ★ 2026-11-27（A-100）：已记录的付款在界面上无处可查 ——
+           运营问"这单到底谁在什么时候付了多少、走的哪条通道、参考号是什么"，
+           页面上只有 Invoice paid 这一个词（QA：$79.00 / Wire Transfer /
+           TEST payment 2026-11-10 / 4:07 PM 全都不显示）。
+           `InvoiceSerializer` 一直返回 payments，只是本页没渲染。 -->
+      <div v-if="(order.invoice.payments || []).length" class="payments-block">
+        <h3 class="payments-title">Payments ({{ order.invoice.payments.length }})</h3>
+        <table class="items-table" data-testid="invoice-payments">
+          <thead>
+            <tr>
+              <th>Amount</th><th>Method</th><th>Reference</th><th>Status</th><th>Recorded</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in order.invoice.payments" :key="p.id">
+              <td class="mono">{{ formatCurrency(p.amount, p.currency || order.invoice.currency) }}</td>
+              <td>{{ p.method ? formatStatus(p.method) : '—' }}</td>
+              <td class="mono">{{ p.reference || '—' }}</td>
+              <td><StatusBadge :status="p.status" :label="formatStatus(p.status)" /></td>
+              <td>{{ fmtDateTime(p.created_at || p.paid_at) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-else class="payments-empty">No payments recorded yet.</p>
     </section>
 
     <!-- Status timeline（谁在什么时候把状态从哪改到哪） -->
@@ -369,9 +417,11 @@ async function doAction(action) {
             <p class="timeline-title">{{ statusTransition(log) }}</p>
             <p class="timeline-time">
               {{ fmtDateTime(log.created_at) }}
-              <span v-if="log.actor_id"> · user #{{ log.actor_id }}</span>
+              <!-- A-127：执行者显示人名/用户名，退回裸 ID 只在取不到名字时 -->
+              <span v-if="log.actor_name"> · {{ log.actor_name }}</span>
+              <span v-else-if="log.actor_id"> · user #{{ log.actor_id }}</span>
             </p>
-            <p v-if="log.note" class="timeline-note">{{ log.note }}</p>
+            <p v-if="log.note && !noteInTitle(log)" class="timeline-note">{{ log.note }}</p>
           </div>
         </li>
       </ol>
@@ -451,6 +501,9 @@ async function doAction(action) {
 }
 .shipment-meta b { color: var(--color-text-tertiary); font-weight: 600; margin-right: 4px; }
 .shipment-items { margin-top: 10px; }
+.payments-block { margin-top: 14px; }
+.payments-title { font-size: 14px; font-weight: 700; margin: 0 0 8px; color: var(--color-text); }
+.payments-empty { margin: 12px 0 0; font-size: 13px; color: var(--color-text-tertiary); }
 .shipment-items th, .shipment-items td { padding: 6px 8px; font-size: 13px; }
 
 .timeline { list-style: none; margin: 0; padding: 0; }

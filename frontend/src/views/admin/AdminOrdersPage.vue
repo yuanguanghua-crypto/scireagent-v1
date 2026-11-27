@@ -140,12 +140,21 @@ function goToDetail(order) {
       <!-- ★ 2026-10-21 修 D4：加分页。⚠️ 不用 `sizes` 布局：
            Element Plus 的每页条数选择器会渲染一个无可访问名的 combobox，
            实测会让本页 a11y critical 0→1（同 D2 的处理方式）。 -->
+      <!-- ★ 2026-11-27（A-079 / A-219）：结果总数必须**总是**可见。
+           此前总数只由 DataPagination 的 "total" 槽渲染，而它挂在
+           `v-if="total > pageSize"` 上 ⇒ 一筛选（如 Paid 2 单）就掉到一页以内，
+           分页整块消失，总数也跟着没了。运营刚筛完反而不知道筛出了几条。
+           现在单独给一行计数，分页只负责翻页（layout 去掉 total，避免两个数字打架）。 -->
+      <p class="list-count" data-testid="orders-total">
+        {{ loading ? 'Loading…' : `${total} order${total === 1 ? '' : 's'}` }}
+        <span v-if="statusFilter || searchQuery" class="list-count-scope">matching filter</span>
+      </p>
       <DataPagination
         v-if="total > pageSize"
         :current-page="page"
         :page-size="pageSize"
         :total="total"
-        layout="total, prev, pager, next"
+        layout="prev, pager, next"
         @change="onPageChange"
       />
     </div>
@@ -155,6 +164,11 @@ function goToDetail(order) {
 <style scoped>
 .admin-orders-page { }
 .page-title { font-size: 22px; font-weight: 800; color: var(--color-text); margin: 0 0 16px; }
+.list-count {
+  margin: 12px 0 0; font-size: 13px; color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.list-count-scope { color: var(--color-text-tertiary); }
 
 .filters { display: flex; gap: 12px; margin-bottom: 16px; }
 .filter-select {

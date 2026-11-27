@@ -29,10 +29,15 @@ class AdminOrderListView(APIView):
         # ★ 2026-10-22：列表序列化器新增 invoice/attachments 字段，需一并预取防 N+1
         # ★ 2026-11-26（A-077）：又加 customer_name/customer_email/organization_name
         #   ⇒ user / organization 也要 select_related，否则每行多 2 次查询
+        # ★ 2026-11-27（A-078）：原来只 `order_by('-created_at')`。
+        #   `created_at` 不是唯一键 —— 同一次批量导入/E2E 造出的订单会落在同一微秒，
+        #   而 PG 对"排序键相等"的行**不保证**返回顺序 ⇒ 每次请求（尤其翻页边界）
+        #   可能给出不同的集合与首行。QA 实测同一页面两次加载首行不同、第 1/2 页成员漂移。
+        #   修法：把主键当兜底排序键，让排序在全序上唯一 ⇒ 分页成员稳定。
         orders = (Order.objects
                   .select_related('invoice', 'user', 'organization')
                   .prefetch_related('attachments', 'items')
-                  .order_by('-created_at'))
+                  .order_by('-created_at', '-id'))
         # Filters
         status_filter = request.query_params.get('status', '')
         if status_filter:

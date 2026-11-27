@@ -275,11 +275,25 @@ describe('PoShipmentDesk 标记发货 / 送达后的刷新与反馈（A-096）',
     })
     const w = await mountAndOpen(DETAIL_SHIPPED)
 
+    // ★ 2026-11-27（A-224）：Received by 现在是必填 —— 不填会在前端就被挡下，
+    //   根本发不出请求，这个用例要验的是"服务端错误能否落到页面上"，
+    //   所以必须先填签收人（否则测的就变成必填拦截了）。
+    await w.find('.po-shipment input.po-input').setValue('Alice')
     await markDeliveredBtn(w).trigger('click')
     await flushPromises()
 
     expect(actionErrorBox(w).exists()).toBe(true)
     expect(actionErrorBox(w).text()).toContain('not in a shippable state')
+    w.unmount()
+  })
+
+  it('未填签收人 ⇒ 前端直接拦下，不发请求（A-224）', async () => {
+    const w = await mountAndOpen(DETAIL_SHIPPED)
+    await markDeliveredBtn(w).trigger('click')
+    await flushPromises()
+
+    expect(api.markDelivered).not.toHaveBeenCalled()
+    expect(actionErrorBox(w).text()).toContain('Received by')
     w.unmount()
   })
 
