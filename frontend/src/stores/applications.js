@@ -48,6 +48,22 @@ export const useApplicationsStore = defineStore('applications', () => {
       pagination.value.total = result.meta?.pagination?.count || 0
       return result
     } catch (err) {
+      // ★ 2026-11-27（A-176）：页码越界时后端返回 404 "Invalid page."，
+      //   前端此前只把红字打在页面上、**卡片仍是上一页内容**（QA 点第 1429 页复现）。
+      //   这里收敛成"回到最后一个有效页（无 total 时回第 1 页）并重试一次"，
+      //   用户看到的是一次正常翻页，而不是一句英文报错 + 不动的列表。
+      const detail = err?.response?.data?.meta?.error?.message
+        || err?.response?.data?.detail || ''
+      const invalidPage = err?.response?.status === 404 && /invalid page/i.test(String(detail))
+      if (invalidPage && !params.__pageRetried) {
+        const pageSize = pagination.value.pageSize || 20
+        const total = pagination.value.total || 0
+        const lastPage = total > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1
+        const requested = Number(params.page) || pagination.value.page || 1
+        // 优先落到最后一个有效页；算不出（无 total）或本来就在第一页 ⇒ 回第 1 页
+        pagination.value.page = (lastPage > 1 && lastPage < requested) ? lastPage : 1
+        return fetchApplications({ ...params, __pageRetried: true })
+      }
       error.value = err
       throw err
     } finally {

@@ -58,6 +58,9 @@ const displayResults = computed(() => {
   return (grouped.value[activeTab.value] || []).map(i => ({ ...i, _type: activeTab.value }))
 })
 
+// A-175：是否"提交了空关键词"（用于区分「还没搜」与「搜了但没词」）
+const emptySubmitted = ref(false)
+
 onMounted(() => {
   searchQuery.value = route.query.q || ''
   if (searchQuery.value) doSearch()
@@ -71,7 +74,20 @@ watch(() => route.query.q, (val) => {
 })
 
 async function doSearch() {
-  if (!searchQuery.value.trim()) return
+  const term = searchQuery.value.trim()
+  if (!term) {
+    // ★ A-175：清空后点搜索，此前既不报错也不提示，结果区一片空白。
+    emptySubmitted.value = true
+    grouped.value = {}
+    totalCount.value = 0
+    return
+  }
+  emptySubmitted.value = false
+  // ★ A-139：搜索词变化后**同步地址栏**。改前结果已经换成新关键词了，URL 还停在
+  //   旧 query ⇒ 刷新/分享会回到上一次的搜索，用户也会以为"没搜"。
+  if (route.query.q !== term) {
+    router.replace({ path: '/search', query: { ...route.query, q: term } }).catch(() => {})
+  }
   loading.value = true
   try {
     const res = await searchGrouped(searchQuery.value)
@@ -95,8 +111,13 @@ function goToResult(item) {
     references: null, // no reference detail page
   }
   const path = typeMap[type]
-  if (path && item.id) {
-    router.push(`${path}${item.id}`)
+  if (!path) return
+  // ★ 2026-11-27（A-104）：产品有两条 URL —— `/products/<id>` 与 `/products/<slug>`，
+  //   搜索结果此前一律用数字 id，列表页用 slug ⇒ 同一产品两个地址（SEO 与分享都受影响）。
+  //   统一优先用 slug；其它实体没有 slug，仍用 id。
+  const key = (type === 'products' && item.slug) ? item.slug : item.id
+  if (key) {
+    router.push(`${path}${key}`)
   }
 }
 
@@ -138,7 +159,9 @@ function getSubtitle(item) {
     </div>
 
     <!-- Tabs -->
-    <div v-if="totalCount > 0" class="search-tabs">
+    <!-- ★ 2026-11-27（A-174）：原来 `v-if="totalCount > 0"` —— 一旦没结果，整条分类栏
+         （含各类计数）直接消失，用户看不到"哪一类是 0"，也失去了切换分类的入口。 -->
+    <div v-if="searchQuery" class="search-tabs" data-testid="search-tabs">
       <button
         v-for="tab in tabs"
         :key="tab.key"
@@ -217,6 +240,12 @@ function getSubtitle(item) {
           </article>
         </div>
       </template>
+    </div>
+
+    <!-- 空关键词提交：明确提示，而不是结果区一片空白（A-175） -->
+    <div v-else-if="emptySubmitted" class="empty-container" data-testid="search-empty-query">
+      <p class="empty-text">Enter a keyword to search.</p>
+      <p class="empty-hint">You can search by product name, CAS number, catalogue number, method or protocol.</p>
     </div>
 
     <!-- Empty -->
