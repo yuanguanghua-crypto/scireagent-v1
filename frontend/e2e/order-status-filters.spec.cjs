@@ -37,9 +37,16 @@ async function optionValues(page) {
   return page.locator(`${SEL} option`).evaluateAll((els) => els.map((e) => e.value))
 }
 
-/** 取分页组件显示的总数（`total` 文案里的数字） */
+/**
+ * 取结果总数（页面上的数字）。
+ *
+ * ★ 2026-11-27（A-079/A-219）：总数文案从分页组件的 `total` 槽搬到了独立一行
+ * （`[data-testid="orders-total"]`）—— 因为分页整块挂在 `total > pageSize` 上，
+ * 一筛选就掉到一页以内、总数跟着消失。断言语义不变：**总数 = 后端真实 count，
+ * 不是当前页条数**，只是取值位置变了。
+ */
 async function paginationTotal(page) {
-  const txt = (await page.locator('.data-pagination .el-pagination__total').textContent()) || ''
+  const txt = (await page.locator('[data-testid="orders-total"]').textContent()) || ''
   return parseInt(txt.replace(/[^\d]/g, ''), 10)
 }
 
