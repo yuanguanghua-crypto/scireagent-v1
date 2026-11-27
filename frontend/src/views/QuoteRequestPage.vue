@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBasketStore } from '@/stores/basket'
+import { useAuthStore } from '@/stores/auth'
 import { getProduct } from '@/api/products'
 import http from '@/utils/http'
 
@@ -26,6 +27,28 @@ const submittedId = ref(null)
 const errors = ref({})
 
 /* ── Pre-fill from query or cart ── */
+// ★ 2026-11-27（A-168）：登录用户打开表单时**自动预填**联系方式。
+//   改前五个字段全空、只有 placeholder，客户每次都要重新敲一遍自己已经告诉过系统的东西；
+//   而 placeholder 又长得像真值（"Dr. Smith" / "smith@lab.edu"），容易被误读成"已填好"。
+const auth = useAuthStore()
+
+function prefillContactFromAccount() {
+  const u = auth.user
+  if (!u) return
+  const put = (key, val) => {
+    if (val && !String(form.value[key] || '').trim()) form.value[key] = String(val)
+  }
+  put('contact_name', u.nickname || u.full_name || u.username)
+  put('contact_email', u.email)
+  put('contact_phone', u.phone)
+  put('company_name', u.organization_name)
+  // `country` 在用户档案里没有该字段 ⇒ 不猜，留给客户自己填
+}
+
+// ⚠️ 必须 watch 而不是只在 onMounted 里调一次：`auth.user` 由 `/auth/me` 异步填充，
+//    页面挂载时往往还是 null（实测：token 注入后首次进入，五个字段仍全空）。
+watch(() => auth.user, (u) => { if (u) prefillContactFromAccount() }, { immediate: true })
+
 onMounted(async () => {
   // Pre-fill from URL query (product_id)
   const productId = route.query.product_id
@@ -144,25 +167,25 @@ async function handleSubmit() {
           <div class="rfq-grid">
             <div class="rfq-field">
               <label class="rfq-label">Name <span class="required">*</span></label>
-              <input v-model="form.contact_name" type="text" class="rfq-input" :class="{ 'has-error': errors.contact_name }" placeholder="Dr. Smith" />
+              <input v-model="form.contact_name" type="text" class="rfq-input" :class="{ 'has-error': errors.contact_name }" placeholder="Your full name" />
               <span v-if="errors.contact_name" class="rfq-error">{{ errors.contact_name }}</span>
             </div>
             <div class="rfq-field">
               <label class="rfq-label">Email <span class="required">*</span></label>
-              <input v-model="form.contact_email" type="email" class="rfq-input" :class="{ 'has-error': errors.contact_email }" placeholder="smith@lab.edu" />
+              <input v-model="form.contact_email" type="email" class="rfq-input" :class="{ 'has-error': errors.contact_email }" placeholder="Your email address" />
               <span v-if="errors.contact_email" class="rfq-error">{{ errors.contact_email }}</span>
             </div>
             <div class="rfq-field">
               <label class="rfq-label">Phone</label>
-              <input v-model="form.contact_phone" type="tel" class="rfq-input" placeholder="+1 (555) 000-0000" />
+              <input v-model="form.contact_phone" type="tel" class="rfq-input" placeholder="Optional" />
             </div>
             <div class="rfq-field">
               <label class="rfq-label">Company / Institution</label>
-              <input v-model="form.company_name" type="text" class="rfq-input" placeholder="MIT BioLab" />
+              <input v-model="form.company_name" type="text" class="rfq-input" placeholder="Institution or company" />
             </div>
             <div class="rfq-field">
               <label class="rfq-label">Country</label>
-              <input v-model="form.country" type="text" class="rfq-input" placeholder="United States" />
+              <input v-model="form.country" type="text" class="rfq-input" placeholder="Country" />
             </div>
           </div>
         </section>

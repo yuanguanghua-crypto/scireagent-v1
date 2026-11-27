@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from core.mixins import EnvelopeMixin
@@ -69,8 +70,17 @@ class OrderViewSet(EnvelopeMixin, viewsets.ModelViewSet):
         # ★ 2026-10-14 修：内部人员（is_staff 或 procurement/admin）跨机构可见所有订单（审核台），
         #   客户仍只看自己的。此前仅 is_staff 可见全量 ⇒ procurement（非 staff）审核台空列表。
         if user.is_staff or user.role in ('procurement', 'admin'):
-            return base.order_by('-created_at')
-        return base.filter(user=user).order_by('-created_at')
+            qs = base
+        else:
+            qs = base.filter(user=user)
+        # ★ 2026-11-27（A-263）：客户订单列表支持**按单号/PO 号搜索**。
+        #   改前客户只能翻页肉眼找，而全站搜索框只搜产品/方法/协议，
+        #   填订单号回车会被带到搜索页（QA Batch 22 实测）⇒ 根本无法定位订单。
+        #   只按 order_no / po_number 模糊匹配；可见范围仍是上面已收窄的 queryset。
+        term = (self.request.query_params.get('search') or '').strip()
+        if term:
+            qs = qs.filter(Q(order_no__icontains=term) | Q(po_number__icontains=term))
+        return qs.order_by('-created_at')
 
     def get_serializer_class(self):
         if self.action == 'retrieve':

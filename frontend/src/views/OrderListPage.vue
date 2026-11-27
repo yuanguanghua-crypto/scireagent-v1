@@ -104,6 +104,16 @@ function getStatusLabel(status) {
 function goToDetail(order) {
   router.push(`/orders/${order.id}`)
 }
+
+// ★ A-263：单号搜索（服务端 `?search=`，覆盖全量而不只是当前页）
+const orderSearch = ref('')
+function applyOrderSearch() {
+  store.fetchOrders({ page: 1, search: orderSearch.value || undefined })
+}
+function clearOrderSearch() {
+  orderSearch.value = ''
+  store.fetchOrders({ page: 1 })
+}
 </script>
 
 <template>
@@ -173,10 +183,26 @@ function goToDetail(order) {
 
     <!-- Order list -->
     <div v-else class="order-table-wrap">
+      <!-- ★ 2026-11-27（A-263）：客户订单列表此前**没有单号搜索** —— 全站搜索框只搜
+           产品/方法/协议，填订单号回车会被带到搜索页。这里补一个本地输入框，
+           回车/点 Search 走服务端 `?search=`（按 order_no / po_number 模糊匹配）。 -->
+      <div class="order-search">
+        <input
+          v-model.trim="orderSearch"
+          class="order-search-input"
+          placeholder="Search by order # or PO #…"
+          data-testid="orders-search"
+          @keyup.enter="applyOrderSearch"
+        />
+        <button class="btn-sm btn-ghost" data-testid="orders-search-apply" @click="applyOrderSearch">Search</button>
+        <button v-if="orderSearch" class="btn-sm btn-ghost" @click="clearOrderSearch">Clear</button>
+      </div>
       <table class="order-table">
         <thead>
           <tr>
             <th>Order #</th>
+            <!-- ★ 2026-11-27（A-236）：本页此前只有 Order #，PO 号要去 /po/orders 或详情页看 -->
+            <th>PO #</th>
             <th>Date</th>
             <th>Status</th>
             <th>Payment</th>
@@ -220,6 +246,12 @@ function goToDetail(order) {
 
 <style scoped>
 .order-list-page { }
+.order-search { display: flex; gap: 8px; align-items: center; margin: 0 0 12px; }
+.order-search-input {
+  width: 260px; padding: 7px 10px; font-size: 13px;
+  border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface);
+  color: var(--color-text);
+}
 /* A-170 / A-264：询价区块（与订单表同款表格，视觉上区分一层底） */
 .rfq-block { margin-bottom: 22px; padding: 14px 16px; border: 1px solid var(--color-border);
   border-radius: 8px; background: var(--color-surface); }
