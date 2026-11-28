@@ -582,6 +582,33 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                 and attrs.get('status') == Product.Status.ACTIVE):
             raise ProductRecycleBinPublishRejected()
 
+        # ── A-017 方案 A（用户 2026-11-28 定）：0 价可存草稿，但**不得发布上架** ──
+        #
+        # 背景：A-017 原预期是「价格须大于 0，填 0 应报错」。开发在 S1 按"只挡负价"
+        # 处理（`MONEY_MIN = 0`），理由写的是「0 是合法的待定价占位，生产有 3 条
+        # 0 价 SKU」—— 这个设计偏离了 QA 预期，2026-11-28 由用户拍板取**方案 A**：
+        #   · 0 仍合法（下限 0 不动）⇒ 生产那 3 条 0 价 SKU 不会被误伤
+        #   · 但 `status=active`（上架在售）时，若该产品**所有** SKU 价格都 ≤0 ⇒ 拦
+        #   · 只拦「变为 active」这一跃迁：已 active 的产品再保存别的字段不重复拦，
+        #     否则运营改个描述就会被顶回来（生产那 3 条 0 价 active 产品首当其冲）
+        becoming_active = (
+            attrs.get('status') == Product.Status.ACTIVE
+            and (instance is None or instance.status != Product.Status.ACTIVE)
+        )
+        if becoming_active:
+            submitted = attrs.get('skus')
+            if submitted is not None:
+                prices = [row.get('price') for row in submitted]
+            elif instance is not None:
+                prices = list(instance.skus.values_list('price', flat=True))
+            else:
+                prices = []
+            if prices and all(p is None or Decimal(p) <= 0 for p in prices):
+                raise serializers.ValidationError({
+                    'skus': ['该产品所有 SKU 价格均未设置（为 0），不能发布上架。'
+                             '请先为至少一个 SKU 定价，或保持草稿状态。']
+                })
+
         for field in ('catalog_no', 'slug'):
             if field not in attrs:
                 continue                      # 本次未提交该字段 → 不校验
