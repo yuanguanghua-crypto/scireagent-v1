@@ -189,7 +189,7 @@ const filteredProducts = computed(() => {
 })
 
 /* ── Select product ── */
-function selectProduct(p) {
+async function selectProduct(p) {
   selectedProduct.value = p
   // ⚠️ 这里**不加载**该产品已有的知识（原注释写 "Load existing knowledge data if any"
   //    是错的：下面只是把表单清空）。
@@ -224,6 +224,38 @@ function selectProduct(p) {
       fetchPickerOptions(p)
     }
   })
+
+  // ★ A-070 方案 A（用户 2026-11-28 定）：把**上次保存的表单内容**取回来回填。
+  //   原实现（上面那段注释）明确说"如果将来要支持在既有内容上编辑，必须新做一个
+  //   读取接口" —— 这就是那个接口（`GET /knowledge-intake/?product_id=`）。
+  //   ⚠️ 只回填**已知字段**（白名单），不 Object.assign 整个 draft：
+  //      草稿里可能残留旧版本表单的键，直接铺开会把未知键塞进 form。
+  //   ⚠️ 取草稿失败不阻断录入：用户是来填新内容的，不能因为读旧草稿失败就卡住。
+  try {
+    const res = await http.get('/knowledge-intake/', { params: { product_id: p.id } })
+    const payload = (res && res.data) || res || {}
+    const draft = payload.draft
+    if (draft && typeof draft === 'object') {
+      const known = Object.keys(form.value)
+      let restored = 0
+      for (const k of known) {
+        if (k in draft && draft[k] !== undefined && draft[k] !== null) {
+          form.value[k] = draft[k]
+          restored += 1
+        }
+      }
+      if (restored > 0) {
+        const when = payload.saved_at ? new Date(payload.saved_at).toLocaleString() : ''
+        message.value = {
+          type: 'ok',
+          text: `已回填上次保存的内容（${p.catalog_no}${when ? ' · ' + when : ''}）。可直接改，也可清空重填。`,
+        }
+      }
+    }
+  } catch (e) {
+    // 读草稿失败：静默（不打断录入），仅记日志
+    console.warn('[Intake] draft restore failed:', e && e.message)
+  }
 }
 
 /* ── Toggle multi-select option ── */

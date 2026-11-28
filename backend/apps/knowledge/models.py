@@ -1,4 +1,5 @@
 import os
+from django.conf import settings
 from django.db import models
 from django.utils.text import slugify
 from django.core.validators import MaxValueValidator
@@ -968,3 +969,50 @@ class ReagentClass(TimeStampedModel):
 
     def __str__(self):
         return f'{self.id_code} {self.name}'
+
+
+class KnowledgeIntakeDraft(TimeStampedModel):
+    """知识录入（Knowledge Intake）表单草稿 —— A-070 方案 A（用户 2026-11-28 定）。
+
+    ## 为什么需要这张表
+    A-070 的另一半是"保存后重载，表单全空"。原实现保存只写协议/方法，**不保存表单本身**
+    ⇒ 重载必然空，用户以为没存上。方案 A：把表单内容单独存一份草稿，打开页面按产品回读。
+
+    ## 为什么不用 sessionStorage / 从已落库内容反推
+    - 会话级暂存：换浏览器/换设备就丢，解释不了"保存成功但看起来没存上"；
+    - 从协议/方法反推：**有损**。表单里的 Time / Difficulty / PMID / DOI / 优势局限 /
+      可信度等本来就不落库（`intake_views.py` 的 `unmapped_fields` 已如实回报），
+      反推回来字段会对不上，等于用部分内容伪装成完整表草稿。
+
+    ## 为什么是 OneToOne
+    每个产品只留**当前一份**草稿（保存即 upsert）。不做历史版本 —— 历史版本会让人
+    分不清"哪份才是我要的那次填写"。需要追溯就是审计日志的事，不是草稿表的事。
+
+    ## 清理
+    `manage.py purge_intake_drafts --days 30`（见该命令注释）。
+    **不在请求路径里删** —— 用户可能正在编辑，被清掉就是新的"静默丢数据"。
+    """
+
+    product = models.OneToOneField(
+        'commerce.Product', on_delete=models.CASCADE,
+        related_name='intake_draft', verbose_name='产品',
+        help_text='一个产品只保留当前一份草稿；保存即覆盖',
+    )
+    form_json = models.JSONField(
+        default=dict, verbose_name='表单内容',
+        help_text='Intake 表单的原始提交内容（用于回填，不参与业务判定）',
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='intake_drafts',
+        verbose_name='最后保存人',
+    )
+
+    class Meta:
+        db_table = 'knowledge_intake_draft'
+        verbose_name = '知识录入草稿'
+        verbose_name_plural = verbose_name
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f'intake draft for product {self.product_id}'

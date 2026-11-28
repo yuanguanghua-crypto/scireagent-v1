@@ -10,7 +10,9 @@ from rest_framework.exceptions import APIException
 from django.db import transaction
 from core.mixins import EnvelopeMixin
 from apps.commerce.models import Product
-from apps.knowledge.models import ResearchGoal, Application, Method, Protocol, ProtocolStep
+from apps.knowledge.models import (
+    ResearchGoal, Application, Method, Protocol, ProtocolStep, KnowledgeIntakeDraft,
+)
 from apps.knowledge.services.protocol_steps_parser import parse_plain_text_steps
 from apps.bridges.models import ProductMethod, MethodProtocol
 
@@ -34,9 +36,50 @@ def _get_or_create_unique(model, name, defaults):
     return model.objects.create(name=name, **defaults), True
 
 
+def _draft_snapshot(data):
+    """把本次提交的表单内容转成可存 JSON 的普通 dict（去掉 product_id）。
+
+    只做"原样留档"，**不参与任何业务判定** —— 回填时前端按字段取值。
+    单元素列表拍平成标量（DRF 对 JSON 与 form 编码的处理不一致，拍平后两端都能读）。
+    """
+    out = {}
+    for key, value in data.items():
+        if key == 'product_id':
+            continue
+        if isinstance(value, (list, tuple)) and len(value) == 1:
+            value = value[0]
+        if isinstance(value, (str, int, float, bool, list, dict)) or value is None:
+            out[key] = value
+        else:
+            out[key] = str(value)
+    return out
+
+
 class KnowledgeIntakeView(EnvelopeMixin, APIView):
-    """POST /api/v1/knowledge-intake/ — Submit knowledge content for a product (admin only)."""
+    """POST/GET /api/v1/knowledge-intake/ — 知识录入（admin only）。
+
+    GET  ?product_id=<id>  —— 取该产品的**表单草稿**（A-070 方案 A，用户 2026-11-28 定）。
+          没有草稿时返回 `{draft: null}`，前端据此渲染空表。
+    POST                   —— 提交并落库；成功后 upsert 同一份草稿。
+    """
     permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        """读草稿：选产品时前端用它回填，解决"重载后表单全空"。"""
+        raw = request.query_params.get('product_id')
+        try:
+            product_id = int(raw)
+        except (TypeError, ValueError):
+            return self.error_response('product_id 必须是整数', status_code=400)
+        draft = (KnowledgeIntakeDraft.objects
+                 .filter(product_id=product_id).first())
+        if draft is None:
+            return self.success_response({'product_id': product_id, 'draft': None})
+        return self.success_response({
+            'product_id': product_id,
+            'draft': draft.form_json,
+            'saved_at': draft.updated_at.isoformat() if draft.updated_at else None,
+        })
 
     def post(self, request):
         with transaction.atomic():
@@ -202,6 +245,17 @@ class KnowledgeIntakeView(EnvelopeMixin, APIView):
             # 表单收了、但库里没有对应字段的输入 —— 如实回报，不硬塞进别的字段
             unmapped = [f for f in ('protocol_time', 'protocol_difficulty')
                         if (data.get(f) or '').strip()]
+
+            # ★ A-070 方案 A：把表单内容留一份草稿，供下次打开回填。
+            #   放在事务**内**：保存失败（异常回滚）时草稿也不更新 —— 否则会出现
+            #   "表单内容存下来了、但业务数据没落库"的错觉，比不回填更糟。
+            KnowledgeIntakeDraft.objects.update_or_create(
+                product=product,
+                defaults={
+                    'form_json': _draft_snapshot(data),
+                    'created_by': request.user if request.user.is_authenticated else None,
+                },
+            )
 
             payload = {
                 'product_id': product_id,
