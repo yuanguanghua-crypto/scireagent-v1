@@ -226,3 +226,67 @@ class RetrieveMissingTest(Base):
         self._auth(self.proc)
         r = self.client.get(f'/api/v1/inventory/{inv.id}/')
         self.assertEqual(r.status_code, 200, r.content[:300])
+
+
+class ReceiptWithLotNumberTest(Base):
+    """A-011：按**批次号**入库（新建/复用 `documents.Batch`）。
+
+    ## 改前是什么样
+    库存台的 LOT 列永远 "—"。根因不是"数据没录"，而是**界面根本录不了**：
+    `InventoryDesk` 的入库对话框只有 SKU/库位/数量/备注，`receipt.batchId` 虽然
+    在 script 里定义、提交时也传了 `batch_id`，却没有输入控件 ⇒ 恒为 null
+    ⇒ `Inventory.batch_id` 全空 ⇒ 序列化器的 `lot_number`（source=batch.lot_number）恒空。
+
+    ## 本类钉住四条
+    ① 给 `lot_number` + `produced_at` ⇒ 建批次、库存行挂上、响应回显批次号；
+    ② 只给 `lot_number` 不给 `produced_at` ⇒ 400（`Batch.produced_at` 非空）；
+    ③ 同号但属于别的 SKU ⇒ 400 `BATCH_SKU_MISMATCH`（不能把一批货挂到别的 SKU 名下）；
+    ④ 同号同 SKU ⇒ 复用同一个 Batch，不新建（幂等）。
+    """
+
+    def _receipt(self, **payload):
+        self._auth(self.proc)
+        body = {'location': 'MAIN', 'quantity': 5, 'reason': 'probe'}
+        body.update(payload)
+        return self.client.post('/api/v1/inventory/receipt/', body, format='json')
+
+    def test_creates_batch_and_exposes_lot_number(self):
+        from apps.documents.models import Batch
+        r = self._receipt(sku_id=self.sku.id, lot_number='SKU-INV-API-L001',
+                          produced_at='2026-11-01')
+        self.assertEqual(r.status_code, 200, r.content[:300])
+        data = r.json()['data']
+        self.assertEqual(data['lot_number'], 'SKU-INV-API-L001')
+        batch = Batch.objects.get(lot_number='SKU-INV-API-L001')
+        self.assertEqual(batch.sku_id, self.sku.id)
+        self.assertEqual(Inventory.objects.get(pk=data['id']).batch_id, batch.pk)
+
+    def test_lot_number_requires_produced_at(self):
+        r = self._receipt(sku_id=self.sku.id, lot_number='SKU-INV-API-L002')
+        self.assertEqual(r.status_code, 400, r.content[:300])
+
+    def test_lot_number_of_other_sku_is_rejected(self):
+        other = SKU.objects.create(
+            product=self.sku.product, sku_code='SKU-INV-API-2', price=Decimal('10.00'))
+        self.assertEqual(
+            self._receipt(sku_id=self.sku.id, lot_number='SKU-INV-API-L003',
+                          produced_at='2026-11-01').status_code, 200)
+        r = self._receipt(sku_id=other.id, lot_number='SKU-INV-API-L003',
+                          produced_at='2026-11-01')
+        self.assertEqual(r.status_code, 400, r.content[:300])
+        self.assertEqual(r.json()['meta']['error']['code'], 'BATCH_SKU_MISMATCH')
+
+    def test_same_lot_same_sku_reuses_batch(self):
+        from apps.documents.models import Batch
+        self._receipt(sku_id=self.sku.id, lot_number='SKU-INV-API-L004',
+                      produced_at='2026-11-01', quantity=5)
+        r = self._receipt(sku_id=self.sku.id, lot_number='SKU-INV-API-L004',
+                          produced_at='2026-11-01', quantity=3)
+        self.assertEqual(r.status_code, 200, r.content[:300])
+        self.assertEqual(r.json()['data']['available'], 8)
+        self.assertEqual(Batch.objects.filter(lot_number='SKU-INV-API-L004').count(), 1)
+
+    def test_batch_id_and_lot_number_are_mutually_exclusive(self):
+        r = self._receipt(sku_id=self.sku.id, batch_id=1, lot_number='SKU-INV-API-L005',
+                          produced_at='2026-11-01')
+        self.assertEqual(r.status_code, 400, r.content[:300])

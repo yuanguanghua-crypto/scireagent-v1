@@ -59,17 +59,38 @@ class InventoryDetailSerializer(InventoryListSerializer):
 
 
 class ReceiptSerializer(serializers.Serializer):
-    """入库入参：(sku, batch, location) 累加可分配量。"""
+    """入库入参：(sku, batch, location) 累加可分配量。
+
+    ★ 2026-11-28（A-011）：新增 `lot_number` / `produced_at` —— 因为**界面根本
+      录不了批次号**：`InventoryDesk` 的入库对话框只有 SKU/库位/数量/备注，
+      而 `receipt.batchId` 在 script 里存在、提交时也传了 `batch_id`，**却没有输入控件**
+      ⇒ 永远是 null ⇒ `Inventory.batch_id` 全空 ⇒ 库存台的 LOT 列必然全 "—"。
+      `lot_number` 与 `batch_id` 互斥（都给会打架）；给了批次号就必须给生产日期
+      （`documents.Batch.produced_at` 是必填）。
+    """
     sku_id = serializers.IntegerField()
     location = serializers.ChoiceField(choices=Inventory.Location.choices)
     quantity = serializers.IntegerField(min_value=1, max_value=INT4_MAX)
     batch_id = serializers.IntegerField(required=False, allow_null=True)
+    lot_number = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, allow_null=True)
+    produced_at = serializers.DateField(required=False, allow_null=True)
     reason = serializers.CharField(max_length=200)
 
     def validate_reason(self, v):
         if not v.strip():
             raise serializers.ValidationError('入库必须填写原因')
         return v
+
+    def validate(self, attrs):
+        lot = (attrs.get('lot_number') or '').strip()
+        if attrs.get('batch_id') and lot:
+            raise serializers.ValidationError(
+                'batch_id 与 lot_number 只能给一个（前者=已有批次，后者=按批次号新建/复用）')
+        if lot and not attrs.get('produced_at'):
+            raise serializers.ValidationError('按批次号入库时必须填生产日期 produced_at')
+        attrs['lot_number'] = lot or None
+        return attrs
 
 
 class TrackSerializer(serializers.Serializer):

@@ -75,10 +75,29 @@ class InventoryReceiptView(EnvelopeMixin, APIView):
         ser = srl.ReceiptSerializer(data=request.data)
         ser.is_valid(raise_exception=True)
         vd = ser.validated_data
+
+        # ★ 2026-11-28（A-011）：按**批次号**入库 = 新建或复用 `documents.Batch`。
+        #   之前界面没有批次输入，`batch_id` 恒为 null ⇒ LOT 列永远空。
+        #   复用判定按 `lot_number`（全局唯一）：同号同 SKU 直接复用，同号异 SKU 403 语义的 400，
+        #   避免把一批货挂到别的 SKU 名下。
+        batch_id = vd.get('batch_id')
+        lot_number = vd.get('lot_number')
+        if lot_number:
+            from apps.documents.models import Batch
+            batch, created = Batch.objects.get_or_create(
+                lot_number=lot_number,
+                defaults={'sku_id': vd['sku_id'], 'produced_at': vd['produced_at']},
+            )
+            if not created and batch.sku_id != vd['sku_id']:
+                return self.error_response(
+                    f'批次号 {lot_number} 已属于另一个 SKU，不能在本 SKU 下复用',
+                    code='BATCH_SKU_MISMATCH', status_code=400)
+            batch_id = batch.pk
+
         try:
             inv = InventoryService.receipt(
                 vd['sku_id'], vd['location'], vd['quantity'],
-                batch_id=vd.get('batch_id'), user=request.user, reason=vd['reason'],
+                batch_id=batch_id, user=request.user, reason=vd['reason'],
             )
         except (ValueError, InsufficientInventoryError) as e:
             raise _service_error(e)

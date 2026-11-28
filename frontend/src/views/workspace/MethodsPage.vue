@@ -7,6 +7,7 @@ import { http } from '@/api/http'
 import { toast, LoadingSpinner, EmptyState, DataPagination } from '@/components/common'
 import { useDialogA11y } from '@/composables/useDialogA11y'
 import { getApplications } from '@/api/applications'
+import { truncate } from '@/utils/helpers'
 import { useEntityList } from '@/composables/useEntityList'
 import EntityListToolbar from './components/EntityListToolbar.vue'
 
@@ -214,7 +215,10 @@ async function archiveRow(e) {
         <tr v-for="e in entities" :key="e.id">
           <td>{{ e.id }}</td>
           <td class="col-name">{{ e.name }}</td>
-          <td class="col-summary">{{ (e.purpose || '').slice(0, 120) }}</td>
+          <!-- ★ 2026-11-28（A-122）：原来 `(e.purpose || '').slice(0, 120)` —— 截断到 120
+               字符却**不加省略号**，读起来像"描述就写到这儿为止"。改用统一 helper
+               （带 `...`），与前台 MethodCard 的 100 字符截断同一套语义。 -->
+          <td class="col-summary">{{ truncate(e.purpose, 120) }}</td>
           <td><span class="status-tag" :class="'status-' + (e.status || 'draft')">{{ e.status || '—' }}</span></td>
           <td>
             <button class="btn btn-ghost btn-sm" @click="openEdit(e)">Edit</button>

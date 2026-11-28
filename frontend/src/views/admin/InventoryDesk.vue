@@ -162,6 +162,18 @@
           <input v-model.number="receipt.quantity" type="number" min="1" class="po-input"
                  data-testid="inv-receipt-qty" />
         </div>
+        <!-- ★ 2026-11-28（A-011）：批次号 + 生产日期。
+             原来这两个信息在界面上根本录不了（state 里有 batchId、提交也传了，
+             但没有任何控件）⇒ Inventory.batch_id 恒空 ⇒ LOT 列必然全 "—"。
+             填了批次号则生产日期必填（Batch.produced_at 非空）。 -->
+        <div class="po-field"><label class="po-label">Lot number</label>
+          <input v-model.trim="receipt.lotNumber" class="po-input" data-testid="inv-receipt-lot"
+                 placeholder="e.g. SC8001-L2026001（留空=不建批次）" />
+        </div>
+        <div class="po-field"><label class="po-label">Produced on</label>
+          <input v-model="receipt.producedAt" type="date" class="po-input"
+                 data-testid="inv-receipt-produced" />
+        </div>
         <div class="po-field"><label class="po-label">Reason *</label>
           <input v-model.trim="receipt.reason" class="po-input" data-testid="inv-receipt-reason"
                  placeholder="e.g. PO-1234 到货 / 盘盈" />
@@ -361,7 +373,10 @@ onMounted(() => { load(); loadGaps() })
 /* ── 入库 ── */
 const receipt = reactive({
   visible: false, searchMode: false, search: '', results: [], productName: '',
-  skuId: '', skus: [], location: 'MAIN', quantity: 1, batchId: null, reason: '',
+  skuId: '', skus: [], location: 'MAIN', quantity: 1, batchId: null,
+  // ★ 2026-11-28（A-011）：界面上原来**没有批次输入**，batchId 恒 null ⇒ LOT 列永远 "—"。
+  lotNumber: '', producedAt: '',
+  reason: '',
 })
 
 function openReceipt(row) {
@@ -411,11 +426,21 @@ async function submitReceipt() {
     toast.warning('Pick a SKU, enter a quantity ≥ 1, and fill in the reason.')
     return
   }
+  // A-011：填了批次号就必须给生产日期（后端也会拦，这里给即时反馈）。
+  // 与上面的必填校验放在一起 —— 都在"还没发请求"的阶段，不该先置 submitting。
+  if (receipt.lotNumber && !receipt.producedAt) {
+    toast.error('Enter the production date for this lot.')
+    return
+  }
   submitting.value = true
   try {
     await receiptStock({
       sku_id: receipt.skuId, location: receipt.location, quantity: receipt.quantity,
-      batch_id: receipt.batchId || null, reason: receipt.reason,
+      batch_id: receipt.batchId || null,
+      ...(receipt.lotNumber
+        ? { lot_number: receipt.lotNumber, produced_at: receipt.producedAt }
+        : {}),
+      reason: receipt.reason,
     })
     receipt.visible = false
     await load()
