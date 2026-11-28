@@ -609,6 +609,33 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                              '请先为至少一个 SKU 定价，或保持草稿状态。']
                 })
 
+        # ── A-046：上架（active）的产品**必须至少有一个默认 SKU** ────────────────
+        #
+        # QA 实测：编辑页把默认 SKU 那行的 ✕ 点掉（当时无确认框）保存后，
+        # 产品仍能保持 active，但没有任何默认 SKU。
+        # `_is_product_complete()` 只把它算进"完整性提示"（发布弹窗展示），
+        # **不阻断保存** —— 所以 `is_complete=false` 的产品照样能是 active。
+        #
+        # 这里补闸门，触发条件与 A-017 同构（只在"涉及上架/改动 SKU"时判，
+        # 避免改个描述就被顶回来）。注意**只要求"至少一个"**，不要求"恰好一个"：
+        # 实测生产有产品同时挂两个 is_default=true 的历史数据，收紧成唯一会打回存量。
+        # ⚠️ 看**目标状态**（attrs 优先、其次现状），不是"当前是不是 active"：
+        #   已有 active 产品**降级为 draft** 时必须放行 —— 那正是"先撤下来再整理规格"
+        #   的正常路径，拦了等于逼人保留脏数据（本用例就是被这条拦出来的）。
+        target_status = attrs.get('status') or (
+            instance.status if instance is not None else None)
+        if 'skus' in attrs and target_status == Product.Status.ACTIVE:
+            submitted = attrs.get('skus')
+            if submitted is not None:
+                flags = [bool(row.get('is_default')) for row in submitted]
+            else:
+                flags = list(instance.skus.values_list('is_default', flat=True))
+            if flags and not any(flags):
+                raise serializers.ValidationError({
+                    'skus': ['上架产品必须至少有一个默认 SKU。'
+                             '请把其中一个 SKU 设为默认，或将产品状态改为草稿。']
+                })
+
         for field in ('catalog_no', 'slug'):
             if field not in attrs:
                 continue                      # 本次未提交该字段 → 不校验
